@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "bot": {
+    "instance_id": "trading-bot",
+    "target_id": "simulated_backtest_backtest_simulation",
+    "timezone": "UTC"
+  },
+  "exchange": {
+    "active": {
+      "provider": "simulated",
+      "environment": "backtest",
+      "account": "backtest",
+      "market": "simulation"
+    },
+    "providers": {}
+  }
+}

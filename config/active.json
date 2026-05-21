@@ -1,0 +1,9 @@
+{
+  "active": {
+    "provider": "binance",
+    "environment": "demo",
+    "account": "main",
+    "market": "usdm_futures"
+  },
+  "runtime": {}
+}

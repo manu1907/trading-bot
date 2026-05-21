@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Console appender: human-readable for local dev. -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level [%property{target_id} %property{instance_id}] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File appender: JSON for feeding production log systems like ELK, Loki, or Datadog. -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/bot.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/bot.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeContext>true</includeContext>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="FILE"/>
+    </appender>
+
+    <!-- ========== Profile‑specific loggers ========== -->
+
+    <!-- LIVE: stable default logging for any live provider environment -->
+    <springProfile name="live">
+        <logger name="io.github.manu" level="INFO"/>
+        <logger name="io.github.manu.audit" level="INFO"/>
+        <logger name="org.springframework" level="WARN"/>
+        <root level="ERROR">
+            <appender-ref ref="ASYNC_CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- BACKTEST: slightly quieter than demo, but still detailed -->
+    <springProfile name="backtest">
+        <logger name="io.github.manu" level="INFO"/>
+        <logger name="io.github.manu.audit" level="INFO"/>
+        <logger name="io.github.manu.execution" level="DEBUG"/>
+        <logger name="io.github.manu.risk" level="DEBUG"/>
+        <logger name="io.github.manu.backtest" level="DEBUG"/>
+        <logger name="org.springframework" level="WARN"/>
+        <root level="WARN">
+            <appender-ref ref="ASYNC_CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- Default (if no profile matched) -->
+    <springProfile name="!live &amp; !backtest">
+        <logger name="io.github.manu" level="INFO"/>
+        <logger name="io.github.manu.audit" level="INFO"/>
+        <root level="WARN">
+            <appender-ref ref="ASYNC_CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+        </root>
+    </springProfile>
+</configuration>

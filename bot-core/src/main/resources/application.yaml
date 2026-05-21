@@ -1,0 +1,25 @@
+# Spring only selects the coarse runtime mode here: live or backtest.
+spring:
+  application:
+    name: bot-core
+  profiles:
+    active: live
+
+# Actuator for health checks / metrics (low footprint)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Logging – we use Logback, configured in logback-spring.xml
+logging:
+  config: classpath:logback-spring.xml

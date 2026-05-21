@@ -1,0 +1,459 @@
+Here is a concrete research spec for the strategy.
+
+## LFA: Liquidation Fragility Anticipator
+
+**Objective:** capture **5 to 90 minute** directional moves caused by one-sided forced unwinds in perpetual futures.
+
+The design principle is simple: in perps, the important state variables are not just price and volume, but **mark/oracle premium, funding, open interest, and book fragility**, because liquidation and funding are tied to mark/oracle mechanics rather than raw last trade. Hyperliquid’s oracle and mark update about every 3 seconds and mark is used for liquidations; dYdX funding is built from hourly averages of impact-price premiums; Binance also liquidates on mark price and ties margin risk to maintenance-margin tiers. The fragility piece is inspired by the recent SaR framework, which explicitly treats order-book microstructure as a forward-looking stress signal. ([Hyperliquid Docs][1])
+
+### 1. Tradable universe
+
+Trade top liquid cryptocurrencies. in what follows, we'll take
+
+* BTC perp
+* ETH perp
+
+as examples, but the strategy is valid for top liquid cryptocurrencies.
+
+### 2. Required data
+
+Decision frequency: **1 minute**
+Microstructure frequency: **5-second or 1-second book snapshots** if available
+
+At each time ( t ), collect:
+
+* ( M_t ): mark price
+* ( O_t ): oracle or index price
+* ( mid_t ): mid price
+* ( F_t ): current or predicted funding rate
+* ( OI_t ): open interest
+* top-(N) order book on both sides
+* aggressive buy and sell notional over the last minute
+* realized volatility / ATR from mark price
+
+Optional:
+
+* exchange-tagged **USDT net inflow** for BTC and ETH
+* exchange-tagged **ETH net inflow** for ETH
+
+That optional on-chain filter is worth testing because a 2025 revision of the intraday on-chain-flows paper found that **USDT net inflows into exchanges positively predict BTC and ETH returns**, while **ETH net inflows negatively predict ETH returns** at intraday horizons. ([arXiv][2])
+
+---
+
+## 3. Core feature set
+
+### 3.1 Premium
+
+Use mark-oracle premium, not raw last-price premium:
+
+[
+prem_t = \frac{M_t - O_t}{O_t}
+]
+
+This is the cleanest common state variable across venues.
+
+### 3.2 Crowding scores
+
+The goal is to estimate whether the market is crowded **long** or crowded **short**.
+
+Let:
+[
+\Delta OI_{30m,t} = \ln(OI_t) - \ln(OI_{t-30m})
+]
+
+Let ( z(x_t) ) be a rolling z-score using a **7-day lookback**.
+
+**Long-crowding score**:
+[
+C^{long}*t = 0.45 , z(F_t) + 0.35 , z(\Delta OI*{30m,t}) + 0.20 , z(prem_t)
+]
+
+Interpretation: positive funding, rising OI, and positive premium suggest crowded longs.
+
+**Short-crowding score**:
+[
+C^{short}*t = 0.45 , z(-F_t) + 0.35 , z(\Delta OI*{30m,t}) + 0.20 , z(-prem_t)
+]
+
+Interpretation: negative funding, rising OI, and negative premium suggest crowded shorts.
+
+---
+
+## 4. Fragility scores
+
+This is the heart of the model.
+
+Define a hypothetical liquidation packet size:
+[
+Q_t = 3 \times \text{median}_{24h}(\text{1-minute aggressive notional})
+]
+
+Now walk the book to estimate the average execution price for a buy or sell of size ( Q_t ).
+
+Buy-side slippage:
+[
+slip^{buy}_t(Q_t) = \frac{\bar p^{ask}_t(Q_t) - mid_t}{mid_t}
+]
+
+Sell-side slippage:
+[
+slip^{sell}_t(Q_t) = \frac{mid_t - \bar p^{bid}_t(Q_t)}{mid_t}
+]
+
+Now add a concentration penalty. For the levels required to fill ( Q_t ):
+
+[
+HHI^{ask}_t = \sum_i w_i^2, \quad
+w_i = \frac{q^{ask}_i}{\sum_j q^{ask}_j}
+]
+
+[
+HHI^{bid}_t = \sum_i w_i^2, \quad
+w_i = \frac{q^{bid}_i}{\sum_j q^{bid}_j}
+]
+
+Then define:
+
+**Upward fragility**
+This is the vulnerability of shorts, because forced short covers must buy into asks:
+[
+Frag^{up}_t = z(slip^{buy}_t(Q_t)) + 0.5 , z(HHI^{ask}_t)
+]
+
+**Downward fragility**
+This is the vulnerability of longs, because forced long liquidations must sell into bids:
+[
+Frag^{down}_t = z(slip^{sell}_t(Q_t)) + 0.5 , z(HHI^{bid}_t)
+]
+
+This is a simplified, backtestable version of the forward-looking microstructure idea behind SaR and its concentration adjustment. ([arXiv][3])
+
+---
+
+## 5. Trigger scores
+
+Crowding plus fragility is not enough. That gets you “good idea, bad timing.”
+
+You need a **trigger** that says the unwind may be starting now.
+
+Define 5-minute oracle return:
+[
+r^{oracle}*{5m,t} = \ln\left(\frac{O_t}{O*{t-5m}}\right)
+]
+
+Define premium change:
+[
+\Delta prem_{5m,t} = prem_t - prem_{t-5m}
+]
+
+Define 1-minute order-flow imbalance:
+[
+OFI_t = \frac{AggBuyNotional_t - AggSellNotional_t}{AggBuyNotional_t + AggSellNotional_t}
+]
+
+Then:
+
+**Long trigger**:
+[
+T^{L}*t = 0.50 , z(r^{oracle}*{5m,t}) + 0.30 , z(\Delta prem_{5m,t}) + 0.20 , z(OFI_t)
+]
+
+**Short trigger**:
+[
+T^{S}*t = 0.50 , z(-r^{oracle}*{5m,t}) + 0.30 , z(-\Delta prem_{5m,t}) + 0.20 , z(-OFI_t)
+]
+
+Optional on-chain filters:
+
+For BTC or ETH longs:
+[
+USDTFlow_t = z(\text{USDT net inflow to exchanges over 1h})
+]
+
+For ETH shorts:
+[
+ETHFlow_t = z(\text{ETH net inflow to exchanges over 1h})
+]
+
+Use them only as filters:
+
+* require ( USDTFlow_t > 0 ) for longs
+* require ( ETHFlow_t > 0 ) for ETH shorts
+
+That matches the documented sign of the intraday predictive results without letting the on-chain data dominate the system. ([arXiv][2])
+
+---
+
+## 6. Composite scores
+
+### Long setup
+
+This is a bet on a **short squeeze**.
+
+[
+Score^{L}_t = 0.45 , C^{short}_t + 0.35 , Frag^{up}_t + 0.20 , T^{L}_t
+]
+
+### Short setup
+
+This is a bet on a **long liquidation cascade**.
+
+[
+Score^{S}_t = 0.45 , C^{long}_t + 0.35 , Frag^{down}_t + 0.20 , T^{S}_t
+]
+
+---
+
+## 7. Entry rules
+
+Enter **long** at time ( t+1 ) if all are true:
+
+[
+C^{short}_t \ge 1.5
+]
+[
+Frag^{up}_t \ge 1.0
+]
+[
+T^{L}_t \ge 0.5
+]
+[
+Score^{L}_t \ge 1.25
+]
+
+Optional:
+[
+USDTFlow_t > 0
+]
+
+Enter **short** at time ( t+1 ) if all are true:
+
+[
+C^{long}_t \ge 1.5
+]
+[
+Frag^{down}_t \ge 1.0
+]
+[
+T^{S}_t \ge 0.5
+]
+[
+Score^{S}_t \ge 1.25
+]
+
+Optional for ETH:
+[
+ETHFlow_t > 0
+]
+
+No entry if both sides trigger at once.
+
+---
+
+## 8. Position sizing and leverage
+
+This strategy should be traded with **boring leverage**.
+
+Use isolated margin and size from stop distance, because both Hyperliquid and Binance risk mechanics are mark-price-driven, and Binance liquidation is explicitly tied to maintenance margin and mark price. ([Hyperliquid Docs][1])
+
+Define stop distance:
+
+For longs:
+[
+stop_pct_t = \max\left(1.5 \cdot ATR_{5m,36}/M_t,; 1.25 \cdot slip^{buy}_t(Q_t),; 0.35%\right)
+]
+
+For shorts:
+[
+stop_pct_t = \max\left(1.5 \cdot ATR_{5m,36}/M_t,; 1.25 \cdot slip^{sell}_t(Q_t),; 0.35%\right)
+]
+
+Risk per trade:
+[
+r = 0.35% \text{ of equity}
+]
+
+Position notional:
+[
+N_t = \frac{Equity_t \cdot r}{stop_pct_t + fee_pct + impact_pct}
+]
+
+Hard caps:
+
+* effective leverage ( \le 2.5x )
+* liquidation distance from entry ( \ge 3 \times stop_pct_t )
+* max one live position per asset
+
+---
+
+## 9. Exit rules
+
+Use **mark price** for stop logic.
+
+For a long:
+
+1. Initial stop at
+   [
+   EntryPrice \cdot (1 - stop_pct_t)
+   ]
+
+2. Take off **33%** at ( +1.25R )
+
+3. Move stop to breakeven once price reaches ( +1.0R )
+
+4. Exit the rest on the first of:
+   [
+   Score^{L}*t < 0.25
+   ]
+   or
+   [
+   prem_t \text{ has mean-reverted by 70% from its post-entry extreme}
+   ]
+   or
+   [
+   1.0 \cdot ATR*{5m,12} \text{ trailing stop is hit}
+   ]
+   or
+   [
+   90 \text{ minutes have elapsed}
+   ]
+
+Mirror for shorts.
+
+This makes it an **event strategy**, not a swing strategy.
+
+---
+
+## 10. Backtest protocol
+
+Use a strict walk-forward design.
+
+### Sample
+
+At least **18 months** of minute data if possible.
+
+### Split
+
+* train: 60 days
+* test: 30 days
+* roll forward by 30 days
+
+### Execution assumptions
+
+At entry:
+
+* fill at next-minute mid plus modeled half-spread plus book-walk impact
+
+At stop:
+
+* stop triggers on **mark price**
+* fill at the worse of stop price or next-minute executable book-walk price
+
+### Costs
+
+Include:
+
+* taker or maker fees
+* modeled slippage
+* funding accrual if the position crosses a funding event
+
+That matters because venue funding mechanics differ: Hyperliquid computes an 8-hour rate but pays hourly at one-eighth, dYdX funds hourly from the prior hour’s premium samples, and Binance funding uses its own premium-and-interest formula and interval schedule. ([help.dydx.trade][4])
+
+### Metrics
+
+Track:
+
+* net Sharpe
+* Sortino
+* max drawdown
+* hit rate
+* average win / average loss
+* turnover
+* PnL by hour of day
+* PnL by funding-sign regime
+* PnL by volatility quintile
+
+### Required stress tests
+
+Run all of these:
+
+* add 1-minute latency
+* double fees
+* double slippage
+* remove top 10 winning trades
+* stale the order book by 5 seconds
+* shift all entries one bar later
+
+If the edge disappears under mild friction, it is not real.
+
+---
+
+## 11. First ablations to run
+
+Run these in order:
+
+1. **Trigger only**
+2. **Crowding only**
+3. **Crowding + trigger**
+4. **Crowding + fragility**
+5. **Full model**
+6. **Full model + on-chain filter**
+
+That tells you whether the true edge is coming from:
+
+* funding/OI crowding,
+* order-book fragility,
+* or simply short-horizon momentum.
+
+---
+
+## 12. Optional cross-venue execution overlay
+
+Only add this after the single-venue version works.
+
+Because Hyperliquid, dYdX, and Binance define mark/funding/premium differently, compare venues only after **within-venue normalization**. Hyperliquid’s mark is a median across oracle/internal/external inputs, dYdX premium uses impact prices, and Binance mark is a median of multiple fair-value proxies. ([Hyperliquid Docs][1])
+
+For venue ( v ):
+[
+NP_{v,t} = z_v\left(\frac{M_{v,t} - O_{v,t}}{O_{v,t}}\right)
+]
+
+Then:
+
+* for longs, prefer the venue with the **lowest** ( NP_{v,t} - executionCost_{v,t} )
+* for shorts, prefer the venue with the **highest** ( NP_{v,t} - executionCost_{v,t} )
+
+That keeps the trigger model directional, while the venue choice becomes an execution edge.
+
+---
+
+## 13. The simplest production candidate
+
+If you want the tightest first version, start here:
+
+* BTC and ETH only
+* one venue only
+* no on-chain filter
+* no cross-venue overlay
+* 1-minute decisions
+* 5-second book snapshots
+* core signals only:
+
+  * ( C^{long/short} )
+  * ( Frag^{up/down} )
+  * ( T^{L/S} )
+
+That is the minimum viable version.
+
+The full hypothesis is:
+
+**Crowded side + fragile book on the forced-flow side + early directional trigger = imminent liquidation cascade.**
+
+That is specific enough to backtest honestly and simple enough to kill quickly if it does not work.
+
+I can turn this next into either **Python-style pseudocode** or a **column-by-column feature schema for a backtest dataset**.
+
+[1]: https://hyperliquid.gitbook.io/hyperliquid-docs/trading/robust-price-indices "Robust price indices | Hyperliquid Docs"
+[2]: https://arxiv.org/abs/2411.06327 "[2411.06327] Return and Volatility Forecasting Using On-Chain Flows in Cryptocurrency Markets"
+[3]: https://arxiv.org/abs/2603.09164 "[2603.09164] Slippage-at-Risk (SaR): A Forward-Looking Liquidity Risk Framework for Perpetual Futures Exchanges"
+[4]: https://help.dydx.trade/en/articles/166992-default-funding-rates-on-dydx "Default funding rates on dYdX | dYdX Help Center"

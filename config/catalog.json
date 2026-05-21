@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "bot": {
+    "instance_id": "provider_environment_account_market",
+    "target_id": "uuid",
+    "timezone": "UTC"
+  },
+  "exchange": {
+    "providers": {
+      "binance": {
+        "enabled": true,
+        "environments": {
+          "demo": {
+              "enabled": true,
+            "accounts": {
+              "main": {
+                "enabled": true,
+                "credentials": {
+                  "reference": "binance_real_main",
+                  "api_key": "${EXCHANGE_API_KEY}",
+                  "api_secret": "${EXCHANGE_API_SECRET}"
+                },
+                "markets": {
+                  "spot": {
+                    "enabled": false,
+                    "name": "SPOT",
+                    "rest": {
+                      "base_url": "https://testnet.binance.vision/api"
+                    },
+                    "websocket": {
+                      "base_url": "wss://stream.testnet.binance.vision",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "server_ping_interval_seconds": 20,
+                      "pong_timeout_seconds": 60,
+                      "max_incoming_messages_per_second": 5,
+                      "max_streams_per_connection": 1024
+                    }
+                  },
+                  "usdm_futures": {
+                    "enabled": true,
+                    "name": "FUTURES_USD_M",
+                    "rest": {
+                      "base_url": "https://demo-fapi.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://fstream.binancefuture.com",
+                      "public_path_prefix": "/public",
+                      "market_path_prefix": "/market",
+                      "private_path_prefix": "/private",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "server_ping_interval_minutes": 3,
+                      "pong_timeout_minutes": 10,
+                      "max_incoming_messages_per_second": 10,
+                      "max_streams_per_connection": 1024
+                    },
+                    "user_data": {
+                      "mode": "listen_key",
+                      "listen_key_validity_minutes": 60,
+                      "keepalive_interval_minutes": 30
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "real": {
+            "enabled": true,
+            "accounts": {
+              "main": {
+                "enabled": true,
+                "credentials": {
+                  "reference": "main-real",
+                  "api_key": "${BINANCE_REAL_API_KEY:${EXCHANGE_API_KEY}}",
+                  "api_secret": "${BINANCE_REAL_API_SECRET:${EXCHANGE_API_SECRET}}"
+                },
+                "markets": {
+                  "spot": {
+                    "enabled": false,
+                    "name": "SPOT",
+                    "rest": {
+                      "base_url": "https://api.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://stream.binance.com:9443",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream"
+                    }
+                  },
+                  "usdm_futures": {
+                    "enabled": true,
+                    "name": "FUTURES_USD_M",
+                    "rest": {
+                      "base_url": "https://fapi.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://fstream.binance.com",
+                      "public_path_prefix": "/public",
+                      "market_path_prefix": "/market",
+                      "private_path_prefix": "/private",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream"
+                    },
+                    "user_data": {
+                      "mode": "listen_key",
+                      "listen_key_validity_minutes": 60,
+                      "keepalive_interval_minutes": 30
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

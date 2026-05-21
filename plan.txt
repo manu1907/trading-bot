@@ -1,0 +1,466 @@
+# Trading Bot Delivery Plan
+
+This plan is the working roadmap. Each phase should end with a focused commit,
+green tests, corrected warnings, and a short review of what changed.
+
+## Engineering Rules
+
+- `bot-core` is the only application module.
+- Each exchange provider gets one module, starting with `bot-exchange-binance`.
+- Each strategy gets one module, starting with `bot-strategy-lfa`.
+- Demo and real trading use the same execution code. The difference is config,
+  account, credentials, and deployment target only.
+- No dry-run or toy execution path should be introduced as a substitute for the
+  real engine. Backtest/simulation is a separate runtime mode.
+- Every phase must include pertinent unit tests and integration tests with clear
+  input data and expected output.
+- Before commit: run the relevant Gradle tasks, keep tests green, fix warnings
+  rather than suppressing them, and avoid unused imports or dead code.
+- Comments should be sparse and useful: explain non-obvious decisions, not
+  obvious line-by-line behavior.
+
+## Target Stack
+
+- Runtime: Java 25, Spring Boot 4, Gradle 9.5
+- Provider module: Binance first, later one module per exchange
+- Strategy module: LFA first, later one module per strategy
+- Messaging: Redpanda using the Kafka API
+- Serialization: Avro with Schema Registry
+- Journal: Chronicle Queue for critical append-only event history
+- Query storage: PostgreSQL/TimescaleDB or Cloud SQL PostgreSQL
+- Archive storage: Google Cloud Storage
+- Secrets: Google Secret Manager
+- Container runtime: Docker locally, Kubernetes on Google Cloud
+- Deployment: Artifact Registry, Cloud Build, GKE, Cloud Deploy or `gke-deploy`
+- Observability: structured JSON logs, metrics, traces, alerts
+
+## Phase 0: Architecture Baseline
+
+Commit:
+
+```text
+docs(architecture): define production trading bot roadmap
+```
+
+Deliver:
+
+- Document the three-module architecture.
+- Define runtime profiles: `live`, `backtest`.
+- Define exchange environments: `demo`, `real`.
+- Define runtime target identity: `provider/environment/account/market`.
+- Define mutable vs immutable runtime config.
+- Document the testing and warning policy.
+
+Tests:
+
+- Unit tests for module factories.
+- Integration test proving runtime provider/strategy modules are discovered.
+
+Gate:
+
+- The codebase makes it clear what changes between demo and real.
+- `./gradlew build` is green.
+
+## Phase 1: Complete Config Model
+
+Commit:
+
+```text
+feat(config): formalize provider catalog and runtime override model
+```
+
+Deliver:
+
+- Complete catalog schema.
+- Complete Binance connector config outside `exchangeInfo`:
+  REST endpoints, WebSocket endpoints, user-data stream lifecycle, timeouts,
+  retry/backoff, `recvWindow`, timestamp unit, key type, required permissions,
+  order response defaults, and futures account expectations.
+- Add schema/version validation and migration policy.
+- Make runtime override writes atomic.
+- Add watcher debounce or content-hash reload protection.
+
+Tests:
+
+- Config-loader tests using checked-in realistic config.
+- Override precedence tests: runtime > environment > default.
+- Rejection tests for unknown paths, no-op overrides, immutable target changes,
+  missing provider config, disabled environment/account/market.
+
+Gate:
+
+- Config is validated before startup.
+- Unsafe runtime reloads are rejected without replacing the active config.
+
+## Phase 2: Binance Connector Foundation
+
+Commit:
+
+```text
+feat(exchange-binance): implement Binance connector lifecycle
+```
+
+Deliver:
+
+- Signed REST client.
+- Server-time sync.
+- `exchangeInfo` metadata fetch and cache.
+- Rate-limit header tracking.
+- User-data stream create/keepalive/close.
+- WebSocket connect/reconnect and 24-hour rollover policy.
+
+Tests:
+
+- Unit tests for signing, request timestamping, URL construction, and retry
+  decisions.
+- Integration tests against fixture responses for `exchangeInfo`, listen-key,
+  rate-limit headers, and error cases.
+
+Gate:
+
+- Binance demo metadata loads.
+- User-data lifecycle works against demo credentials when enabled.
+
+## Phase 3: Trading Event Model
+
+Commit:
+
+```text
+feat(events): add Avro trading event schemas
+```
+
+Deliver:
+
+- Avro schemas for market data, order command, order result, execution report,
+  balance update, position update, risk decision, strategy signal, and config
+  change.
+- Schema compatibility rules.
+- Generated Java classes.
+
+Tests:
+
+- Schema compatibility tests.
+- Serialization round-trip tests with explicit expected records.
+
+Gate:
+
+- Core event flow uses typed schemas, not raw maps or ad hoc strings.
+
+## Phase 4: Redpanda Integration
+
+Commit:
+
+```text
+feat(messaging): integrate Redpanda event bus
+```
+
+Deliver:
+
+- Local Redpanda Docker Compose.
+- Topic naming convention.
+- Producers, consumers, Schema Registry, Avro serialization, dead-letter topics.
+
+Tests:
+
+- Testcontainers integration tests for publish/consume/replay.
+- Dead-letter routing tests.
+
+Gate:
+
+- Lifecycle, metadata, account, order, risk, and strategy events are replayable.
+
+## Phase 5: Journal And Storage
+
+Commit:
+
+```text
+feat(journal): add durable trading event journal
+```
+
+Deliver:
+
+- Chronicle Queue journal for critical events.
+- PostgreSQL/TimescaleDB projection store.
+- GCS archive layout.
+- Recovery process from journal and Redpanda.
+
+Tests:
+
+- Journal append/read/replay tests with expected event sequences.
+- Restart recovery integration test.
+
+Gate:
+
+- Runtime state can be rebuilt after restart.
+- Hot-path trading decisions do not block on database writes.
+
+## Phase 6: Risk And Execution Core
+
+Commit:
+
+```text
+feat(execution): add risk-gated order execution pipeline
+```
+
+Deliver:
+
+- Order command pipeline.
+- Risk checks before exchange submission.
+- Idempotent client order IDs.
+- Unknown-status reconciliation.
+- Cancel/replace handling.
+- Reduce-only emergency path.
+- Position/account synchronization.
+
+Tests:
+
+- Unit tests for risk decisions and order ID generation.
+- Integration tests for accepted, rejected, unknown, cancel, replace, and
+  reconciliation flows.
+
+Gate:
+
+- Every order is traceable from strategy signal to exchange/account state.
+- Unknown exchange status cannot cause blind duplicate orders.
+
+## Phase 7: Strategy Plugin Boundary
+
+Commit:
+
+```text
+feat(strategy): add strategy module contract
+```
+
+Deliver:
+
+- Strategy lifecycle contract.
+- Market-data subscription model.
+- Signal output schema.
+- Strategy config section.
+- Backtest/live parity boundary.
+
+Tests:
+
+- Unit tests for strategy registration and lifecycle.
+- Integration test proving strategy output reaches risk input.
+
+Gate:
+
+- LFA can be implemented without changing exchange/risk/execution internals.
+
+## Phase 8: LFA Strategy Implementation
+
+Commit:
+
+```text
+feat(strategy-lfa): implement liquidation fragility anticipator
+```
+
+Deliver:
+
+- LFA feature model from `lfa.txt`.
+- Crowding, fragility, trigger, composite score, entry, sizing, and exit logic.
+- Strategy config and validation.
+
+Tests:
+
+- Unit tests for each feature formula using explicit input rows and expected
+  numeric outputs.
+- Integration tests over fixture market windows with expected signals.
+
+Gate:
+
+- Strategy behavior is reproducible from fixture data.
+
+## Phase 9: Backtesting Runtime
+
+Commit:
+
+```text
+feat(backtest): add deterministic backtest runtime
+```
+
+Deliver:
+
+- Historical data ingestion.
+- Deterministic replay clock.
+- Same strategy API as live.
+- Execution assumptions and performance report.
+
+Tests:
+
+- Replay tests with fixed historical slices and expected trades.
+- Stress tests: latency, fees, slippage, stale book, delayed entries.
+
+Gate:
+
+- Strategy can run in backtest without changing strategy code.
+
+## Phase 10: Docker Packaging
+
+Commit:
+
+```text
+build(container): add production Docker image
+```
+
+Deliver:
+
+- Multi-stage Dockerfile.
+- Non-root runtime user.
+- Health/readiness endpoints.
+- Mounted external config.
+- No baked-in secrets.
+
+Tests:
+
+- Container smoke test with external config.
+- Image vulnerability scan.
+
+Gate:
+
+- Container runs locally against demo config.
+
+## Phase 11: CI Pipeline
+
+Commit:
+
+```text
+ci: add build test scan and image publishing pipeline
+```
+
+Deliver:
+
+- Gradle build/test.
+- Dependency vulnerability scan.
+- Container build.
+- Artifact Registry push.
+- Avro compatibility check.
+- Integration-test profile.
+
+Tests:
+
+- CI runs unit, integration, schema, and container smoke tests.
+
+Gate:
+
+- Failed tests, schema breaks, warnings, or critical CVEs block deployment.
+
+## Phase 12: Kubernetes Deployment
+
+Commit:
+
+```text
+deploy(k8s): add GKE manifests and runtime configuration
+```
+
+Deliver:
+
+- Kubernetes manifests or Helm chart.
+- ConfigMap for non-secret config.
+- Secret Manager integration for API keys.
+- Probes, resource requests/limits, disruption policy.
+- Redpanda deployment or managed Redpanda choice.
+
+Tests:
+
+- Manifest validation.
+- GKE demo namespace smoke test.
+
+Gate:
+
+- Bot deploys to GKE demo without manual shell edits.
+
+## Phase 13: Google Cloud Automation
+
+Commit:
+
+```text
+deploy(gcp): automate build and deployment to GKE
+```
+
+Deliver:
+
+- Cloud Build trigger.
+- Artifact Registry image.
+- GKE deployment step.
+- Demo automatic deployment.
+- Manual approval gate before real.
+- Separate service accounts and IAM.
+
+Tests:
+
+- Deployment pipeline dry run.
+- Demo promotion test.
+
+Gate:
+
+- Protected branch deploys demo automatically.
+- Real deployment requires explicit approval.
+
+## Phase 14: Observability And Operations
+
+Commit:
+
+```text
+feat(observability): add metrics traces logs and alerts
+```
+
+Deliver:
+
+- Structured logs and correlation IDs.
+- Exchange latency, order lifecycle, Redpanda lag, risk rejection metrics.
+- Alerts for disconnects, stale data, failed reconciliation, excessive rejects.
+
+Tests:
+
+- Metrics presence tests.
+- Alert rule validation.
+
+Gate:
+
+- We can explain what happened, when, why, and what the bot did.
+
+## Phase 15: Binance Demo Trial
+
+Commit:
+
+```text
+test(binance-demo): run controlled demo execution trial
+```
+
+Deliver:
+
+- Demo account trial checklist.
+- Small controlled order flow.
+- Reconciliation, latency, risk, restart, and reload reports.
+
+Tests:
+
+- Controlled demo account integration run.
+
+Gate:
+
+- Logs, journal, Redpanda events, account state, and exchange state reconcile.
+
+## Phase 16: Real Readiness
+
+Commit:
+
+```text
+chore(release): prepare real trading readiness checklist
+```
+
+Deliver:
+
+- Real account secret setup.
+- API key permission audit.
+- Trading limits.
+- Kill switch.
+- Alert contacts.
+- Rollback procedure.
+- First-real-run playbook.
+
+Gate:
+
+- Real mode is enabled only after demo proves the same code path.
