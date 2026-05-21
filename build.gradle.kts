@@ -99,4 +99,9 @@ extensions.configure<SpotlessExtension> {
         trimTrailingWhitespace()
         endWithNewline()
     }
+    format("yaml") {
+        target(".github/**/*.yml", ".github/**/*.yaml", "*.yml", "*.yaml")
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }
