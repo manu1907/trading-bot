@@ -73,3 +73,19 @@ tasks.register<Test>("binanceDemoUserDataStreamSmokeTest") {
     }
     systemProperty("binance.demo.userdata.smoke", "true")
 }
+
+tasks.register<Test>("binanceDemoWebSocketSmokeTest") {
+    group = "verification"
+    description = "Runs the guarded Binance demo WebSocket market stream smoke test against the active demo USD-M config."
+
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("io.github.manu.exchange.binance.BinanceDemoWebSocketMarketStreamTest")
+    }
+    loadLocalEnv(rootProject.file("api.env")).forEach { (key, value) ->
+        environment(key, value)
+    }
+    systemProperty("binance.demo.websocket.smoke", "true")
+}

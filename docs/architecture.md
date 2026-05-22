@@ -120,7 +120,9 @@ ping/pong timing, and reconnect-before-expiry scheduling. Live WebSocket reading
 will use this plan rather than hard-coded URLs. The lifecycle client keeps the
 planned endpoint, listener callbacks, idempotent close behavior, and reconnect
 decision in a transport boundary so the concrete socket implementation can be
-tested separately from URL and rollover policy.
+tested separately from URL and rollover policy. The Reactor Netty transport is
+the first concrete transport and has an opt-in demo smoke test that receives one
+public USD-M market stream message through the checked-in demo target config.
 The checked-in Binance demo order lifecycle test is opt-in. It requires
 `BINANCE_DEMO_API_KEY`, `BINANCE_DEMO_API_SECRET`, and
 `-Dbinance.demo.order.smoke=true`; it refuses non-demo active targets, submits a

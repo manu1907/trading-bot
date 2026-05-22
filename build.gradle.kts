@@ -65,7 +65,7 @@ subprojects {
 
     tasks.withType<Test> {
         useJUnitPlatform()
-        jvmArgs("-Xshare:off")
+        jvmArgs("-Xshare:off", "--enable-native-access=ALL-UNNAMED")
     }
 
     tasks.withType<JavaCompile> {
