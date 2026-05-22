@@ -452,7 +452,6 @@
                         "RESULT"
                       ],
                       "supported_self_trade_prevention_modes": [
-                        "NONE",
                         "EXPIRE_TAKER",
                         "EXPIRE_MAKER",
                         "EXPIRE_BOTH"
@@ -568,7 +567,6 @@
                         "RESULT"
                       ],
                       "supported_self_trade_prevention_modes": [
-                        "NONE",
                         "EXPIRE_TAKER",
                         "EXPIRE_MAKER",
                         "EXPIRE_BOTH"
@@ -1131,7 +1129,6 @@
                         "RESULT"
                       ],
                       "supported_self_trade_prevention_modes": [
-                        "NONE",
                         "EXPIRE_TAKER",
                         "EXPIRE_MAKER",
                         "EXPIRE_BOTH"
@@ -1247,7 +1244,6 @@
                         "RESULT"
                       ],
                       "supported_self_trade_prevention_modes": [
-                        "NONE",
                         "EXPIRE_TAKER",
                         "EXPIRE_MAKER",
                         "EXPIRE_BOTH"

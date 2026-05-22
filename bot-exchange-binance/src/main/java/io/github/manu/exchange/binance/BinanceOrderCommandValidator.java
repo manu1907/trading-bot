@@ -13,6 +13,7 @@ final class BinanceOrderCommandValidator {
     private static final Set<String> SPOT_LIMIT_STOP_TYPES = Set.of("STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT");
     private static final Set<String> FUTURES_LIMIT_STOP_TYPES = Set.of("STOP", "TAKE_PROFIT");
     private static final Set<String> FUTURES_MARKET_STOP_TYPES = Set.of("STOP_MARKET", "TAKE_PROFIT_MARKET");
+    private static final Set<String> PRICE_MATCH_ORDER_TYPES = Set.of("LIMIT", "STOP", "TAKE_PROFIT");
 
     private BinanceOrderCommandValidator() {
     }
@@ -45,6 +46,7 @@ final class BinanceOrderCommandValidator {
         requireOptionalOneOf("positionSide", command.positionSide(), capability.supportedPositionSides(), errors);
         validateFeatureFlags(command, capability, errors);
         validatePositiveNumbers(command, errors);
+        validateParameterCombinations(command, errors);
         validateOrderTypeParameters(command, capability, errors);
 
         if (!errors.isEmpty()) {
@@ -90,6 +92,35 @@ final class BinanceOrderCommandValidator {
         requirePositiveWhenPresent("callbackRate", command.callbackRate(), errors);
         requirePositiveWhenPresent("activationPrice", command.activationPrice(), errors);
         requirePositiveWhenPresent("icebergQty", command.icebergQty(), errors);
+        requirePositiveWhenPresent("goodTillDate", command.goodTillDate(), errors);
+    }
+
+    private static void validateParameterCombinations(BinanceOrderCommand command, List<String> errors) {
+        if (hasText(command.priceMatch())) {
+            if (hasValue(command.price())) {
+                errors.add("priceMatch cannot be used with price");
+            }
+            if (hasText(command.type()) && !PRICE_MATCH_ORDER_TYPES.contains(command.type())) {
+                errors.add("priceMatch is only supported for LIMIT, STOP, and TAKE_PROFIT orders");
+            }
+        }
+        if ("GTD".equals(command.timeInForce()) && command.goodTillDate() == null) {
+            errors.add("GTD orders require goodTillDate");
+        }
+        if (command.goodTillDate() != null && !"GTD".equals(command.timeInForce())) {
+            errors.add("goodTillDate requires timeInForce GTD");
+        }
+        if (Boolean.TRUE.equals(command.reduceOnly()) && isHedgeModePositionSide(command.positionSide())) {
+            errors.add("reduceOnly is not supported in hedge-mode orders");
+        }
+        if (Boolean.TRUE.equals(command.closePosition())) {
+            if (Boolean.TRUE.equals(command.reduceOnly())) {
+                errors.add("closePosition must not be combined with reduceOnly");
+            }
+            if (hasText(command.type()) && !FUTURES_MARKET_STOP_TYPES.contains(command.type())) {
+                errors.add("closePosition is only supported for STOP_MARKET and TAKE_PROFIT_MARKET orders");
+            }
+        }
     }
 
     private static void validateOrderTypeParameters(BinanceOrderCommand command,
@@ -102,7 +133,7 @@ final class BinanceOrderCommandValidator {
 
         if ("LIMIT".equals(type)) {
             requireQuantity(command, errors);
-            requirePrice(command, errors);
+            requirePriceUnlessPriceMatch(command, capability, errors);
             requireTimeInForce(command, capability, errors);
         } else if ("MARKET".equals(type)) {
             requireMarketQuantity(command, capability, errors);
@@ -119,7 +150,7 @@ final class BinanceOrderCommandValidator {
             requireStopPriceOrTrailingDelta(command, errors);
         } else if (FUTURES_LIMIT_STOP_TYPES.contains(type)) {
             requireQuantity(command, errors);
-            requirePrice(command, errors);
+            requirePriceUnlessPriceMatch(command, capability, errors);
             requireStopPrice(command, errors);
         } else if (FUTURES_MARKET_STOP_TYPES.contains(type)) {
             requireStopPrice(command, errors);
@@ -164,6 +195,15 @@ final class BinanceOrderCommandValidator {
     private static void requirePrice(BinanceOrderCommand command, List<String> errors) {
         if (!hasValue(command.price())) {
             errors.add(command.type() + " orders require price");
+        }
+    }
+
+    private static void requirePriceUnlessPriceMatch(BinanceOrderCommand command,
+                                                     BinanceTradingCapability capability,
+                                                     List<String> errors) {
+        boolean hasSupportedPriceMatch = capability.supportsPriceMatch() && hasText(command.priceMatch());
+        if (!hasValue(command.price()) && !hasSupportedPriceMatch) {
+            errors.add(command.type() + " orders require price or priceMatch");
         }
     }
 
@@ -216,11 +256,21 @@ final class BinanceOrderCommandValidator {
         }
     }
 
+    private static void requirePositiveWhenPresent(String field, Long value, List<String> errors) {
+        if (value != null && value <= 0) {
+            errors.add(field + " must be positive when provided");
+        }
+    }
+
     private static boolean hasValue(BigDecimal value) {
         return value != null;
     }
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private static boolean isHedgeModePositionSide(String value) {
+        return "LONG".equals(value) || "SHORT".equals(value);
     }
 }

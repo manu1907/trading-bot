@@ -82,6 +82,7 @@ class BinanceDemoOrderLifecycleTest {
                 null,
                 null,
                 clientOrderId,
+                null,
                 quantity,
                 null,
                 passivePrice,

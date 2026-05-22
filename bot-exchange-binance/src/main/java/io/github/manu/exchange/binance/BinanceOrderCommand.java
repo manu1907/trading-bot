@@ -12,6 +12,7 @@ record BinanceOrderCommand(
         String selfTradePreventionMode,
         String priceMatch,
         String clientOrderId,
+        Long goodTillDate,
         BigDecimal quantity,
         BigDecimal quoteOrderQty,
         BigDecimal price,

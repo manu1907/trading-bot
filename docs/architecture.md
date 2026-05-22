@@ -102,7 +102,9 @@ connector's market-type capability map before startup.
 Provider-local order command validation is separate from REST submission. A
 candidate Binance order must satisfy the active market's supported enums,
 feature flags, and mandatory parameter combinations before later execution code
-can turn it into a signed request.
+can turn it into a signed request. The validator also blocks known Binance
+collisions such as `priceMatch` with `price`, `GTD` without `goodTillDate`, and
+`reduceOnly` on hedge-mode orders.
 The Binance order client owns signed create, query, list-open, and cancel calls
 and converts Binance error responses into typed exceptions without logging
 credentials or signed payloads.

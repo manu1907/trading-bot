@@ -28,9 +28,10 @@ class BinanceOrderRequestFactoryTest {
                 "GTC",
                 "BOTH",
                 "RESULT",
-                "NONE",
+                "EXPIRE_MAKER",
                 null,
                 "tb_smoke_1",
+                null,
                 new BigDecimal("0.001000"),
                 null,
                 new BigDecimal("50000.00"),
@@ -49,8 +50,46 @@ class BinanceOrderRequestFactoryTest {
 
         assertThat(request.payload())
                 .isEqualTo("symbol=BTCUSDT&side=BUY&type=LIMIT&timeInForce=GTC&positionSide=BOTH"
-                        + "&newOrderRespType=RESULT&selfTradePreventionMode=NONE&newClientOrderId=tb_smoke_1"
+                        + "&newOrderRespType=RESULT&selfTradePreventionMode=EXPIRE_MAKER&newClientOrderId=tb_smoke_1"
                         + "&quantity=0.001&price=50000"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/order?");
+    }
+
+    @Test
+    void builds_gtd_price_match_order_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderCommand command = new BinanceOrderCommand(
+                "BTCUSDT",
+                "BUY",
+                "LIMIT",
+                "GTD",
+                "BOTH",
+                "RESULT",
+                "EXPIRE_MAKER",
+                "QUEUE",
+                "tb_gtd_1",
+                1_771_111_111_000L,
+                new BigDecimal("0.001000"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        BinanceSignedRequest request = factory.newOrder(command, "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&side=BUY&type=LIMIT&timeInForce=GTD&positionSide=BOTH"
+                        + "&newOrderRespType=RESULT&selfTradePreventionMode=EXPIRE_MAKER&priceMatch=QUEUE"
+                        + "&newClientOrderId=tb_gtd_1&goodTillDate=1771111111000&quantity=0.001"
                         + "&timestamp=1499827319559&recvWindow=5000");
         assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/order?");
     }
@@ -161,7 +200,7 @@ class BinanceOrderRequestFactoryTest {
                 List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
                 List.of("GTC", "IOC", "FOK", "GTX", "GTD"),
                 List.of("ACK", "RESULT"),
-                List.of("NONE", "EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
+                List.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
                 List.of("BOTH", "LONG", "SHORT"),
                 false,
                 true,

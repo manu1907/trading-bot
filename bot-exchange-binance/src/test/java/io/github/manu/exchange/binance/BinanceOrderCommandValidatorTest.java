@@ -50,6 +50,105 @@ class BinanceOrderCommandValidatorTest {
     }
 
     @Test
+    void rejects_futures_self_trade_prevention_none() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .price("50000")
+                .selfTradePreventionMode("NONE")
+                .build(), BinanceMarketType.FUTURES_USD_M))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("selfTradePreventionMode must be one of");
+    }
+
+    @Test
+    void rejects_futures_price_match_with_explicit_price() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .price("50000")
+                .priceMatch("QUEUE")
+                .build(), BinanceMarketType.FUTURES_USD_M))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("priceMatch cannot be used with price");
+    }
+
+    @Test
+    void accepts_futures_limit_order_with_price_match_instead_of_price() {
+        BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .priceMatch("QUEUE")
+                .build(), BinanceMarketType.FUTURES_USD_M);
+    }
+
+    @Test
+    void rejects_spot_price_match_as_price_substitute() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .priceMatch("QUEUE")
+                .build(), BinanceMarketType.SPOT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("priceMatch is not supported")
+                .hasMessageContaining("LIMIT orders require price or priceMatch");
+    }
+
+    @Test
+    void accepts_futures_gtd_limit_order_with_good_till_date() {
+        BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTD")
+                .quantity("0.001")
+                .price("50000")
+                .goodTillDate(1_771_111_111_000L)
+                .build(), BinanceMarketType.FUTURES_USD_M);
+    }
+
+    @Test
+    void rejects_futures_gtd_order_without_good_till_date() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTD")
+                .quantity("0.001")
+                .price("50000")
+                .build(), BinanceMarketType.FUTURES_USD_M))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("GTD orders require goodTillDate");
+    }
+
+    @Test
+    void rejects_good_till_date_without_gtd() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .price("50000")
+                .goodTillDate(1_771_111_111_000L)
+                .build(), BinanceMarketType.FUTURES_USD_M))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("goodTillDate requires timeInForce GTD");
+    }
+
+    @Test
+    void rejects_reduce_only_in_hedge_mode_order() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .price("50000")
+                .positionSide("LONG")
+                .reduceOnly(true)
+                .build(), BinanceMarketType.FUTURES_USD_M))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reduceOnly is not supported in hedge-mode orders");
+    }
+
+    @Test
     void rejects_spot_reduce_only_order() {
         assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
                 .type("LIMIT")
@@ -69,7 +168,7 @@ class BinanceOrderCommandValidatorTest {
                 .quantity("0.001")
                 .build(), BinanceMarketType.SPOT))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("LIMIT orders require price")
+                .hasMessageContaining("LIMIT orders require price or priceMatch")
                 .hasMessageContaining("timeInForce is required");
     }
 
@@ -106,6 +205,8 @@ class BinanceOrderCommandValidatorTest {
         private String positionSide;
         private String orderResponseType;
         private String selfTradePreventionMode;
+        private String priceMatch;
+        private Long goodTillDate;
         private BigDecimal quantity;
         private BigDecimal quoteOrderQty;
         private BigDecimal price;
@@ -136,6 +237,16 @@ class BinanceOrderCommandValidatorTest {
 
         CommandBuilder selfTradePreventionMode(String value) {
             selfTradePreventionMode = value;
+            return this;
+        }
+
+        CommandBuilder priceMatch(String value) {
+            priceMatch = value;
+            return this;
+        }
+
+        CommandBuilder goodTillDate(long value) {
+            goodTillDate = value;
             return this;
         }
 
@@ -183,8 +294,9 @@ class BinanceOrderCommandValidatorTest {
                     positionSide,
                     orderResponseType,
                     selfTradePreventionMode,
+                    priceMatch,
                     null,
-                    null,
+                    goodTillDate,
                     quantity,
                     quoteOrderQty,
                     price,

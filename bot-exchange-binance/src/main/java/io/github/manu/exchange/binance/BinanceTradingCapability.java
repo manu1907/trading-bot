@@ -52,6 +52,7 @@ record BinanceTradingCapability(
     private static final Set<String> FUTURES_TIME_IN_FORCE = Set.of("GTC", "IOC", "FOK", "GTX", "GTD");
     private static final Set<String> OPTIONS_TIME_IN_FORCE = Set.of("GTC");
     private static final Set<String> STP_MODES = Set.of("NONE", "EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH");
+    private static final Set<String> FUTURES_STP_MODES = Set.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH");
     private static final Set<String> OPTIONS_STP_MODES = Set.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH");
     private static final Set<String> NO_POSITION_SIDE = Set.of("NONE");
     private static final Set<String> FUTURES_POSITION_SIDES = Set.of("BOTH", "LONG", "SHORT");
@@ -153,7 +154,7 @@ record BinanceTradingCapability(
                 FUTURES_ORDER_TYPES,
                 FUTURES_TIME_IN_FORCE,
                 ACK_RESULT,
-                STP_MODES,
+                FUTURES_STP_MODES,
                 FUTURES_POSITION_SIDES,
                 false,
                 true,

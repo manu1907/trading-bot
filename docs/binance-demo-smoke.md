@@ -4,6 +4,14 @@ The Binance demo order lifecycle test is intentionally opt-in. It creates a
 passive USD-M `LIMIT GTX` order on `BTCUSDT` in the active demo environment and
 then queries and cancels it by client order id.
 
+The order command validator is intentionally stricter than a raw REST wrapper.
+It rejects Binance request collisions before submission, including `priceMatch`
+with `price`, `GTD` without `goodTillDate`, `goodTillDate` without `GTD`,
+`reduceOnly` on hedge-mode `LONG`/`SHORT` orders, and close-position flags on
+non-close-all order types. USD-M and COIN-M futures request configuration also
+excludes `selfTradePreventionMode=NONE`; the demo API currently rejects that
+mode even though order responses can still report `NONE`.
+
 Run it only with demo credentials:
 
 ```bash
