@@ -117,7 +117,10 @@ later risk, throttling, and observability wiring.
 The Binance WebSocket endpoint planner builds raw and combined stream URIs from
 the active market config, including routed USD-M paths, stream-count limits,
 ping/pong timing, and reconnect-before-expiry scheduling. Live WebSocket reading
-will use this plan rather than hard-coded URLs.
+will use this plan rather than hard-coded URLs. The lifecycle client keeps the
+planned endpoint, listener callbacks, idempotent close behavior, and reconnect
+decision in a transport boundary so the concrete socket implementation can be
+tested separately from URL and rollover policy.
 The checked-in Binance demo order lifecycle test is opt-in. It requires
 `BINANCE_DEMO_API_KEY`, `BINANCE_DEMO_API_SECRET`, and
 `-Dbinance.demo.order.smoke=true`; it refuses non-demo active targets, submits a
