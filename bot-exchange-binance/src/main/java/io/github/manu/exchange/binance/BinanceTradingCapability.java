@@ -1,5 +1,7 @@
 package io.github.manu.exchange.binance;
 
+import io.github.manu.config.properties.provider.binance.BinanceProperties;
+
 import java.util.Set;
 
 record BinanceTradingCapability(
@@ -63,6 +65,31 @@ record BinanceTradingCapability(
             case FUTURES_COIN_M -> futures("/dapi/v1/order");
             case OPTIONS -> options();
         };
+    }
+
+    static BinanceTradingCapability fromConfig(BinanceProperties.Trading trading) {
+        return new BinanceTradingCapability(
+                trading.newOrderPath(),
+                trading.testOrderPath(),
+                trading.queryOrderPath(),
+                trading.cancelOrderPath(),
+                trading.openOrdersPath(),
+                Set.copyOf(trading.supportedSides()),
+                Set.copyOf(trading.supportedOrderTypes()),
+                Set.copyOf(trading.supportedTimeInForce()),
+                Set.copyOf(trading.supportedOrderResponseTypes()),
+                Set.copyOf(trading.supportedSelfTradePreventionModes()),
+                Set.copyOf(trading.supportedPositionSides()),
+                trading.supportsQuoteOrderQty(),
+                trading.supportsReduceOnly(),
+                trading.supportsClosePosition(),
+                trading.supportsPriceMatch(),
+                trading.supportsPeggedOrders(),
+                trading.supportsIcebergQty(),
+                trading.supportsTrailingDelta(),
+                trading.supportsIsolatedMarginFlag(),
+                trading.supportsMarketMakerProtection()
+        );
     }
 
     private static BinanceTradingCapability spot() {

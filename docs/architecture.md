@@ -99,6 +99,10 @@ Binance trading capabilities are also provider-local: documented order paths,
 order types, response modes, position-side support, reduce-only support, and
 product-specific flags are declared per market and validated against the
 connector's market-type capability map before startup.
+Provider-local order command validation is separate from REST submission. A
+candidate Binance order must satisfy the active market's supported enums,
+feature flags, and mandatory parameter combinations before later execution code
+can turn it into a signed request.
 
 ## Demo And Real
 
