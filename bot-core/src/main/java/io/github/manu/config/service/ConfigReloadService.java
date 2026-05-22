@@ -58,12 +58,11 @@ public class ConfigReloadService {
 
             TradingBotProperties freshConfig = configLoader.loadBaseline(activeProfile);
 
-            // Validate it
             validator.validate(freshConfig);
 
             TradingBotProperties current = configManager.getConfig();
             ConfigReloadPolicy.ReloadDecision decision = reloadPolicy.assess(current, freshConfig);
-            RuntimeDescriptor descriptor = runtimeIdentityService.apply(current);
+            RuntimeDescriptor descriptor = runtimeIdentityService.apply(current == null ? freshConfig : current);
 
             if (decision.restartRequired()) {
                 auditLogger.configurationReloadRejected(descriptor, decision.reason());
