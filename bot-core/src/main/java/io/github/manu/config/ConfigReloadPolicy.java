@@ -21,7 +21,7 @@ public class ConfigReloadPolicy {
 
         if (!sameBotIdentity(current.getBot(), candidate.getBot())) {
             return ReloadDecision.restartRequired(
-                    "bot identity changed: instance_id/timezone are immutable for a running process"
+                    "bot identity changed: instance_id/target_id/timezone are immutable for a running process"
             );
         }
 
