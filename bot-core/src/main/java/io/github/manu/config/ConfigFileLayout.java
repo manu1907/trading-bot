@@ -3,6 +3,7 @@ package io.github.manu.config;
 import io.github.manu.config.profile.RuntimeProfile;
 import io.github.manu.config.properties.ExchangeProperties;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -72,17 +73,21 @@ public final class ConfigFileLayout {
             return;
         }
 
-        Path parent = runtimeFile.getParent();
+        writeObjectAtomically(runtimeFile, jsonMapper.createObjectNode());
+    }
+
+    public void writeObjectAtomically(Path destination, ObjectNode objectNode) throws IOException {
+        Path parent = destination.getParent();
         if (parent == null) {
-            throw new IOException("Runtime override file has no parent directory: " + runtimeFile);
+            throw new IOException("Config file has no parent directory: " + destination);
         }
         Files.createDirectories(parent);
-        Path temporaryFile = runtimeFile.resolveSibling(runtimeFile.getFileName() + ".tmp");
-        jsonMapper.writerWithDefaultPrettyPrinter().writeValue(temporaryFile.toFile(), jsonMapper.createObjectNode());
+        Path temporaryFile = destination.resolveSibling(destination.getFileName() + ".tmp");
+        jsonMapper.writerWithDefaultPrettyPrinter().writeValue(temporaryFile.toFile(), objectNode);
         try {
-            Files.move(temporaryFile, runtimeFile, StandardCopyOption.ATOMIC_MOVE);
+            Files.move(temporaryFile, destination, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException e) {
-            Files.move(temporaryFile, runtimeFile, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(temporaryFile, destination, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 }

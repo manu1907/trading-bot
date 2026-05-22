@@ -55,6 +55,8 @@ The external live config is intentionally outside Spring config:
 The loader merges `catalog.json`, then the active environment file, then the
 active runtime file. Unknown override paths are rejected. Runtime override
 files are created as empty JSON objects when the active target has no file yet.
+Runtime override writes are staged as candidate config, validated, then moved
+into place atomically. A rejected write leaves the previous runtime file intact.
 
 For backtest mode, only the backtest config is used.
 
