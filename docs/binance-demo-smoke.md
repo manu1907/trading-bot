@@ -4,6 +4,9 @@ The Binance demo order lifecycle test is intentionally opt-in. It creates a
 passive USD-M `LIMIT GTX` order on `BTCUSDT` in the active demo environment and
 then queries and cancels it by client order id.
 
+The Binance demo user-data stream lifecycle test is also opt-in. It starts,
+renews, and closes a USD-M listen-key stream in the active demo environment.
+
 The order command validator is intentionally stricter than a raw REST wrapper.
 It rejects Binance request collisions before submission, including `priceMatch`
 with `price`, `GTD` without `goodTillDate`, `goodTillDate` without `GTD`,
@@ -16,6 +19,7 @@ Run it only with demo credentials:
 
 ```bash
 ./gradlew :bot-exchange-binance:binanceDemoOrderSmokeTest
+./gradlew :bot-exchange-binance:binanceDemoUserDataStreamSmokeTest
 ```
 
 Required environment variables:

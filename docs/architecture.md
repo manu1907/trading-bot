@@ -108,10 +108,16 @@ collisions such as `priceMatch` with `price`, `GTD` without `goodTillDate`, and
 The Binance order client owns signed create, query, list-open, and cancel calls
 and converts Binance error responses into typed exceptions without logging
 credentials or signed payloads.
+The Binance user-data stream client owns API-key-authenticated start, keepalive,
+and close calls for configured listen-key or listen-token streams. It does not
+use the API secret for REST listen-key lifecycle calls.
 The checked-in Binance demo order lifecycle test is opt-in. It requires
 `BINANCE_DEMO_API_KEY`, `BINANCE_DEMO_API_SECRET`, and
 `-Dbinance.demo.order.smoke=true`; it refuses non-demo active targets, submits a
 passive USD-M limit order, queries it, and cancels it by client order id.
+The checked-in Binance demo user-data stream lifecycle test is opt-in and
+requires `BINANCE_DEMO_API_KEY`; it starts, renews, and closes the configured
+USD-M demo stream.
 
 ## Demo And Real
 
