@@ -111,6 +111,9 @@ credentials or signed payloads.
 The Binance user-data stream client owns API-key-authenticated start, keepalive,
 and close calls for configured listen-key or listen-token streams. It does not
 use the API secret for REST listen-key lifecycle calls.
+REST clients parse Binance rate-limit headers after every response and retain
+the latest observed request-weight, order-count, and retry-after values for
+later risk, throttling, and observability wiring.
 The checked-in Binance demo order lifecycle test is opt-in. It requires
 `BINANCE_DEMO_API_KEY`, `BINANCE_DEMO_API_SECRET`, and
 `-Dbinance.demo.order.smoke=true`; it refuses non-demo active targets, submits a

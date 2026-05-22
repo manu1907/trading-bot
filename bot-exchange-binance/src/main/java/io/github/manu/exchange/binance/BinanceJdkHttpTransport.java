@@ -34,6 +34,6 @@ final class BinanceJdkHttpTransport implements BinanceHttpTransport {
                 .method(method, HttpRequest.BodyPublishers.noBody())
                 .build();
         HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-        return new BinanceHttpResponse(response.statusCode(), response.body());
+        return new BinanceHttpResponse(response.statusCode(), response.body(), response.headers().map());
     }
 }

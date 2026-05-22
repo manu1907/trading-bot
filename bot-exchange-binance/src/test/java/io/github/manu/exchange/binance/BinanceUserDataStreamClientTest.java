@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -71,6 +72,19 @@ class BinanceUserDataStreamClientTest {
         assertThatThrownBy(client::start)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("missing listenKey");
+    }
+
+    @Test
+    void captures_rate_limit_headers_from_user_stream_responses() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{\"listenKey\":\"stream-1\"}", Map.of(
+                "X-MBX-USED-WEIGHT-1M", List.of("5")
+        )));
+        BinanceUserDataStreamClient client = client(transport);
+
+        client.start();
+
+        assertThat(client.currentRateLimitUsage()).hasValueSatisfying(usage ->
+                assertThat(usage.usedWeights()).containsEntry("X-MBX-USED-WEIGHT-1M", 5L));
     }
 
     private BinanceUserDataStreamClient client(FakeTransport transport) {

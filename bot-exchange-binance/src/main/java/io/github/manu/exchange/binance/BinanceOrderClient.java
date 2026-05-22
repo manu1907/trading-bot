@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 final class BinanceOrderClient {
 
@@ -21,6 +22,7 @@ final class BinanceOrderClient {
     private final BinanceOrderRequestFactory requestFactory;
     private final BinanceHttpTransport transport;
     private final ObjectMapper jsonMapper;
+    private final BinanceRateLimitTracker rateLimitTracker;
 
     BinanceOrderClient(BinanceProperties binance,
                        String apiKey,
@@ -37,7 +39,8 @@ final class BinanceOrderClient {
                         Duration.ofMillis(binance.rest().connectTimeoutMillis()),
                         Duration.ofMillis(binance.rest().responseTimeoutMillis())
                 ),
-                JsonMapperFactory.create()
+                JsonMapperFactory.create(),
+                new BinanceRateLimitTracker(clock)
         );
     }
 
@@ -48,12 +51,24 @@ final class BinanceOrderClient {
                        long serverTimeOffsetMillis,
                        BinanceHttpTransport transport,
                        ObjectMapper jsonMapper) {
+        this(binance, apiKey, privateCredential, clock, serverTimeOffsetMillis, transport, jsonMapper, new BinanceRateLimitTracker(clock));
+    }
+
+    BinanceOrderClient(BinanceProperties binance,
+                       String apiKey,
+                       String privateCredential,
+                       Clock clock,
+                       long serverTimeOffsetMillis,
+                       BinanceHttpTransport transport,
+                       ObjectMapper jsonMapper,
+                       BinanceRateLimitTracker rateLimitTracker) {
         this.binance = Objects.requireNonNull(binance, "binance");
         this.apiKey = requireText(apiKey, "apiKey");
         this.privateCredential = requireText(privateCredential, "privateCredential");
         this.requestFactory = new BinanceOrderRequestFactory(binance, clock, serverTimeOffsetMillis);
         this.transport = Objects.requireNonNull(transport, "transport");
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
+        this.rateLimitTracker = Objects.requireNonNull(rateLimitTracker, "rateLimitTracker");
     }
 
     BinanceOrderResult placeOrder(BinanceOrderCommand command) {
@@ -81,9 +96,14 @@ final class BinanceOrderClient {
         return List.copyOf(orders);
     }
 
+    Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
+        return rateLimitTracker.current();
+    }
+
     private BinanceHttpResponse send(BinanceSignedRequest request, String method) {
         try {
             BinanceHttpResponse response = transport.send(request, method, apiKey, binance.rest().apiKeyHeader());
+            rateLimitTracker.observe(binance.rest(), response);
             if (response.statusCode() < 200 || response.statusCode() > 299) {
                 throw toApiException(response);
             }

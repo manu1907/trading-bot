@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,6 +84,22 @@ class BinanceOrderClientTest {
                 .hasMessageContaining("httpStatusCode=400")
                 .hasMessageContaining("exchangeCode=-4061")
                 .hasMessageContaining("position side");
+    }
+
+    @Test
+    void captures_rate_limit_headers_from_order_responses() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, orderResponseBody("tb_1", "NEW"), Map.of(
+                "X-MBX-USED-WEIGHT-1M", List.of("41"),
+                "X-MBX-ORDER-COUNT-10S", List.of("2")
+        )));
+        BinanceOrderClient client = client(transport);
+
+        client.placeOrder(limitOrder());
+
+        assertThat(client.currentRateLimitUsage()).hasValueSatisfying(usage -> {
+            assertThat(usage.usedWeights()).containsEntry("X-MBX-USED-WEIGHT-1M", 41L);
+            assertThat(usage.orderCounts()).containsEntry("X-MBX-ORDER-COUNT-10S", 2L);
+        });
     }
 
     private BinanceOrderClient client(FakeTransport transport) {

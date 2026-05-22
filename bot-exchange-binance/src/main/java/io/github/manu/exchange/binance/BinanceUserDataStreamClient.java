@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 final class BinanceUserDataStreamClient {
 
@@ -23,6 +24,7 @@ final class BinanceUserDataStreamClient {
     private final BinanceHttpTransport transport;
     private final ObjectMapper jsonMapper;
     private final Clock clock;
+    private final BinanceRateLimitTracker rateLimitTracker;
 
     BinanceUserDataStreamClient(BinanceProperties binance, String apiKey, Clock clock) {
         this(
@@ -33,7 +35,8 @@ final class BinanceUserDataStreamClient {
                         Duration.ofMillis(binance.rest().connectTimeoutMillis()),
                         Duration.ofMillis(binance.rest().responseTimeoutMillis())
                 ),
-                JsonMapperFactory.create()
+                JsonMapperFactory.create(),
+                new BinanceRateLimitTracker(clock)
         );
     }
 
@@ -42,12 +45,22 @@ final class BinanceUserDataStreamClient {
                                 Clock clock,
                                 BinanceHttpTransport transport,
                                 ObjectMapper jsonMapper) {
+        this(binance, apiKey, clock, transport, jsonMapper, new BinanceRateLimitTracker(clock));
+    }
+
+    BinanceUserDataStreamClient(BinanceProperties binance,
+                                String apiKey,
+                                Clock clock,
+                                BinanceHttpTransport transport,
+                                ObjectMapper jsonMapper,
+                                BinanceRateLimitTracker rateLimitTracker) {
         this.binance = Objects.requireNonNull(binance, "binance");
         this.apiKey = requireText(apiKey, "apiKey");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.requestFactory = new BinanceRestRequestFactory(binance.rest(), clock, 0);
         this.transport = Objects.requireNonNull(transport, "transport");
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
+        this.rateLimitTracker = Objects.requireNonNull(rateLimitTracker, "rateLimitTracker");
     }
 
     BinanceUserDataStreamSession start() {
@@ -85,11 +98,16 @@ final class BinanceUserDataStreamClient {
         send(userData.closePath(), "DELETE");
     }
 
+    Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
+        return rateLimitTracker.current();
+    }
+
     private BinanceHttpResponse send(String path, String method) {
         requireText(path, "userDataStream path");
         BinanceSignedRequest request = unsignedRequest(path);
         try {
             BinanceHttpResponse response = transport.send(request, method, apiKey, binance.rest().apiKeyHeader());
+            rateLimitTracker.observe(binance.rest(), response);
             if (response.statusCode() < 200 || response.statusCode() > 299) {
                 throw toApiException(response);
             }
