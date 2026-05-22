@@ -43,15 +43,27 @@ public record BinanceExchangeMetadata(
             String symbol,
             String pair,
             String contractType,
+            Long deliveryDate,
+            Long onboardDate,
             String status,
             String baseAsset,
             String quoteAsset,
             String marginAsset,
+            Integer pricePrecision,
+            Integer quantityPrecision,
+            Integer baseAssetPrecision,
+            Integer quotePrecision,
+            String underlyingType,
+            List<String> underlyingSubType,
+            String triggerProtect,
+            String liquidationFee,
+            String marketTakeBound,
             List<String> orderTypes,
             List<String> timeInForce,
             List<Filter> filters
     ) {
         public SymbolInfo {
+            underlyingSubType = List.copyOf(underlyingSubType);
             orderTypes = List.copyOf(orderTypes);
             timeInForce = List.copyOf(timeInForce);
             filters = List.copyOf(filters);
@@ -67,6 +79,9 @@ public record BinanceExchangeMetadata(
             String maxQty,
             String stepSize,
             String notional,
+            String multiplierUp,
+            String multiplierDown,
+            String multiplierDecimal,
             Integer limit
     ) {
     }

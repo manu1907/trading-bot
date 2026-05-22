@@ -94,6 +94,11 @@ truth for product families and authentication choices: Spot, Cross Margin,
 Isolated Margin, USD-M Futures, COIN-M Futures, Options, HMAC keys, RSA PKCS#8
 keys, and Ed25519 keys. Strategy selection may prefer liquid instruments, but
 the provider layer must not hard-code a narrow instrument universe.
+The Binance `exchangeInfo` client fetches documented trading rules and symbol
+metadata through the same provider-local public REST transport used by
+server-time sync. The parser keeps precision, lifecycle dates, trigger
+protection, liquidation fee, market-take bounds, order enums, and filter values
+available for later sizing and risk decisions.
 The catalog declares every currently targeted Binance trading product family,
 even when disabled. Spot user data is modeled as WebSocket API based, margin
 user data uses `listenToken`, and futures/options user data uses `listenKey`;
