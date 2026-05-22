@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 final class BinanceConfigValidator {
 
     private static final int MAX_RECV_WINDOW_MILLIS = 60_000;
-    private static final Set<String> SIGNATURE_ALGORITHMS = Set.of("HMAC_SHA256");
+    private static final Set<String> SIGNATURE_ALGORITHMS = Set.of("HMAC_SHA256", "RSA_SHA256", "ED25519");
     private static final Set<String> TIMESTAMP_UNITS = Set.of("MILLISECONDS", "MICROSECONDS");
     private static final Set<String> ORDER_RESPONSE_TYPES = Set.of("ACK", "RESULT", "FULL");
     private static final Set<String> FUTURES_POSITION_MODES = Set.of("ONE_WAY", "HEDGE");
@@ -141,7 +141,7 @@ final class BinanceConfigValidator {
                                         BinanceProperties binance,
                                         BinanceMarketType marketType,
                                         List<String> errors) {
-        if (marketType != BinanceMarketType.FUTURES_USD_M) {
+        if (!marketType.futures()) {
             return;
         }
 
@@ -155,7 +155,7 @@ final class BinanceConfigValidator {
                                          BinanceMarketType marketType,
                                          List<String> errors) {
         if (userData == null) {
-            errors.add(path + " is required for USD-M futures");
+            errors.add(path + " is required for Binance futures markets");
             return;
         }
 
@@ -175,7 +175,7 @@ final class BinanceConfigValidator {
                                                BinanceProperties.FuturesAccount account,
                                                List<String> errors) {
         if (account == null) {
-            errors.add(path + " is required for USD-M futures");
+            errors.add(path + " is required for Binance futures markets");
             return;
         }
 

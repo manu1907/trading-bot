@@ -40,7 +40,7 @@ final class BinanceRestRequestFactory {
 
         String payload = encode(signedParameters);
         String signature = BinanceRequestSigner.sign(payload, apiSecret, rest.signatureAlgorithm());
-        String signedQuery = payload + "&signature=" + signature;
+        String signedQuery = payload + "&signature=" + encode(signature);
         return new BinanceSignedRequest(buildUri(path, signedQuery), payload, signature);
     }
 

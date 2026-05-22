@@ -86,6 +86,11 @@ Signed REST request construction is kept provider-local and deterministic:
 query parameters are encoded in order, `timestamp` and `recvWindow` are added
 before signing, and retry/reconciliation decisions come from the active Binance
 config.
+The Binance connector should track the Binance documentation as the source of
+truth for product families and authentication choices: Spot, Cross Margin,
+Isolated Margin, USD-M Futures, COIN-M Futures, Options, HMAC keys, RSA PKCS#8
+keys, and Ed25519 keys. Strategy selection may prefer liquid instruments, but
+the provider layer must not hard-code a narrow instrument universe.
 
 ## Demo And Real
 

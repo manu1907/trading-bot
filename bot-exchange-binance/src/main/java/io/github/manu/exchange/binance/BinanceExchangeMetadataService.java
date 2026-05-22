@@ -46,8 +46,7 @@ public class BinanceExchangeMetadataService implements ExchangeMetadataFetcher {
         }
 
         BinanceProperties binance = config.providerConfig(BinanceProviderProperties.class).resolve(config.target());
-        BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
-        String url = binance.rest().baseUrl() + marketType.exchangeInfoPath();
+        String url = binance.rest().baseUrl() + binance.rest().exchangeInfoPath();
 
         try {
             JsonNode response = webClient.get()

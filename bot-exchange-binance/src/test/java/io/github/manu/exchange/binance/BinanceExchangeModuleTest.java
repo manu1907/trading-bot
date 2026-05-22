@@ -50,7 +50,7 @@ class BinanceExchangeModuleTest {
 
         assertThatThrownBy(() -> module.validateConfig(config))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("user_data is required for USD-M futures");
+                .hasMessageContaining("user_data is required for Binance futures markets");
     }
 
     @Test
@@ -63,9 +63,9 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
-    void rejects_key_types_without_signer_support() throws IOException {
+    void rejects_key_types_without_binance_support() throws IOException {
         ResolvedExchangeConfig config = checkedInResolvedConfigRoot((root, active) ->
-                activeAccount(root, active).withObject("credentials").put("key_type", "RSA_SHA256"));
+                activeAccount(root, active).withObject("credentials").put("key_type", "ECDSA_SHA256"));
 
         assertThatThrownBy(() -> module.validateConfig(config))
                 .isInstanceOf(IllegalArgumentException.class)
