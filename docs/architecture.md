@@ -123,6 +123,9 @@ decision in a transport boundary so the concrete socket implementation can be
 tested separately from URL and rollover policy. The Reactor Netty transport is
 the first concrete transport and has an opt-in demo smoke test that receives one
 public USD-M market stream message through the checked-in demo target config.
+The WebSocket supervisor owns controlled reconnects: it rolls connections over
+before Binance's 24-hour expiry point and schedules retry reconnects after
+active connection errors or unexpected closes.
 The checked-in Binance demo order lifecycle test is opt-in. It requires
 `BINANCE_DEMO_API_KEY`, `BINANCE_DEMO_API_SECRET`, and
 `-Dbinance.demo.order.smoke=true`; it refuses non-demo active targets, submits a
