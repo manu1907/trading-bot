@@ -91,6 +91,10 @@ truth for product families and authentication choices: Spot, Cross Margin,
 Isolated Margin, USD-M Futures, COIN-M Futures, Options, HMAC keys, RSA PKCS#8
 keys, and Ed25519 keys. Strategy selection may prefer liquid instruments, but
 the provider layer must not hard-code a narrow instrument universe.
+The catalog declares every currently targeted Binance trading product family,
+even when disabled. Spot user data is modeled as WebSocket API based, margin
+user data uses `listenToken`, and futures/options user data uses `listenKey`;
+activation remains a runtime target decision validated before use.
 
 ## Demo And Real
 

@@ -63,7 +63,9 @@
                       ],
                       "order_response_type_default": "FULL",
                       "unknown_execution_status": {
-                        "retryable_messages": [],
+                        "retryable_messages": [
+                          "Timeout waiting for response from backend server. Send status unknown; execution status unknown."
+                        ],
                         "reconcile_before_retry_status_codes": [
                           503
                         ]
@@ -81,6 +83,133 @@
                       "max_streams_per_connection": 1024,
                       "max_connection_attempts_per_five_minutes": 300,
                       "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "websocket_api"
+                    }
+                  },
+                  "margin_cross": {
+                    "enabled": false,
+                    "name": "MARGIN_CROSS",
+                    "rest": {
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/api/v3/exchangeInfo",
+                      "server_time_path": "/api/v3/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT",
+                        "X-SAPI-USED-IP-WEIGHT",
+                        "X-SAPI-USED-UID-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "FULL",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Timeout waiting for response from backend server. Send status unknown; execution status unknown."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
+                    },
+                    "websocket": {
+                      "base_url": "wss://example.invalid",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_seconds": 20,
+                      "pong_timeout_seconds": 60,
+                      "max_incoming_messages_per_second": 5,
+                      "max_streams_per_connection": 1024,
+                      "max_connection_attempts_per_five_minutes": 300,
+                      "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "listen_token",
+                      "start_path": "/sapi/v1/userListenToken",
+                      "validity_minutes": 1440,
+                      "renewal_interval_minutes": 1380,
+                      "request_weight": 1
+                    }
+                  },
+                  "margin_isolated": {
+                    "enabled": false,
+                    "name": "MARGIN_ISOLATED",
+                    "rest": {
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/api/v3/exchangeInfo",
+                      "server_time_path": "/api/v3/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT",
+                        "X-SAPI-USED-IP-WEIGHT",
+                        "X-SAPI-USED-UID-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "FULL",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Timeout waiting for response from backend server. Send status unknown; execution status unknown."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
+                    },
+                    "websocket": {
+                      "base_url": "wss://example.invalid",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_seconds": 20,
+                      "pong_timeout_seconds": 60,
+                      "max_incoming_messages_per_second": 5,
+                      "max_streams_per_connection": 1024,
+                      "max_connection_attempts_per_five_minutes": 300,
+                      "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "listen_token",
+                      "start_path": "/sapi/v1/userListenToken",
+                      "validity_minutes": 1440,
+                      "renewal_interval_minutes": 1380,
+                      "request_weight": 1
                     }
                   },
                   "usdm_futures": {
@@ -142,14 +271,144 @@
                       "start_path": "/fapi/v1/listenKey",
                       "keepalive_path": "/fapi/v1/listenKey",
                       "close_path": "/fapi/v1/listenKey",
-                      "listen_key_validity_minutes": 60,
-                      "keepalive_interval_minutes": 30,
+                      "validity_minutes": 60,
+                      "renewal_interval_minutes": 30,
                       "request_weight": 1
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
                       "multi_assets_mode_expected": false,
                       "portfolio_margin_expected": false
+                    }
+                  },
+                  "coinm_futures": {
+                    "enabled": false,
+                    "name": "FUTURES_COIN_M",
+                    "rest": {
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/dapi/v1/exchangeInfo",
+                      "server_time_path": "/dapi/v1/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "RESULT",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Unknown error, please check your request or try again later."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
+                    },
+                    "websocket": {
+                      "base_url": "wss://example.invalid",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_minutes": 3,
+                      "pong_timeout_minutes": 10,
+                      "max_incoming_messages_per_second": 10,
+                      "max_streams_per_connection": 1024,
+                      "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "listen_key",
+                      "start_path": "/dapi/v1/listenKey",
+                      "keepalive_path": "/dapi/v1/listenKey",
+                      "close_path": "/dapi/v1/listenKey",
+                      "validity_minutes": 60,
+                      "renewal_interval_minutes": 30,
+                      "request_weight": 1
+                    },
+                    "futures_account": {
+                      "position_mode": "ONE_WAY",
+                      "multi_assets_mode_expected": false,
+                      "portfolio_margin_expected": false
+                    }
+                  },
+                  "options": {
+                    "enabled": false,
+                    "name": "OPTIONS",
+                    "rest": {
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/eapi/v1/exchangeInfo",
+                      "server_time_path": "/eapi/v1/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "ACK",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Unknown error, please check your request or try again later."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
+                    },
+                    "websocket": {
+                      "base_url": "wss://example.invalid",
+                      "public_path_prefix": "/public",
+                      "market_path_prefix": "/market",
+                      "private_path_prefix": "/private",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_minutes": 5,
+                      "pong_timeout_minutes": 15,
+                      "max_incoming_messages_per_second": 10,
+                      "max_streams_per_connection": 200,
+                      "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "listen_key",
+                      "start_path": "/eapi/v1/listenKey",
+                      "keepalive_path": "/eapi/v1/listenKey",
+                      "close_path": "/eapi/v1/listenKey",
+                      "validity_minutes": 60,
+                      "renewal_interval_minutes": 55,
+                      "request_weight": 1
                     }
                   }
                 }
@@ -204,7 +463,9 @@
                       ],
                       "order_response_type_default": "FULL",
                       "unknown_execution_status": {
-                        "retryable_messages": [],
+                        "retryable_messages": [
+                          "Timeout waiting for response from backend server. Send status unknown; execution status unknown."
+                        ],
                         "reconcile_before_retry_status_codes": [
                           503
                         ]
@@ -222,6 +483,133 @@
                       "max_streams_per_connection": 1024,
                       "max_connection_attempts_per_five_minutes": 300,
                       "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "websocket_api"
+                    }
+                  },
+                  "margin_cross": {
+                    "enabled": false,
+                    "name": "MARGIN_CROSS",
+                    "rest": {
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/api/v3/exchangeInfo",
+                      "server_time_path": "/api/v3/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT",
+                        "X-SAPI-USED-IP-WEIGHT",
+                        "X-SAPI-USED-UID-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "FULL",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Timeout waiting for response from backend server. Send status unknown; execution status unknown."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
+                    },
+                    "websocket": {
+                      "base_url": "wss://example.invalid",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_seconds": 20,
+                      "pong_timeout_seconds": 60,
+                      "max_incoming_messages_per_second": 5,
+                      "max_streams_per_connection": 1024,
+                      "max_connection_attempts_per_five_minutes": 300,
+                      "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "listen_token",
+                      "start_path": "/sapi/v1/userListenToken",
+                      "validity_minutes": 1440,
+                      "renewal_interval_minutes": 1380,
+                      "request_weight": 1
+                    }
+                  },
+                  "margin_isolated": {
+                    "enabled": false,
+                    "name": "MARGIN_ISOLATED",
+                    "rest": {
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/api/v3/exchangeInfo",
+                      "server_time_path": "/api/v3/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT",
+                        "X-SAPI-USED-IP-WEIGHT",
+                        "X-SAPI-USED-UID-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "FULL",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Timeout waiting for response from backend server. Send status unknown; execution status unknown."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
+                    },
+                    "websocket": {
+                      "base_url": "wss://example.invalid",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_seconds": 20,
+                      "pong_timeout_seconds": 60,
+                      "max_incoming_messages_per_second": 5,
+                      "max_streams_per_connection": 1024,
+                      "max_connection_attempts_per_five_minutes": 300,
+                      "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "listen_token",
+                      "start_path": "/sapi/v1/userListenToken",
+                      "validity_minutes": 1440,
+                      "renewal_interval_minutes": 1380,
+                      "request_weight": 1
                     }
                   },
                   "usdm_futures": {
@@ -283,14 +671,144 @@
                       "start_path": "/fapi/v1/listenKey",
                       "keepalive_path": "/fapi/v1/listenKey",
                       "close_path": "/fapi/v1/listenKey",
-                      "listen_key_validity_minutes": 60,
-                      "keepalive_interval_minutes": 30,
+                      "validity_minutes": 60,
+                      "renewal_interval_minutes": 30,
                       "request_weight": 1
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
                       "multi_assets_mode_expected": false,
                       "portfolio_margin_expected": false
+                    }
+                  },
+                  "coinm_futures": {
+                    "enabled": false,
+                    "name": "FUTURES_COIN_M",
+                    "rest": {
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/dapi/v1/exchangeInfo",
+                      "server_time_path": "/dapi/v1/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "RESULT",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Unknown error, please check your request or try again later."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
+                    },
+                    "websocket": {
+                      "base_url": "wss://example.invalid",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_minutes": 3,
+                      "pong_timeout_minutes": 10,
+                      "max_incoming_messages_per_second": 10,
+                      "max_streams_per_connection": 1024,
+                      "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "listen_key",
+                      "start_path": "/dapi/v1/listenKey",
+                      "keepalive_path": "/dapi/v1/listenKey",
+                      "close_path": "/dapi/v1/listenKey",
+                      "validity_minutes": 60,
+                      "renewal_interval_minutes": 30,
+                      "request_weight": 1
+                    },
+                    "futures_account": {
+                      "position_mode": "ONE_WAY",
+                      "multi_assets_mode_expected": false,
+                      "portfolio_margin_expected": false
+                    }
+                  },
+                  "options": {
+                    "enabled": false,
+                    "name": "OPTIONS",
+                    "rest": {
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/eapi/v1/exchangeInfo",
+                      "server_time_path": "/eapi/v1/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "ACK",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Unknown error, please check your request or try again later."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
+                    },
+                    "websocket": {
+                      "base_url": "wss://example.invalid",
+                      "public_path_prefix": "/public",
+                      "market_path_prefix": "/market",
+                      "private_path_prefix": "/private",
+                      "raw_stream_path": "/ws",
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_minutes": 5,
+                      "pong_timeout_minutes": 15,
+                      "max_incoming_messages_per_second": 10,
+                      "max_streams_per_connection": 200,
+                      "timestamp_unit": "MILLISECONDS"
+                    },
+                    "user_data": {
+                      "mode": "listen_key",
+                      "start_path": "/eapi/v1/listenKey",
+                      "keepalive_path": "/eapi/v1/listenKey",
+                      "close_path": "/eapi/v1/listenKey",
+                      "validity_minutes": 60,
+                      "renewal_interval_minutes": 55,
+                      "request_weight": 1
                     }
                   }
                 }

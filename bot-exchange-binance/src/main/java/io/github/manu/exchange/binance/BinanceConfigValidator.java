@@ -14,11 +14,19 @@ import java.util.stream.Collectors;
 final class BinanceConfigValidator {
 
     private static final int MAX_RECV_WINDOW_MILLIS = 60_000;
-    private static final Set<String> SIGNATURE_ALGORITHMS = Set.of("HMAC_SHA256", "RSA_SHA256", "ED25519");
+    private static final String HMAC_SHA256 = "HMAC_SHA256";
+    private static final String RSA_SHA256 = "RSA_SHA256";
+    private static final String ED25519 = "ED25519";
+    private static final Set<String> ASYMMETRIC_SIGNATURE_ALGORITHMS = Set.of(HMAC_SHA256, RSA_SHA256, ED25519);
+    private static final Set<String> RSA_SIGNATURE_ALGORITHMS = Set.of(HMAC_SHA256, RSA_SHA256);
+    private static final Set<String> HMAC_SIGNATURE_ALGORITHMS = Set.of(HMAC_SHA256);
     private static final Set<String> TIMESTAMP_UNITS = Set.of("MILLISECONDS", "MICROSECONDS");
     private static final Set<String> ORDER_RESPONSE_TYPES = Set.of("ACK", "RESULT", "FULL");
     private static final Set<String> FUTURES_POSITION_MODES = Set.of("ONE_WAY", "HEDGE");
-    private static final Set<String> USER_DATA_MODES = Set.of("listen_key");
+    private static final String LISTEN_KEY = "listen_key";
+    private static final String LISTEN_TOKEN = "listen_token";
+    private static final String WEBSOCKET_API = "websocket_api";
+    private static final Set<String> USER_DATA_MODES = Set.of(LISTEN_KEY, LISTEN_TOKEN, WEBSOCKET_API);
 
     private BinanceConfigValidator() {
     }
@@ -27,9 +35,12 @@ final class BinanceConfigValidator {
         List<String> errors = new ArrayList<>();
         BinanceMarketType marketType = marketType(binance.marketType(), marketPath(active) + ".name", errors);
 
-        validateCredentials(accountPath(active) + ".credentials", binance.credentials(), errors);
+        validateCredentials(accountPath(active) + ".credentials", binance.credentials(), marketType, errors);
         validateRest(marketPath(active) + ".rest", binance.rest(), marketType, errors);
         validateWebsocket(marketPath(active) + ".websocket", binance.websocket(), errors);
+        if (!marketType.futures()) {
+            validateUserData(marketPath(active) + ".user_data", binance.userDataStream(), marketType, false, errors);
+        }
         validateFutures(active, binance, marketType, errors);
 
         if (!errors.isEmpty()) {
@@ -39,6 +50,7 @@ final class BinanceConfigValidator {
 
     private static void validateCredentials(String path,
                                             BinanceProperties.Credentials credentials,
+                                            BinanceMarketType marketType,
                                             List<String> errors) {
         if (credentials == null) {
             errors.add(path + " is required");
@@ -48,7 +60,7 @@ final class BinanceConfigValidator {
         requireText(path + ".reference", credentials.reference(), errors);
         requireText(path + ".api_key", credentials.apiKey(), errors);
         requireText(path + ".api_secret", credentials.apiSecret(), errors);
-        requireOneOf(path + ".key_type", credentials.keyType(), SIGNATURE_ALGORITHMS, errors);
+        requireOneOf(path + ".key_type", credentials.keyType(), signatureAlgorithms(marketType), errors);
         requireNonEmpty(path + ".required_permissions", credentials.requiredPermissions(), errors);
     }
 
@@ -65,7 +77,7 @@ final class BinanceConfigValidator {
         requirePath(path + ".exchange_info_path", rest.exchangeInfoPath(), errors);
         requirePath(path + ".server_time_path", rest.serverTimePath(), errors);
         requireText(path + ".api_key_header", rest.apiKeyHeader(), errors);
-        requireOneOf(path + ".signature_algorithm", rest.signatureAlgorithm(), SIGNATURE_ALGORITHMS, errors);
+        requireOneOf(path + ".signature_algorithm", rest.signatureAlgorithm(), signatureAlgorithms(marketType), errors);
         requireOneOf(path + ".timestamp_unit", rest.timestampUnit(), TIMESTAMP_UNITS, errors);
         requirePositive(path + ".recv_window_millis", rest.recvWindowMillis(), errors);
         requireAtMost(path + ".recv_window_millis", rest.recvWindowMillis(), MAX_RECV_WINDOW_MILLIS, errors);
@@ -146,29 +158,43 @@ final class BinanceConfigValidator {
         }
 
         String path = marketPath(active);
-        validateUserData(path + ".user_data", binance.userDataStream(), marketType, errors);
+        validateUserData(path + ".user_data", binance.userDataStream(), marketType, true, errors);
         validateFuturesAccount(path + ".futures_account", binance.futuresAccount(), errors);
     }
 
     private static void validateUserData(String path,
                                          BinanceProperties.UserDataStream userData,
                                          BinanceMarketType marketType,
+                                         boolean required,
                                          List<String> errors) {
         if (userData == null) {
-            errors.add(path + " is required for Binance futures markets");
+            if (required) {
+                errors.add(path + " is required for Binance futures markets");
+            }
             return;
         }
 
         requireOneOf(path + ".mode", userData.mode(), USER_DATA_MODES, errors);
+        if (WEBSOCKET_API.equals(userData.mode())) {
+            return;
+        }
+
         requirePath(path + ".start_path", userData.startPath(), errors);
-        requirePath(path + ".keepalive_path", userData.keepalivePath(), errors);
-        requirePath(path + ".close_path", userData.closePath(), errors);
-        requireMatching(path + ".start_path", userData.startPath(), marketType.listenKeyPath(), errors);
-        requireMatching(path + ".keepalive_path", userData.keepalivePath(), marketType.listenKeyPath(), errors);
-        requireMatching(path + ".close_path", userData.closePath(), marketType.listenKeyPath(), errors);
-        requirePositive(path + ".listen_key_validity_minutes", userData.listenKeyValidityMinutes(), errors);
-        requirePositive(path + ".keepalive_interval_minutes", userData.keepaliveIntervalMinutes(), errors);
+        requireMatching(path + ".start_path", userData.startPath(), marketType.userDataStartPath(), errors);
+        requirePositive(path + ".validity_minutes", userData.validityMinutes(), errors);
         requirePositive(path + ".request_weight", userData.requestWeight(), errors);
+
+        if (LISTEN_KEY.equals(userData.mode())) {
+            requirePath(path + ".keepalive_path", userData.keepalivePath(), errors);
+            requirePath(path + ".close_path", userData.closePath(), errors);
+            requireMatching(path + ".keepalive_path", userData.keepalivePath(), marketType.userDataStartPath(), errors);
+            requireMatching(path + ".close_path", userData.closePath(), marketType.userDataStartPath(), errors);
+            requirePositive(path + ".renewal_interval_minutes", userData.renewalIntervalMinutes(), errors);
+        } else if (LISTEN_TOKEN.equals(userData.mode())) {
+            requireOptionalPath(path + ".keepalive_path", userData.keepalivePath(), errors);
+            requireOptionalPath(path + ".close_path", userData.closePath(), errors);
+            requireOptionalPositive(path + ".renewal_interval_minutes", userData.renewalIntervalMinutes(), errors);
+        }
     }
 
     private static void validateFuturesAccount(String path,
@@ -320,6 +346,14 @@ final class BinanceConfigValidator {
 
     private static String marketPath(ExchangeProperties active) {
         return accountPath(active) + ".markets." + active.market();
+    }
+
+    private static Set<String> signatureAlgorithms(BinanceMarketType marketType) {
+        return switch (marketType) {
+            case SPOT, MARGIN_CROSS, MARGIN_ISOLATED -> ASYMMETRIC_SIGNATURE_ALGORITHMS;
+            case FUTURES_USD_M, FUTURES_COIN_M -> RSA_SIGNATURE_ALGORITHMS;
+            case OPTIONS -> HMAC_SIGNATURE_ALGORITHMS;
+        };
     }
 
     private static <T extends Enum<T>> String enumNames(Class<T> type) {

@@ -3,17 +3,17 @@ package io.github.manu.exchange.binance;
 public enum BinanceMarketType {
     SPOT(
             "/api/v3/exchangeInfo",
-            "/api/v3/userDataStream",
+            null,
             false
     ),
     MARGIN_CROSS(
             "/api/v3/exchangeInfo",
-            "/sapi/v1/userDataStream",
+            "/sapi/v1/userListenToken",
             false
     ),
     MARGIN_ISOLATED(
             "/api/v3/exchangeInfo",
-            "/sapi/v1/userDataStream/isolated",
+            "/sapi/v1/userListenToken",
             false
     ),
     FUTURES_USD_M(
@@ -33,12 +33,12 @@ public enum BinanceMarketType {
     );
 
     private final String exchangeInfoPath;
-    private final String listenKeyPath;
+    private final String userDataStartPath;
     private final boolean futures;
 
-    BinanceMarketType(String exchangeInfoPath, String listenKeyPath, boolean futures) {
+    BinanceMarketType(String exchangeInfoPath, String userDataStartPath, boolean futures) {
         this.exchangeInfoPath = exchangeInfoPath;
-        this.listenKeyPath = listenKeyPath;
+        this.userDataStartPath = userDataStartPath;
         this.futures = futures;
     }
 
@@ -46,8 +46,8 @@ public enum BinanceMarketType {
         return exchangeInfoPath;
     }
 
-    public String listenKeyPath() {
-        return listenKeyPath;
+    public String userDataStartPath() {
+        return userDataStartPath;
     }
 
     public boolean futures() {

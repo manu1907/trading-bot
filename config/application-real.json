@@ -27,6 +27,38 @@
                     "websocket": {
                       "base_url": "wss://fstream.binance.com"
                     }
+                  },
+                  "margin_cross": {
+                    "rest": {
+                      "base_url": "https://api.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://stream.binance.com:9443"
+                    }
+                  },
+                  "margin_isolated": {
+                    "rest": {
+                      "base_url": "https://api.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://stream.binance.com:9443"
+                    }
+                  },
+                  "coinm_futures": {
+                    "rest": {
+                      "base_url": "https://dapi.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://dstream.binance.com"
+                    }
+                  },
+                  "options": {
+                    "rest": {
+                      "base_url": "https://eapi.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://fstream.binance.com"
+                    }
                   }
                 }
               }

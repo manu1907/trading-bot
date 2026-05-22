@@ -23,4 +23,14 @@ class BinanceMarketTypeTest {
         assertThat(BinanceMarketType.SPOT.futures()).isFalse();
         assertThat(BinanceMarketType.OPTIONS.futures()).isFalse();
     }
+
+    @Test
+    void maps_documented_user_data_start_paths() {
+        assertThat(BinanceMarketType.SPOT.userDataStartPath()).isNull();
+        assertThat(BinanceMarketType.MARGIN_CROSS.userDataStartPath()).isEqualTo("/sapi/v1/userListenToken");
+        assertThat(BinanceMarketType.MARGIN_ISOLATED.userDataStartPath()).isEqualTo("/sapi/v1/userListenToken");
+        assertThat(BinanceMarketType.FUTURES_USD_M.userDataStartPath()).isEqualTo("/fapi/v1/listenKey");
+        assertThat(BinanceMarketType.FUTURES_COIN_M.userDataStartPath()).isEqualTo("/dapi/v1/listenKey");
+        assertThat(BinanceMarketType.OPTIONS.userDataStartPath()).isEqualTo("/eapi/v1/listenKey");
+    }
 }

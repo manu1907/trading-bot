@@ -27,6 +27,22 @@
                     "websocket": {
                       "base_url": "wss://fstream.binancefuture.com"
                     }
+                  },
+                  "coinm_futures": {
+                    "rest": {
+                      "base_url": "https://testnet.binancefuture.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://dstream.binancefuture.com"
+                    }
+                  },
+                  "options": {
+                    "rest": {
+                      "base_url": "https://testnet.binancefuture.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://fstream.binancefuture.com"
+                    }
                   }
                 }
               }

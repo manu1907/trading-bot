@@ -81,8 +81,8 @@ public record BinanceProperties(
             String startPath,
             String keepalivePath,
             String closePath,
-            Integer listenKeyValidityMinutes,
-            Integer keepaliveIntervalMinutes,
+            Integer validityMinutes,
+            Integer renewalIntervalMinutes,
             Integer requestWeight
     ) {
     }
