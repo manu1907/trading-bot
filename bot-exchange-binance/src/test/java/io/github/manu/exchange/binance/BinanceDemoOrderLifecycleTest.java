@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,14 +69,15 @@ class BinanceDemoOrderLifecycleTest {
                 Clock.systemUTC(),
                 serverTimeOffsetMillis(binance)
         );
+        boolean hedgeMode = hedgeMode(binance, apiKey, apiSecret);
         BinanceOrderCommand order = new BinanceOrderCommand(
                 SYMBOL,
                 "BUY",
                 "LIMIT",
                 "GTX",
-                "BOTH",
+                hedgeMode ? "LONG" : null,
                 "RESULT",
-                "NONE",
+                null,
                 null,
                 clientOrderId,
                 quantity,
@@ -100,7 +102,9 @@ class BinanceDemoOrderLifecycleTest {
                     apiKey,
                     binance.rest().apiKeyHeader()
             );
-            assertThat(created.statusCode()).isBetween(200, 299);
+            assertThat(created.statusCode())
+                    .as("create order response: " + created.body())
+                    .isBetween(200, 299);
             createdOrder = true;
         } finally {
             if (createdOrder) {
@@ -110,7 +114,9 @@ class BinanceDemoOrderLifecycleTest {
                         apiKey,
                         binance.rest().apiKeyHeader()
                 );
-                assertThat(cancelled.statusCode()).isBetween(200, 299);
+                assertThat(cancelled.statusCode())
+                        .as("cancel order response: " + cancelled.body())
+                        .isBetween(200, 299);
             }
         }
     }
@@ -127,6 +133,18 @@ class BinanceDemoOrderLifecycleTest {
     private long serverTimeOffsetMillis(BinanceProperties binance) throws IOException, InterruptedException {
         JsonNode serverTime = getJson(binance.rest().baseUrl() + binance.rest().serverTimePath());
         return serverTime.required("serverTime").asLong() - Instant.now().toEpochMilli();
+    }
+
+    private boolean hedgeMode(BinanceProperties binance,
+                              String apiKey,
+                              String apiSecret) throws IOException, InterruptedException {
+        BinanceRestRequestFactory factory = new BinanceRestRequestFactory(binance.rest(), Clock.systemUTC(), serverTimeOffsetMillis(binance));
+        BinanceSignedRequest request = factory.signedUri("/fapi/v1/positionSide/dual", List.of(), apiSecret);
+        HttpResponse<String> response = sendSigned(request, "GET", apiKey, binance.rest().apiKeyHeader());
+        assertThat(response.statusCode())
+                .as("position mode response: " + response.body())
+                .isBetween(200, 299);
+        return jsonMapper.readTree(response.body()).required("dualSidePosition").asBoolean();
     }
 
     private BigDecimal passiveBuyPrice(BinanceProperties binance) throws IOException, InterruptedException {
