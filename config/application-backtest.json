@@ -1,5 +1,10 @@
 {
   "version": 1,
+  "schema": {
+    "id": "io.github.manu.trading-bot.config",
+    "version": 1,
+    "migration_policy": "fail_fast"
+  },
   "bot": {
     "instance_id": "trading-bot",
     "target_id": "simulated_backtest_backtest_simulation",

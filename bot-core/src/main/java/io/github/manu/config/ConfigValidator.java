@@ -20,7 +20,9 @@ import java.util.stream.Collectors;
 @Component
 public class ConfigValidator {
 
-    private static final int SUPPORTED_CONFIG_VERSION = 1;
+    private static final String SUPPORTED_SCHEMA_ID = "io.github.manu.trading-bot.config";
+    private static final Integer SUPPORTED_CONFIG_VERSION = 1;
+    private static final String SUPPORTED_MIGRATION_POLICY = "fail_fast";
 
     private final ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory();
     private final Validator beanValidator = validatorFactory.getValidator();
@@ -52,7 +54,28 @@ public class ConfigValidator {
     }
 
     private void crossValidate(TradingBotProperties config) {
-        if (config.getVersion() != SUPPORTED_CONFIG_VERSION) {
+        if (!SUPPORTED_SCHEMA_ID.equals(config.getSchema().id())) {
+            throw new ConfigValidationException(
+                    "Unsupported config schema '%s'; expected '%s'"
+                            .formatted(config.getSchema().id(), SUPPORTED_SCHEMA_ID)
+            );
+        }
+
+        if (!SUPPORTED_CONFIG_VERSION.equals(config.getSchema().version())) {
+            throw new ConfigValidationException(
+                    "Unsupported schema version %s; expected %s"
+                            .formatted(config.getSchema().version(), SUPPORTED_CONFIG_VERSION)
+            );
+        }
+
+        if (!SUPPORTED_MIGRATION_POLICY.equals(config.getSchema().migrationPolicy())) {
+            throw new ConfigValidationException(
+                    "Unsupported migration policy '%s'; expected '%s'"
+                            .formatted(config.getSchema().migrationPolicy(), SUPPORTED_MIGRATION_POLICY)
+            );
+        }
+
+        if (!SUPPORTED_CONFIG_VERSION.equals(config.getVersion())) {
             throw new ConfigValidationException(
                     "Unsupported config version %s; expected %s"
                             .formatted(config.getVersion(), SUPPORTED_CONFIG_VERSION)

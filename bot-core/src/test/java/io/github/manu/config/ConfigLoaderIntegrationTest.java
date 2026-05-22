@@ -36,6 +36,8 @@ class ConfigLoaderIntegrationTest {
         assertThat(loadedConfig.getBot().instanceId()).isNotBlank();
         assertThat(loadedConfig.getBot().targetId()).isNotBlank();
         assertThat(loadedConfig.getVersion()).isEqualTo(1);
+        assertThat(loadedConfig.getSchema().id()).isEqualTo("io.github.manu.trading-bot.config");
+        assertThat(loadedConfig.getSchema().migrationPolicy()).isEqualTo("fail_fast");
         assertThat(loadedConfig.getProviders()).isNotNull();
         assertThat(activeRestBaseUrl(loadedConfig, active)).isEqualTo("https://demo-fapi.binance.com");
     }
@@ -127,6 +129,20 @@ class ConfigLoaderIntegrationTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Failed to load baseline configuration")
                 .hasRootCauseMessage("Runtime override is a no-op at path: exchange.providers." + active.provider() + ".enabled");
+    }
+
+    @Test
+    void runtime_overrides_cannot_replace_schema_metadata() throws IOException {
+        TestContext context = prepareContext("config-schema-override");
+        ExchangeProperties active = readActiveSelection(context.configDir.resolve("active.json"));
+        ObjectNode runtime = jsonMapper.createObjectNode();
+        runtime.putObject("schema").put("version", 2);
+        writeActiveFile(context.configDir, active, runtime);
+
+        assertThatThrownBy(() -> context.configLoader.loadBaseline(RuntimeProfile.LIVE))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to load baseline configuration")
+                .hasRootCauseMessage("schema cannot be overridden by config patches");
     }
 
     private TestContext prepareContext(String directoryName) throws IOException {

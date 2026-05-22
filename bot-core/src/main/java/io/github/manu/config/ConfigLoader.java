@@ -64,11 +64,13 @@ public class ConfigLoader {
 
             ObjectNode environmentOverride = readObjectNode(fileLayout.environmentFile(active.environment()));
             ConfigTreeOperations.validatePatchPaths(catalog, environmentOverride, "", false);
+            ConfigTreeOperations.rejectRootMetadataOverride(environmentOverride);
             ConfigTreeOperations.rejectActiveTargetOverride(environmentOverride);
             ConfigTreeOperations.mergeObjectNodes(catalog, environmentOverride);
             exchangeNode.set("active", jsonMapper.valueToTree(active));
 
             ConfigTreeOperations.validatePatchPaths(catalog, runtimeOverrides, "", true);
+            ConfigTreeOperations.rejectRootMetadataOverride(runtimeOverrides);
             ConfigTreeOperations.rejectActiveTargetOverride(runtimeOverrides);
             ConfigTreeOperations.mergeObjectNodes(catalog, runtimeOverrides);
             exchangeNode.set("active", jsonMapper.valueToTree(active));

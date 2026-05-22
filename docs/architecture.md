@@ -57,6 +57,10 @@ active runtime file. Unknown override paths are rejected. Runtime override
 files are created as empty JSON objects when the active target has no file yet.
 Runtime override writes are staged as candidate config, validated, then moved
 into place atomically. A rejected write leaves the previous runtime file intact.
+Root `version` and `schema` metadata cannot be changed by environment or
+runtime patches. The current migration policy is `fail_fast`: an unsupported
+schema id, schema version, config version, or migration policy stops startup
+or reload instead of trying an implicit migration.
 
 For backtest mode, only the backtest config is used.
 

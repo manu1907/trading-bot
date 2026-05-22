@@ -55,6 +55,15 @@ final class ConfigTreeOperations {
         }
     }
 
+    static void rejectRootMetadataOverride(ObjectNode patch) {
+        if (patch.has("version")) {
+            throw new IllegalArgumentException("version cannot be overridden by config patches");
+        }
+        if (patch.has("schema")) {
+            throw new IllegalArgumentException("schema cannot be overridden by config patches");
+        }
+    }
+
     static boolean isEmptyObject(ObjectNode node) {
         return !node.properties().iterator().hasNext();
     }

@@ -91,6 +91,11 @@ class ConfigReloadPolicyTest {
 
         private ConfigBuilder() {
             root.put("version", 1);
+            ObjectNode schema = root.putObject("schema");
+            schema.put("id", "io.github.manu.trading-bot.config");
+            schema.put("version", 1);
+            schema.put("migration_policy", "fail_fast");
+
             bot = root.putObject("bot");
             bot.put("instance_id", "test-bot");
             bot.put("target_id", "binance_demo_main_usdm_futures");

@@ -16,6 +16,10 @@ public class TradingBotProperties {
 
     @Valid
     @NotNull
+    private ConfigSchemaProperties schema;
+
+    @Valid
+    @NotNull
     private BotProperties bot;
 
     @Valid
@@ -49,6 +53,14 @@ public class TradingBotProperties {
 
     public void setVersion(Integer version) {
         this.version = version;
+    }
+
+    public ConfigSchemaProperties getSchema() {
+        return schema;
+    }
+
+    public void setSchema(ConfigSchemaProperties schema) {
+        this.schema = schema;
     }
 
     public BotProperties getBot() {

@@ -40,6 +40,15 @@ class ConfigValidatorTest {
     }
 
     @Test
+    void rejects_unsupported_schema() {
+        ConfigValidator validator = validator(new StubExchangeModule("binance"));
+
+        assertThatThrownBy(() -> validator.validate(config(builder -> builder.schema().put("id", "unexpected.schema"))))
+                .isInstanceOf(ConfigValidationException.class)
+                .hasMessageContaining("Unsupported config schema 'unexpected.schema'");
+    }
+
+    @Test
     void rejects_unknown_exchange_module() {
         ConfigValidator validator = validator();
 
@@ -75,14 +84,48 @@ class ConfigValidatorTest {
         return config(1, true, true, true, true);
     }
 
+    private TradingBotProperties config(ConfigCustomizer customizer) {
+        try {
+            ConfigBuilder builder = new ConfigBuilder(1, true, true, true, true);
+            customizer.customize(builder);
+            return jsonMapper.treeToValue(builder.root(), TradingBotProperties.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to build test config", e);
+        }
+    }
+
     private TradingBotProperties config(int version,
                                         boolean providerEnabled,
                                         boolean environmentEnabled,
                                         boolean accountEnabled,
                                         boolean marketEnabled) {
         try {
-            ObjectNode root = jsonMapper.createObjectNode();
+            ConfigBuilder builder = new ConfigBuilder(version, providerEnabled, environmentEnabled, accountEnabled, marketEnabled);
+            return jsonMapper.treeToValue(builder.root(), TradingBotProperties.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to build test config", e);
+        }
+    }
+
+    private interface ConfigCustomizer {
+        void customize(ConfigBuilder builder);
+    }
+
+    private final class ConfigBuilder {
+        private final ObjectNode root = jsonMapper.createObjectNode();
+        private final ObjectNode schema;
+
+        private ConfigBuilder(int version,
+                              boolean providerEnabled,
+                              boolean environmentEnabled,
+                              boolean accountEnabled,
+                              boolean marketEnabled) {
             root.put("version", version);
+            schema = root.putObject("schema");
+            schema.put("id", "io.github.manu.trading-bot.config");
+            schema.put("version", 1);
+            schema.put("migration_policy", "fail_fast");
+
             ObjectNode bot = root.putObject("bot");
             bot.put("instance_id", "test-bot");
             bot.put("target_id", "binance_demo_main_usdm_futures");
@@ -103,10 +146,14 @@ class ConfigValidatorTest {
             account.put("enabled", accountEnabled);
             ObjectNode market = account.putObject("markets").putObject("usdm_futures");
             market.put("enabled", marketEnabled);
+        }
 
-            return jsonMapper.treeToValue(root, TradingBotProperties.class);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build test config", e);
+        private ObjectNode root() {
+            return root;
+        }
+
+        private ObjectNode schema() {
+            return schema;
         }
     }
 
