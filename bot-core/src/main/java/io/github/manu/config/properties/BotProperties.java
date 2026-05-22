@@ -1,10 +1,10 @@
 package io.github.manu.config.properties;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 
 public record BotProperties(
-        @NotNull String instanceId,
-        @NotNull String targetId,
-        @NotNull String timezone
+        @NotBlank String instanceId,
+        @NotBlank String targetId,
+        @NotBlank String timezone
 ) {
 }

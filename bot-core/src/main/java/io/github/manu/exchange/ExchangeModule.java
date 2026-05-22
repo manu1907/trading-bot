@@ -5,6 +5,9 @@ import java.util.concurrent.CompletableFuture;
 public interface ExchangeModule {
     String provider();
 
+    default void validateConfig(ResolvedExchangeConfig config) {
+    }
+
     void configure(ResolvedExchangeConfig config);
 
     default CompletableFuture<Void> applyMutableConfig(ResolvedExchangeConfig config) {

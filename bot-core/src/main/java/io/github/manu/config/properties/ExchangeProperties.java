@@ -1,13 +1,13 @@
 package io.github.manu.config.properties;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ExchangeProperties(
-        @NotNull String provider,
-        @NotNull String environment,
-        @NotNull String account,
-        @NotNull String market
+        @NotBlank String provider,
+        @NotBlank String environment,
+        @NotBlank String account,
+        @NotBlank String market
 ) {
 }
