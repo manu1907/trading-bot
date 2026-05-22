@@ -66,6 +66,27 @@ class BinanceOrderRequestFactoryTest {
         assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/order?");
     }
 
+    @Test
+    void builds_query_order_request_by_original_client_order_id() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.queryOrder("BTCUSDT", "tb_smoke_1", "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&origClientOrderId=tb_smoke_1&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/order?");
+    }
+
+    @Test
+    void builds_open_orders_request_with_optional_symbol() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.openOrders("BTCUSDT", "test-secret");
+
+        assertThat(request.payload()).isEqualTo("symbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/openOrders?");
+    }
+
     private BinanceProperties binance() {
         return new BinanceProperties(
                 "FUTURES_USD_M",

@@ -1,0 +1,272 @@
+package io.github.manu.exchange.binance;
+
+import io.github.manu.config.JsonMapperFactory;
+import io.github.manu.config.properties.provider.binance.BinanceProperties;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class BinanceOrderClientTest {
+
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            Instant.ofEpochMilli(1_499_827_319_559L),
+            ZoneOffset.UTC
+    );
+
+    @Test
+    void places_order_and_parses_common_order_fields() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "symbol": "BTCUSDT",
+                  "orderId": 12345,
+                  "clientOrderId": "tb_1",
+                  "status": "NEW",
+                  "side": "BUY",
+                  "type": "LIMIT",
+                  "positionSide": "LONG",
+                  "price": "50000.00",
+                  "origQty": "0.001",
+                  "executedQty": "0",
+                  "avgPrice": "0.00",
+                  "cumQuote": "0",
+                  "updateTime": 1668481559918
+                }
+                """));
+        BinanceOrderClient client = client(transport);
+
+        BinanceOrderResult result = client.placeOrder(limitOrder());
+
+        assertThat(result.orderId()).isEqualTo(12345L);
+        assertThat(result.clientOrderId()).isEqualTo("tb_1");
+        assertThat(result.price()).isEqualByComparingTo("50000.00");
+        assertThat(transport.calls()).hasSize(1);
+        assertThat(transport.calls().getFirst().method()).isEqualTo("POST");
+        assertThat(transport.calls().getFirst().uri()).contains("/fapi/v1/order?");
+    }
+
+    @Test
+    void queries_cancels_and_lists_orders() {
+        FakeTransport transport = new FakeTransport(
+                orderResponse("QUERY", "FILLED"),
+                orderResponse("CANCEL", "CANCELED"),
+                new BinanceHttpResponse(200, "[" + orderResponseBody("OPEN", "NEW") + "]")
+        );
+        BinanceOrderClient client = client(transport);
+
+        BinanceOrderResult queried = client.queryOrder("BTCUSDT", "tb_query");
+        BinanceOrderResult cancelled = client.cancelOrder("BTCUSDT", "tb_cancel");
+        List<BinanceOrderResult> openOrders = client.openOrders("BTCUSDT");
+
+        assertThat(queried.status()).isEqualTo("FILLED");
+        assertThat(cancelled.status()).isEqualTo("CANCELED");
+        assertThat(openOrders).singleElement().extracting(BinanceOrderResult::status).isEqualTo("NEW");
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "DELETE", "GET");
+    }
+
+    @Test
+    void throws_sanitized_binance_api_exception_for_exchange_error() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
+                {"code": -4061, "msg": "Order's position side does not match user's setting."}
+                """));
+        BinanceOrderClient client = client(transport);
+
+        assertThatThrownBy(() -> client.placeOrder(limitOrder()))
+                .isInstanceOf(BinanceApiException.class)
+                .hasMessageContaining("httpStatusCode=400")
+                .hasMessageContaining("exchangeCode=-4061")
+                .hasMessageContaining("position side");
+    }
+
+    private BinanceOrderClient client(FakeTransport transport) {
+        return new BinanceOrderClient(
+                binance(),
+                "api-key",
+                "test-secret",
+                FIXED_CLOCK,
+                0,
+                transport,
+                JsonMapperFactory.create()
+        );
+    }
+
+    private BinanceOrderCommand limitOrder() {
+        return new BinanceOrderCommand(
+                "BTCUSDT",
+                "BUY",
+                "LIMIT",
+                "GTC",
+                "LONG",
+                "RESULT",
+                null,
+                null,
+                "tb_1",
+                new BigDecimal("0.001"),
+                null,
+                new BigDecimal("50000"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private BinanceHttpResponse orderResponse(String clientOrderId, String status) {
+        return new BinanceHttpResponse(200, orderResponseBody(clientOrderId, status));
+    }
+
+    private String orderResponseBody(String clientOrderId, String status) {
+        return "{"
+                + "\"symbol\":\"BTCUSDT\","
+                + "\"orderId\":12345,"
+                + "\"clientOrderId\":\"" + clientOrderId + "\","
+                + "\"status\":\"" + status + "\","
+                + "\"side\":\"BUY\","
+                + "\"type\":\"LIMIT\","
+                + "\"positionSide\":\"LONG\","
+                + "\"price\":\"50000.00\","
+                + "\"origQty\":\"0.001\","
+                + "\"executedQty\":\"0\","
+                + "\"avgPrice\":\"0.00\","
+                + "\"cumQuote\":\"0\","
+                + "\"updateTime\":1668481559918"
+                + "}";
+    }
+
+    private BinanceProperties binance() {
+        return new BinanceProperties(
+                "FUTURES_USD_M",
+                new BinanceProperties.Credentials(
+                        "binance_demo_main",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_STREAM", "USER_DATA", "TRADE")
+                ),
+                rest(),
+                websocket(),
+                trading(),
+                userData(),
+                new BinanceProperties.FuturesAccount("ONE_WAY", false, false)
+        );
+    }
+
+    private BinanceProperties.Rest rest() {
+        return new BinanceProperties.Rest(
+                "https://demo-fapi.binance.com",
+                "/fapi/v1/exchangeInfo",
+                "/fapi/v1/time",
+                "X-MBX-APIKEY",
+                "HMAC_SHA256",
+                "MILLISECONDS",
+                5000,
+                2000,
+                5000,
+                3,
+                200,
+                List.of(408, 429, 500, 502, 503, 504),
+                List.of("X-MBX-USED-WEIGHT"),
+                List.of("X-MBX-ORDER-COUNT"),
+                "RESULT",
+                new BinanceProperties.UnknownExecutionStatus(
+                        List.of("Unknown error, please check your request or try again later."),
+                        List.of(503)
+                )
+        );
+    }
+
+    private BinanceProperties.Websocket websocket() {
+        return new BinanceProperties.Websocket(
+                "wss://fstream.binancefuture.com",
+                "/public",
+                "/market",
+                "/private",
+                "/ws",
+                "/stream",
+                24,
+                10,
+                null,
+                3,
+                null,
+                10,
+                10,
+                1024,
+                null,
+                "MILLISECONDS"
+        );
+    }
+
+    private BinanceProperties.Trading trading() {
+        return new BinanceProperties.Trading(
+                "/fapi/v1/order",
+                null,
+                "/fapi/v1/order",
+                "/fapi/v1/order",
+                "/fapi/v1/openOrders",
+                List.of("BUY", "SELL"),
+                List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
+                List.of("GTC", "IOC", "FOK", "GTX", "GTD"),
+                List.of("ACK", "RESULT"),
+                List.of("NONE", "EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
+                List.of("BOTH", "LONG", "SHORT"),
+                false,
+                true,
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false
+        );
+    }
+
+    private BinanceProperties.UserDataStream userData() {
+        return new BinanceProperties.UserDataStream(
+                "listen_key",
+                "/fapi/v1/listenKey",
+                "/fapi/v1/listenKey",
+                "/fapi/v1/listenKey",
+                60,
+                30,
+                1
+        );
+    }
+
+    private record FakeCall(String method, String uri) {
+    }
+
+    private static final class FakeTransport implements BinanceHttpTransport {
+        private final List<BinanceHttpResponse> responses;
+        private final List<FakeCall> calls = new ArrayList<>();
+
+        FakeTransport(BinanceHttpResponse... responses) {
+            this.responses = new ArrayList<>(List.of(responses));
+        }
+
+        @Override
+        public BinanceHttpResponse send(BinanceSignedRequest request,
+                                        String method,
+                                        String apiKey,
+                                        String apiKeyHeader) {
+            calls.add(new FakeCall(method, request.uri().toString()));
+            return responses.removeFirst();
+        }
+
+        List<FakeCall> calls() {
+            return List.copyOf(calls);
+        }
+    }
+}

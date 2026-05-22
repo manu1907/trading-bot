@@ -36,6 +36,25 @@ final class BinanceOrderRequestFactory {
         ), privateCredential);
     }
 
+    BinanceSignedRequest queryOrder(String symbol, String originalClientOrderId, String privateCredential) {
+        if (symbol == null || symbol.isBlank()) {
+            throw new IllegalArgumentException("symbol is required");
+        }
+        if (originalClientOrderId == null || originalClientOrderId.isBlank()) {
+            throw new IllegalArgumentException("origClientOrderId is required");
+        }
+        return restRequestFactory.signedUri(binance.trading().queryOrderPath(), List.of(
+                BinanceRequestParameter.of("symbol", symbol),
+                BinanceRequestParameter.of("origClientOrderId", originalClientOrderId)
+        ), privateCredential);
+    }
+
+    BinanceSignedRequest openOrders(String symbol, String privateCredential) {
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", symbol);
+        return restRequestFactory.signedUri(binance.trading().openOrdersPath(), parameters, privateCredential);
+    }
+
     private List<BinanceRequestParameter> orderParameters(BinanceOrderCommand command) {
         List<BinanceRequestParameter> parameters = new ArrayList<>();
         add(parameters, "symbol", command.symbol());

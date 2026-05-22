@@ -2,7 +2,7 @@
 
 The Binance demo order lifecycle test is intentionally opt-in. It creates a
 passive USD-M `LIMIT GTX` order on `BTCUSDT` in the active demo environment and
-cancels it by client order id.
+then queries and cancels it by client order id.
 
 Run it only with demo credentials:
 

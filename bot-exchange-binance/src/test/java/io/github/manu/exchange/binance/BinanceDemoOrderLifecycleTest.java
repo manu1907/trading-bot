@@ -64,8 +64,10 @@ class BinanceDemoOrderLifecycleTest {
         BigDecimal quantity = orderQuantity(symbolInfo, passivePrice);
         String clientOrderId = "tb_smoke_" + Instant.now().toEpochMilli();
 
-        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(
+        BinanceOrderClient orderClient = new BinanceOrderClient(
                 binance,
+                apiKey,
+                apiSecret,
                 Clock.systemUTC(),
                 serverTimeOffsetMillis(binance)
         );
@@ -96,27 +98,18 @@ class BinanceDemoOrderLifecycleTest {
 
         boolean createdOrder = false;
         try {
-            HttpResponse<String> created = sendSigned(
-                    factory.newOrder(order, apiSecret),
-                    "POST",
-                    apiKey,
-                    binance.rest().apiKeyHeader()
-            );
-            assertThat(created.statusCode())
-                    .as("create order response: " + created.body())
-                    .isBetween(200, 299);
+            BinanceOrderResult created = orderClient.placeOrder(order);
+            assertThat(created.clientOrderId()).isEqualTo(clientOrderId);
+            assertThat(created.status()).isIn("NEW", "PARTIALLY_FILLED");
             createdOrder = true;
+
+            BinanceOrderResult queried = queryEventually(orderClient, clientOrderId);
+            assertThat(queried.clientOrderId()).isEqualTo(clientOrderId);
         } finally {
             if (createdOrder) {
-                HttpResponse<String> cancelled = sendSigned(
-                        factory.cancelOrder(SYMBOL, clientOrderId, apiSecret),
-                        "DELETE",
-                        apiKey,
-                        binance.rest().apiKeyHeader()
-                );
-                assertThat(cancelled.statusCode())
-                        .as("cancel order response: " + cancelled.body())
-                        .isBetween(200, 299);
+                BinanceOrderResult cancelled = orderClient.cancelOrder(SYMBOL, clientOrderId);
+                assertThat(cancelled.clientOrderId()).isEqualTo(clientOrderId);
+                assertThat(cancelled.status()).isIn("CANCELED", "EXPIRED", "FILLED");
             }
         }
     }
@@ -128,6 +121,22 @@ class BinanceDemoOrderLifecycleTest {
         ExchangeProperties active = readActive(configDir.resolve("active.json"));
         root.withObject("exchange").set("active", jsonMapper.valueToTree(active));
         return jsonMapper.treeToValue(root, TradingBotProperties.class);
+    }
+
+    private BinanceOrderResult queryEventually(BinanceOrderClient orderClient,
+                                               String clientOrderId) throws InterruptedException {
+        int attempts = 5;
+        for (int attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                return orderClient.queryOrder(SYMBOL, clientOrderId);
+            } catch (BinanceApiException e) {
+                if (!Integer.valueOf(-2013).equals(e.exchangeCode()) || attempt == attempts) {
+                    throw e;
+                }
+                Thread.sleep(250L);
+            }
+        }
+        throw new IllegalStateException("Unreachable query retry state");
     }
 
     private long serverTimeOffsetMillis(BinanceProperties binance) throws IOException, InterruptedException {
