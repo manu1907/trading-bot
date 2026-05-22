@@ -82,6 +82,10 @@ tradable symbols still come from `exchangeInfo` at runtime.
 Core validates the active provider/environment/account/market path; the Binance
 module validates the Binance-specific contract before startup or reload can use
 it.
+Signed REST request construction is kept provider-local and deterministic:
+query parameters are encoded in order, `timestamp` and `recvWindow` are added
+before signing, and retry/reconciliation decisions come from the active Binance
+config.
 
 ## Demo And Real
 

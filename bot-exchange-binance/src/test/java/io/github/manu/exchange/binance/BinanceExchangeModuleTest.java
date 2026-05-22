@@ -62,19 +62,33 @@ class BinanceExchangeModuleTest {
                 .hasMessageContaining("rest.recv_window_millis must be positive");
     }
 
+    @Test
+    void rejects_key_types_without_signer_support() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfigRoot((root, active) ->
+                activeAccount(root, active).withObject("credentials").put("key_type", "RSA_SHA256"));
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("credentials.key_type must be one of");
+    }
+
     private ResolvedExchangeConfig checkedInResolvedConfig() throws IOException {
         return checkedInResolvedConfig(market -> {
         });
     }
 
     private ResolvedExchangeConfig checkedInResolvedConfig(ConfigMutation mutation) throws IOException {
+        return checkedInResolvedConfigRoot((root, active) -> mutation.apply(activeMarket(root, active)));
+    }
+
+    private ResolvedExchangeConfig checkedInResolvedConfigRoot(RootConfigMutation mutation) throws IOException {
         Path configDir = resolveRepoConfigDir();
         ObjectNode root = objectNode(jsonMapper.readTree(configDir.resolve("catalog.json").toFile()));
         merge(root, objectNode(jsonMapper.readTree(configDir.resolve("application-demo.json").toFile())));
 
         ExchangeProperties active = readActive(configDir.resolve("active.json"));
         root.withObject("exchange").set("active", jsonMapper.valueToTree(active));
-        mutation.apply(activeMarket(root, active));
+        mutation.apply(root, active);
 
         TradingBotProperties properties = jsonMapper.treeToValue(root, TradingBotProperties.class);
         return ResolvedExchangeConfig.from(properties);
@@ -85,14 +99,18 @@ class BinanceExchangeModuleTest {
         return jsonMapper.treeToValue(root.required("active"), ExchangeProperties.class);
     }
 
-    private ObjectNode activeMarket(ObjectNode root, ExchangeProperties active) {
+    private ObjectNode activeAccount(ObjectNode root, ExchangeProperties active) {
         return root.withObject("exchange")
                 .withObject("providers")
                 .withObject(active.provider())
                 .withObject("environments")
                 .withObject(active.environment())
                 .withObject("accounts")
-                .withObject(active.account())
+                .withObject(active.account());
+    }
+
+    private ObjectNode activeMarket(ObjectNode root, ExchangeProperties active) {
+        return activeAccount(root, active)
                 .withObject("markets")
                 .withObject(active.market());
     }
@@ -132,5 +150,9 @@ class BinanceExchangeModuleTest {
 
     private interface ConfigMutation {
         void apply(ObjectNode market);
+    }
+
+    private interface RootConfigMutation {
+        void apply(ObjectNode root, ExchangeProperties active) throws IOException;
     }
 }
