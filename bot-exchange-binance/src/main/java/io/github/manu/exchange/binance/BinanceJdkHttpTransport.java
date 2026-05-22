@@ -1,6 +1,7 @@
 package io.github.manu.exchange.binance;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -21,6 +22,16 @@ final class BinanceJdkHttpTransport implements BinanceHttpTransport {
     BinanceJdkHttpTransport(HttpClient httpClient, Duration requestTimeout) {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
+    }
+
+    @Override
+    public BinanceHttpResponse sendPublic(URI uri, String method) throws IOException, InterruptedException {
+        HttpRequest httpRequest = HttpRequest.newBuilder(uri)
+                .timeout(requestTimeout)
+                .method(method, HttpRequest.BodyPublishers.noBody())
+                .build();
+        HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+        return new BinanceHttpResponse(response.statusCode(), response.body(), response.headers().map());
     }
 
     @Override

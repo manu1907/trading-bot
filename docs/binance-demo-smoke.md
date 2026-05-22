@@ -7,6 +7,10 @@ then queries and cancels it by client order id.
 The Binance demo user-data stream lifecycle test is also opt-in. It starts,
 renews, and closes a USD-M listen-key stream in the active demo environment.
 
+The Binance demo server-time smoke test is opt-in and credential-free. It calls
+the active demo server-time endpoint and verifies that local offset calculation
+works against the configured USD-M demo REST base URL.
+
 The order command validator is intentionally stricter than a raw REST wrapper.
 It rejects Binance request collisions before submission, including `priceMatch`
 with `price`, `GTD` without `goodTillDate`, `goodTillDate` without `GTD`,
@@ -18,6 +22,7 @@ mode even though order responses can still report `NONE`.
 Run it only with demo credentials:
 
 ```bash
+./gradlew :bot-exchange-binance:binanceDemoServerTimeSmokeTest
 ./gradlew :bot-exchange-binance:binanceDemoOrderSmokeTest
 ./gradlew :bot-exchange-binance:binanceDemoUserDataStreamSmokeTest
 ```

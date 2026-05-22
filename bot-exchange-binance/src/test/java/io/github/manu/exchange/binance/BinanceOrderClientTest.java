@@ -5,6 +5,7 @@ import io.github.manu.config.properties.provider.binance.BinanceProperties;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -272,6 +273,11 @@ class BinanceOrderClientTest {
 
         FakeTransport(BinanceHttpResponse... responses) {
             this.responses = new ArrayList<>(List.of(responses));
+        }
+
+        @Override
+        public BinanceHttpResponse sendPublic(URI uri, String method) {
+            throw new UnsupportedOperationException("public requests are not used by this test");
         }
 
         @Override
