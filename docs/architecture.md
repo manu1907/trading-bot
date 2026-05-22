@@ -103,6 +103,10 @@ Provider-local order command validation is separate from REST submission. A
 candidate Binance order must satisfy the active market's supported enums,
 feature flags, and mandatory parameter combinations before later execution code
 can turn it into a signed request.
+The checked-in Binance demo order lifecycle test is opt-in. It requires
+`BINANCE_DEMO_API_KEY`, `BINANCE_DEMO_API_SECRET`, and
+`-Dbinance.demo.order.smoke=true`; it refuses non-demo active targets, submits a
+passive USD-M limit order, and cancels it by client order id.
 
 ## Demo And Real
 
