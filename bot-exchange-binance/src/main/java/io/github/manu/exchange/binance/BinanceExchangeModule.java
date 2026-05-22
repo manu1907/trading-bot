@@ -25,7 +25,8 @@ public class BinanceExchangeModule implements ExchangeModule {
 
     @Override
     public void validateConfig(ResolvedExchangeConfig config) {
-        requireBinance(config);
+        BinanceProperties binance = requireBinance(config);
+        BinanceConfigValidator.validate(config.target(), binance);
     }
 
     @Override

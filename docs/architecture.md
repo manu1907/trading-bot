@@ -79,6 +79,9 @@ policy, `recvWindow`, API-key header, retry and unknown-status handling, listen
 key lifecycle paths, WebSocket lifetime, ping/pong limits, message limits, and
 account expectations. Symbol filters, rate-limit definitions, assets, and
 tradable symbols still come from `exchangeInfo` at runtime.
+Core validates the active provider/environment/account/market path; the Binance
+module validates the Binance-specific contract before startup or reload can use
+it.
 
 ## Demo And Real
 
