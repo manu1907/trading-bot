@@ -95,6 +95,10 @@ The catalog declares every currently targeted Binance trading product family,
 even when disabled. Spot user data is modeled as WebSocket API based, margin
 user data uses `listenToken`, and futures/options user data uses `listenKey`;
 activation remains a runtime target decision validated before use.
+Binance trading capabilities are also provider-local: documented order paths,
+order types, response modes, position-side support, reduce-only support, and
+product-specific flags are declared per market and validated against the
+connector's market-type capability map before startup.
 
 ## Demo And Real
 

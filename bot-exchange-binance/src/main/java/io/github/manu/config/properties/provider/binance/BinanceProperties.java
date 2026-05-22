@@ -12,6 +12,7 @@ public record BinanceProperties(
         @Valid @NotNull Credentials credentials,
         @Valid @NotNull Rest rest,
         @Valid @NotNull Websocket websocket,
+        @Valid @NotNull Trading trading,
         @Valid UserDataStream userDataStream,
         @Valid FuturesAccount futuresAccount
 ) {
@@ -73,6 +74,39 @@ public record BinanceProperties(
             Integer maxConnectionAttemptsPerFiveMinutes,
             @NotNull String timestampUnit
     ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Trading(
+            @NotNull String newOrderPath,
+            String testOrderPath,
+            @NotNull String queryOrderPath,
+            @NotNull String cancelOrderPath,
+            @NotNull String openOrdersPath,
+            @NotNull List<String> supportedSides,
+            @NotNull List<String> supportedOrderTypes,
+            @NotNull List<String> supportedTimeInForce,
+            @NotNull List<String> supportedOrderResponseTypes,
+            @NotNull List<String> supportedSelfTradePreventionModes,
+            @NotNull List<String> supportedPositionSides,
+            boolean supportsQuoteOrderQty,
+            boolean supportsReduceOnly,
+            boolean supportsClosePosition,
+            boolean supportsPriceMatch,
+            boolean supportsPeggedOrders,
+            boolean supportsIcebergQty,
+            boolean supportsTrailingDelta,
+            boolean supportsIsolatedMarginFlag,
+            boolean supportsMarketMakerProtection
+    ) {
+        public Trading {
+            supportedSides = List.copyOf(supportedSides);
+            supportedOrderTypes = List.copyOf(supportedOrderTypes);
+            supportedTimeInForce = List.copyOf(supportedTimeInForce);
+            supportedOrderResponseTypes = List.copyOf(supportedOrderResponseTypes);
+            supportedSelfTradePreventionModes = List.copyOf(supportedSelfTradePreventionModes);
+            supportedPositionSides = List.copyOf(supportedPositionSides);
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

@@ -45,6 +45,16 @@ class BinanceCatalogComplianceTest {
             assertThat(markets.required("usdm_futures").required("name").asString()).isEqualTo("FUTURES_USD_M");
             assertThat(markets.required("coinm_futures").required("name").asString()).isEqualTo("FUTURES_COIN_M");
             assertThat(markets.required("options").required("name").asString()).isEqualTo("OPTIONS");
+            assertThat(markets.required("spot").required("trading").required("new_order_path").asString())
+                    .isEqualTo("/api/v3/order");
+            assertThat(markets.required("margin_cross").required("trading").required("new_order_path").asString())
+                    .isEqualTo("/sapi/v1/margin/order");
+            assertThat(markets.required("usdm_futures").required("trading").required("new_order_path").asString())
+                    .isEqualTo("/fapi/v1/order");
+            assertThat(markets.required("coinm_futures").required("trading").required("new_order_path").asString())
+                    .isEqualTo("/dapi/v1/order");
+            assertThat(markets.required("options").required("trading").required("new_order_path").asString())
+                    .isEqualTo("/eapi/v1/order");
         }
     }
 

@@ -63,6 +63,16 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void rejects_trading_contract_that_does_not_match_market_type() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
+                market.withObject("trading").put("new_order_path", "/api/v3/order"));
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("trading.new_order_path must be /fapi/v1/order");
+    }
+
+    @Test
     void rejects_key_types_without_binance_support() throws IOException {
         ResolvedExchangeConfig config = checkedInResolvedConfigRoot((root, active) ->
                 activeAccount(root, active).withObject("credentials").put("key_type", "ECDSA_SHA256"));

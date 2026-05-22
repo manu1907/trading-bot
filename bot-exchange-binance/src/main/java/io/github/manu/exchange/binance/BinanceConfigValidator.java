@@ -38,6 +38,7 @@ final class BinanceConfigValidator {
         validateCredentials(accountPath(active) + ".credentials", binance.credentials(), marketType, errors);
         validateRest(marketPath(active) + ".rest", binance.rest(), marketType, errors);
         validateWebsocket(marketPath(active) + ".websocket", binance.websocket(), errors);
+        validateTrading(marketPath(active) + ".trading", binance.trading(), marketType, errors);
         if (!marketType.futures()) {
             validateUserData(marketPath(active) + ".user_data", binance.userDataStream(), marketType, false, errors);
         }
@@ -160,6 +161,63 @@ final class BinanceConfigValidator {
         String path = marketPath(active);
         validateUserData(path + ".user_data", binance.userDataStream(), marketType, true, errors);
         validateFuturesAccount(path + ".futures_account", binance.futuresAccount(), errors);
+    }
+
+    private static void validateTrading(String path,
+                                        BinanceProperties.Trading trading,
+                                        BinanceMarketType marketType,
+                                        List<String> errors) {
+        if (trading == null) {
+            errors.add(path + " is required");
+            return;
+        }
+
+        BinanceTradingCapability expected = BinanceTradingCapability.forMarketType(marketType);
+        requireMatching(path + ".new_order_path", trading.newOrderPath(), expected.newOrderPath(), errors);
+        requireOptionalMatching(path + ".test_order_path", trading.testOrderPath(), expected.testOrderPath(), errors);
+        requireMatching(path + ".query_order_path", trading.queryOrderPath(), expected.queryOrderPath(), errors);
+        requireMatching(path + ".cancel_order_path", trading.cancelOrderPath(), expected.cancelOrderPath(), errors);
+        requireMatching(path + ".open_orders_path", trading.openOrdersPath(), expected.openOrdersPath(), errors);
+        requireSameValues(path + ".supported_sides", trading.supportedSides(), expected.supportedSides(), errors);
+        requireSameValues(path + ".supported_order_types", trading.supportedOrderTypes(), expected.supportedOrderTypes(), errors);
+        requireSameValues(path + ".supported_time_in_force", trading.supportedTimeInForce(), expected.supportedTimeInForce(), errors);
+        requireSameValues(
+                path + ".supported_order_response_types",
+                trading.supportedOrderResponseTypes(),
+                expected.supportedOrderResponseTypes(),
+                errors
+        );
+        requireSameValues(
+                path + ".supported_self_trade_prevention_modes",
+                trading.supportedSelfTradePreventionModes(),
+                expected.supportedSelfTradePreventionModes(),
+                errors
+        );
+        requireSameValues(
+                path + ".supported_position_sides",
+                trading.supportedPositionSides(),
+                expected.supportedPositionSides(),
+                errors
+        );
+        requireMatching(path + ".supports_quote_order_qty", trading.supportsQuoteOrderQty(), expected.supportsQuoteOrderQty(), errors);
+        requireMatching(path + ".supports_reduce_only", trading.supportsReduceOnly(), expected.supportsReduceOnly(), errors);
+        requireMatching(path + ".supports_close_position", trading.supportsClosePosition(), expected.supportsClosePosition(), errors);
+        requireMatching(path + ".supports_price_match", trading.supportsPriceMatch(), expected.supportsPriceMatch(), errors);
+        requireMatching(path + ".supports_pegged_orders", trading.supportsPeggedOrders(), expected.supportsPeggedOrders(), errors);
+        requireMatching(path + ".supports_iceberg_qty", trading.supportsIcebergQty(), expected.supportsIcebergQty(), errors);
+        requireMatching(path + ".supports_trailing_delta", trading.supportsTrailingDelta(), expected.supportsTrailingDelta(), errors);
+        requireMatching(
+                path + ".supports_isolated_margin_flag",
+                trading.supportsIsolatedMarginFlag(),
+                expected.supportsIsolatedMarginFlag(),
+                errors
+        );
+        requireMatching(
+                path + ".supports_market_maker_protection",
+                trading.supportsMarketMakerProtection(),
+                expected.supportsMarketMakerProtection(),
+                errors
+        );
     }
 
     private static void validateUserData(String path,
@@ -332,6 +390,29 @@ final class BinanceConfigValidator {
     private static void requireMatching(String path, String actual, String expected, List<String> errors) {
         if (actual != null && expected != null && !expected.equals(actual)) {
             errors.add(path + " must be " + expected);
+        }
+    }
+
+    private static void requireOptionalMatching(String path, String actual, String expected, List<String> errors) {
+        if (expected == null) {
+            if (actual != null) {
+                errors.add(path + " must be omitted");
+            }
+            return;
+        }
+        requireMatching(path, actual, expected, errors);
+    }
+
+    private static void requireMatching(String path, boolean actual, boolean expected, List<String> errors) {
+        if (actual != expected) {
+            errors.add(path + " must be " + expected);
+        }
+    }
+
+    private static void requireSameValues(String path, List<String> actual, Set<String> expected, List<String> errors) {
+        requireNonEmpty(path, actual, errors);
+        if (actual != null && !Set.copyOf(actual).equals(expected)) {
+            errors.add(path + " must contain " + expected);
         }
     }
 

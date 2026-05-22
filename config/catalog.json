@@ -86,6 +86,54 @@
                     },
                     "user_data": {
                       "mode": "websocket_api"
+                    },
+                    "trading": {
+                      "new_order_path": "/api/v3/order",
+                      "query_order_path": "/api/v3/order",
+                      "cancel_order_path": "/api/v3/order",
+                      "open_orders_path": "/api/v3/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP_LOSS",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_LIMIT",
+                        "LIMIT_MAKER"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT",
+                        "FULL"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "NONE"
+                      ],
+                      "supports_quote_order_qty": true,
+                      "supports_reduce_only": false,
+                      "supports_close_position": false,
+                      "supports_price_match": false,
+                      "supports_pegged_orders": true,
+                      "supports_iceberg_qty": true,
+                      "supports_trailing_delta": true,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": false,
+                      "test_order_path": "/api/v3/order/test"
                     }
                   },
                   "margin_cross": {
@@ -148,6 +196,53 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "trading": {
+                      "new_order_path": "/sapi/v1/margin/order",
+                      "query_order_path": "/sapi/v1/margin/order",
+                      "cancel_order_path": "/sapi/v1/margin/order",
+                      "open_orders_path": "/sapi/v1/margin/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP_LOSS",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_LIMIT",
+                        "LIMIT_MAKER"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT",
+                        "FULL"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "NONE"
+                      ],
+                      "supports_quote_order_qty": true,
+                      "supports_reduce_only": false,
+                      "supports_close_position": false,
+                      "supports_price_match": false,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": true,
+                      "supports_trailing_delta": true,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": false
                     }
                   },
                   "margin_isolated": {
@@ -210,6 +305,53 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "trading": {
+                      "new_order_path": "/sapi/v1/margin/order",
+                      "query_order_path": "/sapi/v1/margin/order",
+                      "cancel_order_path": "/sapi/v1/margin/order",
+                      "open_orders_path": "/sapi/v1/margin/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP_LOSS",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_LIMIT",
+                        "LIMIT_MAKER"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT",
+                        "FULL"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "NONE"
+                      ],
+                      "supports_quote_order_qty": true,
+                      "supports_reduce_only": false,
+                      "supports_close_position": false,
+                      "supports_price_match": false,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": true,
+                      "supports_trailing_delta": true,
+                      "supports_isolated_margin_flag": true,
+                      "supports_market_maker_protection": false
                     }
                   },
                   "usdm_futures": {
@@ -279,6 +421,56 @@
                       "position_mode": "ONE_WAY",
                       "multi_assets_mode_expected": false,
                       "portfolio_margin_expected": false
+                    },
+                    "trading": {
+                      "new_order_path": "/fapi/v1/order",
+                      "query_order_path": "/fapi/v1/order",
+                      "cancel_order_path": "/fapi/v1/order",
+                      "open_orders_path": "/fapi/v1/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET",
+                        "TRAILING_STOP_MARKET"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK",
+                        "GTX",
+                        "GTD"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "BOTH",
+                        "LONG",
+                        "SHORT"
+                      ],
+                      "supports_quote_order_qty": false,
+                      "supports_reduce_only": true,
+                      "supports_close_position": true,
+                      "supports_price_match": true,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": false,
+                      "supports_trailing_delta": false,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": false
                     }
                   },
                   "coinm_futures": {
@@ -345,6 +537,56 @@
                       "position_mode": "ONE_WAY",
                       "multi_assets_mode_expected": false,
                       "portfolio_margin_expected": false
+                    },
+                    "trading": {
+                      "new_order_path": "/dapi/v1/order",
+                      "query_order_path": "/dapi/v1/order",
+                      "cancel_order_path": "/dapi/v1/order",
+                      "open_orders_path": "/dapi/v1/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET",
+                        "TRAILING_STOP_MARKET"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK",
+                        "GTX",
+                        "GTD"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "BOTH",
+                        "LONG",
+                        "SHORT"
+                      ],
+                      "supports_quote_order_qty": false,
+                      "supports_reduce_only": true,
+                      "supports_close_position": true,
+                      "supports_price_match": true,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": false,
+                      "supports_trailing_delta": false,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": false
                     }
                   },
                   "options": {
@@ -409,6 +651,43 @@
                       "validity_minutes": 60,
                       "renewal_interval_minutes": 55,
                       "request_weight": 1
+                    },
+                    "trading": {
+                      "new_order_path": "/eapi/v1/order",
+                      "query_order_path": "/eapi/v1/order",
+                      "cancel_order_path": "/eapi/v1/order",
+                      "open_orders_path": "/eapi/v1/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "NONE"
+                      ],
+                      "supports_quote_order_qty": false,
+                      "supports_reduce_only": true,
+                      "supports_close_position": false,
+                      "supports_price_match": false,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": false,
+                      "supports_trailing_delta": false,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": true
                     }
                   }
                 }
@@ -486,6 +765,54 @@
                     },
                     "user_data": {
                       "mode": "websocket_api"
+                    },
+                    "trading": {
+                      "new_order_path": "/api/v3/order",
+                      "query_order_path": "/api/v3/order",
+                      "cancel_order_path": "/api/v3/order",
+                      "open_orders_path": "/api/v3/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP_LOSS",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_LIMIT",
+                        "LIMIT_MAKER"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT",
+                        "FULL"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "NONE"
+                      ],
+                      "supports_quote_order_qty": true,
+                      "supports_reduce_only": false,
+                      "supports_close_position": false,
+                      "supports_price_match": false,
+                      "supports_pegged_orders": true,
+                      "supports_iceberg_qty": true,
+                      "supports_trailing_delta": true,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": false,
+                      "test_order_path": "/api/v3/order/test"
                     }
                   },
                   "margin_cross": {
@@ -548,6 +875,53 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "trading": {
+                      "new_order_path": "/sapi/v1/margin/order",
+                      "query_order_path": "/sapi/v1/margin/order",
+                      "cancel_order_path": "/sapi/v1/margin/order",
+                      "open_orders_path": "/sapi/v1/margin/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP_LOSS",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_LIMIT",
+                        "LIMIT_MAKER"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT",
+                        "FULL"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "NONE"
+                      ],
+                      "supports_quote_order_qty": true,
+                      "supports_reduce_only": false,
+                      "supports_close_position": false,
+                      "supports_price_match": false,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": true,
+                      "supports_trailing_delta": true,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": false
                     }
                   },
                   "margin_isolated": {
@@ -610,6 +984,53 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "trading": {
+                      "new_order_path": "/sapi/v1/margin/order",
+                      "query_order_path": "/sapi/v1/margin/order",
+                      "cancel_order_path": "/sapi/v1/margin/order",
+                      "open_orders_path": "/sapi/v1/margin/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP_LOSS",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_LIMIT",
+                        "LIMIT_MAKER"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT",
+                        "FULL"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "NONE"
+                      ],
+                      "supports_quote_order_qty": true,
+                      "supports_reduce_only": false,
+                      "supports_close_position": false,
+                      "supports_price_match": false,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": true,
+                      "supports_trailing_delta": true,
+                      "supports_isolated_margin_flag": true,
+                      "supports_market_maker_protection": false
                     }
                   },
                   "usdm_futures": {
@@ -679,6 +1100,56 @@
                       "position_mode": "ONE_WAY",
                       "multi_assets_mode_expected": false,
                       "portfolio_margin_expected": false
+                    },
+                    "trading": {
+                      "new_order_path": "/fapi/v1/order",
+                      "query_order_path": "/fapi/v1/order",
+                      "cancel_order_path": "/fapi/v1/order",
+                      "open_orders_path": "/fapi/v1/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET",
+                        "TRAILING_STOP_MARKET"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK",
+                        "GTX",
+                        "GTD"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "BOTH",
+                        "LONG",
+                        "SHORT"
+                      ],
+                      "supports_quote_order_qty": false,
+                      "supports_reduce_only": true,
+                      "supports_close_position": true,
+                      "supports_price_match": true,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": false,
+                      "supports_trailing_delta": false,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": false
                     }
                   },
                   "coinm_futures": {
@@ -745,6 +1216,56 @@
                       "position_mode": "ONE_WAY",
                       "multi_assets_mode_expected": false,
                       "portfolio_margin_expected": false
+                    },
+                    "trading": {
+                      "new_order_path": "/dapi/v1/order",
+                      "query_order_path": "/dapi/v1/order",
+                      "cancel_order_path": "/dapi/v1/order",
+                      "open_orders_path": "/dapi/v1/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT",
+                        "MARKET",
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET",
+                        "TRAILING_STOP_MARKET"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC",
+                        "IOC",
+                        "FOK",
+                        "GTX",
+                        "GTD"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "NONE",
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "BOTH",
+                        "LONG",
+                        "SHORT"
+                      ],
+                      "supports_quote_order_qty": false,
+                      "supports_reduce_only": true,
+                      "supports_close_position": true,
+                      "supports_price_match": true,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": false,
+                      "supports_trailing_delta": false,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": false
                     }
                   },
                   "options": {
@@ -809,6 +1330,43 @@
                       "validity_minutes": 60,
                       "renewal_interval_minutes": 55,
                       "request_weight": 1
+                    },
+                    "trading": {
+                      "new_order_path": "/eapi/v1/order",
+                      "query_order_path": "/eapi/v1/order",
+                      "cancel_order_path": "/eapi/v1/order",
+                      "open_orders_path": "/eapi/v1/openOrders",
+                      "supported_sides": [
+                        "BUY",
+                        "SELL"
+                      ],
+                      "supported_order_types": [
+                        "LIMIT"
+                      ],
+                      "supported_time_in_force": [
+                        "GTC"
+                      ],
+                      "supported_order_response_types": [
+                        "ACK",
+                        "RESULT"
+                      ],
+                      "supported_self_trade_prevention_modes": [
+                        "EXPIRE_TAKER",
+                        "EXPIRE_MAKER",
+                        "EXPIRE_BOTH"
+                      ],
+                      "supported_position_sides": [
+                        "NONE"
+                      ],
+                      "supports_quote_order_qty": false,
+                      "supports_reduce_only": true,
+                      "supports_close_position": false,
+                      "supports_price_match": false,
+                      "supports_pegged_orders": false,
+                      "supports_iceberg_qty": false,
+                      "supports_trailing_delta": false,
+                      "supports_isolated_margin_flag": false,
+                      "supports_market_maker_protection": true
                     }
                   }
                 }
