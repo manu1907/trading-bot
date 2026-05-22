@@ -10,6 +10,7 @@ public record BinanceMarketProperties(
         @NotNull String name,
         @Valid @NotNull BinanceProperties.Rest rest,
         @Valid @NotNull BinanceProperties.Websocket websocket,
-        @Valid BinanceProperties.UserDataStream userData
+        @Valid BinanceProperties.UserDataStream userData,
+        @Valid BinanceProperties.FuturesAccount futuresAccount
 ) {
 }

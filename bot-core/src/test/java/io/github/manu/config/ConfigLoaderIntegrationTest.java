@@ -37,6 +37,31 @@ class ConfigLoaderIntegrationTest {
         assertThat(loadedConfig.getBot().targetId()).isNotBlank();
         assertThat(loadedConfig.getVersion()).isEqualTo(1);
         assertThat(loadedConfig.getProviders()).isNotNull();
+        assertThat(activeRestBaseUrl(loadedConfig, active)).isEqualTo("https://demo-fapi.binance.com");
+    }
+
+    @Test
+    void environment_config_overrides_catalog_defaults_for_active_target() throws IOException {
+        TestContext context = prepareContext("config-environment-precedence");
+        ExchangeProperties active = readActiveSelection(context.configDir.resolve("active.json"));
+
+        setActiveMarketRestBaseUrl(context.configDir.resolve("catalog.json"), active, "https://example.invalid");
+
+        TradingBotProperties loadedConfig = context.configLoader.loadBaseline(RuntimeProfile.LIVE);
+
+        assertThat(activeRestBaseUrl(loadedConfig, active)).isEqualTo("https://demo-fapi.binance.com");
+    }
+
+    @Test
+    void runtime_file_overrides_environment_config_for_active_target() throws IOException {
+        TestContext context = prepareContext("config-runtime-file-precedence");
+        ExchangeProperties active = readActiveSelection(context.configDir.resolve("active.json"));
+        ObjectNode runtime = activeMarketRestBaseUrlOverride(active, "https://runtime.example.test");
+        writeRuntimeFile(context.configDir, active, runtime);
+
+        TradingBotProperties loadedConfig = context.configLoader.loadBaseline(RuntimeProfile.LIVE);
+
+        assertThat(activeRestBaseUrl(loadedConfig, active)).isEqualTo("https://runtime.example.test");
     }
 
     @Test
@@ -109,6 +134,8 @@ class ConfigLoaderIntegrationTest {
         Path configDir = Files.createDirectories(tempDir.resolve(directoryName));
         Files.copy(repoConfigDir.resolve("catalog.json"), configDir.resolve("catalog.json"), StandardCopyOption.REPLACE_EXISTING);
         Files.copy(repoConfigDir.resolve("active.json"), configDir.resolve("active.json"), StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(repoConfigDir.resolve("application-demo.json"), configDir.resolve("application-demo.json"), StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(repoConfigDir.resolve("application-real.json"), configDir.resolve("application-real.json"), StandardCopyOption.REPLACE_EXISTING);
 
         ActiveTargetResolver resolver = new ActiveTargetResolver(new StandardEnvironment(), configDir);
         ConfigLoader configLoader = new ConfigLoader(resolver, configDir);
@@ -135,11 +162,32 @@ class ConfigLoaderIntegrationTest {
         jsonMapper.writerWithDefaultPrettyPrinter().writeValue(catalogPath.toFile(), root);
     }
 
+    private void setActiveMarketRestBaseUrl(Path catalogPath, ExchangeProperties active, String baseUrl) throws IOException {
+        ObjectNode root = (ObjectNode) jsonMapper.readTree(catalogPath.toFile());
+        requiredObject(currentActiveMarketNode(root, active), "rest").put("base_url", baseUrl);
+        jsonMapper.writerWithDefaultPrettyPrinter().writeValue(catalogPath.toFile(), root);
+    }
+
     private ObjectNode providerEnabledOverride(ExchangeProperties active, boolean enabled) {
         ObjectNode runtime = jsonMapper.createObjectNode();
         ObjectNode exchange = runtime.putObject("exchange");
         ObjectNode providers = exchange.putObject("providers");
         providers.putObject(active.provider()).put("enabled", enabled);
+        return runtime;
+    }
+
+    private ObjectNode activeMarketRestBaseUrlOverride(ExchangeProperties active, String baseUrl) {
+        ObjectNode runtime = jsonMapper.createObjectNode();
+        ObjectNode exchange = runtime.putObject("exchange");
+        ObjectNode providers = exchange.putObject("providers");
+        ObjectNode provider = providers.putObject(active.provider());
+        ObjectNode environments = provider.putObject("environments");
+        ObjectNode environment = environments.putObject(active.environment());
+        ObjectNode accounts = environment.putObject("accounts");
+        ObjectNode account = accounts.putObject(active.account());
+        ObjectNode markets = account.putObject("markets");
+        ObjectNode market = markets.putObject(active.market());
+        market.putObject("rest").put("base_url", baseUrl);
         return runtime;
     }
 
@@ -158,6 +206,21 @@ class ConfigLoaderIntegrationTest {
         jsonMapper.writerWithDefaultPrettyPrinter().writeValue(configDir.resolve("active.json").toFile(), root);
     }
 
+    private void writeRuntimeFile(Path configDir, ExchangeProperties active, ObjectNode runtime) throws IOException {
+        Path runtimeFile = configDir.resolve("runtime")
+                .resolve(RuntimeProfile.LIVE.id())
+                .resolve(active.provider())
+                .resolve(active.environment())
+                .resolve(active.account())
+                .resolve(active.market() + ".json");
+        Path parent = runtimeFile.getParent();
+        if (parent == null) {
+            throw new IOException("Runtime file has no parent directory: " + runtimeFile);
+        }
+        Files.createDirectories(parent);
+        jsonMapper.writerWithDefaultPrettyPrinter().writeValue(runtimeFile.toFile(), runtime);
+    }
+
     private void merge(ObjectNode target, ObjectNode patch) {
         patch.properties().forEach(entry -> {
             JsonNode existing = target.get(entry.getKey());
@@ -174,6 +237,29 @@ class ConfigLoaderIntegrationTest {
         ObjectNode exchange = requiredObject(root, "exchange");
         ObjectNode providers = requiredObject(exchange, "providers");
         return requiredObject(providers, active.provider());
+    }
+
+    private ObjectNode currentActiveMarketNode(ObjectNode root, ExchangeProperties active) {
+        ObjectNode provider = currentActiveProviderNode(root, active);
+        ObjectNode environments = requiredObject(provider, "environments");
+        ObjectNode environment = requiredObject(environments, active.environment());
+        ObjectNode accounts = requiredObject(environment, "accounts");
+        ObjectNode account = requiredObject(accounts, active.account());
+        ObjectNode markets = requiredObject(account, "markets");
+        return requiredObject(markets, active.market());
+    }
+
+    private String activeRestBaseUrl(TradingBotProperties properties, ExchangeProperties active) {
+        JsonNode provider = properties.getProviders().requiredActive(active.provider());
+        return provider.path("environments")
+                .path(active.environment())
+                .path("accounts")
+                .path(active.account())
+                .path("markets")
+                .path(active.market())
+                .path("rest")
+                .path("base_url")
+                .asString();
     }
 
     private ObjectNode requiredObject(ObjectNode parent, String key) {

@@ -1,8 +1,8 @@
 {
   "version": 1,
   "bot": {
-    "instance_id": "provider_environment_account_market",
-    "target_id": "uuid",
+    "instance_id": "trading-bot",
+    "target_id": "provider_environment_account_market",
     "timezone": "UTC"
   },
   "exchange": {
@@ -11,56 +11,140 @@
         "enabled": true,
         "environments": {
           "demo": {
-              "enabled": true,
+            "enabled": true,
             "accounts": {
               "main": {
                 "enabled": true,
                 "credentials": {
-                  "reference": "binance_real_main",
-                  "api_key": "${EXCHANGE_API_KEY}",
-                  "api_secret": "${EXCHANGE_API_SECRET}"
+                  "reference": "binance_demo_main",
+                  "api_key": "${BINANCE_DEMO_API_KEY:${EXCHANGE_API_KEY}}",
+                  "api_secret": "${BINANCE_DEMO_API_SECRET:${EXCHANGE_API_SECRET}}",
+                  "key_type": "HMAC_SHA256",
+                  "required_permissions": [
+                    "USER_STREAM",
+                    "USER_DATA",
+                    "TRADE"
+                  ]
                 },
                 "markets": {
                   "spot": {
                     "enabled": false,
                     "name": "SPOT",
                     "rest": {
-                      "base_url": "https://testnet.binance.vision/api"
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/api/v3/exchangeInfo",
+                      "server_time_path": "/api/v3/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "FULL",
+                      "unknown_execution_status": {
+                        "retryable_messages": [],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
                     },
                     "websocket": {
-                      "base_url": "wss://stream.testnet.binance.vision",
+                      "base_url": "wss://example.invalid",
                       "raw_stream_path": "/ws",
                       "combined_stream_path": "/stream",
                       "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
                       "server_ping_interval_seconds": 20,
                       "pong_timeout_seconds": 60,
                       "max_incoming_messages_per_second": 5,
-                      "max_streams_per_connection": 1024
+                      "max_streams_per_connection": 1024,
+                      "max_connection_attempts_per_five_minutes": 300,
+                      "timestamp_unit": "MILLISECONDS"
                     }
                   },
                   "usdm_futures": {
                     "enabled": true,
                     "name": "FUTURES_USD_M",
                     "rest": {
-                      "base_url": "https://demo-fapi.binance.com"
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/fapi/v1/exchangeInfo",
+                      "server_time_path": "/fapi/v1/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "RESULT",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Unknown error, please check your request or try again later."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
                     },
                     "websocket": {
-                      "base_url": "wss://fstream.binancefuture.com",
+                      "base_url": "wss://example.invalid",
                       "public_path_prefix": "/public",
                       "market_path_prefix": "/market",
                       "private_path_prefix": "/private",
                       "raw_stream_path": "/ws",
                       "combined_stream_path": "/stream",
                       "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
                       "server_ping_interval_minutes": 3,
                       "pong_timeout_minutes": 10,
                       "max_incoming_messages_per_second": 10,
-                      "max_streams_per_connection": 1024
+                      "max_streams_per_connection": 1024,
+                      "timestamp_unit": "MILLISECONDS"
                     },
                     "user_data": {
                       "mode": "listen_key",
+                      "start_path": "/fapi/v1/listenKey",
+                      "keepalive_path": "/fapi/v1/listenKey",
+                      "close_path": "/fapi/v1/listenKey",
                       "listen_key_validity_minutes": 60,
-                      "keepalive_interval_minutes": 30
+                      "keepalive_interval_minutes": 30,
+                      "request_weight": 1
+                    },
+                    "futures_account": {
+                      "position_mode": "ONE_WAY",
+                      "multi_assets_mode_expected": false,
+                      "portfolio_margin_expected": false
                     }
                   }
                 }
@@ -73,41 +157,135 @@
               "main": {
                 "enabled": true,
                 "credentials": {
-                  "reference": "main-real",
+                  "reference": "binance_real_main",
                   "api_key": "${BINANCE_REAL_API_KEY:${EXCHANGE_API_KEY}}",
-                  "api_secret": "${BINANCE_REAL_API_SECRET:${EXCHANGE_API_SECRET}}"
+                  "api_secret": "${BINANCE_REAL_API_SECRET:${EXCHANGE_API_SECRET}}",
+                  "key_type": "HMAC_SHA256",
+                  "required_permissions": [
+                    "USER_STREAM",
+                    "USER_DATA",
+                    "TRADE"
+                  ]
                 },
                 "markets": {
                   "spot": {
                     "enabled": false,
                     "name": "SPOT",
                     "rest": {
-                      "base_url": "https://api.binance.com"
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/api/v3/exchangeInfo",
+                      "server_time_path": "/api/v3/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "FULL",
+                      "unknown_execution_status": {
+                        "retryable_messages": [],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
                     },
                     "websocket": {
-                      "base_url": "wss://stream.binance.com:9443",
+                      "base_url": "wss://example.invalid",
                       "raw_stream_path": "/ws",
-                      "combined_stream_path": "/stream"
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_seconds": 20,
+                      "pong_timeout_seconds": 60,
+                      "max_incoming_messages_per_second": 5,
+                      "max_streams_per_connection": 1024,
+                      "max_connection_attempts_per_five_minutes": 300,
+                      "timestamp_unit": "MILLISECONDS"
                     }
                   },
                   "usdm_futures": {
                     "enabled": true,
                     "name": "FUTURES_USD_M",
                     "rest": {
-                      "base_url": "https://fapi.binance.com"
+                      "base_url": "https://example.invalid",
+                      "exchange_info_path": "/fapi/v1/exchangeInfo",
+                      "server_time_path": "/fapi/v1/time",
+                      "api_key_header": "X-MBX-APIKEY",
+                      "signature_algorithm": "HMAC_SHA256",
+                      "timestamp_unit": "MILLISECONDS",
+                      "recv_window_millis": 5000,
+                      "connect_timeout_millis": 2000,
+                      "response_timeout_millis": 5000,
+                      "max_retries": 3,
+                      "retry_backoff_millis": 200,
+                      "retry_on_status_codes": [
+                        408,
+                        429,
+                        500,
+                        502,
+                        503,
+                        504
+                      ],
+                      "weight_headers": [
+                        "X-MBX-USED-WEIGHT"
+                      ],
+                      "order_count_headers": [
+                        "X-MBX-ORDER-COUNT"
+                      ],
+                      "order_response_type_default": "RESULT",
+                      "unknown_execution_status": {
+                        "retryable_messages": [
+                          "Unknown error, please check your request or try again later."
+                        ],
+                        "reconcile_before_retry_status_codes": [
+                          503
+                        ]
+                      }
                     },
                     "websocket": {
-                      "base_url": "wss://fstream.binance.com",
+                      "base_url": "wss://example.invalid",
                       "public_path_prefix": "/public",
                       "market_path_prefix": "/market",
                       "private_path_prefix": "/private",
                       "raw_stream_path": "/ws",
-                      "combined_stream_path": "/stream"
+                      "combined_stream_path": "/stream",
+                      "max_connection_lifetime_hours": 24,
+                      "reconnect_before_expiry_minutes": 10,
+                      "server_ping_interval_minutes": 3,
+                      "pong_timeout_minutes": 10,
+                      "max_incoming_messages_per_second": 10,
+                      "max_streams_per_connection": 1024,
+                      "timestamp_unit": "MILLISECONDS"
                     },
                     "user_data": {
                       "mode": "listen_key",
+                      "start_path": "/fapi/v1/listenKey",
+                      "keepalive_path": "/fapi/v1/listenKey",
+                      "close_path": "/fapi/v1/listenKey",
                       "listen_key_validity_minutes": 60,
-                      "keepalive_interval_minutes": 30
+                      "keepalive_interval_minutes": 30,
+                      "request_weight": 1
+                    },
+                    "futures_account": {
+                      "position_mode": "ONE_WAY",
+                      "multi_assets_mode_expected": false,
+                      "portfolio_margin_expected": false
                     }
                   }
                 }

@@ -34,7 +34,8 @@ public record BinanceAccountProperties(
                 credentials,
                 market.rest(),
                 market.websocket(),
-                market.userData()
+                market.userData(),
+                market.futuresAccount()
         );
     }
 }

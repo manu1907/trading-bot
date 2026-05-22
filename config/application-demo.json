@@ -1,0 +1,39 @@
+{
+  "exchange": {
+    "providers": {
+      "binance": {
+        "environments": {
+          "demo": {
+            "accounts": {
+              "main": {
+                "credentials": {
+                  "reference": "binance_demo_main",
+                  "api_key": "${BINANCE_DEMO_API_KEY:${EXCHANGE_API_KEY}}",
+                  "api_secret": "${BINANCE_DEMO_API_SECRET:${EXCHANGE_API_SECRET}}"
+                },
+                "markets": {
+                  "spot": {
+                    "rest": {
+                      "base_url": "https://testnet.binance.vision"
+                    },
+                    "websocket": {
+                      "base_url": "wss://stream.testnet.binance.vision"
+                    }
+                  },
+                  "usdm_futures": {
+                    "rest": {
+                      "base_url": "https://demo-fapi.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://fstream.binancefuture.com"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "exchange": {
+    "providers": {
+      "binance": {
+        "environments": {
+          "real": {
+            "accounts": {
+              "main": {
+                "credentials": {
+                  "reference": "binance_real_main",
+                  "api_key": "${BINANCE_REAL_API_KEY:${EXCHANGE_API_KEY}}",
+                  "api_secret": "${BINANCE_REAL_API_SECRET:${EXCHANGE_API_SECRET}}"
+                },
+                "markets": {
+                  "spot": {
+                    "rest": {
+                      "base_url": "https://api.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://stream.binance.com:9443"
+                    }
+                  },
+                  "usdm_futures": {
+                    "rest": {
+                      "base_url": "https://fapi.binance.com"
+                    },
+                    "websocket": {
+                      "base_url": "wss://fstream.binance.com"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

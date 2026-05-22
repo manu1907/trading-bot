@@ -4,25 +4,54 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record BinanceProperties(
         @NotNull String marketType,
         @Valid @NotNull Credentials credentials,
         @Valid @NotNull Rest rest,
         @Valid @NotNull Websocket websocket,
-        @Valid UserDataStream userDataStream
+        @Valid UserDataStream userDataStream,
+        @Valid FuturesAccount futuresAccount
 ) {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Credentials(
+            @NotNull String reference,
             @NotNull String apiKey,
-            @NotNull String apiSecret
+            @NotNull String apiSecret,
+            @NotNull String keyType,
+            @NotNull List<String> requiredPermissions
     ) {
+        public Credentials {
+            requiredPermissions = List.copyOf(requiredPermissions);
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Rest(
-            @NotNull String baseUrl
+            @NotNull String baseUrl,
+            @NotNull String exchangeInfoPath,
+            @NotNull String serverTimePath,
+            @NotNull String apiKeyHeader,
+            @NotNull String signatureAlgorithm,
+            @NotNull String timestampUnit,
+            Integer recvWindowMillis,
+            Integer connectTimeoutMillis,
+            Integer responseTimeoutMillis,
+            Integer maxRetries,
+            Integer retryBackoffMillis,
+            @NotNull List<Integer> retryOnStatusCodes,
+            @NotNull List<String> weightHeaders,
+            @NotNull List<String> orderCountHeaders,
+            @NotNull String orderResponseTypeDefault,
+            @Valid UnknownExecutionStatus unknownExecutionStatus
     ) {
+        public Rest {
+            retryOnStatusCodes = List.copyOf(retryOnStatusCodes);
+            weightHeaders = List.copyOf(weightHeaders);
+            orderCountHeaders = List.copyOf(orderCountHeaders);
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -34,20 +63,46 @@ public record BinanceProperties(
             String rawStreamPath,
             String combinedStreamPath,
             Integer maxConnectionLifetimeHours,
+            Integer reconnectBeforeExpiryMinutes,
             Integer serverPingIntervalSeconds,
             Integer serverPingIntervalMinutes,
             Integer pongTimeoutSeconds,
             Integer pongTimeoutMinutes,
             Integer maxIncomingMessagesPerSecond,
-            Integer maxStreamsPerConnection
+            Integer maxStreamsPerConnection,
+            Integer maxConnectionAttemptsPerFiveMinutes,
+            @NotNull String timestampUnit
     ) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record UserDataStream(
             String mode,
+            String startPath,
+            String keepalivePath,
+            String closePath,
             Integer listenKeyValidityMinutes,
-            Integer keepaliveIntervalMinutes
+            Integer keepaliveIntervalMinutes,
+            Integer requestWeight
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record UnknownExecutionStatus(
+            @NotNull List<String> retryableMessages,
+            @NotNull List<Integer> reconcileBeforeRetryStatusCodes
+    ) {
+        public UnknownExecutionStatus {
+            retryableMessages = List.copyOf(retryableMessages);
+            reconcileBeforeRetryStatusCodes = List.copyOf(reconcileBeforeRetryStatusCodes);
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record FuturesAccount(
+            @NotNull String positionMode,
+            boolean multiAssetsModeExpected,
+            boolean portfolioMarginExpected
     ) {
     }
 }

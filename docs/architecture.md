@@ -37,13 +37,42 @@ environment describes venue/account context: `demo` or `real`.
 For live mode:
 
 ```text
-runtime override > environment/provider config > default catalog config
+runtime override > environment config > default catalog config
 ```
+
+The external live config is intentionally outside Spring config:
+
+- `config/catalog.json`: schema-bearing catalog with all required provider,
+  account, market, transport, timing, and safety fields.
+- `config/application-demo.json`: demo endpoint and credential-reference
+  overrides.
+- `config/application-real.json`: real endpoint and credential-reference
+  overrides.
+- `config/active.json`: the selected provider/environment/account/market.
+- `config/runtime/live/{provider}/{environment}/{account}/{market}.json`:
+  operator overrides for the active runtime target.
+
+The loader merges `catalog.json`, then the active environment file, then the
+active runtime file. Unknown override paths are rejected. Runtime override
+files are created as empty JSON objects when the active target has no file yet.
 
 For backtest mode, only the backtest config is used.
 
 Runtime target changes are immutable for a running process unless a future
 supervisor explicitly creates or stops runtime instances.
+
+Runtime reload uses content fingerprints rather than raw filesystem events.
+This prevents one editor save from causing repeated reloads and lets nested
+runtime override files participate in the reload decision.
+
+## Binance Config Boundary
+
+Binance config owns values that are documented outside `exchangeInfo`: REST
+base endpoints, WebSocket base endpoints and routed paths, signing/timestamp
+policy, `recvWindow`, API-key header, retry and unknown-status handling, listen
+key lifecycle paths, WebSocket lifetime, ping/pong limits, message limits, and
+account expectations. Symbol filters, rate-limit definitions, assets, and
+tradable symbols still come from `exchangeInfo` at runtime.
 
 ## Demo And Real
 
