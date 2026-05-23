@@ -64,7 +64,7 @@ final class BinanceWebSocketEndpointPlanner {
                 .map(this::encode)
                 .collect(Collectors.joining("/"));
         String path = routePrefix(route);
-        String query = "";
+        String query;
         if (mode == BinanceWebSocketMode.RAW) {
             path += normalizePath(websocket.rawStreamPath()) + "/" + streamPath;
             query = timeUnitQueryPrefix("?");

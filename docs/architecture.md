@@ -99,6 +99,10 @@ metadata through the same provider-local public REST transport used by
 server-time sync. The parser keeps precision, lifecycle dates, trigger
 protection, liquidation fee, market-take bounds, order enums, and filter values
 available for later sizing and risk decisions.
+In live mode, exchange metadata is refreshed periodically from the active
+runtime config so symbol/filter/rate-limit changes can be picked up without a
+process restart. Backtest mode must use deterministic metadata fixtures instead
+of live refresh.
 The catalog declares every currently targeted Binance trading product family,
 even when disabled. Spot user data is modeled as WebSocket API based, margin
 user data uses `listenToken`, and futures/options user data uses `listenKey`;
