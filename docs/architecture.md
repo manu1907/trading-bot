@@ -226,6 +226,22 @@ Unit replay coverage also exercises every current event type through the
 Schema Registry wire format so lifecycle, metadata, account, order, risk, and
 strategy families remain replayable as schemas evolve.
 
+## Durable Journal
+
+Critical trading events are journaled through `TradingEventJournal`, a core
+boundary that accepts the same typed Avro payloads used by Redpanda. The first
+implementation uses Chronicle Queue so append and replay stay local, ordered,
+and independent of database availability.
+
+The journal stores event type, topic, key payload, and value payload. On replay,
+the reader validates the stored topic against `TradingEventType` before exposing
+the record. Corrupt or incomplete journal documents fail with `JournalException`
+instead of returning partial data.
+
+Chronicle Queue uses memory-mapped files and Java internals for performance.
+Gradle test and Java execution tasks include the required Java 25 module access
+arguments so local runs match the intended runtime shape.
+
 ## Demo And Real
 
 Demo and real use the same execution engine. The allowed differences are:

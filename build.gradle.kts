@@ -12,6 +12,16 @@ plugins {
 group = "io.github.manu"
 version = "1.0-SNAPSHOT"
 
+val chronicleJvmArgs = listOf(
+    "--enable-native-access=ALL-UNNAMED",
+    "--sun-misc-unsafe-memory-access=allow",
+    "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.nio.channels.spi=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+)
+
 ext {
     set("xchange.version", "5.2.4")
     set("bouncycastle.version", "1.84")
@@ -68,7 +78,8 @@ subprojects {
 
     tasks.withType<Test> {
         useJUnitPlatform()
-        jvmArgs("-Xshare:off", "--enable-native-access=ALL-UNNAMED")
+        jvmArgs("-Xshare:off")
+        jvmArgs(chronicleJvmArgs)
     }
 
     tasks.withType<JavaCompile> {
@@ -76,7 +87,7 @@ subprojects {
     }
 
     tasks.withType<JavaExec> {
-        jvmArgs("--enable-native-access=ALL-UNNAMED")
+        jvmArgs(chronicleJvmArgs)
     }
 
     tasks.named("check") {
