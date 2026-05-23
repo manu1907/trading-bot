@@ -23,6 +23,7 @@ class MessagingConfigurationTest {
                 .doesNotHaveBean(TradingEventDispatcher.class)
                 .doesNotHaveBean(TradingEventRecordConsumer.class)
                 .doesNotHaveBean(TradingEventConsumerService.class)
+                .doesNotHaveBean(TradingEventConsumerLoop.class)
                 .doesNotHaveBean(TradingEventReplayConsumerFactory.class)
                 .doesNotHaveBean(ApplicationRunner.class));
     }
@@ -46,6 +47,7 @@ class MessagingConfigurationTest {
                         .hasSingleBean(TradingEventDispatcher.class)
                         .doesNotHaveBean(TradingEventRecordConsumer.class)
                         .doesNotHaveBean(TradingEventConsumerService.class)
+                        .doesNotHaveBean(TradingEventConsumerLoop.class)
                         .hasSingleBean(TradingEventReplayConsumerFactory.class)
                         .doesNotHaveBean(ApplicationRunner.class));
     }
@@ -82,6 +84,7 @@ class MessagingConfigurationTest {
                     assertThat(properties.topics().autoCreate()).isTrue();
                     assertThat(properties.topics().replicationFactor()).isEqualTo((short) 3);
                     assertThat(properties.consumers().enabled()).isFalse();
+                    assertThat(properties.consumers().autoStart()).isFalse();
                     assertThat(properties.consumers().groupIdSuffix()).isEqualTo("dispatcher");
                     assertThat(properties.consumers().pollTimeoutMillis()).isEqualTo(250);
                 });
@@ -97,6 +100,7 @@ class MessagingConfigurationTest {
                 )
                 .run(context -> assertThat(context)
                         .hasSingleBean(TradingEventRecordConsumer.class)
-                        .hasSingleBean(TradingEventConsumerService.class));
+                        .hasSingleBean(TradingEventConsumerService.class)
+                        .hasSingleBean(TradingEventConsumerLoop.class));
     }
 }

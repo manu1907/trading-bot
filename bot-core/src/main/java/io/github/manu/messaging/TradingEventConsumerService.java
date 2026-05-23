@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
-public final class TradingEventConsumerService implements AutoCloseable {
+public final class TradingEventConsumerService implements TradingEventPoller, AutoCloseable {
 
     private final TradingEventRecordConsumer consumer;
     private final TradingEventDispatcher dispatcher;
@@ -21,6 +21,7 @@ public final class TradingEventConsumerService implements AutoCloseable {
         this.handlerRegistry = Objects.requireNonNull(handlerRegistry, "handlerRegistry");
     }
 
+    @Override
     public List<TradingEventDispatchResult> pollAndDispatch(Duration timeout) {
         List<ReceivedTradingEvent> receivedEvents = consumer.poll(Objects.requireNonNull(timeout, "timeout"));
         if (receivedEvents.isEmpty()) {

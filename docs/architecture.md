@@ -201,6 +201,9 @@ the matching dead-letter topic when decoding or handling fails.
 `TradingEventConsumerService` polls records through a small consumer boundary,
 dispatches them through the registered event-type handler, and commits offsets
 only after handling or dead-letter publication completes.
+`TradingEventConsumerLoop` is the Spring lifecycle wrapper around that service;
+it is enabled separately from messaging and does not auto-start unless
+`trading.messaging.consumers.auto-start` is set.
 
 Topic names are derived from `TradingEventType` routes:
 

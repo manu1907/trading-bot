@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 
 @Configuration
@@ -87,6 +88,19 @@ public class MessagingConfiguration {
             TradingEventHandlerRegistry handlerRegistry
     ) {
         return new TradingEventConsumerService(consumer, dispatcher, handlerRegistry);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.messaging.consumers", name = "enabled", havingValue = "true")
+    TradingEventConsumerLoop tradingEventConsumerLoop(
+            MessagingProperties properties,
+            TradingEventConsumerService consumerService
+    ) {
+        return new TradingEventConsumerLoop(
+                consumerService,
+                Duration.ofMillis(properties.consumers().pollTimeoutMillis()),
+                properties.consumers().autoStart()
+        );
     }
 
     @Bean

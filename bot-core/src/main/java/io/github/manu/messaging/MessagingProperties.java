@@ -21,7 +21,7 @@ public record MessagingProperties(
             topics = new Topics(false, (short) 1);
         }
         if (consumers == null) {
-            consumers = new Consumers(false, "dispatcher", 250);
+            consumers = new Consumers(false, false, "dispatcher", 250);
         }
     }
 
@@ -39,6 +39,7 @@ public record MessagingProperties(
 
     public record Consumers(
             @DefaultValue("false") boolean enabled,
+            @DefaultValue("false") boolean autoStart,
             @DefaultValue("dispatcher") String groupIdSuffix,
             @DefaultValue("250") int pollTimeoutMillis
     ) {
