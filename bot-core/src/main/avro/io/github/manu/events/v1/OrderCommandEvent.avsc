@@ -1,0 +1,40 @@
+{
+  "type": "record",
+  "name": "OrderCommandEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Risk-gated order intent sent toward an exchange connector.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "commandId", "type": "string" },
+    { "name": "strategyId", "type": "string" },
+    { "name": "provider", "type": "string" },
+    { "name": "environment", "type": "string" },
+    { "name": "account", "type": "string" },
+    { "name": "market", "type": "string" },
+    { "name": "symbol", "type": "string" },
+    { "name": "side", "type": { "type": "enum", "name": "OrderCommandSide", "symbols": ["BUY", "SELL"] } },
+    {
+      "name": "orderType",
+      "type": {
+        "type": "enum",
+        "name": "OrderCommandType",
+        "symbols": ["LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"]
+      }
+    },
+    { "name": "positionSide", "type": ["null", { "type": "enum", "name": "OrderCommandPositionSide", "symbols": ["BOTH", "LONG", "SHORT"] }], "default": null },
+    { "name": "timeInForce", "type": ["null", { "type": "enum", "name": "OrderCommandTimeInForce", "symbols": ["GTC", "IOC", "FOK", "GTX", "GTD"] }], "default": null },
+    { "name": "quantity", "type": ["null", "string"], "default": null },
+    { "name": "quoteOrderQuantity", "type": ["null", "string"], "default": null },
+    { "name": "price", "type": ["null", "string"], "default": null },
+    { "name": "stopPrice", "type": ["null", "string"], "default": null },
+    { "name": "activationPrice", "type": ["null", "string"], "default": null },
+    { "name": "callbackRate", "type": ["null", "string"], "default": null },
+    { "name": "reduceOnly", "type": "boolean", "default": false },
+    { "name": "closePosition", "type": "boolean", "default": false },
+    { "name": "clientOrderId", "type": "string" },
+    { "name": "idempotencyKey", "type": "string" },
+    { "name": "requestedAtMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

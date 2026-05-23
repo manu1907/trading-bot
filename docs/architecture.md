@@ -146,6 +146,24 @@ The checked-in Binance demo user-data stream lifecycle test is opt-in and
 requires `BINANCE_DEMO_API_KEY`; it starts, renews, and closes the configured
 USD-M demo stream.
 
+## Trading Events
+
+Trading events are schema-first Avro contracts owned by `bot-core`. The source
+schemas live under `bot-core/src/main/avro/io/github/manu/events/v1`, are kept
+on the runtime classpath, and generate Java SpecificRecord classes during
+`compileJava`.
+
+Version 1 covers market data, order commands, order results, execution reports,
+balance updates, position updates, risk decisions, strategy signals, and config
+changes. Decimal exchange values are represented as exact strings so connector
+code does not lose precision before symbol filters and risk logic interpret
+tick size, step size, notional, and product-specific scale.
+
+The first compatibility rule is conservative: nullable extension fields need
+explicit `null` defaults, and the checked-in tests verify schema availability,
+self compatibility, optional-field evolution, generated class availability, and
+binary round trips with explicit expected values.
+
 ## Demo And Real
 
 Demo and real use the same execution engine. The allowed differences are:

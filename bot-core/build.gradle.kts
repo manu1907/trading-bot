@@ -5,8 +5,20 @@ plugins {
     id("io.spring.dependency-management")
 }
 
+val avroTools by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
 application {
     mainClass.set("io.github.manu.TradingBotApplication")
+}
+
+sourceSets {
+    main {
+        java.srcDir(layout.buildDirectory.dir("generated/sources/avro/main/java"))
+        resources.srcDir("src/main/avro")
+    }
 }
 
 dependencies {
@@ -37,6 +49,12 @@ dependencies {
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     // Bean Validation implementation for runtime config validation
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    // Schema-first trading event contracts; Java types are generated at build time.
+    implementation("org.apache.avro:avro:${rootProject.ext["avro.version"]}")
+    avroTools("org.apache.avro:avro-tools:${rootProject.ext["avro.version"]}") {
+        exclude(group = "org.apache.avro", module = "trevni-avro")
+        exclude(group = "org.apache.avro", module = "trevni-core")
+    }
 
     // ---------- ULTRA-LOW-LATENCY EXTRAS ----------
     // Thread pinning (requires isolcpus in production)
@@ -45,4 +63,31 @@ dependencies {
     // ---------- TESTING ----------
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")
+}
+
+val generateAvroJava by tasks.registering(JavaExec::class) {
+    group = "build"
+    description = "Generates Java specific records from Avro trading event schemas."
+
+    val schemaDir = layout.projectDirectory.dir("src/main/avro")
+    val schemaFiles = fileTree(schemaDir) {
+        include("**/*.avsc")
+    }
+    val outputDir = layout.buildDirectory.dir("generated/sources/avro/main/java")
+
+    inputs.files(schemaFiles)
+    outputs.dir(outputDir)
+
+    classpath = avroTools
+    mainClass.set("org.apache.avro.tool.Main")
+    doFirst {
+        val schemaPaths = schemaFiles.files
+            .sortedBy(File::getAbsolutePath)
+            .map(File::getAbsolutePath)
+        setArgs(listOf("compile", "schema") + schemaPaths + outputDir.get().asFile.absolutePath)
+    }
+}
+
+tasks.named("compileJava") {
+    dependsOn(generateAvroJava)
 }

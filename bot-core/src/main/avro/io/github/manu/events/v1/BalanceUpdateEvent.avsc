@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "BalanceUpdateEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Account balance state or delta observed from exchange account data.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "provider", "type": "string" },
+    { "name": "environment", "type": "string" },
+    { "name": "account", "type": "string" },
+    { "name": "market", "type": "string" },
+    { "name": "asset", "type": "string" },
+    { "name": "walletBalance", "type": ["null", "string"], "default": null },
+    { "name": "crossWalletBalance", "type": ["null", "string"], "default": null },
+    { "name": "availableBalance", "type": ["null", "string"], "default": null },
+    { "name": "balanceDelta", "type": ["null", "string"], "default": null },
+    { "name": "updateReason", "type": ["null", "string"], "default": null },
+    { "name": "eventTimeMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

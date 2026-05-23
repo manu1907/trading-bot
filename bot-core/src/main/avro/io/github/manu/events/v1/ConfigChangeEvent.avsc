@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "ConfigChangeEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Accepted or rejected runtime configuration change.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "changeId", "type": "string" },
+    { "name": "source", "type": { "type": "enum", "name": "ConfigChangeSource", "symbols": ["DEFAULT_FILE", "ENVIRONMENT_FILE", "RUNTIME_FILE", "CLI", "API"] } },
+    { "name": "profile", "type": "string" },
+    { "name": "provider", "type": ["null", "string"], "default": null },
+    { "name": "environment", "type": ["null", "string"], "default": null },
+    { "name": "account", "type": ["null", "string"], "default": null },
+    { "name": "market", "type": ["null", "string"], "default": null },
+    { "name": "path", "type": "string" },
+    { "name": "oldValue", "type": ["null", "string"], "default": null },
+    { "name": "newValue", "type": ["null", "string"], "default": null },
+    { "name": "applied", "type": "boolean" },
+    { "name": "rejectedReason", "type": ["null", "string"], "default": null },
+    { "name": "changedAtMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

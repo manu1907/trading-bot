@@ -1,0 +1,53 @@
+{
+  "type": "record",
+  "name": "MarketDataEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Normalized exchange market data observed by a live or replay runtime.",
+  "fields": [
+    { "name": "eventId", "type": "string", "doc": "Globally unique event identifier." },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "eventType", "type": { "type": "enum", "name": "MarketDataEventType", "symbols": ["TRADE", "BOOK_TICKER", "DEPTH_SNAPSHOT", "DEPTH_DELTA", "MARK_PRICE", "FUNDING_RATE", "KLINE"] } },
+    { "name": "provider", "type": "string" },
+    { "name": "environment", "type": "string" },
+    { "name": "market", "type": "string" },
+    { "name": "symbol", "type": "string" },
+    { "name": "occurredAtMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "receivedAtMicros", "type": ["null", { "type": "long", "logicalType": "timestamp-micros" }], "default": null },
+    { "name": "exchangeSequence", "type": ["null", "long"], "default": null },
+    { "name": "tradeId", "type": ["null", "string"], "default": null },
+    { "name": "side", "type": ["null", "string"], "default": null },
+    { "name": "price", "type": ["null", "string"], "default": null, "doc": "Exact decimal as supplied or normalized from the exchange." },
+    { "name": "quantity", "type": ["null", "string"], "default": null },
+    {
+      "name": "bids",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "MarketDataBidLevel",
+          "fields": [
+            { "name": "price", "type": "string" },
+            { "name": "quantity", "type": "string" }
+          ]
+        }
+      },
+      "default": []
+    },
+    {
+      "name": "asks",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "MarketDataAskLevel",
+          "fields": [
+            { "name": "price", "type": "string" },
+            { "name": "quantity", "type": "string" }
+          ]
+        }
+      },
+      "default": []
+    },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

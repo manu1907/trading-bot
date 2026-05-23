@@ -13,4 +13,9 @@
         <Class name="io.github.manu.exchange.runtime.ExchangeManager"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
+    <!-- Avro SpecificRecord classes are generated code; their mutable builders and cached decoders are framework internals. -->
+    <Match>
+        <Class name="~io\.github\.manu\.events\.v1\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2,MS_EXPOSE_REP"/>
+    </Match>
 </FindBugsFilter>

@@ -1,0 +1,25 @@
+{
+  "type": "record",
+  "name": "RiskDecisionEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Risk engine decision for a strategy signal or order command.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "decisionId", "type": "string" },
+    { "name": "commandId", "type": ["null", "string"], "default": null },
+    { "name": "signalId", "type": ["null", "string"], "default": null },
+    { "name": "strategyId", "type": "string" },
+    { "name": "provider", "type": "string" },
+    { "name": "environment", "type": "string" },
+    { "name": "account", "type": "string" },
+    { "name": "market", "type": "string" },
+    { "name": "symbol", "type": ["null", "string"], "default": null },
+    { "name": "decision", "type": { "type": "enum", "name": "RiskDecision", "symbols": ["APPROVED", "REJECTED", "THROTTLED", "MANUAL_REVIEW"] } },
+    { "name": "reasons", "type": { "type": "array", "items": "string" }, "default": [] },
+    { "name": "maxQuantity", "type": ["null", "string"], "default": null },
+    { "name": "maxNotional", "type": ["null", "string"], "default": null },
+    { "name": "decidedAtMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

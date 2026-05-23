@@ -19,6 +19,7 @@ ext {
     set("chronicle-queue.version", "2026.2")
     set("agrona.version", "2.4.1")
     set("affinity.version", "2026.2")
+    set("avro.version", "1.12.1")
 }
 
 subprojects {

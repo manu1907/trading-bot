@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "name": "ExecutionReportEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Exchange execution update for an order, usually sourced from a user-data stream.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "provider", "type": "string" },
+    { "name": "environment", "type": "string" },
+    { "name": "account", "type": "string" },
+    { "name": "market", "type": "string" },
+    { "name": "symbol", "type": "string" },
+    { "name": "clientOrderId", "type": "string" },
+    { "name": "exchangeOrderId", "type": "string" },
+    { "name": "executionId", "type": ["null", "string"], "default": null },
+    { "name": "tradeId", "type": ["null", "string"], "default": null },
+    { "name": "side", "type": "string" },
+    { "name": "orderType", "type": "string" },
+    { "name": "orderStatus", "type": "string" },
+    { "name": "executionType", "type": "string" },
+    { "name": "lastExecutedQuantity", "type": "string" },
+    { "name": "lastExecutedPrice", "type": "string" },
+    { "name": "cumulativeFilledQuantity", "type": "string" },
+    { "name": "cumulativeQuoteQuantity", "type": ["null", "string"], "default": null },
+    { "name": "commissionAsset", "type": ["null", "string"], "default": null },
+    { "name": "commissionAmount", "type": ["null", "string"], "default": null },
+    { "name": "maker", "type": ["null", "boolean"], "default": null },
+    { "name": "eventTimeMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "transactionTimeMicros", "type": ["null", { "type": "long", "logicalType": "timestamp-micros" }], "default": null },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

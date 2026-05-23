@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "name": "StrategySignalEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Strategy signal emitted before risk evaluation and order construction.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "signalId", "type": "string" },
+    { "name": "strategyId", "type": "string" },
+    { "name": "provider", "type": ["null", "string"], "default": null },
+    { "name": "environment", "type": ["null", "string"], "default": null },
+    { "name": "account", "type": ["null", "string"], "default": null },
+    { "name": "market", "type": ["null", "string"], "default": null },
+    { "name": "symbol", "type": ["null", "string"], "default": null },
+    { "name": "signalType", "type": { "type": "enum", "name": "StrategySignalType", "symbols": ["ENTER_LONG", "ENTER_SHORT", "EXIT_LONG", "EXIT_SHORT", "REDUCE_LONG", "REDUCE_SHORT", "HOLD", "CANCEL"] } },
+    { "name": "confidence", "type": ["null", "double"], "default": null },
+    { "name": "targetQuantity", "type": ["null", "string"], "default": null },
+    { "name": "targetNotional", "type": ["null", "string"], "default": null },
+    { "name": "limitPrice", "type": ["null", "string"], "default": null },
+    { "name": "stopPrice", "type": ["null", "string"], "default": null },
+    { "name": "emittedAtMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "features", "type": { "type": "map", "values": "string" }, "default": {} },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}
