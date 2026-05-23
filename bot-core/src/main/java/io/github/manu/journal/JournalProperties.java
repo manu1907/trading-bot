@@ -9,10 +9,17 @@ import java.util.Objects;
 @ConfigurationProperties(prefix = "trading.journal")
 public record JournalProperties(
         @DefaultValue("false") boolean enabled,
-        @DefaultValue("data/journal/trading-events") Path directory
+        @DefaultValue("data/journal/trading-events") Path directory,
+        @DefaultValue Recovery recovery
 ) {
 
     public JournalProperties {
         Objects.requireNonNull(directory, "directory");
+        if (recovery == null) {
+            recovery = new Recovery(false);
+        }
+    }
+
+    public record Recovery(@DefaultValue("false") boolean enabled) {
     }
 }

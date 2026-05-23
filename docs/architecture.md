@@ -248,6 +248,9 @@ When both Redpanda messaging and the journal are enabled, the trading event bus
 is decorated so primary typed events are appended to the local journal before
 they are published to Redpanda. Dead-letter records continue through the
 dead-letter publisher and are not written to the primary event journal.
+`JournalRecoveryService` replays raw Avro journal records through registered
+typed handlers in journal order. Recovery fails fast on decode or handler
+failure because partial state rebuilds are not acceptable for trading state.
 
 ## Demo And Real
 

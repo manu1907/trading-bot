@@ -1,10 +1,13 @@
 package io.github.manu.journal;
 
+import io.github.manu.events.SerializedTradingEvent;
+import io.github.manu.messaging.TradingEventHandlerRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,6 +51,37 @@ class JournalConfigurationTest {
 
                     assertThat(properties.enabled()).isTrue();
                     assertThat(properties.directory()).isEqualTo(journalDirectory);
+                    assertThat(properties.recovery().enabled()).isFalse();
                 });
+    }
+
+    @Test
+    void creates_recovery_service_when_enabled_and_dependencies_exist() {
+        contextRunner
+                .withBean(TradingEventJournal.class, () -> new InMemoryTradingEventJournal(List.of()))
+                .withBean(TradingEventHandlerRegistry.class, () -> new TradingEventHandlerRegistry(List.of()))
+                .withPropertyValues("trading.journal.recovery.enabled=true")
+                .run(context -> assertThat(context).hasSingleBean(JournalRecoveryService.class));
+    }
+
+    private record InMemoryTradingEventJournal(List<JournaledTradingEvent> events) implements TradingEventJournal {
+
+        private InMemoryTradingEventJournal {
+            events = List.copyOf(events);
+        }
+
+        @Override
+        public JournaledTradingEvent append(SerializedTradingEvent event) {
+            throw new UnsupportedOperationException("append is not used by configuration tests");
+        }
+
+        @Override
+        public List<JournaledTradingEvent> readAll() {
+            return events;
+        }
+
+        @Override
+        public void close() {
+        }
     }
 }

@@ -28,6 +28,8 @@ trading:
   journal:
     enabled: false
     directory: data/journal/trading-events
+    recovery:
+      enabled: false
   messaging:
     enabled: false
     bootstrap-servers: localhost:19092
