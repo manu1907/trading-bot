@@ -164,6 +164,12 @@ explicit `null` defaults, and the checked-in tests verify schema availability,
 self compatibility, optional-field evolution, generated class availability, and
 binary round trips with explicit expected values.
 
+Event routing is also declared in core. Each event type maps to one Avro schema,
+one generated SpecificRecord class, one Redpanda topic, one key subject, one
+value subject, and one dead-letter topic. Current topic names use the
+`trading.v1.{event-name}` pattern and Schema Registry subjects use the standard
+`{topic}-key` and `{topic}-value` shape.
+
 ## Demo And Real
 
 Demo and real use the same execution engine. The allowed differences are:
