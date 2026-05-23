@@ -27,9 +27,9 @@ subprojects {
         mavenCentral()
     }
 
-    apply(plugin = "com.diffplug.spotless")
-    apply(plugin = "checkstyle")
-    apply(plugin = "com.github.spotbugs")
+    pluginManager.apply("com.diffplug.spotless")
+    pluginManager.apply("checkstyle")
+    pluginManager.apply("com.github.spotbugs")
 
     extensions.configure<CheckstyleExtension> {
         toolVersion = "13.4.2"
@@ -82,7 +82,7 @@ subprojects {
     }
 }
 
-apply(plugin = "com.diffplug.spotless")
+pluginManager.apply("com.diffplug.spotless")
 
 extensions.configure<SpotlessExtension> {
     kotlinGradle {
