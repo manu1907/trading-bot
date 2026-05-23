@@ -177,6 +177,9 @@ partitioning.
 Core wraps outgoing events in a `TradingEventEnvelope`: event type, route,
 typed Avro key, and typed Avro value must agree before serialization. This is
 the handoff boundary that later Redpanda producers should consume.
+The schema manifest exposes each event route with its key/value schema names and
+Avro parsing fingerprints. Tests assert uniqueness and self-compatibility so
+schema drift is visible before messaging infrastructure is wired in.
 
 ## Demo And Real
 

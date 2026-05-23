@@ -1,6 +1,7 @@
 package io.github.manu.events;
 
 import org.apache.avro.Schema;
+import org.apache.avro.SchemaNormalization;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,5 +36,9 @@ public final class TradingEventSchemas {
             schemas.put(schema, schema.load());
         }
         return Map.copyOf(schemas);
+    }
+
+    public static long fingerprint(Schema schema) {
+        return SchemaNormalization.parsingFingerprint64(schema);
     }
 }
