@@ -1,8 +1,14 @@
 package io.github.manu.messaging;
 
+import io.github.manu.events.SerializedTradingEvent;
+import io.github.manu.journal.JournaledTradingEvent;
+import io.github.manu.journal.JournaledTradingEventBus;
+import io.github.manu.journal.TradingEventJournal;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -102,5 +108,32 @@ class MessagingConfigurationTest {
                         .hasSingleBean(TradingEventRecordConsumer.class)
                         .hasSingleBean(TradingEventConsumerService.class)
                         .hasSingleBean(TradingEventConsumerLoop.class));
+    }
+
+    @Test
+    void decorates_event_bus_when_journal_is_available() {
+        contextRunner
+                .withBean(TradingEventJournal.class, CapturingTradingEventJournal::new)
+                .withPropertyValues("trading.messaging.enabled=true")
+                .run(context -> assertThat(context)
+                        .hasSingleBean(TradingEventBus.class)
+                        .hasSingleBean(JournaledTradingEventBus.class));
+    }
+
+    private static final class CapturingTradingEventJournal implements TradingEventJournal {
+
+        @Override
+        public JournaledTradingEvent append(SerializedTradingEvent event) {
+            return new JournaledTradingEvent(0, event);
+        }
+
+        @Override
+        public List<JournaledTradingEvent> readAll() {
+            return List.of();
+        }
+
+        @Override
+        public void close() {
+        }
     }
 }

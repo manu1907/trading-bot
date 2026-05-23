@@ -1,8 +1,11 @@
 package io.github.manu.messaging;
 
+import io.github.manu.journal.JournaledTradingEventBus;
+import io.github.manu.journal.TradingEventJournal;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -52,9 +55,15 @@ public class MessagingConfiguration {
     @ConditionalOnProperty(prefix = "trading.messaging", name = "enabled", havingValue = "true")
     TradingEventBus tradingEventBus(
             KafkaTradingEventPublisher publisher,
-            KafkaDeadLetterPublisher deadLetterPublisher
+            KafkaDeadLetterPublisher deadLetterPublisher,
+            ObjectProvider<TradingEventJournal> journal
     ) {
-        return new RedpandaTradingEventBus(publisher, deadLetterPublisher);
+        TradingEventBus redpandaBus = new RedpandaTradingEventBus(publisher, deadLetterPublisher);
+        TradingEventJournal tradingEventJournal = journal.getIfAvailable();
+        if (tradingEventJournal == null) {
+            return redpandaBus;
+        }
+        return new JournaledTradingEventBus(redpandaBus, tradingEventJournal);
     }
 
     @Bean

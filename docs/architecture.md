@@ -244,6 +244,10 @@ arguments so local runs match the intended runtime shape.
 Spring exposes the journal through `trading.journal`; it is disabled by default
 and must be pointed at an explicit writable directory before use in live or
 backtest runtime.
+When both Redpanda messaging and the journal are enabled, the trading event bus
+is decorated so primary typed events are appended to the local journal before
+they are published to Redpanda. Dead-letter records continue through the
+dead-letter publisher and are not written to the primary event journal.
 
 ## Demo And Real
 
