@@ -222,6 +222,9 @@ The Redpanda Testcontainers suite is opt-in because it needs Docker:
 ```
 
 When enabled, it publishes, replays, and dead-letters real Redpanda records.
+Unit replay coverage also exercises every current event type through the
+Schema Registry wire format so lifecycle, metadata, account, order, risk, and
+strategy families remain replayable as schemas evolve.
 
 ## Demo And Real
 
