@@ -241,6 +241,9 @@ instead of returning partial data.
 Chronicle Queue uses memory-mapped files and Java internals for performance.
 Gradle test and Java execution tasks include the required Java 25 module access
 arguments so local runs match the intended runtime shape.
+Spring exposes the journal through `trading.journal`; it is disabled by default
+and must be pointed at an explicit writable directory before use in live or
+backtest runtime.
 
 ## Demo And Real
 
