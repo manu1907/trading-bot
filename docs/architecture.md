@@ -192,6 +192,9 @@ default so the application can start without a local broker. When enabled, core
 creates Schema Registry, producer, dead-letter producer, and replay consumer
 factory beans from typed configuration. Topic provisioning is separately gated
 by `trading.messaging.topics.auto-create`.
+Application code should depend on `TradingEventBus`, not Kafka classes. The
+Redpanda implementation publishes typed envelopes and dead-letter records
+through non-blocking Kafka callbacks.
 
 Topic names are derived from `TradingEventType` routes:
 

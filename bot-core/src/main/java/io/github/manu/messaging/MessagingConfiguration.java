@@ -46,6 +46,15 @@ public class MessagingConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "trading.messaging", name = "enabled", havingValue = "true")
+    TradingEventBus tradingEventBus(
+            KafkaTradingEventPublisher publisher,
+            KafkaDeadLetterPublisher deadLetterPublisher
+    ) {
+        return new RedpandaTradingEventBus(publisher, deadLetterPublisher);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.messaging", name = "enabled", havingValue = "true")
     TradingEventReplayConsumerFactory tradingEventReplayConsumerFactory(
             MessagingProperties properties,
             SchemaRegistryTradingEventCodec codec

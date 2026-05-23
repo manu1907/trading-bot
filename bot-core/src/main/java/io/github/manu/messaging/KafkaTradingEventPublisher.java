@@ -15,7 +15,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
-public final class KafkaTradingEventPublisher implements AutoCloseable {
+public final class KafkaTradingEventPublisher implements TradingEventPublisher, AutoCloseable {
 
     private final KafkaProducer<byte[], byte[]> producer;
     private final SchemaRegistryTradingEventCodec codec;
@@ -50,18 +50,35 @@ public final class KafkaTradingEventPublisher implements AutoCloseable {
         return producer.send(record);
     }
 
-    public CompletableFuture<RecordMetadata> publishAsync(TradingEventEnvelope<? extends SpecificRecord> envelope) {
-        Future<RecordMetadata> send = publish(envelope);
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return send.get();
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                throw new MessagingException("Interrupted while publishing trading event", ex);
-            } catch (Exception ex) {
-                throw new MessagingException("Failed to publish trading event", ex);
+    @Override
+    public CompletableFuture<PublishedTradingEvent> publishAsync(
+            TradingEventEnvelope<? extends SpecificRecord> envelope
+    ) {
+        Objects.requireNonNull(envelope, "envelope");
+        SerializedRegistryTradingEvent serialized = codec.serialize(envelope);
+        TradingEventType eventType = serialized.eventType();
+        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(
+                serialized.route().topic(),
+                serialized.keyPayload(),
+                serialized.valuePayload()
+        );
+        record.headers().add(header(TradingEventHeaders.EVENT_TYPE, eventType.name()));
+        record.headers().add(header(TradingEventHeaders.VALUE_SCHEMA_FINGERPRINT, serialized.valueFingerprint()));
+
+        CompletableFuture<PublishedTradingEvent> result = new CompletableFuture<>();
+        producer.send(record, (metadata, exception) -> {
+            if (exception != null) {
+                result.completeExceptionally(new MessagingException("Failed to publish trading event", exception));
+            } else {
+                result.complete(new PublishedTradingEvent(
+                        eventType,
+                        metadata.topic(),
+                        metadata.partition(),
+                        metadata.offset()
+                ));
             }
         });
+        return result;
     }
 
     @Override

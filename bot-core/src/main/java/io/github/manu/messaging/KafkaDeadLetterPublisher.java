@@ -12,7 +12,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
-public final class KafkaDeadLetterPublisher implements AutoCloseable {
+public final class KafkaDeadLetterPublisher implements DeadLetterPublisher, AutoCloseable {
 
     private final KafkaProducer<byte[], byte[]> producer;
 
@@ -36,18 +36,31 @@ public final class KafkaDeadLetterPublisher implements AutoCloseable {
         return producer.send(record);
     }
 
-    public CompletableFuture<RecordMetadata> publishAsync(DeadLetterTradingEvent event) {
-        Future<RecordMetadata> send = publish(event);
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return send.get();
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                throw new MessagingException("Interrupted while publishing dead-letter event", ex);
-            } catch (Exception ex) {
-                throw new MessagingException("Failed to publish dead-letter event", ex);
+    @Override
+    public CompletableFuture<PublishedTradingEvent> publishAsync(DeadLetterTradingEvent event) {
+        Objects.requireNonNull(event, "event");
+        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(
+                event.route().deadLetterTopic(),
+                event.keyPayload(),
+                event.valuePayload()
+        );
+        record.headers().add(header(TradingEventHeaders.EVENT_TYPE, event.eventType().name()));
+        record.headers().add(header(TradingEventHeaders.DEAD_LETTER_REASON, event.reason()));
+
+        CompletableFuture<PublishedTradingEvent> result = new CompletableFuture<>();
+        producer.send(record, (metadata, exception) -> {
+            if (exception != null) {
+                result.completeExceptionally(new MessagingException("Failed to publish dead-letter event", exception));
+            } else {
+                result.complete(new PublishedTradingEvent(
+                        event.eventType(),
+                        metadata.topic(),
+                        metadata.partition(),
+                        metadata.offset()
+                ));
             }
         });
+        return result;
     }
 
     @Override

@@ -18,6 +18,7 @@ class MessagingConfigurationTest {
                 .doesNotHaveBean(SchemaRegistryClient.class)
                 .doesNotHaveBean(KafkaTradingEventPublisher.class)
                 .doesNotHaveBean(KafkaDeadLetterPublisher.class)
+                .doesNotHaveBean(TradingEventBus.class)
                 .doesNotHaveBean(TradingEventReplayConsumerFactory.class)
                 .doesNotHaveBean(ApplicationRunner.class));
     }
@@ -37,6 +38,7 @@ class MessagingConfigurationTest {
                         .hasSingleBean(SchemaRegistryTradingEventCodec.class)
                         .hasSingleBean(KafkaTradingEventPublisher.class)
                         .hasSingleBean(KafkaDeadLetterPublisher.class)
+                        .hasSingleBean(TradingEventBus.class)
                         .hasSingleBean(TradingEventReplayConsumerFactory.class)
                         .doesNotHaveBean(ApplicationRunner.class));
     }
