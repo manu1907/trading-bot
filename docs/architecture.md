@@ -174,6 +174,9 @@ All topics use the shared `TradingEventKey` Avro record for keys. Its
 runtime target, symbol, and entity id so account-level, symbol-level,
 order-level, strategy-level, and config-level events have predictable
 partitioning.
+Core wraps outgoing events in a `TradingEventEnvelope`: event type, route,
+typed Avro key, and typed Avro value must agree before serialization. This is
+the handoff boundary that later Redpanda producers should consume.
 
 ## Demo And Real
 
