@@ -51,6 +51,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     // Schema-first trading event contracts; Java types are generated at build time.
     implementation("org.apache.avro:avro:${rootProject.ext["avro.version"]}")
+    implementation("org.apache.kafka:kafka-clients")
     avroTools("org.apache.avro:avro-tools:${rootProject.ext["avro.version"]}") {
         exclude(group = "org.apache.avro", module = "trevni-avro")
         exclude(group = "org.apache.avro", module = "trevni-core")
@@ -63,6 +64,7 @@ dependencies {
     // ---------- TESTING ----------
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("org.testcontainers:testcontainers-redpanda:${rootProject.ext["testcontainers.version"]}")
 }
 
 val generateAvroJava by tasks.registering(JavaExec::class) {

@@ -181,6 +181,30 @@ The schema manifest exposes each event route with its key/value schema names and
 Avro parsing fingerprints. Tests assert uniqueness and self-compatibility so
 schema drift is visible before messaging infrastructure is wired in.
 
+## Redpanda Messaging
+
+Local Redpanda is defined in `docker-compose.redpanda.yaml`. It exposes the
+Kafka API on `localhost:19092`, Schema Registry on `localhost:18081`, and the
+Admin API on `localhost:19644`.
+
+Topic names are derived from `TradingEventType` routes:
+
+- Primary topics use `trading.v1.<event-name>`.
+- Dead-letter topics use `trading.v1.<event-name>.dlq`.
+- Schema Registry subjects use `<topic>-key` and `<topic>-value`.
+
+Kafka payloads use the Schema Registry Avro wire format: magic byte, schema id,
+then Avro binary payload. The schema id is verified against the expected Avro
+parsing fingerprint on replay.
+
+The Redpanda Testcontainers suite is opt-in because it needs Docker:
+
+```text
+./gradlew :bot-core:test -Dredpanda.integration.tests=true
+```
+
+When enabled, it publishes, replays, and dead-letters real Redpanda records.
+
 ## Demo And Real
 
 Demo and real use the same execution engine. The allowed differences are:

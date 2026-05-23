@@ -20,6 +20,8 @@ ext {
     set("agrona.version", "2.4.1")
     set("affinity.version", "2026.2")
     set("avro.version", "1.12.1")
+    set("testcontainers.version", "2.0.5")
+    set("redpanda.image", "docker.redpanda.com/redpandadata/redpanda:v26.1.9")
 }
 
 subprojects {
