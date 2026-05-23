@@ -195,6 +195,9 @@ by `trading.messaging.topics.auto-create`.
 Application code should depend on `TradingEventBus`, not Kafka classes. The
 Redpanda implementation publishes typed envelopes and dead-letter records
 through non-blocking Kafka callbacks.
+Consumer code should enter through `TradingEventDispatcher`: it decodes raw
+Schema Registry payloads, invokes a typed handler, and sends original bytes to
+the matching dead-letter topic when decoding or handling fails.
 
 Topic names are derived from `TradingEventType` routes:
 

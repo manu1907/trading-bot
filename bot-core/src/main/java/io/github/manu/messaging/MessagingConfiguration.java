@@ -6,6 +6,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
+
 @Configuration
 @EnableConfigurationProperties(MessagingProperties.class)
 public class MessagingConfiguration {
@@ -51,6 +53,15 @@ public class MessagingConfiguration {
             KafkaDeadLetterPublisher deadLetterPublisher
     ) {
         return new RedpandaTradingEventBus(publisher, deadLetterPublisher);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.messaging", name = "enabled", havingValue = "true")
+    TradingEventDispatcher tradingEventDispatcher(
+            SchemaRegistryTradingEventCodec codec,
+            KafkaDeadLetterPublisher deadLetterPublisher
+    ) {
+        return new TradingEventDispatcher(codec, deadLetterPublisher, Clock.systemUTC());
     }
 
     @Bean
