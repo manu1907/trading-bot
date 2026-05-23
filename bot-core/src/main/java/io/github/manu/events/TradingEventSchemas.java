@@ -10,6 +10,7 @@ import java.util.Map;
 public final class TradingEventSchemas {
 
     public static final String NAMESPACE = "io.github.manu.events.v1";
+    public static final String KEY_SCHEMA_FILE = "TradingEventKey.avsc";
 
     private static final String RESOURCE_BASE = "/io/github/manu/events/v1/";
 

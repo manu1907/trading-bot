@@ -169,6 +169,11 @@ one generated SpecificRecord class, one Redpanda topic, one key subject, one
 value subject, and one dead-letter topic. Current topic names use the
 `trading.v1.{event-name}` pattern and Schema Registry subjects use the standard
 `{topic}-key` and `{topic}-value` shape.
+All topics use the shared `TradingEventKey` Avro record for keys. Its
+`partitionKey` is canonical lower-case text built from event type, entity type,
+runtime target, symbol, and entity id so account-level, symbol-level,
+order-level, strategy-level, and config-level events have predictable
+partitioning.
 
 ## Demo And Real
 

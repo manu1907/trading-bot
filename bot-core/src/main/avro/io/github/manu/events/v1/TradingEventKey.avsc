@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "TradingEventKey",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Stable partition key for all trading event topics.",
+  "fields": [
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "eventType", "type": "string" },
+    { "name": "provider", "type": ["null", "string"], "default": null },
+    { "name": "environment", "type": ["null", "string"], "default": null },
+    { "name": "account", "type": ["null", "string"], "default": null },
+    { "name": "market", "type": ["null", "string"], "default": null },
+    { "name": "symbol", "type": ["null", "string"], "default": null },
+    { "name": "entityType", "type": { "type": "enum", "name": "TradingEventKeyEntityType", "symbols": ["RUNTIME", "ACCOUNT", "SYMBOL", "ORDER", "STRATEGY", "CONFIG"] } },
+    { "name": "entityId", "type": ["null", "string"], "default": null },
+    { "name": "partitionKey", "type": "string", "doc": "Canonical text used for Kafka-compatible partitioning." }
+  ]
+}

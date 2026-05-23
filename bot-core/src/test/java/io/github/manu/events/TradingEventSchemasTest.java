@@ -1,6 +1,7 @@
 package io.github.manu.events;
 
 import io.github.manu.events.v1.OrderCommandEvent;
+import io.github.manu.events.v1.TradingEventKey;
 import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaCompatibility;
@@ -39,6 +40,8 @@ class TradingEventSchemasTest {
     void specific_record_classes_are_generated_from_the_schema_files() {
         assertThat(OrderCommandEvent.getClassSchema().getFullName())
                 .isEqualTo(TradingEventSchemas.NAMESPACE + ".OrderCommandEvent");
+        assertThat(TradingEventKey.getClassSchema().getFullName())
+                .isEqualTo(TradingEventSchemas.NAMESPACE + ".TradingEventKey");
     }
 
     @Test

@@ -52,6 +52,10 @@ public enum TradingEventType {
         return schema.load();
     }
 
+    public Schema keySchema() {
+        return TradingEventSchemas.load(TradingEventSchemas.KEY_SCHEMA_FILE);
+    }
+
     public Class<? extends SpecificRecord> recordClass() {
         return recordClass;
     }

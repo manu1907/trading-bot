@@ -28,6 +28,15 @@ class TradingEventTypeTest {
                 .doesNotHaveDuplicates()
                 .allSatisfy(topic -> assertThat(topic).startsWith("trading.v1."));
 
+        assertThat(Arrays.stream(TradingEventType.values()).map(type -> type.route().keySubject()))
+                .doesNotHaveDuplicates()
+                .allSatisfy(subject -> assertThat(subject).endsWith("-key"));
+        assertThat(Arrays.stream(TradingEventType.values()).map(type -> type.route().valueSubject()))
+                .doesNotHaveDuplicates()
+                .allSatisfy(subject -> assertThat(subject).endsWith("-value"));
+        assertThat(Arrays.stream(TradingEventType.values()).map(type -> type.keySchema().getFullName()))
+                .containsOnly(TradingEventSchemas.NAMESPACE + ".TradingEventKey");
+
         assertThat(TradingEventType.ORDER_COMMAND.route()).satisfies(route -> {
             assertThat(route.topic()).isEqualTo("trading.v1.order-command");
             assertThat(route.keySubject()).isEqualTo("trading.v1.order-command-key");
