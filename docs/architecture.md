@@ -187,6 +187,12 @@ Local Redpanda is defined in `docker-compose.redpanda.yaml`. It exposes the
 Kafka API on `localhost:19092`, Schema Registry on `localhost:18081`, and the
 Admin API on `localhost:19644`.
 
+Spring wiring is controlled by `trading.messaging`. Messaging is disabled by
+default so the application can start without a local broker. When enabled, core
+creates Schema Registry, producer, dead-letter producer, and replay consumer
+factory beans from typed configuration. Topic provisioning is separately gated
+by `trading.messaging.topics.auto-create`.
+
 Topic names are derived from `TradingEventType` routes:
 
 - Primary topics use `trading.v1.<event-name>`.

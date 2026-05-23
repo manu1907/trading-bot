@@ -23,3 +23,13 @@ management:
 # Logging – we use Logback, configured in logback-spring.xml
 logging:
   config: classpath:logback-spring.xml
+
+trading:
+  messaging:
+    enabled: false
+    bootstrap-servers: localhost:19092
+    schema-registry-url: http://localhost:18081
+    client-id-prefix: trading-bot
+    topics:
+      auto-create: false
+      replication-factor: 1
