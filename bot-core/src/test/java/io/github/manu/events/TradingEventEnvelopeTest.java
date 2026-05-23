@@ -4,6 +4,7 @@ import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandSide;
 import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.OrderResultEvent;
+import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.TradingEventKey;
 import org.junit.jupiter.api.Test;
 
@@ -66,7 +67,7 @@ class TradingEventEnvelopeTest {
                         .setMarket("usdm_futures")
                         .setSymbol("BTCUSDT")
                         .setClientOrderId("tb-lfa-001")
-                        .setStatus(io.github.manu.events.v1.OrderResultStatus.ACCEPTED)
+                        .setStatus(OrderResultStatus.ACCEPTED)
                         .setObservedAtMicros(Instant.parse("2026-05-23T10:30:00Z"))
                         .setAttributes(Map.of())
                         .build()
