@@ -15,11 +15,14 @@ class MessagingConfigurationTest {
     void keeps_kafka_clients_disabled_by_default() {
         contextRunner.run(context -> assertThat(context)
                 .hasSingleBean(MessagingProperties.class)
+                .hasSingleBean(TradingEventHandlerRegistry.class)
                 .doesNotHaveBean(SchemaRegistryClient.class)
                 .doesNotHaveBean(KafkaTradingEventPublisher.class)
                 .doesNotHaveBean(KafkaDeadLetterPublisher.class)
                 .doesNotHaveBean(TradingEventBus.class)
                 .doesNotHaveBean(TradingEventDispatcher.class)
+                .doesNotHaveBean(TradingEventRecordConsumer.class)
+                .doesNotHaveBean(TradingEventConsumerService.class)
                 .doesNotHaveBean(TradingEventReplayConsumerFactory.class)
                 .doesNotHaveBean(ApplicationRunner.class));
     }
@@ -41,6 +44,8 @@ class MessagingConfigurationTest {
                         .hasSingleBean(KafkaDeadLetterPublisher.class)
                         .hasSingleBean(TradingEventBus.class)
                         .hasSingleBean(TradingEventDispatcher.class)
+                        .doesNotHaveBean(TradingEventRecordConsumer.class)
+                        .doesNotHaveBean(TradingEventConsumerService.class)
                         .hasSingleBean(TradingEventReplayConsumerFactory.class)
                         .doesNotHaveBean(ApplicationRunner.class));
     }
@@ -76,6 +81,22 @@ class MessagingConfigurationTest {
                     assertThat(properties.clientIdPrefix()).isEqualTo("bot-a");
                     assertThat(properties.topics().autoCreate()).isTrue();
                     assertThat(properties.topics().replicationFactor()).isEqualTo((short) 3);
+                    assertThat(properties.consumers().enabled()).isFalse();
+                    assertThat(properties.consumers().groupIdSuffix()).isEqualTo("dispatcher");
+                    assertThat(properties.consumers().pollTimeoutMillis()).isEqualTo(250);
                 });
+    }
+
+    @Test
+    void creates_consumer_service_only_when_consumers_are_enabled() {
+        contextRunner
+                .withPropertyValues(
+                        "trading.messaging.enabled=true",
+                        "trading.messaging.consumers.enabled=true",
+                        "trading.messaging.consumers.group-id-suffix=orders"
+                )
+                .run(context -> assertThat(context)
+                        .hasSingleBean(TradingEventRecordConsumer.class)
+                        .hasSingleBean(TradingEventConsumerService.class));
     }
 }

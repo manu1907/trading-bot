@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
+import java.util.List;
 
 @Configuration
 @EnableConfigurationProperties(MessagingProperties.class)
@@ -62,6 +63,30 @@ public class MessagingConfiguration {
             KafkaDeadLetterPublisher deadLetterPublisher
     ) {
         return new TradingEventDispatcher(codec, deadLetterPublisher, Clock.systemUTC());
+    }
+
+    @Bean
+    TradingEventHandlerRegistry tradingEventHandlerRegistry(List<TradingEventHandlerRegistration> registrations) {
+        return new TradingEventHandlerRegistry(registrations);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.messaging.consumers", name = "enabled", havingValue = "true")
+    TradingEventRecordConsumer tradingEventRecordConsumer(MessagingProperties properties) {
+        return new KafkaTradingEventRecordConsumer(
+                properties.bootstrapServers(),
+                properties.clientIdPrefix() + "-" + properties.consumers().groupIdSuffix()
+        );
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.messaging.consumers", name = "enabled", havingValue = "true")
+    TradingEventConsumerService tradingEventConsumerService(
+            TradingEventRecordConsumer consumer,
+            TradingEventDispatcher dispatcher,
+            TradingEventHandlerRegistry handlerRegistry
+    ) {
+        return new TradingEventConsumerService(consumer, dispatcher, handlerRegistry);
     }
 
     @Bean

@@ -33,3 +33,7 @@ trading:
     topics:
       auto-create: false
       replication-factor: 1
+    consumers:
+      enabled: false
+      group-id-suffix: dispatcher
+      poll-timeout-millis: 250

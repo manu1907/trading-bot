@@ -9,7 +9,8 @@ public record MessagingProperties(
         @DefaultValue("localhost:19092") String bootstrapServers,
         @DefaultValue("http://localhost:18081") String schemaRegistryUrl,
         @DefaultValue("trading-bot") String clientIdPrefix,
-        @DefaultValue Topics topics
+        @DefaultValue Topics topics,
+        @DefaultValue Consumers consumers
 ) {
 
     public MessagingProperties {
@@ -18,6 +19,9 @@ public record MessagingProperties(
         requireText(clientIdPrefix, "clientIdPrefix");
         if (topics == null) {
             topics = new Topics(false, (short) 1);
+        }
+        if (consumers == null) {
+            consumers = new Consumers(false, "dispatcher", 250);
         }
     }
 
@@ -29,6 +33,20 @@ public record MessagingProperties(
         public Topics {
             if (replicationFactor <= 0) {
                 throw new IllegalArgumentException("replicationFactor must be positive");
+            }
+        }
+    }
+
+    public record Consumers(
+            @DefaultValue("false") boolean enabled,
+            @DefaultValue("dispatcher") String groupIdSuffix,
+            @DefaultValue("250") int pollTimeoutMillis
+    ) {
+
+        public Consumers {
+            requireText(groupIdSuffix, "groupIdSuffix");
+            if (pollTimeoutMillis <= 0) {
+                throw new IllegalArgumentException("pollTimeoutMillis must be positive");
             }
         }
     }
