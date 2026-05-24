@@ -30,6 +30,9 @@ class BinanceOrderRequestFactoryTest {
                 "RESULT",
                 "EXPIRE_MAKER",
                 null,
+                null,
+                null,
+                null,
                 "tb_smoke_1",
                 null,
                 new BigDecimal("0.001000"),
@@ -68,6 +71,9 @@ class BinanceOrderRequestFactoryTest {
                 "RESULT",
                 "EXPIRE_MAKER",
                 "QUEUE",
+                null,
+                null,
+                null,
                 "tb_gtd_1",
                 1_771_111_111_000L,
                 new BigDecimal("0.001000"),
@@ -92,6 +98,48 @@ class BinanceOrderRequestFactoryTest {
                         + "&newClientOrderId=tb_gtd_1&goodTillDate=1771111111000&quantity=0.001"
                         + "&timestamp=1499827319559&recvWindow=5000");
         assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/order?");
+    }
+
+    @Test
+    void builds_spot_pegged_limit_order_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+        BinanceOrderCommand command = new BinanceOrderCommand(
+                "BTCUSDT",
+                "BUY",
+                "LIMIT",
+                "GTC",
+                null,
+                "FULL",
+                "NONE",
+                null,
+                "PRIMARY_PEG",
+                "PRICE_LEVEL",
+                5,
+                "tb_peg_1",
+                null,
+                new BigDecimal("0.001000"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        BinanceSignedRequest request = factory.newOrder(command, "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&side=BUY&type=LIMIT&timeInForce=GTC"
+                        + "&newOrderRespType=FULL&selfTradePreventionMode=NONE"
+                        + "&pegPriceType=PRIMARY_PEG&pegOffsetType=PRICE_LEVEL&pegOffsetValue=5"
+                        + "&newClientOrderId=tb_peg_1&quantity=0.001"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/api/v3/order?");
     }
 
     @Test
@@ -144,6 +192,24 @@ class BinanceOrderRequestFactoryTest {
         );
     }
 
+    private BinanceProperties spotBinance() {
+        return new BinanceProperties(
+                "SPOT",
+                new BinanceProperties.Credentials(
+                        "binance_real_main",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_DATA", "TRADE")
+                ),
+                spotRest(),
+                websocket(),
+                spotTrading(),
+                userData(),
+                null
+        );
+    }
+
     private BinanceProperties.Rest rest() {
         return new BinanceProperties.Rest(
                 "https://demo-fapi.binance.com",
@@ -161,6 +227,30 @@ class BinanceOrderRequestFactoryTest {
                 List.of("X-MBX-USED-WEIGHT"),
                 List.of("X-MBX-ORDER-COUNT"),
                 "RESULT",
+                new BinanceProperties.UnknownExecutionStatus(
+                        List.of("Unknown error, please check your request or try again later."),
+                        List.of(503)
+                )
+        );
+    }
+
+    private BinanceProperties.Rest spotRest() {
+        return new BinanceProperties.Rest(
+                "https://api.binance.com",
+                "/api/v3/exchangeInfo",
+                "/api/v3/time",
+                "X-MBX-APIKEY",
+                "HMAC_SHA256",
+                "MILLISECONDS",
+                5000,
+                2000,
+                5000,
+                3,
+                200,
+                List.of(408, 429, 500, 502, 503, 504),
+                List.of("X-MBX-USED-WEIGHT"),
+                List.of("X-MBX-ORDER-COUNT"),
+                "FULL",
                 new BinanceProperties.UnknownExecutionStatus(
                         List.of("Unknown error, please check your request or try again later."),
                         List.of(503)
@@ -209,6 +299,31 @@ class BinanceOrderRequestFactoryTest {
                 false,
                 false,
                 false,
+                false,
+                false
+        );
+    }
+
+    private BinanceProperties.Trading spotTrading() {
+        return new BinanceProperties.Trading(
+                "/api/v3/order",
+                "/api/v3/order/test",
+                "/api/v3/order",
+                "/api/v3/order",
+                "/api/v3/openOrders",
+                List.of("BUY", "SELL"),
+                List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
+                List.of("GTC", "IOC", "FOK"),
+                List.of("ACK", "RESULT", "FULL"),
+                List.of("NONE", "EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
+                List.of("NONE"),
+                true,
+                false,
+                false,
+                false,
+                true,
+                true,
+                true,
                 false,
                 false
         );

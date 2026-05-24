@@ -95,7 +95,78 @@ class BinanceOrderCommandValidatorTest {
                 .build(), BinanceMarketType.SPOT))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("priceMatch is not supported")
-                .hasMessageContaining("LIMIT orders require price or priceMatch");
+                .hasMessageContaining("LIMIT orders require price or pegPriceType");
+    }
+
+    @Test
+    void accepts_spot_pegged_limit_order_without_price() {
+        BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .pegPriceType("PRIMARY_PEG")
+                .build(), BinanceMarketType.SPOT);
+    }
+
+    @Test
+    void accepts_spot_pegged_limit_maker_order_without_price() {
+        BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT_MAKER")
+                .quantity("0.001")
+                .pegPriceType("MARKET_PEG")
+                .pegOffsetType("PRICE_LEVEL")
+                .pegOffsetValue(5)
+                .build(), BinanceMarketType.SPOT);
+    }
+
+    @Test
+    void rejects_pegged_order_on_unsupported_market() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .pegPriceType("PRIMARY_PEG")
+                .build(), BinanceMarketType.FUTURES_USD_M))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pegged orders are not supported");
+    }
+
+    @Test
+    void rejects_peg_offset_without_matching_offset_field() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .pegPriceType("PRIMARY_PEG")
+                .pegOffsetValue(5)
+                .build(), BinanceMarketType.SPOT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pegOffsetType and pegOffsetValue must be provided together");
+    }
+
+    @Test
+    void rejects_peg_offset_above_documented_limit() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .pegPriceType("PRIMARY_PEG")
+                .pegOffsetType("PRICE_LEVEL")
+                .pegOffsetValue(101)
+                .build(), BinanceMarketType.SPOT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pegOffsetValue must be less than or equal to 100");
+    }
+
+    @Test
+    void rejects_peg_fields_on_market_order() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("MARKET")
+                .quantity("0.001")
+                .pegPriceType("PRIMARY_PEG")
+                .build(), BinanceMarketType.SPOT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pegged orders are only supported");
     }
 
     @Test
@@ -168,7 +239,7 @@ class BinanceOrderCommandValidatorTest {
                 .quantity("0.001")
                 .build(), BinanceMarketType.SPOT))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("LIMIT orders require price or priceMatch")
+                .hasMessageContaining("LIMIT orders require price or pegPriceType")
                 .hasMessageContaining("timeInForce is required");
     }
 
@@ -206,6 +277,9 @@ class BinanceOrderCommandValidatorTest {
         private String orderResponseType;
         private String selfTradePreventionMode;
         private String priceMatch;
+        private String pegPriceType;
+        private String pegOffsetType;
+        private Integer pegOffsetValue;
         private Long goodTillDate;
         private BigDecimal quantity;
         private BigDecimal quoteOrderQty;
@@ -242,6 +316,21 @@ class BinanceOrderCommandValidatorTest {
 
         CommandBuilder priceMatch(String value) {
             priceMatch = value;
+            return this;
+        }
+
+        CommandBuilder pegPriceType(String value) {
+            pegPriceType = value;
+            return this;
+        }
+
+        CommandBuilder pegOffsetType(String value) {
+            pegOffsetType = value;
+            return this;
+        }
+
+        CommandBuilder pegOffsetValue(int value) {
+            pegOffsetValue = value;
             return this;
         }
 
@@ -295,6 +384,9 @@ class BinanceOrderCommandValidatorTest {
                     orderResponseType,
                     selfTradePreventionMode,
                     priceMatch,
+                    pegPriceType,
+                    pegOffsetType,
+                    pegOffsetValue,
                     null,
                     goodTillDate,
                     quantity,

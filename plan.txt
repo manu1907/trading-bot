@@ -88,6 +88,7 @@ Implemented Binance foundations:
 - `exchangeInfo` fetch/parse for symbol metadata, filters, rate limits, order
   types, time-in-force, trigger protection, and precision fields.
 - Basic order create/query/open/cancel endpoints.
+- Spot pegged-order command fields, validation, and request construction.
 - REST rate-limit header observation.
 - User-data listen-key/listen-token lifecycle where configured.
 - Public WebSocket stream URI planning and reconnect/rollover policy.
@@ -97,8 +98,6 @@ Binance parity gaps to close before claiming full connector support:
 - Spot: implement cancel-replace, amend-keep-priority, OCO/OTO/OTOCO/OPO/OPOCO,
   SOR, all-orders, trade list, prevented matches, commission rates, and
   WebSocket API order placement.
-- Spot: add pegged-order request fields to `BinanceOrderCommand` and request
-  construction, or set `supports_pegged_orders=false` until implemented.
 - Margin: add `sideEffectType`, `autoRepayAtCancel`, borrow/repay, transfers,
   margin order lists, margin account/risk endpoints, and special low-latency
   key workflows.
@@ -232,8 +231,6 @@ Deliver:
 - Spot cancel-replace, amend-keep-priority, order-list, SOR, all-orders,
   account-trade, prevented-match, and commission-rate clients where needed by
   execution/reconciliation.
-- Spot pegged-order command fields and request construction, or disable the
-  capability flag until implemented.
 - Margin `sideEffectType`, `autoRepayAtCancel`, borrow/repay, transfer, order
   list, and margin account/risk endpoints.
 - Futures `workingType`, `priceProtect`, leverage, margin type, position mode,

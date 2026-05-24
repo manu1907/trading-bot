@@ -181,6 +181,7 @@ of truth. As of the current code, the connector covers these foundations:
 - `exchangeInfo` loading and parsing for symbol filters, order enums,
   precision, rate limits, trigger protection, and lifecycle metadata.
 - Basic signed order create, query, open-orders, and cancel requests.
+- Spot pegged-order command fields, validation, and signed request parameters.
 - Public WebSocket stream endpoint planning and reconnect/rollover policy.
 - User-data listen-key or listen-token lifecycle for configured products.
 
@@ -190,9 +191,6 @@ adapter. Known gaps that must remain on the plan:
 - Spot advanced trading endpoints: cancel-replace, amend-keep-priority, order
   lists (OCO, OTO, OTOCO, OPO, OPOCO), SOR orders, all-orders, trades,
   prevented matches, commission rates, and WebSocket API order placement.
-- Spot pegged-order request fields are documented and declared as supported in
-  config, but the current `BinanceOrderCommand` does not yet carry
-  `pegPriceType`, `pegOffsetValue`, or `pegOffsetType`.
 - Margin order side-effect controls such as `sideEffectType` and
   `autoRepayAtCancel`, plus borrow/repay, transfer, margin OCO/OTO/OTOCO, and
   low-latency special-key workflows are not implemented.

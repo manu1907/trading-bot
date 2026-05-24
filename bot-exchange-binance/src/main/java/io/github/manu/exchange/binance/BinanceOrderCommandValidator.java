@@ -14,6 +14,14 @@ final class BinanceOrderCommandValidator {
     private static final Set<String> FUTURES_LIMIT_STOP_TYPES = Set.of("STOP", "TAKE_PROFIT");
     private static final Set<String> FUTURES_MARKET_STOP_TYPES = Set.of("STOP_MARKET", "TAKE_PROFIT_MARKET");
     private static final Set<String> PRICE_MATCH_ORDER_TYPES = Set.of("LIMIT", "STOP", "TAKE_PROFIT");
+    private static final Set<String> PEGGED_ORDER_TYPES = Set.of(
+            "LIMIT",
+            "LIMIT_MAKER",
+            "STOP_LOSS_LIMIT",
+            "TAKE_PROFIT_LIMIT"
+    );
+    private static final Set<String> PEG_PRICE_TYPES = Set.of("PRIMARY_PEG", "MARKET_PEG");
+    private static final Set<String> PEG_OFFSET_TYPES = Set.of("PRICE_LEVEL");
 
     private BinanceOrderCommandValidator() {
     }
@@ -44,6 +52,8 @@ final class BinanceOrderCommandValidator {
                 errors
         );
         requireOptionalOneOf("positionSide", command.positionSide(), capability.supportedPositionSides(), errors);
+        requireOptionalOneOf("pegPriceType", command.pegPriceType(), PEG_PRICE_TYPES, errors);
+        requireOptionalOneOf("pegOffsetType", command.pegOffsetType(), PEG_OFFSET_TYPES, errors);
         validateFeatureFlags(command, capability, errors);
         validatePositiveNumbers(command, errors);
         validateParameterCombinations(command, errors);
@@ -69,6 +79,9 @@ final class BinanceOrderCommandValidator {
         if (hasText(command.priceMatch()) && !capability.supportsPriceMatch()) {
             errors.add("priceMatch is not supported for this Binance market");
         }
+        if (hasPeggedOrderParameter(command) && !capability.supportsPeggedOrders()) {
+            errors.add("pegged orders are not supported for this Binance market");
+        }
         if (hasValue(command.icebergQty()) && !capability.supportsIcebergQty()) {
             errors.add("icebergQty is not supported for this Binance market");
         }
@@ -93,6 +106,10 @@ final class BinanceOrderCommandValidator {
         requirePositiveWhenPresent("activationPrice", command.activationPrice(), errors);
         requirePositiveWhenPresent("icebergQty", command.icebergQty(), errors);
         requirePositiveWhenPresent("goodTillDate", command.goodTillDate(), errors);
+        requirePositiveWhenPresent("pegOffsetValue", command.pegOffsetValue(), errors);
+        if (command.pegOffsetValue() != null && command.pegOffsetValue() > 100) {
+            errors.add("pegOffsetValue must be less than or equal to 100");
+        }
     }
 
     private static void validateParameterCombinations(BinanceOrderCommand command, List<String> errors) {
@@ -102,6 +119,18 @@ final class BinanceOrderCommandValidator {
             }
             if (hasText(command.type()) && !PRICE_MATCH_ORDER_TYPES.contains(command.type())) {
                 errors.add("priceMatch is only supported for LIMIT, STOP, and TAKE_PROFIT orders");
+            }
+        }
+        if (hasPeggedOrderParameter(command)) {
+            if (!hasText(command.pegPriceType())) {
+                errors.add("pegged orders require pegPriceType");
+            }
+            if (hasText(command.type()) && !PEGGED_ORDER_TYPES.contains(command.type())) {
+                errors.add("pegged orders are only supported for LIMIT, LIMIT_MAKER, STOP_LOSS_LIMIT, "
+                        + "and TAKE_PROFIT_LIMIT orders");
+            }
+            if (hasText(command.pegOffsetType()) != (command.pegOffsetValue() != null)) {
+                errors.add("pegOffsetType and pegOffsetValue must be provided together");
             }
         }
         if ("GTD".equals(command.timeInForce()) && command.goodTillDate() == null) {
@@ -133,24 +162,24 @@ final class BinanceOrderCommandValidator {
 
         if ("LIMIT".equals(type)) {
             requireQuantity(command, errors);
-            requirePriceUnlessPriceMatch(command, capability, errors);
+            requirePriceUnlessPriceMatchOrPegged(command, capability, errors);
             requireTimeInForce(command, capability, errors);
         } else if ("MARKET".equals(type)) {
             requireMarketQuantity(command, capability, errors);
         } else if ("LIMIT_MAKER".equals(type)) {
             requireQuantity(command, errors);
-            requirePrice(command, errors);
+            requirePriceUnlessPegged(command, capability, errors);
         } else if (SPOT_MARKET_STOP_TYPES.contains(type)) {
             requireQuantity(command, errors);
             requireStopPriceOrTrailingDelta(command, errors);
         } else if (SPOT_LIMIT_STOP_TYPES.contains(type)) {
             requireQuantity(command, errors);
-            requirePrice(command, errors);
+            requirePriceUnlessPegged(command, capability, errors);
             requireTimeInForce(command, capability, errors);
             requireStopPriceOrTrailingDelta(command, errors);
         } else if (FUTURES_LIMIT_STOP_TYPES.contains(type)) {
             requireQuantity(command, errors);
-            requirePriceUnlessPriceMatch(command, capability, errors);
+            requirePriceUnlessPriceMatchOrPegged(command, capability, errors);
             requireStopPrice(command, errors);
         } else if (FUTURES_MARKET_STOP_TYPES.contains(type)) {
             requireStopPrice(command, errors);
@@ -198,13 +227,36 @@ final class BinanceOrderCommandValidator {
         }
     }
 
-    private static void requirePriceUnlessPriceMatch(BinanceOrderCommand command,
-                                                     BinanceTradingCapability capability,
-                                                     List<String> errors) {
+    private static void requirePriceUnlessPriceMatchOrPegged(BinanceOrderCommand command,
+                                                             BinanceTradingCapability capability,
+                                                             List<String> errors) {
         boolean hasSupportedPriceMatch = capability.supportsPriceMatch() && hasText(command.priceMatch());
-        if (!hasValue(command.price()) && !hasSupportedPriceMatch) {
-            errors.add(command.type() + " orders require price or priceMatch");
+        boolean hasSupportedPeg = capability.supportsPeggedOrders() && hasText(command.pegPriceType());
+        if (!hasValue(command.price()) && !hasSupportedPriceMatch && !hasSupportedPeg) {
+            errors.add(command.type() + " orders require " + priceFieldAlternatives(capability));
         }
+    }
+
+    private static void requirePriceUnlessPegged(BinanceOrderCommand command,
+                                                 BinanceTradingCapability capability,
+                                                 List<String> errors) {
+        boolean hasSupportedPeg = capability.supportsPeggedOrders() && hasText(command.pegPriceType());
+        if (!hasValue(command.price()) && !hasSupportedPeg) {
+            errors.add(command.type() + " orders require " + priceFieldAlternatives(capability));
+        }
+    }
+
+    private static String priceFieldAlternatives(BinanceTradingCapability capability) {
+        if (capability.supportsPriceMatch() && capability.supportsPeggedOrders()) {
+            return "price, priceMatch, or pegPriceType";
+        }
+        if (capability.supportsPriceMatch()) {
+            return "price or priceMatch";
+        }
+        if (capability.supportsPeggedOrders()) {
+            return "price or pegPriceType";
+        }
+        return "price";
     }
 
     private static void requireStopPrice(BinanceOrderCommand command, List<String> errors) {
@@ -262,12 +314,22 @@ final class BinanceOrderCommandValidator {
         }
     }
 
+    private static void requirePositiveWhenPresent(String field, Integer value, List<String> errors) {
+        if (value != null && value <= 0) {
+            errors.add(field + " must be positive when provided");
+        }
+    }
+
     private static boolean hasValue(BigDecimal value) {
         return value != null;
     }
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private static boolean hasPeggedOrderParameter(BinanceOrderCommand command) {
+        return hasText(command.pegPriceType()) || hasText(command.pegOffsetType()) || command.pegOffsetValue() != null;
     }
 
     private static boolean isHedgeModePositionSide(String value) {

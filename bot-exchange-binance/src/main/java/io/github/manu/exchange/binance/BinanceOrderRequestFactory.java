@@ -65,6 +65,9 @@ final class BinanceOrderRequestFactory {
         add(parameters, "newOrderRespType", command.orderResponseType());
         add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
         add(parameters, "priceMatch", command.priceMatch());
+        add(parameters, "pegPriceType", command.pegPriceType());
+        add(parameters, "pegOffsetType", command.pegOffsetType());
+        add(parameters, "pegOffsetValue", command.pegOffsetValue());
         add(parameters, "newClientOrderId", command.clientOrderId());
         add(parameters, "goodTillDate", command.goodTillDate());
         add(parameters, "quantity", command.quantity());
@@ -95,6 +98,12 @@ final class BinanceOrderRequestFactory {
     }
 
     private void add(List<BinanceRequestParameter> parameters, String name, Long value) {
+        if (value != null) {
+            parameters.add(BinanceRequestParameter.of(name, value.toString()));
+        }
+    }
+
+    private void add(List<BinanceRequestParameter> parameters, String name, Integer value) {
         if (value != null) {
             parameters.add(BinanceRequestParameter.of(name, value.toString()));
         }
