@@ -42,6 +42,7 @@ class BinanceTradingCapabilityTest {
         assertThat(spot.orderListOtoPath()).isEqualTo("/api/v3/orderList/oto");
         assertThat(spot.orderListOtocoPath()).isEqualTo("/api/v3/orderList/otoco");
         assertThat(spot.orderListOpoPath()).isEqualTo("/api/v3/orderList/opo");
+        assertThat(spot.orderListOpocoPath()).isEqualTo("/api/v3/orderList/opoco");
         assertThat(margin.allOrdersPath()).isEqualTo("/sapi/v1/margin/allOrders");
         assertThat(margin.accountTradesPath()).isEqualTo("/sapi/v1/margin/myTrades");
         assertThat(margin.commissionRatesPath()).isNull();
@@ -54,6 +55,7 @@ class BinanceTradingCapabilityTest {
         assertThat(margin.orderListOtoPath()).isNull();
         assertThat(margin.orderListOtocoPath()).isNull();
         assertThat(margin.orderListOpoPath()).isNull();
+        assertThat(margin.orderListOpocoPath()).isNull();
         assertThat(margin.batchOrdersPath()).isNull();
         assertThat(margin.modifyOrderPath()).isNull();
         assertThat(margin.modifyMultipleOrdersPath()).isNull();
@@ -70,6 +72,7 @@ class BinanceTradingCapabilityTest {
         assertThat(usdm.orderListOtoPath()).isNull();
         assertThat(usdm.orderListOtocoPath()).isNull();
         assertThat(usdm.orderListOpoPath()).isNull();
+        assertThat(usdm.orderListOpocoPath()).isNull();
         assertThat(usdm.batchOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
         assertThat(usdm.modifyOrderPath()).isEqualTo("/fapi/v1/order");
         assertThat(usdm.modifyMultipleOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
@@ -86,6 +89,7 @@ class BinanceTradingCapabilityTest {
         assertThat(coinm.orderListOtoPath()).isNull();
         assertThat(coinm.orderListOtocoPath()).isNull();
         assertThat(coinm.orderListOpoPath()).isNull();
+        assertThat(coinm.orderListOpocoPath()).isNull();
         assertThat(coinm.batchOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
         assertThat(coinm.modifyOrderPath()).isEqualTo("/dapi/v1/order");
         assertThat(coinm.modifyMultipleOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
@@ -102,6 +106,7 @@ class BinanceTradingCapabilityTest {
         assertThat(options.orderListOtoPath()).isNull();
         assertThat(options.orderListOtocoPath()).isNull();
         assertThat(options.orderListOpoPath()).isNull();
+        assertThat(options.orderListOpocoPath()).isNull();
         assertThat(options.batchOrdersPath()).isNull();
         assertThat(options.modifyOrderPath()).isNull();
         assertThat(options.modifyMultipleOrdersPath()).isNull();

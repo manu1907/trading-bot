@@ -355,6 +355,43 @@ final class BinanceOrderRequestFactory {
         return restRequestFactory.signedUri(binance.trading().orderListOpoPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest opocoOrderList(BinanceOpocoOrderListCommand command, String privateCredential) {
+        requireConfiguredPath("orderListOpocoPath", binance.trading().orderListOpocoPath());
+        validateOpocoOrderList(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", command.symbol());
+        add(parameters, "listClientOrderId", command.listClientOrderId());
+        add(parameters, "newOrderRespType", command.orderResponseType());
+        add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
+        addWorkingOrderListParameters(parameters, command);
+        add(parameters, "pendingSide", command.pendingSide());
+        add(parameters, "pendingAboveType", command.pendingAboveType());
+        add(parameters, "pendingAboveClientOrderId", command.pendingAboveClientOrderId());
+        add(parameters, "pendingAbovePrice", command.pendingAbovePrice());
+        add(parameters, "pendingAboveStopPrice", command.pendingAboveStopPrice());
+        add(parameters, "pendingAboveTrailingDelta", command.pendingAboveTrailingDelta());
+        add(parameters, "pendingAboveIcebergQty", command.pendingAboveIcebergQuantity());
+        add(parameters, "pendingAboveTimeInForce", command.pendingAboveTimeInForce());
+        add(parameters, "pendingAboveStrategyId", command.pendingAboveStrategyId());
+        add(parameters, "pendingAboveStrategyType", command.pendingAboveStrategyType());
+        add(parameters, "pendingAbovePegPriceType", command.pendingAbovePegPriceType());
+        add(parameters, "pendingAbovePegOffsetType", command.pendingAbovePegOffsetType());
+        add(parameters, "pendingAbovePegOffsetValue", command.pendingAbovePegOffsetValue());
+        add(parameters, "pendingBelowType", command.pendingBelowType());
+        add(parameters, "pendingBelowClientOrderId", command.pendingBelowClientOrderId());
+        add(parameters, "pendingBelowPrice", command.pendingBelowPrice());
+        add(parameters, "pendingBelowStopPrice", command.pendingBelowStopPrice());
+        add(parameters, "pendingBelowTrailingDelta", command.pendingBelowTrailingDelta());
+        add(parameters, "pendingBelowIcebergQty", command.pendingBelowIcebergQuantity());
+        add(parameters, "pendingBelowTimeInForce", command.pendingBelowTimeInForce());
+        add(parameters, "pendingBelowStrategyId", command.pendingBelowStrategyId());
+        add(parameters, "pendingBelowStrategyType", command.pendingBelowStrategyType());
+        add(parameters, "pendingBelowPegPriceType", command.pendingBelowPegPriceType());
+        add(parameters, "pendingBelowPegOffsetType", command.pendingBelowPegOffsetType());
+        add(parameters, "pendingBelowPegOffsetValue", command.pendingBelowPegOffsetValue());
+        return restRequestFactory.signedUri(binance.trading().orderListOpocoPath(), parameters, privateCredential);
+    }
+
     BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
         requireConfiguredPath("cancelAllOpenOrdersPath", binance.trading().cancelAllOpenOrdersPath());
         requireSymbol(symbol);
@@ -826,6 +863,68 @@ final class BinanceOrderRequestFactory {
         requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
     }
 
+    private void validateOpocoOrderList(BinanceOpocoOrderListCommand command) {
+        Objects.requireNonNull(command, "command");
+        BinanceTradingCapability capability = BinanceTradingCapability.fromConfig(binance.trading());
+        requireSymbol(command.symbol());
+        validateWorkingOrderListLeg(
+                command.workingType(),
+                command.workingSide(),
+                command.workingPrice(),
+                command.workingQuantity(),
+                command.workingIcebergQuantity(),
+                command.workingTimeInForce(),
+                command.workingStrategyType(),
+                command.workingPegPriceType(),
+                command.workingPegOffsetType(),
+                command.workingPegOffsetValue(),
+                "OPOCO",
+                capability
+        );
+        requireOneOf("pendingSide", command.pendingSide(), capability.supportedSides());
+        requireOneOf("pendingAboveType", command.pendingAboveType(), OCO_ABOVE_TYPES);
+        requireOneOf("pendingBelowType", command.pendingBelowType(), OCO_BELOW_TYPES);
+        if (!isValidOcoPair(command.pendingAboveType(), command.pendingBelowType())) {
+            throw new IllegalArgumentException("OPOCO order lists require one limit/profit pending leg and one stop-loss pending leg");
+        }
+        validateOcoLeg(
+                "pendingAbove",
+                command.pendingAboveType(),
+                command.pendingAbovePrice(),
+                command.pendingAboveStopPrice(),
+                command.pendingAboveTrailingDelta(),
+                command.pendingAboveTimeInForce(),
+                command.pendingAboveIcebergQuantity()
+        );
+        validateOcoLeg(
+                "pendingBelow",
+                command.pendingBelowType(),
+                command.pendingBelowPrice(),
+                command.pendingBelowStopPrice(),
+                command.pendingBelowTrailingDelta(),
+                command.pendingBelowTimeInForce(),
+                command.pendingBelowIcebergQuantity()
+        );
+        validateStrategyType("pendingAboveStrategyType", command.pendingAboveStrategyType());
+        validateStrategyType("pendingBelowStrategyType", command.pendingBelowStrategyType());
+        validatePeggedOcoLeg(
+                "pendingAbove",
+                command.pendingAbovePegPriceType(),
+                command.pendingAbovePegOffsetType(),
+                command.pendingAbovePegOffsetValue(),
+                capability
+        );
+        validatePeggedOcoLeg(
+                "pendingBelow",
+                command.pendingBelowPegPriceType(),
+                command.pendingBelowPegOffsetType(),
+                command.pendingBelowPegOffsetValue(),
+                capability
+        );
+        requireOptionalOneOf("newOrderRespType", command.orderResponseType(), capability.supportedOrderResponseTypes());
+        requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
+    }
+
     private void validateWorkingOrderListLeg(String type,
                                              String side,
                                              BigDecimal price,
@@ -874,6 +973,21 @@ final class BinanceOrderRequestFactory {
     }
 
     private void addWorkingOrderListParameters(List<BinanceRequestParameter> parameters, BinanceOpoOrderListCommand command) {
+        add(parameters, "workingType", command.workingType());
+        add(parameters, "workingSide", command.workingSide());
+        add(parameters, "workingClientOrderId", command.workingClientOrderId());
+        add(parameters, "workingPrice", command.workingPrice());
+        add(parameters, "workingQuantity", command.workingQuantity());
+        add(parameters, "workingIcebergQty", command.workingIcebergQuantity());
+        add(parameters, "workingTimeInForce", command.workingTimeInForce());
+        add(parameters, "workingStrategyId", command.workingStrategyId());
+        add(parameters, "workingStrategyType", command.workingStrategyType());
+        add(parameters, "workingPegPriceType", command.workingPegPriceType());
+        add(parameters, "workingPegOffsetType", command.workingPegOffsetType());
+        add(parameters, "workingPegOffsetValue", command.workingPegOffsetValue());
+    }
+
+    private void addWorkingOrderListParameters(List<BinanceRequestParameter> parameters, BinanceOpocoOrderListCommand command) {
         add(parameters, "workingType", command.workingType());
         add(parameters, "workingSide", command.workingSide());
         add(parameters, "workingClientOrderId", command.workingClientOrderId());

@@ -152,10 +152,12 @@ Implemented Binance foundations:
 - REST rate-limit header observation.
 - User-data listen-key/listen-token lifecycle where configured.
 - Public WebSocket stream URI planning and reconnect/rollover policy.
+- Spot OPOCO order-list placement with catalog-backed path, documented working
+  order validation, pending OCO-pair validation, and typed order-list parsing.
 
 Binance parity gaps to close before claiming full connector support:
 
-- Spot: implement OPOCO order lists and WebSocket API order placement.
+- Spot: implement WebSocket API order placement.
 - Margin: add borrow/repay, transfers, margin order lists, margin account/risk
   endpoints, prevented matches, and special low-latency key workflows.
 - Options: verify current `/eapi` coverage against current Binance options

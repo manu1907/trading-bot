@@ -104,6 +104,7 @@
                       "order_list_oto_path": "/api/v3/orderList/oto",
                       "order_list_otoco_path": "/api/v3/orderList/otoco",
                       "order_list_opo_path": "/api/v3/orderList/opo",
+                      "order_list_opoco_path": "/api/v3/orderList/opoco",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1069,6 +1070,7 @@
                       "order_list_oto_path": "/api/v3/orderList/oto",
                       "order_list_otoco_path": "/api/v3/orderList/otoco",
                       "order_list_opo_path": "/api/v3/orderList/opo",
+                      "order_list_opoco_path": "/api/v3/orderList/opoco",
                       "supported_sides": [
                         "BUY",
                         "SELL"

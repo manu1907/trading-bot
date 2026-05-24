@@ -1106,6 +1106,26 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_spot_opoco_order_list_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.opocoOrderList(opocoCommand(), "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&listClientOrderId=opoco-list-1&newOrderRespType=RESULT"
+                        + "&selfTradePreventionMode=NONE&workingType=LIMIT&workingSide=SELL"
+                        + "&workingClientOrderId=opoco-working-1&workingPrice=52000&workingQuantity=0.01"
+                        + "&workingTimeInForce=GTC&pendingSide=BUY"
+                        + "&pendingAboveType=LIMIT_MAKER&pendingAboveClientOrderId=opoco-above-1"
+                        + "&pendingAbovePrice=53000&pendingBelowType=STOP_LOSS_LIMIT"
+                        + "&pendingBelowClientOrderId=opoco-below-1&pendingBelowPrice=48000"
+                        + "&pendingBelowStopPrice=48100&pendingBelowTimeInForce=GTC"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/api/v3/orderList/opoco?");
+        assertThat(request.uri().toString()).doesNotContain("pendingQuantity");
+    }
+
+    @Test
     void rejects_invalid_spot_opo_order_list_requests() {
         BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
         BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
@@ -1131,6 +1151,49 @@ class BinanceOrderRequestFactoryTest {
         assertThatThrownBy(() -> futuresFactory.opoOrderList(opoCommand(), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("orderListOpoPath is not configured");
+    }
+
+    @Test
+    void rejects_invalid_spot_opoco_order_list_requests() {
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> spotFactory.opocoOrderList(new BinanceOpocoOrderListCommand(
+                "BTCUSDT", "opoco-list-1", "RESULT", "NONE",
+                "MARKET", "SELL", "opoco-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, "GTC",
+                null, null, null, null, null,
+                "BUY",
+                "LIMIT_MAKER", "opoco-above-1", new BigDecimal("53000"), null, null, null, null, null, null, null, null, null,
+                "STOP_LOSS_LIMIT", "opoco-below-1", new BigDecimal("48000"), new BigDecimal("48100"), null, null, "GTC",
+                null, null, null, null, null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingType must be one of");
+        assertThatThrownBy(() -> spotFactory.opocoOrderList(new BinanceOpocoOrderListCommand(
+                "BTCUSDT", "opoco-list-1", "RESULT", "NONE",
+                "LIMIT", "SELL", "opoco-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, "GTC",
+                null, null, null, null, null,
+                "BUY",
+                "TAKE_PROFIT", "opoco-above-1", null, new BigDecimal("53000"), null, null, null, null, null, null, null, null,
+                "TAKE_PROFIT_LIMIT", "opoco-below-1", new BigDecimal("54000"), new BigDecimal("54100"), null, null, "GTC",
+                null, null, null, null, null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("one limit/profit pending leg and one stop-loss pending leg");
+        assertThatThrownBy(() -> spotFactory.opocoOrderList(new BinanceOpocoOrderListCommand(
+                "BTCUSDT", "opoco-list-1", "RESULT", "NONE",
+                "LIMIT", "SELL", "opoco-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, "GTC",
+                null, null, null, null, null,
+                "BUY",
+                "LIMIT_MAKER", "opoco-above-1", new BigDecimal("53000"), null, null, null, null, null, null, null, null, null,
+                "STOP_LOSS_LIMIT", "opoco-below-1", new BigDecimal("48000"), null, null, null, "GTC",
+                null, null, null, null, null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pendingBelowStopPrice or pendingBelowTrailingDelta is required");
+        assertThatThrownBy(() -> futuresFactory.opocoOrderList(opocoCommand(), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderListOpocoPath is not configured");
     }
 
     @Test
@@ -1485,6 +1548,52 @@ class BinanceOrderRequestFactoryTest {
         );
     }
 
+    private BinanceOpocoOrderListCommand opocoCommand() {
+        return new BinanceOpocoOrderListCommand(
+                "BTCUSDT",
+                "opoco-list-1",
+                "RESULT",
+                "NONE",
+                "LIMIT",
+                "SELL",
+                "opoco-working-1",
+                new BigDecimal("52000.00"),
+                new BigDecimal("0.010000"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "BUY",
+                "LIMIT_MAKER",
+                "opoco-above-1",
+                new BigDecimal("53000.00"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "STOP_LOSS_LIMIT",
+                "opoco-below-1",
+                new BigDecimal("48000.00"),
+                new BigDecimal("48100.00"),
+                null,
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
     private BinanceProperties spotBinance() {
         return new BinanceProperties(
                 "SPOT",
@@ -1670,6 +1779,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -1727,6 +1837,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/orderList/oto",
                 "/api/v3/orderList/otoco",
                 "/api/v3/orderList/opo",
+                "/api/v3/orderList/opoco",
                 null,
                 null,
                 null,
@@ -1791,6 +1902,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -1831,6 +1943,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/openOrders",
                 "/dapi/v1/allOrders",
                 "/dapi/v1/userTrades",
+                null,
                 null,
                 null,
                 null,

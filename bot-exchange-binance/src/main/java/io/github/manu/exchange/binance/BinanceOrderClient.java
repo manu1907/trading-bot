@@ -193,6 +193,10 @@ final class BinanceOrderClient {
         return toOrderListResult(readJson(send(requestFactory.opoOrderList(command, privateCredential), "POST")));
     }
 
+    BinanceOrderListResult placeOpocoOrderList(BinanceOpocoOrderListCommand command) {
+        return toOrderListResult(readJson(send(requestFactory.opocoOrderList(command, privateCredential), "POST")));
+    }
+
     BinanceOrderAck cancelAllOpenOrders(String symbol) {
         JsonNode root = readJson(send(requestFactory.cancelAllOpenOrders(symbol, privateCredential), "DELETE"));
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
