@@ -34,12 +34,16 @@ class BinanceTradingCapabilityTest {
         assertThat(spot.accountTradesPath()).isEqualTo("/api/v3/myTrades");
         assertThat(margin.allOrdersPath()).isEqualTo("/sapi/v1/margin/allOrders");
         assertThat(margin.accountTradesPath()).isEqualTo("/sapi/v1/margin/myTrades");
+        assertThat(margin.batchOrdersPath()).isNull();
         assertThat(usdm.allOrdersPath()).isEqualTo("/fapi/v1/allOrders");
         assertThat(usdm.accountTradesPath()).isEqualTo("/fapi/v1/userTrades");
+        assertThat(usdm.batchOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
         assertThat(coinm.allOrdersPath()).isEqualTo("/dapi/v1/allOrders");
         assertThat(coinm.accountTradesPath()).isEqualTo("/dapi/v1/userTrades");
+        assertThat(coinm.batchOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
         assertThat(options.allOrdersPath()).isNull();
         assertThat(options.accountTradesPath()).isNull();
+        assertThat(options.batchOrdersPath()).isNull();
     }
 
     @Test

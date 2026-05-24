@@ -55,6 +55,47 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void places_batch_orders_and_preserves_per_order_errors() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                [
+                  {
+                    "symbol": "BTCUSDT",
+                    "orderId": 12345,
+                    "clientOrderId": "batch_1",
+                    "status": "NEW",
+                    "side": "BUY",
+                    "type": "LIMIT",
+                    "positionSide": "LONG",
+                    "price": "50000.00",
+                    "origQty": "0.001",
+                    "executedQty": "0",
+                    "avgPrice": "0.00",
+                    "cumQuote": "0",
+                    "updateTime": 1668481559918
+                  },
+                  {
+                    "code": -2022,
+                    "msg": "ReduceOnly Order is rejected."
+                  }
+                ]
+                """));
+        BinanceOrderClient client = client(transport);
+
+        List<BinanceBatchOrderResult> results = client.placeBatchOrders(List.of(limitOrder(), limitOrder()));
+
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).order().clientOrderId()).isEqualTo("batch_1");
+        assertThat(results.get(0).code()).isNull();
+        assertThat(results.get(1).order()).isNull();
+        assertThat(results.get(1).code()).isEqualTo(-2022);
+        assertThat(results.get(1).message()).contains("ReduceOnly");
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("POST");
+            assertThat(call.uri()).contains("/fapi/v1/batchOrders?batchOrders=");
+        });
+    }
+
+    @Test
     void queries_cancels_and_lists_orders() {
         FakeTransport transport = new FakeTransport(
                 orderResponse("QUERY", "FILLED"),
@@ -337,6 +378,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/openOrders",
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
+                "/fapi/v1/batchOrders",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",

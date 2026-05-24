@@ -315,6 +315,32 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_futures_batch_orders_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.batchOrders(List.of(
+                limitCommand("BTCUSDT", "BUY", "batch_1", "50000.00", "0.001000"),
+                limitCommand("BTCUSDT", "SELL", "batch_2", "51000.00", "0.002000")
+        ), "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("batchOrders=%5B%7B%22symbol%22%3A%22BTCUSDT%22%2C%22side%22%3A%22BUY%22"
+                        + "%2C%22type%22%3A%22LIMIT%22%2C%22timeInForce%22%3A%22GTC%22"
+                        + "%2C%22positionSide%22%3A%22BOTH%22%2C%22newOrderRespType%22%3A%22RESULT%22"
+                        + "%2C%22selfTradePreventionMode%22%3A%22EXPIRE_MAKER%22"
+                        + "%2C%22newClientOrderId%22%3A%22batch_1%22%2C%22quantity%22%3A%220.001%22"
+                        + "%2C%22price%22%3A%2250000%22%7D%2C%7B%22symbol%22%3A%22BTCUSDT%22"
+                        + "%2C%22side%22%3A%22SELL%22%2C%22type%22%3A%22LIMIT%22"
+                        + "%2C%22timeInForce%22%3A%22GTC%22%2C%22positionSide%22%3A%22BOTH%22"
+                        + "%2C%22newOrderRespType%22%3A%22RESULT%22"
+                        + "%2C%22selfTradePreventionMode%22%3A%22EXPIRE_MAKER%22"
+                        + "%2C%22newClientOrderId%22%3A%22batch_2%22%2C%22quantity%22%3A%220.002%22"
+                        + "%2C%22price%22%3A%2251000%22%7D%5D"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/batchOrders?");
+    }
+
+    @Test
     void rejects_invalid_futures_cancel_all_requests() {
         BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
         BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
@@ -371,6 +397,36 @@ class BinanceOrderRequestFactoryTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cancelMultipleOrdersPath is not configured");
+    }
+
+    @Test
+    void rejects_invalid_futures_batch_orders_requests() {
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> futuresFactory.batchOrders(List.of(), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least one order");
+        assertThatThrownBy(() -> futuresFactory.batchOrders(List.of(
+                limitCommand("BTCUSDT", "BUY", "batch_1", "50000", "0.001"),
+                limitCommand("BTCUSDT", "BUY", "batch_2", "50000", "0.001"),
+                limitCommand("BTCUSDT", "BUY", "batch_3", "50000", "0.001"),
+                limitCommand("BTCUSDT", "BUY", "batch_4", "50000", "0.001"),
+                limitCommand("BTCUSDT", "BUY", "batch_5", "50000", "0.001"),
+                limitCommand("BTCUSDT", "BUY", "batch_6", "50000", "0.001")
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most 5 orders");
+        assertThatThrownBy(() -> futuresFactory.batchOrders(List.of(
+                limitCommand("BTCUSDT", "BUY", "batch_1", null, "0.001")
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("LIMIT orders require price");
+        assertThatThrownBy(() -> spotFactory.batchOrders(List.of(
+                limitCommand("BTCUSDT", "BUY", "batch_1", "50000", "0.001")
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("batchOrdersPath is not configured");
     }
 
     @Test
@@ -487,6 +543,40 @@ class BinanceOrderRequestFactoryTest {
                         false,
                         false
                 )
+        );
+    }
+
+    private BinanceOrderCommand limitCommand(String symbol, String side, String clientOrderId, String price, String quantity) {
+        return new BinanceOrderCommand(
+                symbol,
+                side,
+                "LIMIT",
+                "GTC",
+                "BOTH",
+                "RESULT",
+                "EXPIRE_MAKER",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                clientOrderId,
+                null,
+                quantity == null ? null : new BigDecimal(quantity),
+                null,
+                price == null ? null : new BigDecimal(price),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -666,6 +756,7 @@ class BinanceOrderRequestFactoryTest {
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
                 "/fapi/v1/batchOrders",
+                "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",
                 List.of("BUY", "SELL"),
@@ -708,6 +799,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/openOrders",
                 "/api/v3/allOrders",
                 "/api/v3/myTrades",
+                null,
                 null,
                 null,
                 null,
@@ -754,6 +846,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -794,6 +887,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/openOrders",
                 "/dapi/v1/allOrders",
                 "/dapi/v1/userTrades",
+                "/dapi/v1/batchOrders",
                 "/dapi/v1/batchOrders",
                 "/dapi/v1/allOpenOrders",
                 "/dapi/v1/countdownCancelAll",

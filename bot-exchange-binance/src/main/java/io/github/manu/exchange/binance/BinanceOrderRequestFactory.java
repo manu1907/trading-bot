@@ -1,11 +1,15 @@
 package io.github.manu.exchange.binance;
 
 import io.github.manu.config.properties.provider.binance.BinanceProperties;
+import io.github.manu.config.JsonMapperFactory;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -13,6 +17,7 @@ final class BinanceOrderRequestFactory {
 
     private final BinanceProperties binance;
     private final BinanceRestRequestFactory restRequestFactory;
+    private final ObjectMapper jsonMapper = JsonMapperFactory.create();
 
     BinanceOrderRequestFactory(BinanceProperties binance, Clock clock, long serverTimeOffsetMillis) {
         this.binance = Objects.requireNonNull(binance, "binance");
@@ -22,6 +27,14 @@ final class BinanceOrderRequestFactory {
     BinanceSignedRequest newOrder(BinanceOrderCommand command, String privateCredential) {
         BinanceOrderCommandValidator.validate(command, binance.trading());
         return restRequestFactory.signedUri(binance.trading().newOrderPath(), orderParameters(command), privateCredential);
+    }
+
+    BinanceSignedRequest batchOrders(List<BinanceOrderCommand> commands, String privateCredential) {
+        requireConfiguredPath("batchOrdersPath", binance.trading().batchOrdersPath());
+        validateBatchOrders(commands);
+        return restRequestFactory.signedUri(binance.trading().batchOrdersPath(), List.of(
+                BinanceRequestParameter.of("batchOrders", batchOrdersJson(commands))
+        ), privateCredential);
     }
 
     BinanceSignedRequest cancelOrder(String symbol, String originalClientOrderId, String privateCredential) {
@@ -150,6 +163,34 @@ final class BinanceOrderRequestFactory {
         addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());
         add(parameters, "isIsolated", command.isolatedMargin());
         add(parameters, "marketMakerProtection", command.marketMakerProtection());
+        return parameters;
+    }
+
+    private void validateBatchOrders(List<BinanceOrderCommand> commands) {
+        Objects.requireNonNull(commands, "commands");
+        if (commands.isEmpty()) {
+            throw new IllegalArgumentException("batchOrders requires at least one order");
+        }
+        if (commands.size() > 5) {
+            throw new IllegalArgumentException("batchOrders can contain at most 5 orders");
+        }
+        for (BinanceOrderCommand command : commands) {
+            BinanceOrderCommandValidator.validate(command, binance.trading());
+        }
+    }
+
+    private String batchOrdersJson(List<BinanceOrderCommand> commands) {
+        List<Map<String, String>> orders = commands.stream()
+                .map(this::orderParameterMap)
+                .toList();
+        return jsonMapper.writeValueAsString(orders);
+    }
+
+    private Map<String, String> orderParameterMap(BinanceOrderCommand command) {
+        Map<String, String> parameters = new LinkedHashMap<>();
+        for (BinanceRequestParameter parameter : orderParameters(command)) {
+            parameters.put(parameter.name(), parameter.value());
+        }
         return parameters;
     }
 

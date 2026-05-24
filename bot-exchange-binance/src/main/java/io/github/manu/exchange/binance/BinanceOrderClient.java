@@ -75,6 +75,23 @@ final class BinanceOrderClient {
         return parseOrderResult(send(requestFactory.newOrder(command, privateCredential), "POST"));
     }
 
+    List<BinanceBatchOrderResult> placeBatchOrders(List<BinanceOrderCommand> commands) {
+        JsonNode root = readJson(send(requestFactory.batchOrders(commands, privateCredential), "POST"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance batch orders array response");
+        }
+
+        List<BinanceBatchOrderResult> results = new ArrayList<>();
+        for (JsonNode item : root) {
+            if (item.hasNonNull("code") && item.hasNonNull("msg")) {
+                results.add(new BinanceBatchOrderResult(null, item.required("code").asInt(), text(item, "msg")));
+            } else {
+                results.add(new BinanceBatchOrderResult(toOrderResult(item), null, null));
+            }
+        }
+        return List.copyOf(results);
+    }
+
     BinanceOrderResult cancelOrder(String symbol, String originalClientOrderId) {
         return parseOrderResult(send(requestFactory.cancelOrder(symbol, originalClientOrderId, privateCredential), "DELETE"));
     }
