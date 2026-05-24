@@ -1,15 +1,12 @@
 package io.github.manu.exchange.binance;
 
-import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.config.properties.ExchangeProperties;
 import io.github.manu.config.properties.TradingBotProperties;
 import io.github.manu.config.properties.provider.binance.BinanceProperties;
-import io.github.manu.config.properties.provider.binance.BinanceProviderProperties;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -18,45 +15,37 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class BinanceDemoOrderLifecycleTest {
+class BinanceLiveOrderLifecycleSmokeTest {
 
-    private static final String ENABLE_PROPERTY = "binance.demo.order.smoke";
+    private static final String ENABLE_PROPERTY = "binance.live.order.smoke";
     private static final String SYMBOL = "BTCUSDT";
 
-    private final ObjectMapper jsonMapper = JsonMapperFactory.create();
+    private final BinanceLiveSmokeTestSupport support = new BinanceLiveSmokeTestSupport();
+    private final ObjectMapper jsonMapper = support.jsonMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
     @Test
-    void creates_and_cancels_passive_usdm_demo_order_when_explicitly_enabled() throws Exception {
+    void creates_and_cancels_passive_order_for_configured_live_target_when_enabled() throws Exception {
         Assumptions.assumeTrue(Boolean.getBoolean(ENABLE_PROPERTY), () ->
-                "Set -D" + ENABLE_PROPERTY + "=true to run the Binance demo order lifecycle smoke test");
+                "Set -D" + ENABLE_PROPERTY + "=true to run the Binance live order lifecycle smoke test");
 
-        String apiKey = requiredEnv("BINANCE_DEMO_API_KEY");
-        String apiSecret = requiredEnv("BINANCE_DEMO_API_SECRET");
-        TradingBotProperties properties = loadCheckedInLiveConfig();
+        TradingBotProperties properties = support.loadCheckedInLiveConfig();
         ExchangeProperties active = properties.getExchange();
-        assertThat(active.provider()).isEqualTo("binance");
-        assertThat(active.environment()).isEqualTo("demo");
+        support.requireBinanceLiveTarget(active);
         assertThat(active.market()).isEqualTo("usdm_futures");
 
-        BinanceProviderProperties provider = jsonMapper.treeToValue(
-                properties.getProviders().requiredActive("binance"),
-                BinanceProviderProperties.class
-        );
-        BinanceProperties binance = provider.resolve(active);
-        assertThat(binance.rest().baseUrl()).contains("demo");
+        String apiKey = support.apiKey(active);
+        String apiSecret = support.apiSecret(active);
+        BinanceProperties binance = support.resolveBinance(properties);
 
         JsonNode exchangeInfo = getJson(binance.rest().baseUrl() + binance.rest().exchangeInfoPath());
         JsonNode symbolInfo = symbolInfo(exchangeInfo, SYMBOL);
@@ -84,11 +73,13 @@ class BinanceDemoOrderLifecycleTest {
                 null,
                 null,
                 null,
+                null,
                 clientOrderId,
                 null,
                 quantity,
                 null,
                 passivePrice,
+                null,
                 null,
                 null,
                 null,
@@ -116,15 +107,6 @@ class BinanceDemoOrderLifecycleTest {
                 assertThat(cancelled.status()).isIn("CANCELED", "EXPIRED", "FILLED");
             }
         }
-    }
-
-    private TradingBotProperties loadCheckedInLiveConfig() throws IOException {
-        Path configDir = resolveRepoConfigDir();
-        ObjectNode root = objectNode(jsonMapper.readTree(configDir.resolve("catalog.json").toFile()));
-        merge(root, objectNode(jsonMapper.readTree(configDir.resolve("application-demo.json").toFile())));
-        ExchangeProperties active = readActive(configDir.resolve("active.json"));
-        root.withObject("exchange").set("active", jsonMapper.valueToTree(active));
-        return jsonMapper.treeToValue(root, TradingBotProperties.class);
     }
 
     private BinanceOrderResult queryEventually(BinanceOrderClient orderClient,
@@ -224,47 +206,4 @@ class BinanceDemoOrderLifecycleTest {
         return value.divide(step, 0, RoundingMode.UP).multiply(step).stripTrailingZeros();
     }
 
-    private String requiredEnv(String name) {
-        String value = System.getenv(name);
-        assertThat(value).as(name + " must be available in the test process").isNotBlank();
-        return value;
-    }
-
-    private ExchangeProperties readActive(Path activePath) throws IOException {
-        ObjectNode root = objectNode(jsonMapper.readTree(activePath.toFile()));
-        return jsonMapper.treeToValue(root.required("active"), ExchangeProperties.class);
-    }
-
-    private void merge(ObjectNode target, ObjectNode patch) {
-        for (Map.Entry<String, JsonNode> entry : patch.properties()) {
-            JsonNode existing = target.get(entry.getKey());
-            JsonNode patchValue = entry.getValue();
-            if (existing instanceof ObjectNode existingObject && patchValue instanceof ObjectNode patchObject) {
-                merge(existingObject, patchObject);
-            } else {
-                target.set(entry.getKey(), patchValue.deepCopy());
-            }
-        }
-    }
-
-    private ObjectNode objectNode(JsonNode node) {
-        if (node instanceof ObjectNode objectNode) {
-            return objectNode;
-        }
-        throw new IllegalArgumentException("Expected object JSON node");
-    }
-
-    private Path resolveRepoConfigDir() {
-        Path cwdConfig = Path.of("config");
-        if (Files.exists(cwdConfig.resolve("catalog.json"))) {
-            return cwdConfig;
-        }
-
-        Path parentConfig = Path.of("..", "config").normalize();
-        if (Files.exists(parentConfig.resolve("catalog.json"))) {
-            return parentConfig;
-        }
-
-        throw new IllegalStateException("Unable to locate repo config directory");
-    }
 }

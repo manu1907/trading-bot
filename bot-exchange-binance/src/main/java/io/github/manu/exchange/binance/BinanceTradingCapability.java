@@ -16,6 +16,13 @@ record BinanceTradingCapability(
         Set<String> supportedOrderResponseTypes,
         Set<String> supportedSelfTradePreventionModes,
         Set<String> supportedPositionSides,
+        Set<String> supportedPriceMatchOrderTypes,
+        Set<String> supportedPeggedOrderTypes,
+        Set<String> supportedPegPriceTypes,
+        Set<String> supportedPegOffsetTypes,
+        Set<String> supportedMarginSideEffectTypes,
+        Set<String> autoRepayAtCancelSideEffectTypes,
+        Integer maxPegOffsetValue,
         boolean supportsQuoteOrderQty,
         boolean supportsReduceOnly,
         boolean supportsClosePosition,
@@ -23,6 +30,7 @@ record BinanceTradingCapability(
         boolean supportsPeggedOrders,
         boolean supportsIcebergQty,
         boolean supportsTrailingDelta,
+        boolean supportsMarginSideEffectControls,
         boolean supportsIsolatedMarginFlag,
         boolean supportsMarketMakerProtection
 ) {
@@ -56,6 +64,26 @@ record BinanceTradingCapability(
     private static final Set<String> OPTIONS_STP_MODES = Set.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH");
     private static final Set<String> NO_POSITION_SIDE = Set.of("NONE");
     private static final Set<String> FUTURES_POSITION_SIDES = Set.of("BOTH", "LONG", "SHORT");
+    private static final Set<String> NO_VALUES = Set.of();
+    private static final Set<String> FUTURES_PRICE_MATCH_ORDER_TYPES = Set.of("LIMIT", "STOP", "TAKE_PROFIT");
+    private static final Set<String> SPOT_PEGGED_ORDER_TYPES = Set.of(
+            "LIMIT",
+            "LIMIT_MAKER",
+            "STOP_LOSS_LIMIT",
+            "TAKE_PROFIT_LIMIT"
+    );
+    private static final Set<String> SPOT_PEG_PRICE_TYPES = Set.of("PRIMARY_PEG", "MARKET_PEG");
+    private static final Set<String> SPOT_PEG_OFFSET_TYPES = Set.of("PRICE_LEVEL");
+    private static final Set<String> MARGIN_SIDE_EFFECT_TYPES = Set.of(
+            "NO_SIDE_EFFECT",
+            "MARGIN_BUY",
+            "AUTO_REPAY",
+            "AUTO_BORROW_REPAY"
+    );
+    private static final Set<String> AUTO_REPAY_AT_CANCEL_SIDE_EFFECT_TYPES = Set.of(
+            "MARGIN_BUY",
+            "AUTO_BORROW_REPAY"
+    );
 
     static BinanceTradingCapability forMarketType(BinanceMarketType marketType) {
         return switch (marketType) {
@@ -81,6 +109,13 @@ record BinanceTradingCapability(
                 Set.copyOf(trading.supportedOrderResponseTypes()),
                 Set.copyOf(trading.supportedSelfTradePreventionModes()),
                 Set.copyOf(trading.supportedPositionSides()),
+                Set.copyOf(trading.supportedPriceMatchOrderTypes()),
+                Set.copyOf(trading.supportedPeggedOrderTypes()),
+                Set.copyOf(trading.supportedPegPriceTypes()),
+                Set.copyOf(trading.supportedPegOffsetTypes()),
+                Set.copyOf(trading.supportedMarginSideEffectTypes()),
+                Set.copyOf(trading.autoRepayAtCancelSideEffectTypes()),
+                trading.maxPegOffsetValue(),
                 trading.supportsQuoteOrderQty(),
                 trading.supportsReduceOnly(),
                 trading.supportsClosePosition(),
@@ -88,6 +123,7 @@ record BinanceTradingCapability(
                 trading.supportsPeggedOrders(),
                 trading.supportsIcebergQty(),
                 trading.supportsTrailingDelta(),
+                trading.supportsMarginSideEffectControls(),
                 trading.supportsIsolatedMarginFlag(),
                 trading.supportsMarketMakerProtection()
         );
@@ -106,6 +142,13 @@ record BinanceTradingCapability(
                 ACK_RESULT_FULL,
                 STP_MODES,
                 NO_POSITION_SIDE,
+                NO_VALUES,
+                SPOT_PEGGED_ORDER_TYPES,
+                SPOT_PEG_PRICE_TYPES,
+                SPOT_PEG_OFFSET_TYPES,
+                NO_VALUES,
+                NO_VALUES,
+                100,
                 true,
                 false,
                 false,
@@ -113,6 +156,7 @@ record BinanceTradingCapability(
                 true,
                 true,
                 true,
+                false,
                 false,
                 false
         );
@@ -131,11 +175,19 @@ record BinanceTradingCapability(
                 ACK_RESULT_FULL,
                 STP_MODES,
                 NO_POSITION_SIDE,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                MARGIN_SIDE_EFFECT_TYPES,
+                AUTO_REPAY_AT_CANCEL_SIDE_EFFECT_TYPES,
+                null,
                 true,
                 false,
                 false,
                 false,
                 false,
+                true,
                 true,
                 true,
                 isolated,
@@ -156,10 +208,18 @@ record BinanceTradingCapability(
                 ACK_RESULT,
                 FUTURES_STP_MODES,
                 FUTURES_POSITION_SIDES,
+                FUTURES_PRICE_MATCH_ORDER_TYPES,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                null,
                 false,
                 true,
                 true,
                 true,
+                false,
                 false,
                 false,
                 false,
@@ -181,8 +241,16 @@ record BinanceTradingCapability(
                 ACK_RESULT,
                 OPTIONS_STP_MODES,
                 NO_POSITION_SIDE,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                NO_VALUES,
+                null,
                 false,
                 true,
+                false,
                 false,
                 false,
                 false,

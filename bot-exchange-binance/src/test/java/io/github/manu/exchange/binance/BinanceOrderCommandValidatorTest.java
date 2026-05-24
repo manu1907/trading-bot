@@ -166,7 +166,53 @@ class BinanceOrderCommandValidatorTest {
                 .pegPriceType("PRIMARY_PEG")
                 .build(), BinanceMarketType.SPOT))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("pegged orders are only supported");
+                .hasMessageContaining("pegged orders are not supported for order type MARKET");
+    }
+
+    @Test
+    void accepts_cross_margin_order_with_side_effect_type() {
+        BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("MARKET")
+                .quantity("0.001")
+                .sideEffectType("AUTO_BORROW_REPAY")
+                .autoRepayAtCancel(false)
+                .build(), BinanceMarketType.MARGIN_CROSS);
+    }
+
+    @Test
+    void accepts_isolated_margin_order_with_side_effect_type() {
+        BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .price("50000")
+                .sideEffectType("MARGIN_BUY")
+                .autoRepayAtCancel(true)
+                .isolatedMargin(true)
+                .build(), BinanceMarketType.MARGIN_ISOLATED);
+    }
+
+    @Test
+    void rejects_margin_side_effect_type_on_spot() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("MARKET")
+                .quantity("0.001")
+                .sideEffectType("AUTO_BORROW_REPAY")
+                .build(), BinanceMarketType.SPOT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sideEffectType is not supported");
+    }
+
+    @Test
+    void rejects_auto_repay_at_cancel_without_borrowing_side_effect_type() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("MARKET")
+                .quantity("0.001")
+                .sideEffectType("AUTO_REPAY")
+                .autoRepayAtCancel(false)
+                .build(), BinanceMarketType.MARGIN_CROSS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("autoRepayAtCancel requires a configured borrow sideEffectType");
     }
 
     @Test
@@ -276,6 +322,7 @@ class BinanceOrderCommandValidatorTest {
         private String positionSide;
         private String orderResponseType;
         private String selfTradePreventionMode;
+        private String sideEffectType;
         private String priceMatch;
         private String pegPriceType;
         private String pegOffsetType;
@@ -287,6 +334,8 @@ class BinanceOrderCommandValidatorTest {
         private BigDecimal stopPrice;
         private Boolean reduceOnly;
         private Boolean closePosition;
+        private Boolean autoRepayAtCancel;
+        private Boolean isolatedMargin;
         private Boolean marketMakerProtection;
 
         CommandBuilder type(String value) {
@@ -316,6 +365,11 @@ class BinanceOrderCommandValidatorTest {
 
         CommandBuilder priceMatch(String value) {
             priceMatch = value;
+            return this;
+        }
+
+        CommandBuilder sideEffectType(String value) {
+            sideEffectType = value;
             return this;
         }
 
@@ -369,6 +423,16 @@ class BinanceOrderCommandValidatorTest {
             return this;
         }
 
+        CommandBuilder autoRepayAtCancel(boolean value) {
+            autoRepayAtCancel = value;
+            return this;
+        }
+
+        CommandBuilder isolatedMargin(boolean value) {
+            isolatedMargin = value;
+            return this;
+        }
+
         CommandBuilder marketMakerProtection(boolean value) {
             marketMakerProtection = value;
             return this;
@@ -383,6 +447,7 @@ class BinanceOrderCommandValidatorTest {
                     positionSide,
                     orderResponseType,
                     selfTradePreventionMode,
+                    sideEffectType,
                     priceMatch,
                     pegPriceType,
                     pegOffsetType,
@@ -399,7 +464,8 @@ class BinanceOrderCommandValidatorTest {
                     null,
                     reduceOnly,
                     closePosition,
-                    null,
+                    autoRepayAtCancel,
+                    isolatedMargin,
                     marketMakerProtection
             );
         }

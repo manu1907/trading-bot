@@ -133,7 +133,31 @@
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": false,
                       "supports_market_maker_protection": false,
-                      "test_order_path": "/api/v3/order/test"
+                      "test_order_path": "/api/v3/order/test",
+                      "supported_price_match_order_types": [
+
+                      ],
+                      "supported_pegged_order_types": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                      ],
+                      "supported_peg_price_types": [
+                        "PRIMARY_PEG",
+                        "MARKET_PEG"
+                      ],
+                      "supported_peg_offset_types": [
+                        "PRICE_LEVEL"
+                      ],
+                      "supported_margin_side_effect_types": [
+
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+
+                      ],
+                      "max_peg_offset_value": 100,
+                      "supports_margin_side_effect_controls": false
                     }
                   },
                   "margin_cross": {
@@ -242,7 +266,30 @@
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": false,
-                      "supports_market_maker_protection": false
+                      "supports_market_maker_protection": false,
+                      "supported_price_match_order_types": [
+
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+                        "NO_SIDE_EFFECT",
+                        "MARGIN_BUY",
+                        "AUTO_REPAY",
+                        "AUTO_BORROW_REPAY"
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+                        "MARGIN_BUY",
+                        "AUTO_BORROW_REPAY"
+                      ],
+                      "supports_margin_side_effect_controls": true
                     }
                   },
                   "margin_isolated": {
@@ -351,7 +398,30 @@
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": true,
-                      "supports_market_maker_protection": false
+                      "supports_market_maker_protection": false,
+                      "supported_price_match_order_types": [
+
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+                        "NO_SIDE_EFFECT",
+                        "MARGIN_BUY",
+                        "AUTO_REPAY",
+                        "AUTO_BORROW_REPAY"
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+                        "MARGIN_BUY",
+                        "AUTO_BORROW_REPAY"
+                      ],
+                      "supports_margin_side_effect_controls": true
                     }
                   },
                   "usdm_futures": {
@@ -469,7 +539,28 @@
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
                       "supports_isolated_margin_flag": false,
-                      "supports_market_maker_protection": false
+                      "supports_market_maker_protection": false,
+                      "supported_price_match_order_types": [
+                        "LIMIT",
+                        "STOP",
+                        "TAKE_PROFIT"
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+
+                      ],
+                      "supports_margin_side_effect_controls": false
                     }
                   },
                   "coinm_futures": {
@@ -584,7 +675,28 @@
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
                       "supports_isolated_margin_flag": false,
-                      "supports_market_maker_protection": false
+                      "supports_market_maker_protection": false,
+                      "supported_price_match_order_types": [
+                        "LIMIT",
+                        "STOP",
+                        "TAKE_PROFIT"
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+
+                      ],
+                      "supports_margin_side_effect_controls": false
                     }
                   },
                   "options": {
@@ -685,7 +797,26 @@
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
                       "supports_isolated_margin_flag": false,
-                      "supports_market_maker_protection": true
+                      "supports_market_maker_protection": true,
+                      "supported_price_match_order_types": [
+
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+
+                      ],
+                      "supports_margin_side_effect_controls": false
                     }
                   }
                 }
@@ -810,7 +941,31 @@
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": false,
                       "supports_market_maker_protection": false,
-                      "test_order_path": "/api/v3/order/test"
+                      "test_order_path": "/api/v3/order/test",
+                      "supported_price_match_order_types": [
+
+                      ],
+                      "supported_pegged_order_types": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                      ],
+                      "supported_peg_price_types": [
+                        "PRIMARY_PEG",
+                        "MARKET_PEG"
+                      ],
+                      "supported_peg_offset_types": [
+                        "PRICE_LEVEL"
+                      ],
+                      "supported_margin_side_effect_types": [
+
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+
+                      ],
+                      "max_peg_offset_value": 100,
+                      "supports_margin_side_effect_controls": false
                     }
                   },
                   "margin_cross": {
@@ -919,7 +1074,30 @@
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": false,
-                      "supports_market_maker_protection": false
+                      "supports_market_maker_protection": false,
+                      "supported_price_match_order_types": [
+
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+                        "NO_SIDE_EFFECT",
+                        "MARGIN_BUY",
+                        "AUTO_REPAY",
+                        "AUTO_BORROW_REPAY"
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+                        "MARGIN_BUY",
+                        "AUTO_BORROW_REPAY"
+                      ],
+                      "supports_margin_side_effect_controls": true
                     }
                   },
                   "margin_isolated": {
@@ -1028,7 +1206,30 @@
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": true,
-                      "supports_market_maker_protection": false
+                      "supports_market_maker_protection": false,
+                      "supported_price_match_order_types": [
+
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+                        "NO_SIDE_EFFECT",
+                        "MARGIN_BUY",
+                        "AUTO_REPAY",
+                        "AUTO_BORROW_REPAY"
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+                        "MARGIN_BUY",
+                        "AUTO_BORROW_REPAY"
+                      ],
+                      "supports_margin_side_effect_controls": true
                     }
                   },
                   "usdm_futures": {
@@ -1146,7 +1347,28 @@
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
                       "supports_isolated_margin_flag": false,
-                      "supports_market_maker_protection": false
+                      "supports_market_maker_protection": false,
+                      "supported_price_match_order_types": [
+                        "LIMIT",
+                        "STOP",
+                        "TAKE_PROFIT"
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+
+                      ],
+                      "supports_margin_side_effect_controls": false
                     }
                   },
                   "coinm_futures": {
@@ -1261,7 +1483,28 @@
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
                       "supports_isolated_margin_flag": false,
-                      "supports_market_maker_protection": false
+                      "supports_market_maker_protection": false,
+                      "supported_price_match_order_types": [
+                        "LIMIT",
+                        "STOP",
+                        "TAKE_PROFIT"
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+
+                      ],
+                      "supports_margin_side_effect_controls": false
                     }
                   },
                   "options": {
@@ -1362,7 +1605,26 @@
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
                       "supports_isolated_margin_flag": false,
-                      "supports_market_maker_protection": true
+                      "supports_market_maker_protection": true,
+                      "supported_price_match_order_types": [
+
+                      ],
+                      "supported_pegged_order_types": [
+
+                      ],
+                      "supported_peg_price_types": [
+
+                      ],
+                      "supported_peg_offset_types": [
+
+                      ],
+                      "supported_margin_side_effect_types": [
+
+                      ],
+                      "auto_repay_at_cancel_side_effect_types": [
+
+                      ],
+                      "supports_margin_side_effect_controls": false
                     }
                   }
                 }

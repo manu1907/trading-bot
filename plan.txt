@@ -10,6 +10,12 @@ green tests, corrected warnings, and a short review of what changed.
 - Each strategy gets one module, starting with `bot-strategy-lfa`.
 - Demo and real trading use the same execution code. The difference is config,
   account, credentials, and deployment target only.
+- Bot defaults, Binance capability defaults, execution/risk limits, and
+  strategy defaults belong in `config/catalog.json` as much as possible.
+  Environment files and runtime overrides select or narrow those defaults; they
+  must not create a second implementation path.
+- Local `api.env` may provide smoke-test credentials, but it must stay ignored
+  and must not be used as source-controlled configuration.
 - No dry-run or toy execution path should be introduced as a substitute for the
   real engine. Backtest/simulation is a separate runtime mode.
 - Every phase must include pertinent unit tests and integration tests with clear
@@ -89,6 +95,10 @@ Implemented Binance foundations:
   types, time-in-force, trigger protection, and precision fields.
 - Basic order create/query/open/cancel endpoints.
 - Spot pegged-order command fields, validation, and request construction.
+- Margin `sideEffectType` and `autoRepayAtCancel` command fields, validation,
+  and request construction.
+- Catalog-backed order feature defaults for price-match, pegged-order, and
+  margin side-effect controls.
 - REST rate-limit header observation.
 - User-data listen-key/listen-token lifecycle where configured.
 - Public WebSocket stream URI planning and reconnect/rollover policy.
@@ -98,9 +108,8 @@ Binance parity gaps to close before claiming full connector support:
 - Spot: implement cancel-replace, amend-keep-priority, OCO/OTO/OTOCO/OPO/OPOCO,
   SOR, all-orders, trade list, prevented matches, commission rates, and
   WebSocket API order placement.
-- Margin: add `sideEffectType`, `autoRepayAtCancel`, borrow/repay, transfers,
-  margin order lists, margin account/risk endpoints, and special low-latency
-  key workflows.
+- Margin: add borrow/repay, transfers, margin order lists, margin account/risk
+  endpoints, and special low-latency key workflows.
 - Futures: add `workingType`, `priceProtect`, leverage/margin-type/position
   mode management, batch orders, modify order, cancel-all/countdown cancel-all,
   account snapshots, position risk, funding/income, liquidation, ADL, and
@@ -231,8 +240,7 @@ Deliver:
 - Spot cancel-replace, amend-keep-priority, order-list, SOR, all-orders,
   account-trade, prevented-match, and commission-rate clients where needed by
   execution/reconciliation.
-- Margin `sideEffectType`, `autoRepayAtCancel`, borrow/repay, transfer, order
-  list, and margin account/risk endpoints.
+- Margin borrow/repay, transfer, order list, and margin account/risk endpoints.
 - Futures `workingType`, `priceProtect`, leverage, margin type, position mode,
   batch/modify/cancel-all/countdown-cancel-all, position-risk, funding/income,
   liquidation, and ADL endpoint support.
@@ -245,7 +253,8 @@ Tests:
 - Request-factory tests for every documented parameter combination.
 - Fixture parser tests for user-data and market-data stream payloads.
 - Reconciliation tests for REST snapshot plus user-stream event ordering.
-- Demo smoke tests remain opt-in and must refuse real targets.
+- Live smoke tests remain opt-in. They load the active live target and must
+  require an additional explicit guard before running against real targets.
 
 Gate:
 

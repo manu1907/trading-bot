@@ -89,6 +89,13 @@ public record BinanceProperties(
             @NotNull List<String> supportedOrderResponseTypes,
             @NotNull List<String> supportedSelfTradePreventionModes,
             @NotNull List<String> supportedPositionSides,
+            @NotNull List<String> supportedPriceMatchOrderTypes,
+            @NotNull List<String> supportedPeggedOrderTypes,
+            @NotNull List<String> supportedPegPriceTypes,
+            @NotNull List<String> supportedPegOffsetTypes,
+            @NotNull List<String> supportedMarginSideEffectTypes,
+            @NotNull List<String> autoRepayAtCancelSideEffectTypes,
+            Integer maxPegOffsetValue,
             boolean supportsQuoteOrderQty,
             boolean supportsReduceOnly,
             boolean supportsClosePosition,
@@ -96,6 +103,7 @@ public record BinanceProperties(
             boolean supportsPeggedOrders,
             boolean supportsIcebergQty,
             boolean supportsTrailingDelta,
+            boolean supportsMarginSideEffectControls,
             boolean supportsIsolatedMarginFlag,
             boolean supportsMarketMakerProtection
     ) {
@@ -106,6 +114,12 @@ public record BinanceProperties(
             supportedOrderResponseTypes = List.copyOf(supportedOrderResponseTypes);
             supportedSelfTradePreventionModes = List.copyOf(supportedSelfTradePreventionModes);
             supportedPositionSides = List.copyOf(supportedPositionSides);
+            supportedPriceMatchOrderTypes = List.copyOf(supportedPriceMatchOrderTypes);
+            supportedPeggedOrderTypes = List.copyOf(supportedPeggedOrderTypes);
+            supportedPegPriceTypes = List.copyOf(supportedPegPriceTypes);
+            supportedPegOffsetTypes = List.copyOf(supportedPegOffsetTypes);
+            supportedMarginSideEffectTypes = List.copyOf(supportedMarginSideEffectTypes);
+            autoRepayAtCancelSideEffectTypes = List.copyOf(autoRepayAtCancelSideEffectTypes);
         }
     }
 

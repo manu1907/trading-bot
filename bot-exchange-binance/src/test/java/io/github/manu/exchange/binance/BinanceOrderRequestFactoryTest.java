@@ -33,11 +33,13 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 "tb_smoke_1",
                 null,
                 new BigDecimal("0.001000"),
                 null,
                 new BigDecimal("50000.00"),
+                null,
                 null,
                 null,
                 null,
@@ -70,6 +72,7 @@ class BinanceOrderRequestFactoryTest {
                 "BOTH",
                 "RESULT",
                 "EXPIRE_MAKER",
+                null,
                 "QUEUE",
                 null,
                 null,
@@ -77,6 +80,7 @@ class BinanceOrderRequestFactoryTest {
                 "tb_gtd_1",
                 1_771_111_111_000L,
                 new BigDecimal("0.001000"),
+                null,
                 null,
                 null,
                 null,
@@ -112,12 +116,14 @@ class BinanceOrderRequestFactoryTest {
                 "FULL",
                 "NONE",
                 null,
+                null,
                 "PRIMARY_PEG",
                 "PRICE_LEVEL",
                 5,
                 "tb_peg_1",
                 null,
                 new BigDecimal("0.001000"),
+                null,
                 null,
                 null,
                 null,
@@ -140,6 +146,50 @@ class BinanceOrderRequestFactoryTest {
                         + "&newClientOrderId=tb_peg_1&quantity=0.001"
                         + "&timestamp=1499827319559&recvWindow=5000");
         assertThat(request.uri().toString()).startsWith("https://api.binance.com/api/v3/order?");
+    }
+
+    @Test
+    void builds_margin_order_with_side_effect_controls() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(marginBinance(), FIXED_CLOCK, 0);
+        BinanceOrderCommand command = new BinanceOrderCommand(
+                "BTCUSDT",
+                "BUY",
+                "MARKET",
+                null,
+                null,
+                "FULL",
+                "NONE",
+                "AUTO_BORROW_REPAY",
+                null,
+                null,
+                null,
+                null,
+                "tb_margin_1",
+                null,
+                new BigDecimal("0.001000"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                true,
+                null
+        );
+
+        BinanceSignedRequest request = factory.newOrder(command, "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&side=BUY&type=MARKET&newOrderRespType=FULL"
+                        + "&selfTradePreventionMode=NONE&sideEffectType=AUTO_BORROW_REPAY"
+                        + "&newClientOrderId=tb_margin_1&quantity=0.001"
+                        + "&autoRepayAtCancel=false&isIsolated=true"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/order?");
     }
 
     @Test
@@ -205,6 +255,24 @@ class BinanceOrderRequestFactoryTest {
                 spotRest(),
                 websocket(),
                 spotTrading(),
+                userData(),
+                null
+        );
+    }
+
+    private BinanceProperties marginBinance() {
+        return new BinanceProperties(
+                "MARGIN_ISOLATED",
+                new BinanceProperties.Credentials(
+                        "binance_real_main",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_DATA", "MARGIN", "TRADE")
+                ),
+                spotRest(),
+                websocket(),
+                marginTrading(),
                 userData(),
                 null
         );
@@ -292,10 +360,18 @@ class BinanceOrderRequestFactoryTest {
                 List.of("ACK", "RESULT"),
                 List.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
                 List.of("BOTH", "LONG", "SHORT"),
+                List.of("LIMIT", "STOP", "TAKE_PROFIT"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
                 false,
                 true,
                 true,
                 true,
+                false,
                 false,
                 false,
                 false,
@@ -317,6 +393,13 @@ class BinanceOrderRequestFactoryTest {
                 List.of("ACK", "RESULT", "FULL"),
                 List.of("NONE", "EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
                 List.of("NONE"),
+                List.of(),
+                List.of("LIMIT", "LIMIT_MAKER", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"),
+                List.of("PRIMARY_PEG", "MARKET_PEG"),
+                List.of("PRICE_LEVEL"),
+                List.of(),
+                List.of(),
+                100,
                 true,
                 false,
                 false,
@@ -325,6 +408,40 @@ class BinanceOrderRequestFactoryTest {
                 true,
                 true,
                 false,
+                false,
+                false
+        );
+    }
+
+    private BinanceProperties.Trading marginTrading() {
+        return new BinanceProperties.Trading(
+                "/sapi/v1/margin/order",
+                null,
+                "/sapi/v1/margin/order",
+                "/sapi/v1/margin/order",
+                "/sapi/v1/margin/openOrders",
+                List.of("BUY", "SELL"),
+                List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
+                List.of("GTC", "IOC", "FOK"),
+                List.of("ACK", "RESULT", "FULL"),
+                List.of("NONE", "EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
+                List.of("NONE"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("NO_SIDE_EFFECT", "MARGIN_BUY", "AUTO_REPAY", "AUTO_BORROW_REPAY"),
+                List.of("MARGIN_BUY", "AUTO_BORROW_REPAY"),
+                null,
+                true,
+                false,
+                false,
+                false,
+                false,
+                true,
+                true,
+                true,
+                true,
                 false
         );
     }

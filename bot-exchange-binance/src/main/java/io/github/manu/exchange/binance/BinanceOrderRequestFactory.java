@@ -64,6 +64,7 @@ final class BinanceOrderRequestFactory {
         add(parameters, "positionSide", command.positionSide());
         add(parameters, "newOrderRespType", command.orderResponseType());
         add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
+        add(parameters, "sideEffectType", command.sideEffectType());
         add(parameters, "priceMatch", command.priceMatch());
         add(parameters, "pegPriceType", command.pegPriceType());
         add(parameters, "pegOffsetType", command.pegOffsetType());
@@ -80,6 +81,7 @@ final class BinanceOrderRequestFactory {
         add(parameters, "icebergQty", command.icebergQty());
         add(parameters, "reduceOnly", command.reduceOnly());
         add(parameters, "closePosition", command.closePosition());
+        addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());
         add(parameters, "isIsolated", command.isolatedMargin());
         add(parameters, "marketMakerProtection", command.marketMakerProtection());
         return parameters;
@@ -111,6 +113,12 @@ final class BinanceOrderRequestFactory {
 
     private void add(List<BinanceRequestParameter> parameters, String name, Boolean value) {
         if (Boolean.TRUE.equals(value)) {
+            parameters.add(BinanceRequestParameter.of(name, value.toString()));
+        }
+    }
+
+    private void addWhenPresent(List<BinanceRequestParameter> parameters, String name, Boolean value) {
+        if (value != null) {
             parameters.add(BinanceRequestParameter.of(name, value.toString()));
         }
     }

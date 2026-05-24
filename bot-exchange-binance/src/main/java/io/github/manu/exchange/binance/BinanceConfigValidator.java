@@ -199,6 +199,48 @@ final class BinanceConfigValidator {
                 expected.supportedPositionSides(),
                 errors
         );
+        requireSameValues(
+                path + ".supported_price_match_order_types",
+                trading.supportedPriceMatchOrderTypes(),
+                expected.supportedPriceMatchOrderTypes(),
+                errors
+        );
+        requireSameValues(
+                path + ".supported_pegged_order_types",
+                trading.supportedPeggedOrderTypes(),
+                expected.supportedPeggedOrderTypes(),
+                errors
+        );
+        requireSameValues(
+                path + ".supported_peg_price_types",
+                trading.supportedPegPriceTypes(),
+                expected.supportedPegPriceTypes(),
+                errors
+        );
+        requireSameValues(
+                path + ".supported_peg_offset_types",
+                trading.supportedPegOffsetTypes(),
+                expected.supportedPegOffsetTypes(),
+                errors
+        );
+        requireSameValues(
+                path + ".supported_margin_side_effect_types",
+                trading.supportedMarginSideEffectTypes(),
+                expected.supportedMarginSideEffectTypes(),
+                errors
+        );
+        requireSameValues(
+                path + ".auto_repay_at_cancel_side_effect_types",
+                trading.autoRepayAtCancelSideEffectTypes(),
+                expected.autoRepayAtCancelSideEffectTypes(),
+                errors
+        );
+        requireOptionalMatching(
+                path + ".max_peg_offset_value",
+                trading.maxPegOffsetValue(),
+                expected.maxPegOffsetValue(),
+                errors
+        );
         requireMatching(path + ".supports_quote_order_qty", trading.supportsQuoteOrderQty(), expected.supportsQuoteOrderQty(), errors);
         requireMatching(path + ".supports_reduce_only", trading.supportsReduceOnly(), expected.supportsReduceOnly(), errors);
         requireMatching(path + ".supports_close_position", trading.supportsClosePosition(), expected.supportsClosePosition(), errors);
@@ -206,6 +248,12 @@ final class BinanceConfigValidator {
         requireMatching(path + ".supports_pegged_orders", trading.supportsPeggedOrders(), expected.supportsPeggedOrders(), errors);
         requireMatching(path + ".supports_iceberg_qty", trading.supportsIcebergQty(), expected.supportsIcebergQty(), errors);
         requireMatching(path + ".supports_trailing_delta", trading.supportsTrailingDelta(), expected.supportsTrailingDelta(), errors);
+        requireMatching(
+                path + ".supports_margin_side_effect_controls",
+                trading.supportsMarginSideEffectControls(),
+                expected.supportsMarginSideEffectControls(),
+                errors
+        );
         requireMatching(
                 path + ".supports_isolated_margin_flag",
                 trading.supportsIsolatedMarginFlag(),
@@ -403,6 +451,18 @@ final class BinanceConfigValidator {
         requireMatching(path, actual, expected, errors);
     }
 
+    private static void requireOptionalMatching(String path, Integer actual, Integer expected, List<String> errors) {
+        if (expected == null) {
+            if (actual != null) {
+                errors.add(path + " must be omitted");
+            }
+            return;
+        }
+        if (!expected.equals(actual)) {
+            errors.add(path + " must be " + expected);
+        }
+    }
+
     private static void requireMatching(String path, boolean actual, boolean expected, List<String> errors) {
         if (actual != expected) {
             errors.add(path + " must be " + expected);
@@ -410,6 +470,12 @@ final class BinanceConfigValidator {
     }
 
     private static void requireSameValues(String path, List<String> actual, Set<String> expected, List<String> errors) {
+        if (expected.isEmpty()) {
+            if (actual == null || !actual.isEmpty()) {
+                errors.add(path + " must be empty");
+            }
+            return;
+        }
         requireNonEmpty(path, actual, errors);
         if (actual != null && !Set.copyOf(actual).equals(expected)) {
             errors.add(path + " must contain " + expected);

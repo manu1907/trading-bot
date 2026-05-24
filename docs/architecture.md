@@ -156,18 +156,16 @@ will use this plan rather than hard-coded URLs. The lifecycle client keeps the
 planned endpoint, listener callbacks, idempotent close behavior, and reconnect
 decision in a transport boundary so the concrete socket implementation can be
 tested separately from URL and rollover policy. The Reactor Netty transport is
-the first concrete transport and has an opt-in demo smoke test that receives one
-public USD-M market stream message through the checked-in demo target config.
+the first concrete transport and has opt-in live smoke tests that run through
+the configured live target.
 The WebSocket supervisor owns controlled reconnects: it rolls connections over
 before Binance's 24-hour expiry point and schedules retry reconnects after
 active connection errors or unexpected closes.
-The checked-in Binance demo order lifecycle test is opt-in. It requires
-`BINANCE_DEMO_API_KEY`, `BINANCE_DEMO_API_SECRET`, and
-`-Dbinance.demo.order.smoke=true`; it refuses non-demo active targets, submits a
-passive USD-M limit order, queries it, and cancels it by client order id.
-The checked-in Binance demo user-data stream lifecycle test is opt-in and
-requires `BINANCE_DEMO_API_KEY`; it starts, renews, and closes the configured
-USD-M demo stream.
+The checked-in Binance live smoke tests are opt-in. They load `active.json`,
+merge `application-{environment}.json`, and use the same connector code for
+demo and real. Credentials may come from process environment variables or local
+`api.env`; `api.env` must stay ignored. Real-target smoke tests require an
+extra explicit `-Dbinance.live.smoke.allowReal=true` guard.
 
 ### Binance Capability Review
 
@@ -182,6 +180,10 @@ of truth. As of the current code, the connector covers these foundations:
   precision, rate limits, trigger protection, and lifecycle metadata.
 - Basic signed order create, query, open-orders, and cancel requests.
 - Spot pegged-order command fields, validation, and signed request parameters.
+- Margin `sideEffectType` and `autoRepayAtCancel` command fields, validation,
+  and signed request parameters.
+- Catalog-backed order feature enums and limits for price-match, pegged-order,
+  and margin side-effect controls.
 - Public WebSocket stream endpoint planning and reconnect/rollover policy.
 - User-data listen-key or listen-token lifecycle for configured products.
 
@@ -191,9 +193,8 @@ adapter. Known gaps that must remain on the plan:
 - Spot advanced trading endpoints: cancel-replace, amend-keep-priority, order
   lists (OCO, OTO, OTOCO, OPO, OPOCO), SOR orders, all-orders, trades,
   prevented matches, commission rates, and WebSocket API order placement.
-- Margin order side-effect controls such as `sideEffectType` and
-  `autoRepayAtCancel`, plus borrow/repay, transfer, margin OCO/OTO/OTOCO, and
-  low-latency special-key workflows are not implemented.
+- Margin borrow/repay, transfer, margin OCO/OTO/OTOCO, account/risk endpoints,
+  and low-latency special-key workflows are not implemented.
 - Futures conditional-order controls such as `workingType` and `priceProtect`,
   plus leverage, margin type, position mode, multi-assets mode, batch orders,
   modify order, cancel-all/countdown cancel-all, account snapshots, income,
@@ -337,6 +338,11 @@ Demo and real use the same execution engine. The allowed differences are:
 - account limits
 
 There should be no separate toy execution code path for real-readiness work.
+Switching from demo to real should be an active-target/config change, not a
+code change. Defaults for bot behavior, Binance product capabilities, execution
+limits, and strategy parameters belong in `config/catalog.json`; environment
+files and runtime overrides may narrow or point those defaults at the selected
+account, but they should not create a second implementation path.
 
 ## Quality Gate
 

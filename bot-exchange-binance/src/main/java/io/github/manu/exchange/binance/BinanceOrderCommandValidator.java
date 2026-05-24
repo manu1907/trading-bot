@@ -13,15 +13,6 @@ final class BinanceOrderCommandValidator {
     private static final Set<String> SPOT_LIMIT_STOP_TYPES = Set.of("STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT");
     private static final Set<String> FUTURES_LIMIT_STOP_TYPES = Set.of("STOP", "TAKE_PROFIT");
     private static final Set<String> FUTURES_MARKET_STOP_TYPES = Set.of("STOP_MARKET", "TAKE_PROFIT_MARKET");
-    private static final Set<String> PRICE_MATCH_ORDER_TYPES = Set.of("LIMIT", "STOP", "TAKE_PROFIT");
-    private static final Set<String> PEGGED_ORDER_TYPES = Set.of(
-            "LIMIT",
-            "LIMIT_MAKER",
-            "STOP_LOSS_LIMIT",
-            "TAKE_PROFIT_LIMIT"
-    );
-    private static final Set<String> PEG_PRICE_TYPES = Set.of("PRIMARY_PEG", "MARKET_PEG");
-    private static final Set<String> PEG_OFFSET_TYPES = Set.of("PRICE_LEVEL");
 
     private BinanceOrderCommandValidator() {
     }
@@ -52,11 +43,12 @@ final class BinanceOrderCommandValidator {
                 errors
         );
         requireOptionalOneOf("positionSide", command.positionSide(), capability.supportedPositionSides(), errors);
-        requireOptionalOneOf("pegPriceType", command.pegPriceType(), PEG_PRICE_TYPES, errors);
-        requireOptionalOneOf("pegOffsetType", command.pegOffsetType(), PEG_OFFSET_TYPES, errors);
+        requireOptionalOneOf("sideEffectType", command.sideEffectType(), capability.supportedMarginSideEffectTypes(), errors);
+        requireOptionalOneOf("pegPriceType", command.pegPriceType(), capability.supportedPegPriceTypes(), errors);
+        requireOptionalOneOf("pegOffsetType", command.pegOffsetType(), capability.supportedPegOffsetTypes(), errors);
         validateFeatureFlags(command, capability, errors);
-        validatePositiveNumbers(command, errors);
-        validateParameterCombinations(command, errors);
+        validatePositiveNumbers(command, capability, errors);
+        validateParameterCombinations(command, capability, errors);
         validateOrderTypeParameters(command, capability, errors);
 
         if (!errors.isEmpty()) {
@@ -82,6 +74,12 @@ final class BinanceOrderCommandValidator {
         if (hasPeggedOrderParameter(command) && !capability.supportsPeggedOrders()) {
             errors.add("pegged orders are not supported for this Binance market");
         }
+        if (hasText(command.sideEffectType()) && !capability.supportsMarginSideEffectControls()) {
+            errors.add("sideEffectType is not supported for this Binance market");
+        }
+        if (command.autoRepayAtCancel() != null && !capability.supportsMarginSideEffectControls()) {
+            errors.add("autoRepayAtCancel is not supported for this Binance market");
+        }
         if (hasValue(command.icebergQty()) && !capability.supportsIcebergQty()) {
             errors.add("icebergQty is not supported for this Binance market");
         }
@@ -96,7 +94,9 @@ final class BinanceOrderCommandValidator {
         }
     }
 
-    private static void validatePositiveNumbers(BinanceOrderCommand command, List<String> errors) {
+    private static void validatePositiveNumbers(BinanceOrderCommand command,
+                                                BinanceTradingCapability capability,
+                                                List<String> errors) {
         requirePositiveWhenPresent("quantity", command.quantity(), errors);
         requirePositiveWhenPresent("quoteOrderQty", command.quoteOrderQty(), errors);
         requirePositiveWhenPresent("price", command.price(), errors);
@@ -107,31 +107,38 @@ final class BinanceOrderCommandValidator {
         requirePositiveWhenPresent("icebergQty", command.icebergQty(), errors);
         requirePositiveWhenPresent("goodTillDate", command.goodTillDate(), errors);
         requirePositiveWhenPresent("pegOffsetValue", command.pegOffsetValue(), errors);
-        if (command.pegOffsetValue() != null && command.pegOffsetValue() > 100) {
-            errors.add("pegOffsetValue must be less than or equal to 100");
+        if (command.pegOffsetValue() != null
+                && capability.maxPegOffsetValue() != null
+                && command.pegOffsetValue() > capability.maxPegOffsetValue()) {
+            errors.add("pegOffsetValue must be less than or equal to " + capability.maxPegOffsetValue());
         }
     }
 
-    private static void validateParameterCombinations(BinanceOrderCommand command, List<String> errors) {
+    private static void validateParameterCombinations(BinanceOrderCommand command,
+                                                      BinanceTradingCapability capability,
+                                                      List<String> errors) {
         if (hasText(command.priceMatch())) {
             if (hasValue(command.price())) {
                 errors.add("priceMatch cannot be used with price");
             }
-            if (hasText(command.type()) && !PRICE_MATCH_ORDER_TYPES.contains(command.type())) {
-                errors.add("priceMatch is only supported for LIMIT, STOP, and TAKE_PROFIT orders");
+            if (hasText(command.type()) && !capability.supportedPriceMatchOrderTypes().contains(command.type())) {
+                errors.add("priceMatch is not supported for order type " + command.type());
             }
         }
         if (hasPeggedOrderParameter(command)) {
             if (!hasText(command.pegPriceType())) {
                 errors.add("pegged orders require pegPriceType");
             }
-            if (hasText(command.type()) && !PEGGED_ORDER_TYPES.contains(command.type())) {
-                errors.add("pegged orders are only supported for LIMIT, LIMIT_MAKER, STOP_LOSS_LIMIT, "
-                        + "and TAKE_PROFIT_LIMIT orders");
+            if (hasText(command.type()) && !capability.supportedPeggedOrderTypes().contains(command.type())) {
+                errors.add("pegged orders are not supported for order type " + command.type());
             }
             if (hasText(command.pegOffsetType()) != (command.pegOffsetValue() != null)) {
                 errors.add("pegOffsetType and pegOffsetValue must be provided together");
             }
+        }
+        if (command.autoRepayAtCancel() != null
+                && !capability.autoRepayAtCancelSideEffectTypes().contains(command.sideEffectType())) {
+            errors.add("autoRepayAtCancel requires a configured borrow sideEffectType");
         }
         if ("GTD".equals(command.timeInForce()) && command.goodTillDate() == null) {
             errors.add("GTD orders require goodTillDate");
