@@ -8,6 +8,11 @@ api.env
 logs/
 **/logs/
 
+# Local working notes/spec drafts. These files are already tracked upstream, so
+# keep their local edits out of commits deliberately.
+lfa.txt
+docs/architecture.md
+
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml
