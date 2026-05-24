@@ -51,6 +51,14 @@ final class BinanceOrderRequestFactory {
         return restRequestFactory.signedUri(binance.trading().modifyOrderPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest modifyMultipleOrders(List<BinanceModifyOrderCommand> commands, String privateCredential) {
+        requireConfiguredPath("modifyMultipleOrdersPath", binance.trading().modifyMultipleOrdersPath());
+        validateModifyMultipleOrders(commands);
+        return restRequestFactory.signedUri(binance.trading().modifyMultipleOrdersPath(), List.of(
+                BinanceRequestParameter.of("batchOrders", modifyOrdersJson(commands))
+        ), privateCredential);
+    }
+
     BinanceSignedRequest cancelOrder(String symbol, String originalClientOrderId, String privateCredential) {
         if (symbol == null || symbol.isBlank()) {
             throw new IllegalArgumentException("symbol is required");
@@ -241,6 +249,38 @@ final class BinanceOrderRequestFactory {
         }
     }
 
+    private void validateModifyMultipleOrders(List<BinanceModifyOrderCommand> commands) {
+        Objects.requireNonNull(commands, "commands");
+        if (commands.isEmpty()) {
+            throw new IllegalArgumentException("modifyMultipleOrders requires at least one order");
+        }
+        if (commands.size() > 5) {
+            throw new IllegalArgumentException("modifyMultipleOrders can contain at most 5 orders");
+        }
+        for (BinanceModifyOrderCommand command : commands) {
+            validateModifyOrder(command);
+        }
+    }
+
+    private String modifyOrdersJson(List<BinanceModifyOrderCommand> commands) {
+        List<Map<String, String>> orders = commands.stream()
+                .map(this::modifyOrderParameterMap)
+                .toList();
+        return jsonMapper.writeValueAsString(orders);
+    }
+
+    private Map<String, String> modifyOrderParameterMap(BinanceModifyOrderCommand command) {
+        Map<String, String> parameters = new LinkedHashMap<>();
+        add(parameters, "symbol", command.symbol());
+        add(parameters, "orderId", command.orderId());
+        add(parameters, "origClientOrderId", command.originalClientOrderId());
+        add(parameters, "side", command.side());
+        add(parameters, "quantity", command.quantity());
+        add(parameters, "price", command.price());
+        add(parameters, "priceMatch", command.priceMatch());
+        return parameters;
+    }
+
     private void validateOrderHistoryQuery(BinanceOrderHistoryQuery query) {
         Objects.requireNonNull(query, "query");
         BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
@@ -388,6 +428,24 @@ final class BinanceOrderRequestFactory {
     private void add(List<BinanceRequestParameter> parameters, String name, Boolean value) {
         if (Boolean.TRUE.equals(value)) {
             parameters.add(BinanceRequestParameter.of(name, value.toString()));
+        }
+    }
+
+    private void add(Map<String, String> parameters, String name, String value) {
+        if (value != null && !value.isBlank()) {
+            parameters.put(name, value);
+        }
+    }
+
+    private void add(Map<String, String> parameters, String name, BigDecimal value) {
+        if (value != null) {
+            parameters.put(name, value.stripTrailingZeros().toPlainString());
+        }
+    }
+
+    private void add(Map<String, String> parameters, String name, Long value) {
+        if (value != null) {
+            parameters.put(name, value.toString());
         }
     }
 

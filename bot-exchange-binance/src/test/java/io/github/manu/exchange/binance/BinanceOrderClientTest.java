@@ -119,6 +119,45 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void modifies_multiple_orders_and_preserves_per_order_errors() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                [
+                  {
+                    "symbol": "BTCUSDT",
+                    "orderId": 12345,
+                    "clientOrderId": "modify_1",
+                    "status": "NEW",
+                    "side": "BUY",
+                    "type": "LIMIT",
+                    "positionSide": "LONG",
+                    "price": "50000.00",
+                    "origQty": "0.001",
+                    "executedQty": "0",
+                    "avgPrice": "0.00",
+                    "cumQuote": "0",
+                    "updateTime": 1668481559918
+                  },
+                  {
+                    "code": -2022,
+                    "msg": "ReduceOnly Order is rejected."
+                  }
+                ]
+                """));
+        BinanceOrderClient client = client(transport);
+
+        List<BinanceBatchOrderResult> results = client.modifyMultipleOrders(List.of(modifyOrder(), modifyOrder()));
+
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).order().clientOrderId()).isEqualTo("modify_1");
+        assertThat(results.get(1).order()).isNull();
+        assertThat(results.get(1).code()).isEqualTo(-2022);
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("PUT");
+            assertThat(call.uri()).contains("/fapi/v1/batchOrders?batchOrders=");
+        });
+    }
+
+    @Test
     void queries_cancels_and_lists_orders() {
         FakeTransport transport = new FakeTransport(
                 orderResponse("QUERY", "FILLED"),
@@ -284,6 +323,18 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceModifyOrderCommand modifyOrder() {
+        return new BinanceModifyOrderCommand(
+                "BTCUSDT",
+                12345L,
+                null,
+                "BUY",
+                new BigDecimal("0.001"),
+                new BigDecimal("50000"),
+                null
+        );
+    }
+
     private BinanceHttpResponse orderResponse(String clientOrderId, String status) {
         return new BinanceHttpResponse(200, orderResponseBody(clientOrderId, status));
     }
@@ -403,6 +454,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/userTrades",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
+                "/fapi/v1/batchOrders",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",

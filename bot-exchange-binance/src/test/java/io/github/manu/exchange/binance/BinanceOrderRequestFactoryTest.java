@@ -373,6 +373,41 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_futures_modify_multiple_orders_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.modifyMultipleOrders(List.of(
+                new BinanceModifyOrderCommand(
+                        "BTCUSDT",
+                        12345L,
+                        null,
+                        "BUY",
+                        new BigDecimal("0.001000"),
+                        new BigDecimal("50000.00"),
+                        null
+                ),
+                new BinanceModifyOrderCommand(
+                        "BTCUSDT",
+                        null,
+                        "client_2",
+                        "SELL",
+                        new BigDecimal("0.002000"),
+                        null,
+                        "QUEUE"
+                )
+        ), "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("batchOrders=%5B%7B%22symbol%22%3A%22BTCUSDT%22%2C%22orderId%22%3A%2212345%22"
+                        + "%2C%22side%22%3A%22BUY%22%2C%22quantity%22%3A%220.001%22"
+                        + "%2C%22price%22%3A%2250000%22%7D%2C%7B%22symbol%22%3A%22BTCUSDT%22"
+                        + "%2C%22origClientOrderId%22%3A%22client_2%22%2C%22side%22%3A%22SELL%22"
+                        + "%2C%22quantity%22%3A%220.002%22%2C%22priceMatch%22%3A%22QUEUE%22%7D%5D"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/batchOrders?");
+    }
+
+    @Test
     void rejects_invalid_futures_cancel_all_requests() {
         BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
         BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
@@ -504,6 +539,34 @@ class BinanceOrderRequestFactoryTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("modifyOrderPath is not configured");
+    }
+
+    @Test
+    void rejects_invalid_futures_modify_multiple_orders_requests() {
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> futuresFactory.modifyMultipleOrders(List.of(), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least one order");
+        assertThatThrownBy(() -> futuresFactory.modifyMultipleOrders(List.of(
+                modifyCommand(1L),
+                modifyCommand(2L),
+                modifyCommand(3L),
+                modifyCommand(4L),
+                modifyCommand(5L),
+                modifyCommand(6L)
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most 5 orders");
+        assertThatThrownBy(() -> futuresFactory.modifyMultipleOrders(List.of(
+                new BinanceModifyOrderCommand("BTCUSDT", null, null, "BUY", new BigDecimal("0.001"), new BigDecimal("50000"), null)
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderId or origClientOrderId is required");
+        assertThatThrownBy(() -> spotFactory.modifyMultipleOrders(List.of(modifyCommand(1L)), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("modifyMultipleOrdersPath is not configured");
     }
 
     @Test
@@ -653,6 +716,18 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null
+        );
+    }
+
+    private BinanceModifyOrderCommand modifyCommand(long orderId) {
+        return new BinanceModifyOrderCommand(
+                "BTCUSDT",
+                orderId,
+                null,
+                "BUY",
+                new BigDecimal("0.001"),
+                new BigDecimal("50000"),
                 null
         );
     }
@@ -835,6 +910,7 @@ class BinanceOrderRequestFactoryTest {
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
+                "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",
                 List.of("BUY", "SELL"),
@@ -877,6 +953,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/openOrders",
                 "/api/v3/allOrders",
                 "/api/v3/myTrades",
+                null,
                 null,
                 null,
                 null,
@@ -927,6 +1004,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -969,6 +1047,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/userTrades",
                 "/dapi/v1/batchOrders",
                 "/dapi/v1/order",
+                "/dapi/v1/batchOrders",
                 "/dapi/v1/batchOrders",
                 "/dapi/v1/allOpenOrders",
                 "/dapi/v1/countdownCancelAll",

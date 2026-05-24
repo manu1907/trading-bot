@@ -36,18 +36,22 @@ class BinanceTradingCapabilityTest {
         assertThat(margin.accountTradesPath()).isEqualTo("/sapi/v1/margin/myTrades");
         assertThat(margin.batchOrdersPath()).isNull();
         assertThat(margin.modifyOrderPath()).isNull();
+        assertThat(margin.modifyMultipleOrdersPath()).isNull();
         assertThat(usdm.allOrdersPath()).isEqualTo("/fapi/v1/allOrders");
         assertThat(usdm.accountTradesPath()).isEqualTo("/fapi/v1/userTrades");
         assertThat(usdm.batchOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
         assertThat(usdm.modifyOrderPath()).isEqualTo("/fapi/v1/order");
+        assertThat(usdm.modifyMultipleOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
         assertThat(coinm.allOrdersPath()).isEqualTo("/dapi/v1/allOrders");
         assertThat(coinm.accountTradesPath()).isEqualTo("/dapi/v1/userTrades");
         assertThat(coinm.batchOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
         assertThat(coinm.modifyOrderPath()).isEqualTo("/dapi/v1/order");
+        assertThat(coinm.modifyMultipleOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
         assertThat(options.allOrdersPath()).isNull();
         assertThat(options.accountTradesPath()).isNull();
         assertThat(options.batchOrdersPath()).isNull();
         assertThat(options.modifyOrderPath()).isNull();
+        assertThat(options.modifyMultipleOrdersPath()).isNull();
     }
 
     @Test

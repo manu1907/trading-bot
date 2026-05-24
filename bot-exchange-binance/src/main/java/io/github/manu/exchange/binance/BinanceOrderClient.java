@@ -76,24 +76,15 @@ final class BinanceOrderClient {
     }
 
     List<BinanceBatchOrderResult> placeBatchOrders(List<BinanceOrderCommand> commands) {
-        JsonNode root = readJson(send(requestFactory.batchOrders(commands, privateCredential), "POST"));
-        if (!root.isArray()) {
-            throw new IllegalStateException("Expected Binance batch orders array response");
-        }
-
-        List<BinanceBatchOrderResult> results = new ArrayList<>();
-        for (JsonNode item : root) {
-            if (item.hasNonNull("code") && item.hasNonNull("msg")) {
-                results.add(new BinanceBatchOrderResult(null, item.required("code").asInt(), text(item, "msg")));
-            } else {
-                results.add(new BinanceBatchOrderResult(toOrderResult(item), null, null));
-            }
-        }
-        return List.copyOf(results);
+        return parseBatchOrderResults(send(requestFactory.batchOrders(commands, privateCredential), "POST"), "batch orders");
     }
 
     BinanceOrderResult modifyOrder(BinanceModifyOrderCommand command) {
         return parseOrderResult(send(requestFactory.modifyOrder(command, privateCredential), "PUT"));
+    }
+
+    List<BinanceBatchOrderResult> modifyMultipleOrders(List<BinanceModifyOrderCommand> commands) {
+        return parseBatchOrderResults(send(requestFactory.modifyMultipleOrders(commands, privateCredential), "PUT"), "modify multiple orders");
     }
 
     BinanceOrderResult cancelOrder(String symbol, String originalClientOrderId) {
@@ -194,6 +185,23 @@ final class BinanceOrderClient {
             orders.add(toOrderResult(item));
         }
         return List.copyOf(orders);
+    }
+
+    private List<BinanceBatchOrderResult> parseBatchOrderResults(BinanceHttpResponse response, String responseName) {
+        JsonNode root = readJson(response);
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance " + responseName + " array response");
+        }
+
+        List<BinanceBatchOrderResult> results = new ArrayList<>();
+        for (JsonNode item : root) {
+            if (item.hasNonNull("code") && item.hasNonNull("msg")) {
+                results.add(new BinanceBatchOrderResult(null, item.required("code").asInt(), text(item, "msg")));
+            } else {
+                results.add(new BinanceBatchOrderResult(toOrderResult(item), null, null));
+            }
+        }
+        return List.copyOf(results);
     }
 
     private BinanceOrderResult toOrderResult(JsonNode node) {
