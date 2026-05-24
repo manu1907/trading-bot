@@ -32,6 +32,9 @@ record BinanceOtoOrderListCommand(
         Integer pendingStrategyType,
         String pendingPegPriceType,
         String pendingPegOffsetType,
-        Integer pendingPegOffsetValue
+        Integer pendingPegOffsetValue,
+        Boolean isolatedMargin,
+        String sideEffectType,
+        Boolean autoRepayAtCancel
 ) {
 }

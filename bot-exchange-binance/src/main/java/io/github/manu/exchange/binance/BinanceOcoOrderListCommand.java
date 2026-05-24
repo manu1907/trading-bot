@@ -32,6 +32,9 @@ record BinanceOcoOrderListCommand(
         String belowPegOffsetType,
         Integer belowPegOffsetValue,
         String orderResponseType,
-        String selfTradePreventionMode
+        String selfTradePreventionMode,
+        Boolean isolatedMargin,
+        String sideEffectType,
+        Boolean autoRepayAtCancel
 ) {
 }

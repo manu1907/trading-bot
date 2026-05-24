@@ -1287,7 +1287,10 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 "RESULT",
-                "NONE"
+                "NONE",
+                null,
+                null,
+                null
         );
     }
 
@@ -1318,6 +1321,9 @@ class BinanceOrderClientTest {
                 new BigDecimal("0.01"),
                 null,
                 "GTC",
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -1365,6 +1371,9 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 "GTC",
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,

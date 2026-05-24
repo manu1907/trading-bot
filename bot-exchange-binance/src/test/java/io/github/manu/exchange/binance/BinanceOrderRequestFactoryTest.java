@@ -948,7 +948,7 @@ class BinanceOrderRequestFactoryTest {
                 "BTCUSDT", "oco-list-1", "SELL", null,
                 "LIMIT_MAKER", null, null, new BigDecimal("52000"), null, null, null, null, null, null, null, null,
                 "STOP_LOSS_LIMIT", null, null, new BigDecimal("48000"), new BigDecimal("48100"), null, "GTC",
-                null, null, null, null, null, "RESULT", "NONE"
+                null, null, null, null, null, "RESULT", "NONE", null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("quantity is required for OCO order lists");
@@ -956,7 +956,7 @@ class BinanceOrderRequestFactoryTest {
                 "BTCUSDT", "oco-list-1", "SELL", new BigDecimal("0.01"),
                 "LIMIT_MAKER", null, null, new BigDecimal("52000"), null, null, null, null, null, null, null, null,
                 "TAKE_PROFIT", null, null, null, new BigDecimal("53000"), null, null,
-                null, null, null, null, null, "RESULT", "NONE"
+                null, null, null, null, null, "RESULT", "NONE", null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("one limit/profit leg and one stop-loss leg");
@@ -964,7 +964,7 @@ class BinanceOrderRequestFactoryTest {
                 "BTCUSDT", "oco-list-1", "SELL", new BigDecimal("0.01"),
                 "LIMIT_MAKER", null, null, new BigDecimal("52000"), null, null, null, null, null, null, null, null,
                 "STOP_LOSS_LIMIT", null, null, new BigDecimal("48000"), null, null, "GTC",
-                null, null, null, null, null, "RESULT", "NONE"
+                null, null, null, null, null, "RESULT", "NONE", null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("belowStopPrice or belowTrailingDelta is required");
@@ -1000,7 +1000,7 @@ class BinanceOrderRequestFactoryTest {
                 "MARKET", "SELL", "oto-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, "GTC",
                 null, null, null, null, null,
                 "STOP_LOSS_LIMIT", "BUY", "oto-pending-1", new BigDecimal("48000"), new BigDecimal("48100"), null,
-                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null
+                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null, null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("workingType must be one of");
@@ -1009,7 +1009,7 @@ class BinanceOrderRequestFactoryTest {
                 "LIMIT", "SELL", "oto-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, null,
                 null, null, null, null, null,
                 "STOP_LOSS_LIMIT", "BUY", "oto-pending-1", new BigDecimal("48000"), new BigDecimal("48100"), null,
-                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null
+                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null, null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("workingTimeInForce is required");
@@ -1018,7 +1018,7 @@ class BinanceOrderRequestFactoryTest {
                 "LIMIT", "SELL", "oto-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, "GTC",
                 null, null, null, null, null,
                 "STOP_LOSS_LIMIT", "BUY", "oto-pending-1", new BigDecimal("48000"), null, null,
-                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null
+                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null, null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("pendingStopPrice or pendingTrailingDelta is required");
@@ -1047,6 +1047,31 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_margin_order_list_requests_with_documented_paths_and_controls() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(marginBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest oco = factory.ocoOrderList(marginOcoCommand(), "test-secret");
+        BinanceSignedRequest oto = factory.otoOrderList(marginOtoCommand(), "test-secret");
+        BinanceSignedRequest otoco = factory.otocoOrderList(marginOtocoCommand(), "test-secret");
+
+        assertThat(oco.payload())
+                .isEqualTo("symbol=BTCUSDT&isIsolated=TRUE&listClientOrderId=oco-list-1&side=SELL&quantity=0.01"
+                        + "&limitClientOrderId=oco-above-1&price=52000&stopClientOrderId=oco-below-1"
+                        + "&stopPrice=48100&stopLimitPrice=48000&stopLimitTimeInForce=GTC&newOrderRespType=RESULT"
+                        + "&sideEffectType=MARGIN_BUY&selfTradePreventionMode=NONE&autoRepayAtCancel=false"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(oco.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/order/oco?");
+        assertThat(oto.payload())
+                .contains("symbol=BTCUSDT&isIsolated=TRUE&listClientOrderId=oto-list-1&newOrderRespType=RESULT"
+                        + "&sideEffectType=MARGIN_BUY&selfTradePreventionMode=NONE&autoRepayAtCancel=false");
+        assertThat(oto.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/order/oto?");
+        assertThat(otoco.payload())
+                .contains("symbol=BTCUSDT&isIsolated=TRUE&listClientOrderId=otoco-list-1&newOrderRespType=RESULT"
+                        + "&sideEffectType=MARGIN_BUY&selfTradePreventionMode=NONE&autoRepayAtCancel=false");
+        assertThat(otoco.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/order/otoco?");
+    }
+
+    @Test
     void rejects_invalid_spot_otoco_order_list_requests() {
         BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
         BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
@@ -1058,7 +1083,7 @@ class BinanceOrderRequestFactoryTest {
                 "BUY", null,
                 "LIMIT_MAKER", "otoco-above-1", new BigDecimal("53000"), null, null, null, null, null, null, null, null, null,
                 "STOP_LOSS_LIMIT", "otoco-below-1", new BigDecimal("48000"), new BigDecimal("48100"), null, null, "GTC",
-                null, null, null, null, null
+                null, null, null, null, null, null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("pendingQuantity is required for OTOCO order lists");
@@ -1069,7 +1094,7 @@ class BinanceOrderRequestFactoryTest {
                 "BUY", new BigDecimal("0.01"),
                 "TAKE_PROFIT", "otoco-above-1", null, new BigDecimal("53000"), null, null, null, null, null, null, null, null,
                 "TAKE_PROFIT_LIMIT", "otoco-below-1", new BigDecimal("54000"), new BigDecimal("54100"), null, null, "GTC",
-                null, null, null, null, null
+                null, null, null, null, null, null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("one limit/profit pending leg and one stop-loss pending leg");
@@ -1080,7 +1105,7 @@ class BinanceOrderRequestFactoryTest {
                 "BUY", new BigDecimal("0.01"),
                 "LIMIT_MAKER", "otoco-above-1", new BigDecimal("53000"), null, null, null, null, null, null, null, null, null,
                 "STOP_LOSS_LIMIT", "otoco-below-1", new BigDecimal("48000"), null, null, null, "GTC",
-                null, null, null, null, null
+                null, null, null, null, null, null, null, null
         ), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("pendingBelowStopPrice or pendingBelowTrailingDelta is required");
@@ -1429,7 +1454,10 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 "RESULT",
-                "NONE"
+                "NONE",
+                null,
+                null,
+                null
         );
     }
 
@@ -1460,6 +1488,9 @@ class BinanceOrderRequestFactoryTest {
                 new BigDecimal("0.010000"),
                 null,
                 "GTC",
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -1511,7 +1542,136 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 null
+        );
+    }
+
+    private BinanceOcoOrderListCommand marginOcoCommand() {
+        return new BinanceOcoOrderListCommand(
+                "BTCUSDT",
+                "oco-list-1",
+                "SELL",
+                new BigDecimal("0.010000"),
+                "LIMIT_MAKER",
+                "oco-above-1",
+                null,
+                new BigDecimal("52000.00"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "STOP_LOSS_LIMIT",
+                "oco-below-1",
+                null,
+                new BigDecimal("48000.00"),
+                new BigDecimal("48100.00"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "RESULT",
+                "NONE",
+                true,
+                "MARGIN_BUY",
+                false
+        );
+    }
+
+    private BinanceOtoOrderListCommand marginOtoCommand() {
+        return new BinanceOtoOrderListCommand(
+                "BTCUSDT",
+                "oto-list-1",
+                "RESULT",
+                "NONE",
+                "LIMIT",
+                "SELL",
+                "oto-working-1",
+                new BigDecimal("52000.00"),
+                new BigDecimal("0.010000"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "STOP_LOSS_LIMIT",
+                "BUY",
+                "oto-pending-1",
+                new BigDecimal("48000.00"),
+                new BigDecimal("48100.00"),
+                null,
+                new BigDecimal("0.010000"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                "MARGIN_BUY",
+                false
+        );
+    }
+
+    private BinanceOtocoOrderListCommand marginOtocoCommand() {
+        return new BinanceOtocoOrderListCommand(
+                "BTCUSDT",
+                "otoco-list-1",
+                "RESULT",
+                "NONE",
+                "LIMIT",
+                "SELL",
+                "otoco-working-1",
+                new BigDecimal("52000.00"),
+                new BigDecimal("0.010000"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "BUY",
+                new BigDecimal("0.010000"),
+                "LIMIT_MAKER",
+                "otoco-above-1",
+                new BigDecimal("53000.00"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "STOP_LOSS_LIMIT",
+                "otoco-below-1",
+                new BigDecimal("48000.00"),
+                new BigDecimal("48100.00"),
+                null,
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                "MARGIN_BUY",
+                false
         );
     }
 
@@ -1909,9 +2069,9 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
-                null,
-                null,
-                null,
+                "/sapi/v1/margin/order/oco",
+                "/sapi/v1/margin/order/oto",
+                "/sapi/v1/margin/order/otoco",
                 null,
                 null,
                 null,

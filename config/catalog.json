@@ -269,6 +269,9 @@
                       "open_orders_path": "/sapi/v1/margin/openOrders",
                       "all_orders_path": "/sapi/v1/margin/allOrders",
                       "account_trades_path": "/sapi/v1/margin/myTrades",
+                      "order_list_oco_path": "/sapi/v1/margin/order/oco",
+                      "order_list_oto_path": "/sapi/v1/margin/order/oto",
+                      "order_list_otoco_path": "/sapi/v1/margin/order/otoco",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -429,6 +432,9 @@
                       "open_orders_path": "/sapi/v1/margin/openOrders",
                       "all_orders_path": "/sapi/v1/margin/allOrders",
                       "account_trades_path": "/sapi/v1/margin/myTrades",
+                      "order_list_oco_path": "/sapi/v1/margin/order/oco",
+                      "order_list_oto_path": "/sapi/v1/margin/order/oto",
+                      "order_list_otoco_path": "/sapi/v1/margin/order/otoco",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1267,6 +1273,9 @@
                       "open_orders_path": "/sapi/v1/margin/openOrders",
                       "all_orders_path": "/sapi/v1/margin/allOrders",
                       "account_trades_path": "/sapi/v1/margin/myTrades",
+                      "order_list_oco_path": "/sapi/v1/margin/order/oco",
+                      "order_list_oto_path": "/sapi/v1/margin/order/oto",
+                      "order_list_otoco_path": "/sapi/v1/margin/order/otoco",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1427,6 +1436,9 @@
                       "open_orders_path": "/sapi/v1/margin/openOrders",
                       "all_orders_path": "/sapi/v1/margin/allOrders",
                       "account_trades_path": "/sapi/v1/margin/myTrades",
+                      "order_list_oco_path": "/sapi/v1/margin/order/oco",
+                      "order_list_oto_path": "/sapi/v1/margin/order/oto",
+                      "order_list_otoco_path": "/sapi/v1/margin/order/otoco",
                       "supported_sides": [
                         "BUY",
                         "SELL"

@@ -51,9 +51,9 @@ class BinanceTradingCapabilityTest {
         assertThat(margin.cancelReplacePath()).isNull();
         assertThat(margin.sorOrderPath()).isNull();
         assertThat(margin.sorTestOrderPath()).isNull();
-        assertThat(margin.orderListOcoPath()).isNull();
-        assertThat(margin.orderListOtoPath()).isNull();
-        assertThat(margin.orderListOtocoPath()).isNull();
+        assertThat(margin.orderListOcoPath()).isEqualTo("/sapi/v1/margin/order/oco");
+        assertThat(margin.orderListOtoPath()).isEqualTo("/sapi/v1/margin/order/oto");
+        assertThat(margin.orderListOtocoPath()).isEqualTo("/sapi/v1/margin/order/otoco");
         assertThat(margin.orderListOpoPath()).isNull();
         assertThat(margin.orderListOpocoPath()).isNull();
         assertThat(margin.batchOrdersPath()).isNull();

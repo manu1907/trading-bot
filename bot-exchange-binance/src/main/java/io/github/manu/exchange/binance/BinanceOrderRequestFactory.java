@@ -221,6 +221,9 @@ final class BinanceOrderRequestFactory {
     BinanceSignedRequest ocoOrderList(BinanceOcoOrderListCommand command, String privateCredential) {
         requireConfiguredPath("orderListOcoPath", binance.trading().orderListOcoPath());
         validateOcoOrderList(command);
+        if (isMarginMarket()) {
+            return restRequestFactory.signedUri(binance.trading().orderListOcoPath(), marginOcoOrderListParameters(command), privateCredential);
+        }
         List<BinanceRequestParameter> parameters = new ArrayList<>();
         add(parameters, "symbol", command.symbol());
         add(parameters, "listClientOrderId", command.listClientOrderId());
@@ -260,9 +263,12 @@ final class BinanceOrderRequestFactory {
         validateOtoOrderList(command);
         List<BinanceRequestParameter> parameters = new ArrayList<>();
         add(parameters, "symbol", command.symbol());
+        addMarginIsolated(parameters, command.isolatedMargin());
         add(parameters, "listClientOrderId", command.listClientOrderId());
         add(parameters, "newOrderRespType", command.orderResponseType());
+        add(parameters, "sideEffectType", command.sideEffectType());
         add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
+        addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());
         add(parameters, "workingType", command.workingType());
         add(parameters, "workingSide", command.workingSide());
         add(parameters, "workingClientOrderId", command.workingClientOrderId());
@@ -297,9 +303,12 @@ final class BinanceOrderRequestFactory {
         validateOtocoOrderList(command);
         List<BinanceRequestParameter> parameters = new ArrayList<>();
         add(parameters, "symbol", command.symbol());
+        addMarginIsolated(parameters, command.isolatedMargin());
         add(parameters, "listClientOrderId", command.listClientOrderId());
         add(parameters, "newOrderRespType", command.orderResponseType());
+        add(parameters, "sideEffectType", command.sideEffectType());
         add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
+        addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());
         addWorkingOrderListParameters(parameters, command);
         add(parameters, "pendingSide", command.pendingSide());
         add(parameters, "pendingQuantity", command.pendingQuantity());
@@ -457,6 +466,28 @@ final class BinanceOrderRequestFactory {
         addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());
         add(parameters, "isIsolated", command.isolatedMargin());
         add(parameters, "marketMakerProtection", command.marketMakerProtection());
+        return parameters;
+    }
+
+    private List<BinanceRequestParameter> marginOcoOrderListParameters(BinanceOcoOrderListCommand command) {
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", command.symbol());
+        addMarginIsolated(parameters, command.isolatedMargin());
+        add(parameters, "listClientOrderId", command.listClientOrderId());
+        add(parameters, "side", command.side());
+        add(parameters, "quantity", command.quantity());
+        add(parameters, "limitClientOrderId", command.aboveClientOrderId());
+        add(parameters, "price", command.abovePrice());
+        add(parameters, "limitIcebergQty", command.aboveIcebergQuantity());
+        add(parameters, "stopClientOrderId", command.belowClientOrderId());
+        add(parameters, "stopPrice", command.belowStopPrice());
+        add(parameters, "stopLimitPrice", command.belowPrice());
+        add(parameters, "stopIcebergQty", command.belowIcebergQuantity());
+        add(parameters, "stopLimitTimeInForce", command.belowTimeInForce());
+        add(parameters, "newOrderRespType", command.orderResponseType());
+        add(parameters, "sideEffectType", command.sideEffectType());
+        add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
+        addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());
         return parameters;
     }
 
@@ -707,6 +738,8 @@ final class BinanceOrderRequestFactory {
         requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
         validatePeggedOcoLeg("above", command.abovePegPriceType(), command.abovePegOffsetType(), command.abovePegOffsetValue(), capability);
         validatePeggedOcoLeg("below", command.belowPegPriceType(), command.belowPegOffsetType(), command.belowPegOffsetValue(), capability);
+        validateOrderListMarginControls(command.isolatedMargin(), command.sideEffectType(), command.autoRepayAtCancel(), capability);
+        validateLegacyMarginOcoShape(command);
     }
 
     private void validateOtoOrderList(BinanceOtoOrderListCommand command) {
@@ -753,6 +786,7 @@ final class BinanceOrderRequestFactory {
         validatePeggedOcoLeg("pending", command.pendingPegPriceType(), command.pendingPegOffsetType(), command.pendingPegOffsetValue(), capability);
         requireOptionalOneOf("newOrderRespType", command.orderResponseType(), capability.supportedOrderResponseTypes());
         requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
+        validateOrderListMarginControls(command.isolatedMargin(), command.sideEffectType(), command.autoRepayAtCancel(), capability);
     }
 
     private void validateOtocoOrderList(BinanceOtocoOrderListCommand command) {
@@ -819,6 +853,7 @@ final class BinanceOrderRequestFactory {
         );
         requireOptionalOneOf("newOrderRespType", command.orderResponseType(), capability.supportedOrderResponseTypes());
         requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
+        validateOrderListMarginControls(command.isolatedMargin(), command.sideEffectType(), command.autoRepayAtCancel(), capability);
     }
 
     private void validateOpoOrderList(BinanceOpoOrderListCommand command) {
@@ -923,6 +958,48 @@ final class BinanceOrderRequestFactory {
         );
         requireOptionalOneOf("newOrderRespType", command.orderResponseType(), capability.supportedOrderResponseTypes());
         requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
+    }
+
+    private void validateOrderListMarginControls(Boolean isolatedMargin,
+                                                 String sideEffectType,
+                                                 Boolean autoRepayAtCancel,
+                                                 BinanceTradingCapability capability) {
+        if (!isMarginMarket()) {
+            if (isolatedMargin != null || hasText(sideEffectType) || autoRepayAtCancel != null) {
+                throw new IllegalArgumentException("margin order-list controls are only supported for margin markets");
+            }
+            return;
+        }
+        if (Boolean.TRUE.equals(isolatedMargin) && !capability.supportsIsolatedMarginFlag()) {
+            throw new IllegalArgumentException("isIsolated=true is only supported for isolated margin markets");
+        }
+        requireOptionalOneOf("sideEffectType", sideEffectType, capability.supportedMarginSideEffectTypes());
+        if (autoRepayAtCancel != null && !capability.autoRepayAtCancelSideEffectTypes().contains(sideEffectType)) {
+            throw new IllegalArgumentException("autoRepayAtCancel requires a configured borrow sideEffectType");
+        }
+    }
+
+    private void validateLegacyMarginOcoShape(BinanceOcoOrderListCommand command) {
+        if (!isMarginMarket()) {
+            return;
+        }
+        if (!"LIMIT_MAKER".equals(command.aboveType())) {
+            throw new IllegalArgumentException("margin OCO order lists require aboveType LIMIT_MAKER");
+        }
+        if (!Set.of("STOP_LOSS", "STOP_LOSS_LIMIT").contains(command.belowType())) {
+            throw new IllegalArgumentException("margin OCO order lists require belowType STOP_LOSS or STOP_LOSS_LIMIT");
+        }
+        if (command.aboveStopPrice() != null || command.aboveTrailingDelta() != null || command.aboveTimeInForce() != null) {
+            throw new IllegalArgumentException("margin OCO limit leg does not support above stop or time-in-force parameters");
+        }
+        if (command.aboveStrategyId() != null || command.aboveStrategyType() != null
+                || command.belowStrategyId() != null || command.belowStrategyType() != null) {
+            throw new IllegalArgumentException("margin OCO order lists do not support strategy parameters");
+        }
+        if (hasText(command.abovePegPriceType()) || hasText(command.abovePegOffsetType()) || command.abovePegOffsetValue() != null
+                || hasText(command.belowPegPriceType()) || hasText(command.belowPegOffsetType()) || command.belowPegOffsetValue() != null) {
+            throw new IllegalArgumentException("margin OCO order lists do not support pegged parameters");
+        }
     }
 
     private void validateWorkingOrderListLeg(String type,
@@ -1250,5 +1327,10 @@ final class BinanceOrderRequestFactory {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private boolean isMarginMarket() {
+        BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
+        return marketType == BinanceMarketType.MARGIN_CROSS || marketType == BinanceMarketType.MARGIN_ISOLATED;
     }
 }

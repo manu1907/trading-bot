@@ -77,6 +77,12 @@ Source-of-truth docs checked during this review:
   `https://developers.binance.com/docs/binance-spot-api-docs/user-data-stream`
 - Margin new order:
   `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-Order`
+- Margin new OCO order list:
+  `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-OCO`
+- Margin new OTO order list:
+  `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-OTO`
+- Margin new OTOCO order list:
+  `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-OTOCO`
 - Margin borrow/repay:
   `https://developers.binance.com/docs/margin_trading/borrow-and-repay/Margin-Account-Borrow-Repay`
 - Margin transfer history:
@@ -108,6 +114,9 @@ Implemented Binance foundations:
 - Margin transfer history and max-transferable clients with catalog-backed
   paths, documented transfer-history query limits, and typed parsing for
   transfer rows and transferable amount.
+- Margin OCO, OTO, and OTOCO order-list placement with catalog-backed paths,
+  documented margin controls, legacy OCO parameter mapping, and typed
+  order-list parsing.
 - Futures `workingType` and `priceProtect` command fields, validation, and
   request construction.
 - Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
@@ -171,10 +180,10 @@ Implemented Binance foundations:
 
 Binance parity gaps to close before claiming full connector support:
 
-- Margin: add margin order lists, margin account/risk endpoints, prevented
-  matches, and special low-latency key workflows. Active margin transfer
-  placement is not exposed in the current Binance margin transfer docs; do not
-  claim it until Binance documents an endpoint for it.
+- Margin: add margin account/risk endpoints, prevented matches, and special
+  low-latency key workflows. Active margin transfer placement and margin
+  OPO/OPOCO placement are not exposed in the current Binance margin docs; do
+  not claim them until Binance documents endpoints for them.
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
@@ -300,7 +309,7 @@ Deliver:
 
 - Spot order-list, prevented-match, and commission-rate clients where needed by
   execution/reconciliation.
-- Margin order list and margin account/risk endpoints.
+- Margin account/risk endpoints.
 - Keep completed futures batch/modify endpoint support and portfolio-margin
   boundary checks covered while closing the remaining spot, margin, and
   all-product gaps.
