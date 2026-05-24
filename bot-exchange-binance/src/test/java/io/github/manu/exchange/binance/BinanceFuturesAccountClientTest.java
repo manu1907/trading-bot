@@ -380,6 +380,8 @@ class BinanceFuturesAccountClientTest {
                 "/fapi/v1/openOrders",
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
+                "/fapi/v1/allOpenOrders",
+                "/fapi/v1/countdownCancelAll",
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
                 List.of("GTC", "IOC", "FOK", "GTX", "GTD"),

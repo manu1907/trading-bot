@@ -559,6 +559,8 @@
                       "open_orders_path": "/fapi/v1/openOrders",
                       "all_orders_path": "/fapi/v1/allOrders",
                       "account_trades_path": "/fapi/v1/userTrades",
+                      "cancel_all_open_orders_path": "/fapi/v1/allOpenOrders",
+                      "countdown_cancel_all_path": "/fapi/v1/countdownCancelAll",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -736,6 +738,8 @@
                       "open_orders_path": "/dapi/v1/openOrders",
                       "all_orders_path": "/dapi/v1/allOrders",
                       "account_trades_path": "/dapi/v1/userTrades",
+                      "cancel_all_open_orders_path": "/dapi/v1/allOpenOrders",
+                      "countdown_cancel_all_path": "/dapi/v1/countdownCancelAll",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1500,6 +1504,8 @@
                       "open_orders_path": "/fapi/v1/openOrders",
                       "all_orders_path": "/fapi/v1/allOrders",
                       "account_trades_path": "/fapi/v1/userTrades",
+                      "cancel_all_open_orders_path": "/fapi/v1/allOpenOrders",
+                      "countdown_cancel_all_path": "/fapi/v1/countdownCancelAll",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1677,6 +1683,8 @@
                       "open_orders_path": "/dapi/v1/openOrders",
                       "all_orders_path": "/dapi/v1/allOrders",
                       "account_trades_path": "/dapi/v1/userTrades",
+                      "cancel_all_open_orders_path": "/dapi/v1/allOpenOrders",
+                      "countdown_cancel_all_path": "/dapi/v1/countdownCancelAll",
                       "supported_sides": [
                         "BUY",
                         "SELL"

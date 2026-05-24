@@ -113,6 +113,16 @@ final class BinanceOrderClient {
         return List.copyOf(trades);
     }
 
+    BinanceOrderAck cancelAllOpenOrders(String symbol) {
+        JsonNode root = readJson(send(requestFactory.cancelAllOpenOrders(symbol, privateCredential), "DELETE"));
+        return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
+    }
+
+    BinanceCountdownCancelAll countdownCancelAll(String symbol, long countdownTime) {
+        JsonNode root = readJson(send(requestFactory.countdownCancelAll(symbol, countdownTime, privateCredential), "POST"));
+        return new BinanceCountdownCancelAll(text(root, "symbol"), longValue(root, "countdownTime"));
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }

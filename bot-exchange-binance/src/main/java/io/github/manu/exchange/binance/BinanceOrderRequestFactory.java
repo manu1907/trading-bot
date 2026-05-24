@@ -84,6 +84,26 @@ final class BinanceOrderRequestFactory {
         return restRequestFactory.signedUri(binance.trading().accountTradesPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
+        requireConfiguredPath("cancelAllOpenOrdersPath", binance.trading().cancelAllOpenOrdersPath());
+        requireSymbol(symbol);
+        return restRequestFactory.signedUri(binance.trading().cancelAllOpenOrdersPath(), List.of(
+                BinanceRequestParameter.of("symbol", symbol)
+        ), privateCredential);
+    }
+
+    BinanceSignedRequest countdownCancelAll(String symbol, long countdownTime, String privateCredential) {
+        requireConfiguredPath("countdownCancelAllPath", binance.trading().countdownCancelAllPath());
+        requireSymbol(symbol);
+        if (countdownTime < 0) {
+            throw new IllegalArgumentException("countdownTime must be zero or positive");
+        }
+        return restRequestFactory.signedUri(binance.trading().countdownCancelAllPath(), List.of(
+                BinanceRequestParameter.of("symbol", symbol),
+                BinanceRequestParameter.of("countdownTime", Long.toString(countdownTime))
+        ), privateCredential);
+    }
+
     private List<BinanceRequestParameter> orderParameters(BinanceOrderCommand command) {
         List<BinanceRequestParameter> parameters = new ArrayList<>();
         add(parameters, "symbol", command.symbol());
@@ -182,6 +202,10 @@ final class BinanceOrderRequestFactory {
     }
 
     private void requireHistoryPath(String name, String path) {
+        requireConfiguredPath(name, path);
+    }
+
+    private void requireConfiguredPath(String name, String path) {
         if (!hasText(path)) {
             throw new IllegalArgumentException("Binance trading " + name + " is not configured for this market");
         }

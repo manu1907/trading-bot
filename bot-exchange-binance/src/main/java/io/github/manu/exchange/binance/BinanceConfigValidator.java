@@ -181,6 +181,18 @@ final class BinanceConfigValidator {
         requireMatching(path + ".open_orders_path", trading.openOrdersPath(), expected.openOrdersPath(), errors);
         requireConfiguredPath(path + ".all_orders_path", trading.allOrdersPath(), expected.allOrdersPath(), errors);
         requireConfiguredPath(path + ".account_trades_path", trading.accountTradesPath(), expected.accountTradesPath(), errors);
+        requireConfiguredPath(
+                path + ".cancel_all_open_orders_path",
+                trading.cancelAllOpenOrdersPath(),
+                expected.cancelAllOpenOrdersPath(),
+                errors
+        );
+        requireConfiguredPath(
+                path + ".countdown_cancel_all_path",
+                trading.countdownCancelAllPath(),
+                expected.countdownCancelAllPath(),
+                errors
+        );
         requireSameValues(path + ".supported_sides", trading.supportedSides(), expected.supportedSides(), errors);
         requireSameValues(path + ".supported_order_types", trading.supportedOrderTypes(), expected.supportedOrderTypes(), errors);
         requireSameValues(path + ".supported_time_in_force", trading.supportedTimeInForce(), expected.supportedTimeInForce(), errors);
