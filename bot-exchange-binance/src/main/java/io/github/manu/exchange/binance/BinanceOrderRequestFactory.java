@@ -141,6 +141,18 @@ final class BinanceOrderRequestFactory {
         ), privateCredential);
     }
 
+    BinanceSignedRequest preventedMatches(BinancePreventedMatchesQuery query, String privateCredential) {
+        requireConfiguredPath("preventedMatchesPath", binance.trading().preventedMatchesPath());
+        validatePreventedMatchesQuery(query);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", query.symbol());
+        add(parameters, "preventedMatchId", query.preventedMatchId());
+        add(parameters, "orderId", query.orderId());
+        add(parameters, "fromPreventedMatchId", query.fromPreventedMatchId());
+        add(parameters, "limit", query.limit());
+        return restRequestFactory.signedUri(binance.trading().preventedMatchesPath(), parameters, privateCredential);
+    }
+
     BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
         requireConfiguredPath("cancelAllOpenOrdersPath", binance.trading().cancelAllOpenOrdersPath());
         requireSymbol(symbol);
@@ -359,6 +371,35 @@ final class BinanceOrderRequestFactory {
         }
         if (query.fromId() != null && (query.startTime() != null || query.endTime() != null)) {
             throw new IllegalArgumentException("fromId cannot be sent with startTime or endTime");
+        }
+    }
+
+    private void validatePreventedMatchesQuery(BinancePreventedMatchesQuery query) {
+        Objects.requireNonNull(query, "query");
+        requireSymbol(query.symbol());
+        requirePositive("preventedMatchId", query.preventedMatchId());
+        requirePositive("orderId", query.orderId());
+        requirePositive("fromPreventedMatchId", query.fromPreventedMatchId());
+        requirePositive("limit", query.limit());
+        if (query.limit() != null && query.limit() > 1000) {
+            throw new IllegalArgumentException("limit must be less than or equal to 1000");
+        }
+
+        boolean hasPreventedMatchId = query.preventedMatchId() != null;
+        boolean hasOrderId = query.orderId() != null;
+        boolean hasFromPreventedMatchId = query.fromPreventedMatchId() != null;
+        boolean hasLimit = query.limit() != null;
+        if (hasPreventedMatchId) {
+            if (hasOrderId || hasFromPreventedMatchId || hasLimit) {
+                throw new IllegalArgumentException("preventedMatchId cannot be combined with orderId, fromPreventedMatchId, or limit");
+            }
+            return;
+        }
+        if (!hasOrderId) {
+            throw new IllegalArgumentException("preventedMatchId or orderId is required");
+        }
+        if (hasLimit && !hasFromPreventedMatchId) {
+            throw new IllegalArgumentException("limit requires fromPreventedMatchId for prevented-match queries");
         }
     }
 

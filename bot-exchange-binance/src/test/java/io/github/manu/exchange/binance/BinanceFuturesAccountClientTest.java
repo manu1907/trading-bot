@@ -381,6 +381,7 @@ class BinanceFuturesAccountClientTest {
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",

@@ -344,6 +344,49 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void queries_spot_prevented_matches() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                [
+                  {
+                    "symbol": "BTCUSDT",
+                    "preventedMatchId": 1,
+                    "takerOrderId": 5,
+                    "makerSymbol": "BTCUSDT",
+                    "makerOrderId": 3,
+                    "tradeGroupId": 1,
+                    "selfTradePreventionMode": "EXPIRE_MAKER",
+                    "price": "1.100000",
+                    "makerPreventedQuantity": "1.300000",
+                    "transactTime": 1669101687094
+                  }
+                ]
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        List<BinancePreventedMatch> matches = client.preventedMatches(
+                new BinancePreventedMatchesQuery("BTCUSDT", null, 5L, 1L, 100)
+        );
+
+        assertThat(matches).singleElement().satisfies(match -> {
+            assertThat(match.symbol()).isEqualTo("BTCUSDT");
+            assertThat(match.preventedMatchId()).isEqualTo(1L);
+            assertThat(match.takerOrderId()).isEqualTo(5L);
+            assertThat(match.makerOrderId()).isEqualTo(3L);
+            assertThat(match.tradeGroupId()).isEqualTo(1L);
+            assertThat(match.selfTradePreventionMode()).isEqualTo("EXPIRE_MAKER");
+            assertThat(match.price()).isEqualByComparingTo("1.100000");
+            assertThat(match.makerPreventedQuantity()).isEqualByComparingTo("1.300000");
+            assertThat(match.transactTime()).isEqualTo(1669101687094L);
+        });
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("GET");
+            assertThat(call.uri()).contains("/api/v3/myPreventedMatches?symbol=BTCUSDT&orderId=5");
+            assertThat(call.uri()).contains("fromPreventedMatchId=1&limit=100");
+            assertThat(call.uri()).doesNotContain("test-secret");
+        });
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -603,6 +646,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -651,6 +695,7 @@ class BinanceOrderClientTest {
                 "/api/v3/allOrders",
                 "/api/v3/myTrades",
                 "/api/v3/account/commission",
+                "/api/v3/myPreventedMatches",
                 null,
                 null,
                 null,

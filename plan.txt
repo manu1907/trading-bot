@@ -107,6 +107,8 @@ Implemented Binance foundations:
   history clients with catalog-backed paths for later reconciliation.
 - Spot commission-rate client with catalog-backed path and typed parsing for
   standard, special, tax, and BNB-discount commission fields.
+- Spot prevented-match history client with catalog-backed path, documented
+  query-shape validation, and typed STP match parsing.
 - USD-M and COIN-M futures cancel-all and countdown-cancel-all clients with
   catalog-backed paths for outage and emergency-order cleanup workflows.
 - USD-M and COIN-M futures batch-order placement clients with catalog-backed
@@ -138,7 +140,7 @@ Implemented Binance foundations:
 Binance parity gaps to close before claiming full connector support:
 
 - Spot: implement cancel-replace, amend-keep-priority, OCO/OTO/OTOCO/OPO/OPOCO,
-  SOR, prevented matches, and WebSocket API order placement.
+  SOR, and WebSocket API order placement.
 - Margin: add borrow/repay, transfers, margin order lists, margin account/risk
   endpoints, prevented matches, and special low-latency key workflows.
 - Options: verify current `/eapi` coverage against current Binance options

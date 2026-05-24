@@ -33,9 +33,11 @@ class BinanceTradingCapabilityTest {
         assertThat(spot.allOrdersPath()).isEqualTo("/api/v3/allOrders");
         assertThat(spot.accountTradesPath()).isEqualTo("/api/v3/myTrades");
         assertThat(spot.commissionRatesPath()).isEqualTo("/api/v3/account/commission");
+        assertThat(spot.preventedMatchesPath()).isEqualTo("/api/v3/myPreventedMatches");
         assertThat(margin.allOrdersPath()).isEqualTo("/sapi/v1/margin/allOrders");
         assertThat(margin.accountTradesPath()).isEqualTo("/sapi/v1/margin/myTrades");
         assertThat(margin.commissionRatesPath()).isNull();
+        assertThat(margin.preventedMatchesPath()).isNull();
         assertThat(margin.batchOrdersPath()).isNull();
         assertThat(margin.modifyOrderPath()).isNull();
         assertThat(margin.modifyMultipleOrdersPath()).isNull();
@@ -43,6 +45,7 @@ class BinanceTradingCapabilityTest {
         assertThat(usdm.allOrdersPath()).isEqualTo("/fapi/v1/allOrders");
         assertThat(usdm.accountTradesPath()).isEqualTo("/fapi/v1/userTrades");
         assertThat(usdm.commissionRatesPath()).isNull();
+        assertThat(usdm.preventedMatchesPath()).isNull();
         assertThat(usdm.batchOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
         assertThat(usdm.modifyOrderPath()).isEqualTo("/fapi/v1/order");
         assertThat(usdm.modifyMultipleOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
@@ -50,6 +53,7 @@ class BinanceTradingCapabilityTest {
         assertThat(coinm.allOrdersPath()).isEqualTo("/dapi/v1/allOrders");
         assertThat(coinm.accountTradesPath()).isEqualTo("/dapi/v1/userTrades");
         assertThat(coinm.commissionRatesPath()).isNull();
+        assertThat(coinm.preventedMatchesPath()).isNull();
         assertThat(coinm.batchOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
         assertThat(coinm.modifyOrderPath()).isEqualTo("/dapi/v1/order");
         assertThat(coinm.modifyMultipleOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
@@ -57,6 +61,7 @@ class BinanceTradingCapabilityTest {
         assertThat(options.allOrdersPath()).isNull();
         assertThat(options.accountTradesPath()).isNull();
         assertThat(options.commissionRatesPath()).isNull();
+        assertThat(options.preventedMatchesPath()).isNull();
         assertThat(options.batchOrdersPath()).isNull();
         assertThat(options.modifyOrderPath()).isNull();
         assertThat(options.modifyMultipleOrdersPath()).isNull();

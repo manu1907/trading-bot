@@ -142,6 +142,19 @@ final class BinanceOrderClient {
         return toCommissionRates(readJson(send(requestFactory.commissionRates(symbol, privateCredential), "GET")));
     }
 
+    List<BinancePreventedMatch> preventedMatches(BinancePreventedMatchesQuery query) {
+        JsonNode root = readJson(send(requestFactory.preventedMatches(query, privateCredential), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance prevented matches array response");
+        }
+
+        List<BinancePreventedMatch> matches = new ArrayList<>();
+        for (JsonNode item : root) {
+            matches.add(toPreventedMatch(item));
+        }
+        return List.copyOf(matches);
+    }
+
     BinanceOrderAck cancelAllOpenOrders(String symbol) {
         JsonNode root = readJson(send(requestFactory.cancelAllOpenOrders(symbol, privateCredential), "DELETE"));
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
@@ -289,6 +302,21 @@ final class BinanceOrderClient {
                 toCommissionRateSet(node, "specialCommission"),
                 toCommissionRateSet(node, "taxCommission"),
                 toCommissionDiscount(node)
+        );
+    }
+
+    private BinancePreventedMatch toPreventedMatch(JsonNode node) {
+        return new BinancePreventedMatch(
+                text(node, "symbol"),
+                longValue(node, "preventedMatchId"),
+                longValue(node, "takerOrderId"),
+                text(node, "makerSymbol"),
+                longValue(node, "makerOrderId"),
+                longValue(node, "tradeGroupId"),
+                text(node, "selfTradePreventionMode"),
+                decimal(node, "price"),
+                decimal(node, "makerPreventedQuantity"),
+                longValue(node, "transactTime")
         );
     }
 
