@@ -59,6 +59,19 @@ final class BinanceOrderRequestFactory {
         ), privateCredential);
     }
 
+    BinanceSignedRequest modifyOrderHistory(BinanceModifyOrderHistoryQuery query, String privateCredential) {
+        requireConfiguredPath("modifyOrderHistoryPath", binance.trading().modifyOrderHistoryPath());
+        validateModifyOrderHistoryQuery(query);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", query.symbol());
+        add(parameters, "orderId", query.orderId());
+        add(parameters, "origClientOrderId", query.originalClientOrderId());
+        add(parameters, "startTime", query.startTime());
+        add(parameters, "endTime", query.endTime());
+        add(parameters, "limit", query.limit());
+        return restRequestFactory.signedUri(binance.trading().modifyOrderHistoryPath(), parameters, privateCredential);
+    }
+
     BinanceSignedRequest cancelOrder(String symbol, String originalClientOrderId, String privateCredential) {
         if (symbol == null || symbol.isBlank()) {
             throw new IllegalArgumentException("symbol is required");
@@ -259,6 +272,21 @@ final class BinanceOrderRequestFactory {
         }
         for (BinanceModifyOrderCommand command : commands) {
             validateModifyOrder(command);
+        }
+    }
+
+    private void validateModifyOrderHistoryQuery(BinanceModifyOrderHistoryQuery query) {
+        Objects.requireNonNull(query, "query");
+        requireSymbol(query.symbol());
+        requirePositive("orderId", query.orderId());
+        requirePositive("startTime", query.startTime());
+        requirePositive("endTime", query.endTime());
+        requirePositive("limit", query.limit());
+        if (query.orderId() == null && !hasText(query.originalClientOrderId())) {
+            throw new IllegalArgumentException("orderId or origClientOrderId is required");
+        }
+        if (query.limit() != null && query.limit() > 100) {
+            throw new IllegalArgumentException("limit must be less than or equal to 100");
         }
     }
 

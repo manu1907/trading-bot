@@ -87,6 +87,19 @@ final class BinanceOrderClient {
         return parseBatchOrderResults(send(requestFactory.modifyMultipleOrders(commands, privateCredential), "PUT"), "modify multiple orders");
     }
 
+    List<BinanceOrderAmendment> modifyOrderHistory(BinanceModifyOrderHistoryQuery query) {
+        JsonNode root = readJson(send(requestFactory.modifyOrderHistory(query, privateCredential), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance modify order history array response");
+        }
+
+        List<BinanceOrderAmendment> amendments = new ArrayList<>();
+        for (JsonNode item : root) {
+            amendments.add(toOrderAmendment(item));
+        }
+        return List.copyOf(amendments);
+    }
+
     BinanceOrderResult cancelOrder(String symbol, String originalClientOrderId) {
         return parseOrderResult(send(requestFactory.cancelOrder(symbol, originalClientOrderId, privateCredential), "DELETE"));
     }
@@ -219,6 +232,25 @@ final class BinanceOrderClient {
                 decimal(node, "avgPrice"),
                 firstDecimal(node, "cumQuote", "cummulativeQuoteQty", "cumBase"),
                 longValue(node, "updateTime")
+        );
+    }
+
+    private BinanceOrderAmendment toOrderAmendment(JsonNode node) {
+        JsonNode amendment = node.hasNonNull("amendment") ? node.required("amendment") : jsonMapper.createObjectNode();
+        JsonNode price = amendment.hasNonNull("price") ? amendment.required("price") : jsonMapper.createObjectNode();
+        JsonNode originalQuantity = amendment.hasNonNull("origQty") ? amendment.required("origQty") : jsonMapper.createObjectNode();
+        return new BinanceOrderAmendment(
+                longValue(node, "amendmentId"),
+                text(node, "symbol"),
+                text(node, "pair"),
+                longValue(node, "orderId"),
+                text(node, "clientOrderId"),
+                longValue(node, "time"),
+                decimal(price, "before"),
+                decimal(price, "after"),
+                decimal(originalQuantity, "before"),
+                decimal(originalQuantity, "after"),
+                amendment.hasNonNull("count") ? amendment.required("count").asInt() : null
         );
     }
 

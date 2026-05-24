@@ -408,6 +408,30 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_futures_modify_order_history_request() {
+        BinanceOrderRequestFactory usdmFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory coinmFactory = new BinanceOrderRequestFactory(coinmBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest byOrderId = usdmFactory.modifyOrderHistory(
+                new BinanceModifyOrderHistoryQuery("BTCUSDT", 12345L, null, 1_700_000_000_000L, 1_700_001_000_000L, 100),
+                "test-secret"
+        );
+        BinanceSignedRequest byClientOrderId = coinmFactory.modifyOrderHistory(
+                new BinanceModifyOrderHistoryQuery("BTCUSD_PERP", null, "client_1", null, null, 50),
+                "test-secret"
+        );
+
+        assertThat(byOrderId.payload())
+                .isEqualTo("symbol=BTCUSDT&orderId=12345&startTime=1700000000000&endTime=1700001000000&limit=100"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(byOrderId.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/orderAmendment?");
+        assertThat(byClientOrderId.payload())
+                .isEqualTo("symbol=BTCUSD_PERP&origClientOrderId=client_1&limit=50"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(byClientOrderId.uri().toString()).startsWith("https://demo-dapi.binance.com/dapi/v1/orderAmendment?");
+    }
+
+    @Test
     void rejects_invalid_futures_cancel_all_requests() {
         BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
         BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
@@ -567,6 +591,37 @@ class BinanceOrderRequestFactoryTest {
         assertThatThrownBy(() -> spotFactory.modifyMultipleOrders(List.of(modifyCommand(1L)), "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("modifyMultipleOrdersPath is not configured");
+    }
+
+    @Test
+    void rejects_invalid_futures_modify_order_history_requests() {
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> futuresFactory.modifyOrderHistory(
+                new BinanceModifyOrderHistoryQuery("BTCUSDT", null, null, null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderId or origClientOrderId is required");
+        assertThatThrownBy(() -> futuresFactory.modifyOrderHistory(
+                new BinanceModifyOrderHistoryQuery("BTCUSDT", 1L, null, null, null, 101),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limit must be less than or equal to 100");
+        assertThatThrownBy(() -> futuresFactory.modifyOrderHistory(
+                new BinanceModifyOrderHistoryQuery("BTCUSDT", 0L, null, null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderId must be positive");
+        assertThatThrownBy(() -> spotFactory.modifyOrderHistory(
+                new BinanceModifyOrderHistoryQuery("BTCUSDT", 1L, null, null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("modifyOrderHistoryPath is not configured");
     }
 
     @Test
@@ -910,6 +965,7 @@ class BinanceOrderRequestFactoryTest {
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
+                "/fapi/v1/orderAmendment",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",
@@ -953,6 +1009,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/openOrders",
                 "/api/v3/allOrders",
                 "/api/v3/myTrades",
+                null,
                 null,
                 null,
                 null,
@@ -1005,6 +1062,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -1048,6 +1106,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/batchOrders",
                 "/dapi/v1/order",
                 "/dapi/v1/batchOrders",
+                "/dapi/v1/orderAmendment",
                 "/dapi/v1/batchOrders",
                 "/dapi/v1/allOpenOrders",
                 "/dapi/v1/countdownCancelAll",

@@ -158,6 +158,52 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void queries_modify_order_history() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                [
+                  {
+                    "amendmentId": 5363,
+                    "symbol": "BTCUSDT",
+                    "pair": "BTCUSDT",
+                    "orderId": 20072994037,
+                    "clientOrderId": "client_1",
+                    "time": 1629184560899,
+                    "amendment": {
+                      "price": {
+                        "before": "30004",
+                        "after": "30003.2"
+                      },
+                      "origQty": {
+                        "before": "1",
+                        "after": "2"
+                      },
+                      "count": 3
+                    }
+                  }
+                ]
+                """));
+        BinanceOrderClient client = client(transport);
+
+        List<BinanceOrderAmendment> amendments = client.modifyOrderHistory(
+                new BinanceModifyOrderHistoryQuery("BTCUSDT", 20072994037L, null, 1L, 2L, 50)
+        );
+
+        assertThat(amendments).singleElement().satisfies(amendment -> {
+            assertThat(amendment.amendmentId()).isEqualTo(5363L);
+            assertThat(amendment.orderId()).isEqualTo(20072994037L);
+            assertThat(amendment.priceBefore()).isEqualByComparingTo("30004");
+            assertThat(amendment.priceAfter()).isEqualByComparingTo("30003.2");
+            assertThat(amendment.originalQuantityBefore()).isEqualByComparingTo("1");
+            assertThat(amendment.originalQuantityAfter()).isEqualByComparingTo("2");
+            assertThat(amendment.count()).isEqualTo(3);
+        });
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("GET");
+            assertThat(call.uri()).contains("/fapi/v1/orderAmendment?symbol=BTCUSDT&orderId=20072994037");
+        });
+    }
+
+    @Test
     void queries_cancels_and_lists_orders() {
         FakeTransport transport = new FakeTransport(
                 orderResponse("QUERY", "FILLED"),
@@ -455,6 +501,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
+                "/fapi/v1/orderAmendment",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",

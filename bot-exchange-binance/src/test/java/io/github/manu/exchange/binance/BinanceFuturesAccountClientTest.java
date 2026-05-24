@@ -383,6 +383,7 @@ class BinanceFuturesAccountClientTest {
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
+                "/fapi/v1/orderAmendment",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",

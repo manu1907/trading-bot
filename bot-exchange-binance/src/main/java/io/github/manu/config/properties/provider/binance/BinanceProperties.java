@@ -88,6 +88,7 @@ public record BinanceProperties(
             String batchOrdersPath,
             String modifyOrderPath,
             String modifyMultipleOrdersPath,
+            String modifyOrderHistoryPath,
             String cancelMultipleOrdersPath,
             String cancelAllOpenOrdersPath,
             String countdownCancelAllPath,

@@ -190,6 +190,12 @@ final class BinanceConfigValidator {
                 errors
         );
         requireConfiguredPath(
+                path + ".modify_order_history_path",
+                trading.modifyOrderHistoryPath(),
+                expected.modifyOrderHistoryPath(),
+                errors
+        );
+        requireConfiguredPath(
                 path + ".cancel_multiple_orders_path",
                 trading.cancelMultipleOrdersPath(),
                 expected.cancelMultipleOrdersPath(),
