@@ -249,10 +249,18 @@
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
+                      "transfer_history_path": "/sapi/v1/margin/transfer",
+                      "max_transferable_path": "/sapi/v1/margin/maxTransferable",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
-                      ]
+                      ],
+                      "supported_transfer_history_types": [
+                        "ROLL_IN",
+                        "ROLL_OUT"
+                      ],
+                      "max_transfer_history_days": 30,
+                      "max_transfer_history_size": 100
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -401,10 +409,18 @@
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
+                      "transfer_history_path": "/sapi/v1/margin/transfer",
+                      "max_transferable_path": "/sapi/v1/margin/maxTransferable",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
-                      ]
+                      ],
+                      "supported_transfer_history_types": [
+                        "ROLL_IN",
+                        "ROLL_OUT"
+                      ],
+                      "max_transfer_history_days": 30,
+                      "max_transfer_history_size": 100
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -1231,10 +1247,18 @@
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
+                      "transfer_history_path": "/sapi/v1/margin/transfer",
+                      "max_transferable_path": "/sapi/v1/margin/maxTransferable",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
-                      ]
+                      ],
+                      "supported_transfer_history_types": [
+                        "ROLL_IN",
+                        "ROLL_OUT"
+                      ],
+                      "max_transfer_history_days": 30,
+                      "max_transfer_history_size": 100
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -1383,10 +1407,18 @@
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
+                      "transfer_history_path": "/sapi/v1/margin/transfer",
+                      "max_transferable_path": "/sapi/v1/margin/maxTransferable",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
-                      ]
+                      ],
+                      "supported_transfer_history_types": [
+                        "ROLL_IN",
+                        "ROLL_OUT"
+                      ],
+                      "max_transfer_history_days": 30,
+                      "max_transfer_history_size": 100
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",

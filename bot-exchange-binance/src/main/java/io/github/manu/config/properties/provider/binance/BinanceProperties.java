@@ -180,10 +180,16 @@ public record BinanceProperties(
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record MarginAccount(
             @NotNull String borrowRepayPath,
-            @NotNull List<String> supportedBorrowRepayTypes
+            @NotNull String transferHistoryPath,
+            @NotNull String maxTransferablePath,
+            @NotNull List<String> supportedBorrowRepayTypes,
+            @NotNull List<String> supportedTransferHistoryTypes,
+            Integer maxTransferHistoryDays,
+            Integer maxTransferHistorySize
     ) {
         public MarginAccount {
             supportedBorrowRepayTypes = List.copyOf(supportedBorrowRepayTypes);
+            supportedTransferHistoryTypes = List.copyOf(supportedTransferHistoryTypes);
         }
     }
 

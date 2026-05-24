@@ -85,6 +85,79 @@ class BinanceMarginAccountRequestFactoryTest {
     }
 
     @Test
+    void builds_transfer_history_request() {
+        BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
+                marginBinance("MARGIN_CROSS"),
+                FIXED_CLOCK,
+                0
+        );
+
+        BinanceSignedRequest request = factory.transferHistory(
+                new BinanceMarginTransferHistoryQuery(
+                        "USDT",
+                        "ROLL_OUT",
+                        1_700_000_000_000L,
+                        1_700_086_400_000L,
+                        2L,
+                        100L,
+                        "BTCUSDT"
+                ),
+                "test-secret"
+        );
+
+        assertThat(request.payload())
+                .isEqualTo("asset=USDT&type=ROLL_OUT&startTime=1700000000000&endTime=1700086400000"
+                        + "&current=2&size=100&isolatedSymbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/transfer?");
+    }
+
+    @Test
+    void builds_max_transferable_request() {
+        BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
+                marginBinance("MARGIN_ISOLATED"),
+                FIXED_CLOCK,
+                0
+        );
+
+        BinanceSignedRequest request = factory.maxTransferable("USDT", "BTCUSDT", "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("asset=USDT&isolatedSymbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/maxTransferable?");
+    }
+
+    @Test
+    void validates_transfer_queries_against_documented_limits() {
+        BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
+                marginBinance("MARGIN_CROSS"),
+                FIXED_CLOCK,
+                0
+        );
+
+        assertThatThrownBy(() -> factory.transferHistory(
+                new BinanceMarginTransferHistoryQuery(null, "TRANSFER", null, null, null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("type must be one of");
+        assertThatThrownBy(() -> factory.transferHistory(
+                new BinanceMarginTransferHistoryQuery(null, null, 1_700_000_000_000L, 1_702_678_400_001L, null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("interval must be at most 30 days");
+        assertThatThrownBy(() -> factory.transferHistory(
+                new BinanceMarginTransferHistoryQuery(null, null, null, null, null, 101L, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("size must be at most 100");
+        assertThatThrownBy(() -> factory.maxTransferable(null, null, "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("asset is required");
+    }
+
+    @Test
     void requires_margin_account_config() {
         assertThatThrownBy(() -> new BinanceMarginAccountRequestFactory(spotBinance(), FIXED_CLOCK, 0))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -177,7 +250,12 @@ class BinanceMarginAccountRequestFactoryTest {
     private BinanceProperties.MarginAccount marginAccount() {
         return new BinanceProperties.MarginAccount(
                 "/sapi/v1/margin/borrow-repay",
-                List.of("BORROW", "REPAY")
+                "/sapi/v1/margin/transfer",
+                "/sapi/v1/margin/maxTransferable",
+                List.of("BORROW", "REPAY"),
+                List.of("ROLL_IN", "ROLL_OUT"),
+                30,
+                100
         );
     }
 }

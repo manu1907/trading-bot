@@ -187,7 +187,16 @@ final class BinanceConfigValidator {
 
         requirePath(path + ".borrow_repay_path", account.borrowRepayPath(), errors);
         requireMatching(path + ".borrow_repay_path", account.borrowRepayPath(), "/sapi/v1/margin/borrow-repay", errors);
+        requirePath(path + ".transfer_history_path", account.transferHistoryPath(), errors);
+        requireMatching(path + ".transfer_history_path", account.transferHistoryPath(), "/sapi/v1/margin/transfer", errors);
+        requirePath(path + ".max_transferable_path", account.maxTransferablePath(), errors);
+        requireMatching(path + ".max_transferable_path", account.maxTransferablePath(), "/sapi/v1/margin/maxTransferable", errors);
         requireSameValues(path + ".supported_borrow_repay_types", account.supportedBorrowRepayTypes(), Set.of("BORROW", "REPAY"), errors);
+        requireSameValues(path + ".supported_transfer_history_types", account.supportedTransferHistoryTypes(), Set.of("ROLL_IN", "ROLL_OUT"), errors);
+        requireAtLeast(path + ".max_transfer_history_days", account.maxTransferHistoryDays(), 1, errors);
+        requireAtMost(path + ".max_transfer_history_days", account.maxTransferHistoryDays(), 30, errors);
+        requireAtLeast(path + ".max_transfer_history_size", account.maxTransferHistorySize(), 1, errors);
+        requireAtMost(path + ".max_transfer_history_size", account.maxTransferHistorySize(), 100, errors);
     }
 
     private static void validateTrading(String path,
@@ -583,6 +592,12 @@ final class BinanceConfigValidator {
     private static void requireAtMost(String path, Integer value, int max, List<String> errors) {
         if (value != null && value > max) {
             errors.add(path + " must be at most " + max);
+        }
+    }
+
+    private static void requireAtLeast(String path, Integer value, int min, List<String> errors) {
+        if (value == null || value < min) {
+            errors.add(path + " must be at least " + min);
         }
     }
 

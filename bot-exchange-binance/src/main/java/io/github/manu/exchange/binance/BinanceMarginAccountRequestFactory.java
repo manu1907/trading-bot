@@ -33,6 +33,30 @@ final class BinanceMarginAccountRequestFactory {
         return restRequestFactory.signedUri(account.borrowRepayPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest transferHistory(BinanceMarginTransferHistoryQuery query, String privateCredential) {
+        BinanceMarginTransferHistoryQuery safeQuery = query == null
+                ? new BinanceMarginTransferHistoryQuery(null, null, null, null, null, null, null)
+                : query;
+        validateTransferHistory(safeQuery);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "asset", safeQuery.asset());
+        add(parameters, "type", safeQuery.type());
+        add(parameters, "startTime", safeQuery.startTime());
+        add(parameters, "endTime", safeQuery.endTime());
+        add(parameters, "current", safeQuery.current());
+        add(parameters, "size", safeQuery.size());
+        add(parameters, "isolatedSymbol", safeQuery.isolatedSymbol());
+        return restRequestFactory.signedUri(account.transferHistoryPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest maxTransferable(String asset, String isolatedSymbol, String privateCredential) {
+        requireText("asset", asset);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "asset", asset);
+        add(parameters, "isolatedSymbol", isolatedSymbol);
+        return restRequestFactory.signedUri(account.maxTransferablePath(), parameters, privateCredential);
+    }
+
     private void validateBorrowRepay(BinanceMarginBorrowRepayCommand command) {
         Objects.requireNonNull(command, "command");
         requireText("asset", command.asset());
@@ -43,6 +67,20 @@ final class BinanceMarginAccountRequestFactory {
         } else if (hasText(command.symbol())) {
             throw new IllegalArgumentException("symbol is only supported for isolated margin borrow/repay");
         }
+    }
+
+    private void validateTransferHistory(BinanceMarginTransferHistoryQuery query) {
+        requireOneOfOptional("type", query.type(), account.supportedTransferHistoryTypes());
+        requirePositive("startTime", query.startTime());
+        requirePositive("endTime", query.endTime());
+        requirePositive("current", query.current());
+        requirePositive("size", query.size());
+        if (query.size() != null && account.maxTransferHistorySize() != null
+                && query.size() > account.maxTransferHistorySize()) {
+            throw new IllegalArgumentException("size must be at most " + account.maxTransferHistorySize());
+        }
+        requireOrderedTimes(query.startTime(), query.endTime());
+        requireMaxInterval(query.startTime(), query.endTime());
     }
 
     private void requireText(String field, String value) {
@@ -58,9 +96,38 @@ final class BinanceMarginAccountRequestFactory {
         }
     }
 
+    private void requireOneOfOptional(String field, String value, List<String> allowed) {
+        if (hasText(value) && !allowed.contains(value)) {
+            throw new IllegalArgumentException(field + " must be one of " + allowed);
+        }
+    }
+
     private void requirePositive(String field, BigDecimal value) {
         if (value == null || value.signum() <= 0) {
             throw new IllegalArgumentException(field + " must be positive");
+        }
+    }
+
+    private void requirePositive(String field, Long value) {
+        if (value != null && value <= 0) {
+            throw new IllegalArgumentException(field + " must be positive when configured");
+        }
+    }
+
+    private void requireOrderedTimes(Long startTime, Long endTime) {
+        if (startTime != null && endTime != null && startTime > endTime) {
+            throw new IllegalArgumentException("startTime must be less than or equal to endTime");
+        }
+    }
+
+    private void requireMaxInterval(Long startTime, Long endTime) {
+        if (startTime == null || endTime == null || account.maxTransferHistoryDays() == null) {
+            return;
+        }
+        long maxIntervalMillis = account.maxTransferHistoryDays() * 24L * 60L * 60L * 1000L;
+        if (endTime - startTime > maxIntervalMillis) {
+            throw new IllegalArgumentException("startTime and endTime interval must be at most "
+                    + account.maxTransferHistoryDays() + " days");
         }
     }
 
@@ -73,6 +140,12 @@ final class BinanceMarginAccountRequestFactory {
     private void add(List<BinanceRequestParameter> parameters, String name, BigDecimal value) {
         if (value != null) {
             parameters.add(BinanceRequestParameter.of(name, value.stripTrailingZeros().toPlainString()));
+        }
+    }
+
+    private void add(List<BinanceRequestParameter> parameters, String name, Long value) {
+        if (value != null) {
+            parameters.add(BinanceRequestParameter.of(name, Long.toString(value)));
         }
     }
 

@@ -50,6 +50,63 @@ class BinanceMarginAccountClientTest {
     }
 
     @Test
+    void reads_transfer_history_and_max_transferable() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        {
+                          "rows": [
+                            {
+                              "amount": "5.00000000",
+                              "asset": "USDT",
+                              "status": "CONFIRMED",
+                              "timestamp": 1566888436,
+                              "txId": 5239810406,
+                              "type": "ROLL_OUT",
+                              "transFrom": "ISOLATED_MARGIN",
+                              "transTo": "ISOLATED_MARGIN",
+                              "fromSymbol": "BNBUSDT",
+                              "toSymbol": "BTCUSDT"
+                            }
+                          ],
+                          "total": 1
+                        }
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "amount": "3.59498107"
+                        }
+                        """)
+        );
+        BinanceMarginAccountClient client = client(transport);
+
+        BinanceMarginTransferHistoryPage history = client.transferHistory(new BinanceMarginTransferHistoryQuery(
+                "USDT",
+                "ROLL_OUT",
+                null,
+                null,
+                1L,
+                10L,
+                "BTCUSDT"
+        ));
+        BinanceMarginMaxTransferable maxTransferable = client.maxTransferable("USDT", "BTCUSDT");
+
+        assertThat(history.total()).isEqualTo(1);
+        assertThat(history.rows()).singleElement().satisfies(record -> {
+            assertThat(record.amount()).isEqualByComparingTo("5.00000000");
+            assertThat(record.asset()).isEqualTo("USDT");
+            assertThat(record.transactionId()).isEqualTo(5239810406L);
+            assertThat(record.type()).isEqualTo("ROLL_OUT");
+            assertThat(record.fromSymbol()).isEqualTo("BNBUSDT");
+            assertThat(record.toSymbol()).isEqualTo("BTCUSDT");
+        });
+        assertThat(maxTransferable.amount()).isEqualByComparingTo("3.59498107");
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "GET");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/transfer?asset=USDT&type=ROLL_OUT"))
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/maxTransferable?asset=USDT&isolatedSymbol=BTCUSDT"));
+    }
+
+    @Test
     void converts_binance_error_response_to_api_exception() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {
@@ -155,7 +212,12 @@ class BinanceMarginAccountClientTest {
     private BinanceProperties.MarginAccount marginAccount() {
         return new BinanceProperties.MarginAccount(
                 "/sapi/v1/margin/borrow-repay",
-                List.of("BORROW", "REPAY")
+                "/sapi/v1/margin/transfer",
+                "/sapi/v1/margin/maxTransferable",
+                List.of("BORROW", "REPAY"),
+                List.of("ROLL_IN", "ROLL_OUT"),
+                30,
+                100
         );
     }
 

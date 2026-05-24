@@ -6,8 +6,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -63,6 +66,21 @@ final class BinanceMarginAccountClient {
         return new BinanceMarginBorrowRepayResult(root.required("tranId").asLong());
     }
 
+    BinanceMarginTransferHistoryPage transferHistory(BinanceMarginTransferHistoryQuery query) {
+        JsonNode root = readJson(send(requestFactory.transferHistory(query, privateCredential), "GET"));
+        List<BinanceMarginTransferRecord> rows = new ArrayList<>();
+        JsonNode rowsNode = root.required("rows");
+        for (JsonNode item : rowsNode) {
+            rows.add(toTransferRecord(item));
+        }
+        return new BinanceMarginTransferHistoryPage(rows, root.required("total").asLong());
+    }
+
+    BinanceMarginMaxTransferable maxTransferable(String asset, String isolatedSymbol) {
+        JsonNode root = readJson(send(requestFactory.maxTransferable(asset, isolatedSymbol, privateCredential), "GET"));
+        return new BinanceMarginMaxTransferable(decimal(root, "amount"));
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }
@@ -92,6 +110,38 @@ final class BinanceMarginAccountClient {
 
     private JsonNode readJson(BinanceHttpResponse response) {
         return jsonMapper.readTree(response.body());
+    }
+
+    private BinanceMarginTransferRecord toTransferRecord(JsonNode node) {
+        return new BinanceMarginTransferRecord(
+                decimal(node, "amount"),
+                text(node, "asset"),
+                text(node, "status"),
+                longValue(node, "timestamp"),
+                longValue(node, "txId"),
+                text(node, "type"),
+                text(node, "transFrom"),
+                text(node, "transTo"),
+                text(node, "fromSymbol"),
+                text(node, "toSymbol")
+        );
+    }
+
+    private String text(JsonNode node, String field) {
+        if (!node.hasNonNull(field)) {
+            return null;
+        }
+        String value = node.required(field).asString();
+        return value.isBlank() ? null : value;
+    }
+
+    private BigDecimal decimal(JsonNode node, String field) {
+        String value = text(node, field);
+        return value == null ? null : new BigDecimal(value);
+    }
+
+    private Long longValue(JsonNode node, String field) {
+        return node.hasNonNull(field) ? node.required(field).asLong() : null;
     }
 
     private String requireText(String value, String name) {

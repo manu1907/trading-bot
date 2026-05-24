@@ -184,6 +184,9 @@ of truth. As of the current code, the connector covers these foundations:
   and signed request parameters.
 - Margin borrow/repay signed request/client support with catalog-backed path,
   cross/isolated validation, and typed transaction-result parsing.
+- Margin transfer-history and max-transferable signed request/client support
+  with catalog-backed paths, documented transfer-history query limits, and
+  typed transfer/amount parsing.
 - Futures `workingType` and `priceProtect` command fields, validation, and
   signed request parameters.
 - Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
@@ -250,8 +253,10 @@ of truth. As of the current code, the connector covers these foundations:
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
 
-- Margin transfer, margin OCO/OTO/OTOCO, account/risk endpoints, prevented
-  matches, and low-latency special-key workflows are not implemented.
+- Margin OCO/OTO/OTOCO, account/risk endpoints, prevented matches, and
+  low-latency special-key workflows are not implemented. Active margin transfer
+  placement is not exposed in the current Binance margin transfer docs; do not
+  claim it until Binance documents an endpoint for it.
 - User-data and market-data WebSocket payloads are not yet mapped into the core
   Avro event model.
 - The exchange module lifecycle currently connects config/metadata primitives;

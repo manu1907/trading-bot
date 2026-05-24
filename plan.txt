@@ -79,6 +79,10 @@ Source-of-truth docs checked during this review:
   `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-Order`
 - Margin borrow/repay:
   `https://developers.binance.com/docs/margin_trading/borrow-and-repay/Margin-Account-Borrow-Repay`
+- Margin transfer history:
+  `https://developers.binance.com/docs/margin_trading/transfer/Get-Cross-Margin-Transfer-History`
+- Margin max transfer-out amount:
+  `https://developers.binance.com/docs/margin_trading/transfer/Query-Max-Transfer-Out-Amount`
 - USD-M futures new order:
   `https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Order`
 - COIN-M futures new order:
@@ -101,6 +105,9 @@ Implemented Binance foundations:
   and request construction.
 - Margin borrow/repay client with catalog-backed path, cross/isolated
   validation, and typed transaction-result parsing.
+- Margin transfer history and max-transferable clients with catalog-backed
+  paths, documented transfer-history query limits, and typed parsing for
+  transfer rows and transferable amount.
 - Futures `workingType` and `priceProtect` command fields, validation, and
   request construction.
 - Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
@@ -164,8 +171,10 @@ Implemented Binance foundations:
 
 Binance parity gaps to close before claiming full connector support:
 
-- Margin: add transfers, margin order lists, margin account/risk endpoints,
-  prevented matches, and special low-latency key workflows.
+- Margin: add margin order lists, margin account/risk endpoints, prevented
+  matches, and special low-latency key workflows. Active margin transfer
+  placement is not exposed in the current Binance margin transfer docs; do not
+  claim it until Binance documents an endpoint for it.
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
@@ -291,7 +300,7 @@ Deliver:
 
 - Spot order-list, prevented-match, and commission-rate clients where needed by
   execution/reconciliation.
-- Margin transfer, order list, and margin account/risk endpoints.
+- Margin order list and margin account/risk endpoints.
 - Keep completed futures batch/modify endpoint support and portfolio-margin
   boundary checks covered while closing the remaining spot, margin, and
   all-product gaps.

@@ -1674,7 +1674,12 @@ class BinanceOrderRequestFactoryTest {
     private BinanceProperties.MarginAccount marginAccount() {
         return new BinanceProperties.MarginAccount(
                 "/sapi/v1/margin/borrow-repay",
-                List.of("BORROW", "REPAY")
+                "/sapi/v1/margin/transfer",
+                "/sapi/v1/margin/maxTransferable",
+                List.of("BORROW", "REPAY"),
+                List.of("ROLL_IN", "ROLL_OUT"),
+                30,
+                100
         );
     }
 
