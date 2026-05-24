@@ -245,6 +245,8 @@ class BinanceOrderClientTest {
                 "/fapi/v3/positionRisk",
                 "/fapi/v1/adlQuantile",
                 "/fapi/v1/forceOrders",
+                "/fapi/v1/income",
+                "/fapi/v1/fundingRate",
                 "/fapi/v1/multiAssetsMargin",
                 1,
                 125,

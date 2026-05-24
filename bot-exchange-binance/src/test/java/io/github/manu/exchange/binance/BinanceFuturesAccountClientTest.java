@@ -220,6 +220,60 @@ class BinanceFuturesAccountClientTest {
     }
 
     @Test
+    void reads_income_and_funding_rates() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "symbol": "BTCUSDT",
+                            "incomeType": "FUNDING_FEE",
+                            "income": "-0.37500000",
+                            "asset": "USDT",
+                            "info": "FUNDING_FEE",
+                            "time": 1570608000000,
+                            "tranId": 9689322392,
+                            "tradeId": "2059192"
+                          }
+                        ]
+                        """),
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "symbol": "BTCUSDT",
+                            "fundingRate": "0.00010000",
+                            "fundingTime": 1570636800000,
+                            "markPrice": "34287.54619963"
+                          }
+                        ]
+                        """)
+        );
+        BinanceFuturesAccountClient client = client(transport);
+
+        List<BinanceFuturesIncome> income = client.income(
+                new BinanceFuturesIncomeQuery("BTCUSDT", "FUNDING_FEE", null, null, null, 100)
+        );
+        List<BinanceFuturesFundingRate> fundingRates = client.fundingRates(
+                new BinanceFuturesFundingRateQuery("BTCUSDT", null, null, 100)
+        );
+
+        assertThat(income).singleElement().satisfies(item -> {
+            assertThat(item.symbol()).isEqualTo("BTCUSDT");
+            assertThat(item.incomeType()).isEqualTo("FUNDING_FEE");
+            assertThat(item.income()).isEqualByComparingTo("-0.37500000");
+            assertThat(item.transactionId()).isEqualTo("9689322392");
+        });
+        assertThat(fundingRates).singleElement().satisfies(rate -> {
+            assertThat(rate.symbol()).isEqualTo("BTCUSDT");
+            assertThat(rate.fundingRate()).isEqualByComparingTo("0.00010000");
+            assertThat(rate.markPrice()).isEqualByComparingTo("34287.54619963");
+        });
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "GET");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/fapi/v1/income?symbol=BTCUSDT&incomeType=FUNDING_FEE"))
+                .anySatisfy(uri -> assertThat(uri).contains("/fapi/v1/fundingRate?symbol=BTCUSDT&limit=100"));
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4046, "msg": "No need to change margin type."}
@@ -381,6 +435,8 @@ class BinanceFuturesAccountClientTest {
                 "/fapi/v3/positionRisk",
                 "/fapi/v1/adlQuantile",
                 "/fapi/v1/forceOrders",
+                "/fapi/v1/income",
+                "/fapi/v1/fundingRate",
                 "/fapi/v1/multiAssetsMargin",
                 1,
                 125,
@@ -403,7 +459,8 @@ class BinanceFuturesAccountClientTest {
 
         @Override
         public BinanceHttpResponse sendPublic(URI uri, String method) {
-            throw new UnsupportedOperationException("public requests are not used by this test");
+            calls.add(new FakeCall(method, uri.toString()));
+            return responses.removeFirst();
         }
 
         @Override

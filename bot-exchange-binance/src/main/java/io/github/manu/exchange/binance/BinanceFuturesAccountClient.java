@@ -7,6 +7,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -175,6 +176,30 @@ final class BinanceFuturesAccountClient {
         return List.copyOf(forceOrders);
     }
 
+    List<BinanceFuturesIncome> income(BinanceFuturesIncomeQuery query) {
+        JsonNode root = readJson(send(requestFactory.income(query, privateCredential), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance futures income array response");
+        }
+        List<BinanceFuturesIncome> income = new ArrayList<>();
+        for (JsonNode item : root) {
+            income.add(toIncome(item));
+        }
+        return List.copyOf(income);
+    }
+
+    List<BinanceFuturesFundingRate> fundingRates(BinanceFuturesFundingRateQuery query) {
+        JsonNode root = readJson(sendPublic(requestFactory.fundingRates(query), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance futures funding rate array response");
+        }
+        List<BinanceFuturesFundingRate> fundingRates = new ArrayList<>();
+        for (JsonNode item : root) {
+            fundingRates.add(toFundingRate(item));
+        }
+        return List.copyOf(fundingRates);
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }
@@ -182,6 +207,22 @@ final class BinanceFuturesAccountClient {
     private BinanceHttpResponse send(BinanceSignedRequest request, String method) {
         try {
             BinanceHttpResponse response = transport.send(request, method, apiKey, binance.rest().apiKeyHeader());
+            rateLimitTracker.observe(binance.rest(), response);
+            if (response.statusCode() < 200 || response.statusCode() > 299) {
+                throw toApiException(response);
+            }
+            return response;
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to communicate with Binance API", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while communicating with Binance API", e);
+        }
+    }
+
+    private BinanceHttpResponse sendPublic(URI uri, String method) {
+        try {
+            BinanceHttpResponse response = transport.sendPublic(uri, method);
             rateLimitTracker.observe(binance.rest(), response);
             if (response.statusCode() < 200 || response.statusCode() > 299) {
                 throw toApiException(response);
@@ -329,6 +370,28 @@ final class BinanceFuturesAccountClient {
                 text(node, "origType"),
                 longValue(node, "time"),
                 longValue(node, "updateTime")
+        );
+    }
+
+    private BinanceFuturesIncome toIncome(JsonNode node) {
+        return new BinanceFuturesIncome(
+                text(node, "symbol"),
+                text(node, "incomeType"),
+                decimal(node, "income"),
+                text(node, "asset"),
+                text(node, "info"),
+                longValue(node, "time"),
+                text(node, "tranId"),
+                text(node, "tradeId")
+        );
+    }
+
+    private BinanceFuturesFundingRate toFundingRate(JsonNode node) {
+        return new BinanceFuturesFundingRate(
+                text(node, "symbol"),
+                decimal(node, "fundingRate"),
+                longValue(node, "fundingTime"),
+                decimal(node, "markPrice")
         );
     }
 

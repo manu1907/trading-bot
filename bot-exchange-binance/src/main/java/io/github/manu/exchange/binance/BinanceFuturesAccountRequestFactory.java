@@ -2,6 +2,7 @@ package io.github.manu.exchange.binance;
 
 import io.github.manu.config.properties.provider.binance.BinanceProperties;
 
+import java.net.URI;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,6 +106,34 @@ final class BinanceFuturesAccountRequestFactory {
         return restRequestFactory.signedUri(account.forceOrdersPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest income(BinanceFuturesIncomeQuery query, String privateCredential) {
+        BinanceFuturesIncomeQuery safeQuery = query == null
+                ? new BinanceFuturesIncomeQuery(null, null, null, null, null, null)
+                : query;
+        validateIncomeQuery(safeQuery);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", safeQuery.symbol());
+        add(parameters, "incomeType", safeQuery.incomeType());
+        add(parameters, "startTime", safeQuery.startTime());
+        add(parameters, "endTime", safeQuery.endTime());
+        add(parameters, "page", safeQuery.page());
+        add(parameters, "limit", safeQuery.limit());
+        return restRequestFactory.signedUri(account.incomePath(), parameters, privateCredential);
+    }
+
+    URI fundingRates(BinanceFuturesFundingRateQuery query) {
+        BinanceFuturesFundingRateQuery safeQuery = query == null
+                ? new BinanceFuturesFundingRateQuery(null, null, null, null)
+                : query;
+        validateFundingRateQuery(safeQuery);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", safeQuery.symbol());
+        add(parameters, "startTime", safeQuery.startTime());
+        add(parameters, "endTime", safeQuery.endTime());
+        add(parameters, "limit", safeQuery.limit());
+        return restRequestFactory.publicUri(account.fundingRatePath(), parameters);
+    }
+
     private void validatePositionRiskQuery(BinanceMarketType marketType, BinanceFuturesPositionRiskQuery query) {
         if (marketType == BinanceMarketType.FUTURES_USD_M) {
             if (hasText(query.pair()) || hasText(query.marginAsset())) {
@@ -127,8 +156,40 @@ final class BinanceFuturesAccountRequestFactory {
         requirePositive("startTime", query.startTime());
         requirePositive("endTime", query.endTime());
         requirePositive("limit", query.limit());
+        requireOrderedTimes(query.startTime(), query.endTime());
         if (query.limit() != null && query.limit() > 100) {
             throw new IllegalArgumentException("limit must be at most 100");
+        }
+    }
+
+    private void validateIncomeQuery(BinanceFuturesIncomeQuery query) {
+        requirePositive("startTime", query.startTime());
+        requirePositive("endTime", query.endTime());
+        requireOrderedTimes(query.startTime(), query.endTime());
+        requirePositive("page", query.page());
+        requirePositive("limit", query.limit());
+        if (query.limit() != null && query.limit() > 1000) {
+            throw new IllegalArgumentException("limit must be at most 1000");
+        }
+    }
+
+    private void validateFundingRateQuery(BinanceFuturesFundingRateQuery query) {
+        BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
+        if (marketType == BinanceMarketType.FUTURES_COIN_M) {
+            requireText("symbol", query.symbol());
+        }
+        requirePositive("startTime", query.startTime());
+        requirePositive("endTime", query.endTime());
+        requireOrderedTimes(query.startTime(), query.endTime());
+        requirePositive("limit", query.limit());
+        if (query.limit() != null && query.limit() > 1000) {
+            throw new IllegalArgumentException("limit must be at most 1000");
+        }
+    }
+
+    private void requireOrderedTimes(Long startTime, Long endTime) {
+        if (startTime != null && endTime != null && startTime > endTime) {
+            throw new IllegalArgumentException("startTime must be less than or equal to endTime");
         }
     }
 

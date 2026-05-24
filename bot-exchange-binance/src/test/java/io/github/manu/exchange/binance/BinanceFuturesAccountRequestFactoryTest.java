@@ -111,6 +111,36 @@ class BinanceFuturesAccountRequestFactoryTest {
     }
 
     @Test
+    void builds_income_and_funding_rate_requests() {
+        BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest income = factory.income(
+                new BinanceFuturesIncomeQuery("BTCUSDT", "FUNDING_FEE", 1_700_000_000_000L, 1_700_001_000_000L, 2, 500),
+                "test-secret"
+        );
+        String fundingRates = factory.fundingRates(
+                new BinanceFuturesFundingRateQuery("BTCUSDT", 1_700_000_000_000L, 1_700_001_000_000L, 500)
+        ).toString();
+
+        assertThat(income.payload())
+                .isEqualTo("symbol=BTCUSDT&incomeType=FUNDING_FEE&startTime=1700000000000"
+                        + "&endTime=1700001000000&page=2&limit=500&timestamp=1499827319559&recvWindow=5000");
+        assertThat(income.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/income?");
+        assertThat(fundingRates)
+                .isEqualTo("https://demo-fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT"
+                        + "&startTime=1700000000000&endTime=1700001000000&limit=500");
+    }
+
+    @Test
+    void requires_symbol_for_coin_m_funding_rate_history() {
+        BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(coinMBinance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> factory.fundingRates(new BinanceFuturesFundingRateQuery(null, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("symbol is required");
+    }
+
+    @Test
     void rejects_leverage_outside_configured_limits() {
         BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
 
@@ -175,6 +205,29 @@ class BinanceFuturesAccountRequestFactoryTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("startTime must be positive");
+    }
+
+    @Test
+    void rejects_invalid_income_and_funding_rate_query_shapes() {
+        BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> factory.income(
+                new BinanceFuturesIncomeQuery("BTCUSDT", "FUNDING_FEE", 2L, 1L, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("startTime must be less than or equal to endTime");
+        assertThatThrownBy(() -> factory.income(
+                new BinanceFuturesIncomeQuery("BTCUSDT", "FUNDING_FEE", null, null, null, 1001),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limit must be at most 1000");
+        assertThatThrownBy(() -> factory.fundingRates(
+                new BinanceFuturesFundingRateQuery("BTCUSDT", null, null, 1001)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limit must be at most 1000");
     }
 
     private BinanceProperties binance() {
@@ -313,6 +366,8 @@ class BinanceFuturesAccountRequestFactoryTest {
                 readPathPrefix + "/positionRisk",
                 pathPrefix + "/adlQuantile",
                 pathPrefix + "/forceOrders",
+                pathPrefix + "/income",
+                pathPrefix + "/fundingRate",
                 multiAssetsModePath,
                 1,
                 125,
