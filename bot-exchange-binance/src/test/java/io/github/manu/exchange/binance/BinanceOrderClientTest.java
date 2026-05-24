@@ -556,6 +556,97 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void places_spot_sor_order_and_parses_sor_fields() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "symbol": "BTCUSDT",
+                  "orderId": 2,
+                  "orderListId": -1,
+                  "clientOrderId": "sor-1",
+                  "transactTime": 1689149087774,
+                  "price": "31000.00000000",
+                  "origQty": "0.50000000",
+                  "executedQty": "0.50000000",
+                  "origQuoteOrderQty": "0.000000",
+                  "cummulativeQuoteQty": "14000.00000000",
+                  "status": "FILLED",
+                  "timeInForce": "GTC",
+                  "type": "LIMIT",
+                  "side": "BUY",
+                  "workingTime": 1689149087774,
+                  "fills": [
+                    {
+                      "matchType": "ONE_PARTY_TRADE_REPORT",
+                      "price": "28000.00000000",
+                      "qty": "0.50000000",
+                      "commission": "0.00000000",
+                      "commissionAsset": "BTC",
+                      "tradeId": -1,
+                      "allocId": 0
+                    }
+                  ],
+                  "workingFloor": "SOR",
+                  "selfTradePreventionMode": "NONE",
+                  "usedSor": true
+                }
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        BinanceSorOrderResult result = client.placeSorOrder(spotLimitOrder("sor-1"));
+
+        assertThat(result.orderId()).isEqualTo(2L);
+        assertThat(result.status()).isEqualTo("FILLED");
+        assertThat(result.usedSor()).isTrue();
+        assertThat(result.workingFloor()).isEqualTo("SOR");
+        assertThat(result.fills()).singleElement().satisfies(fill -> {
+            assertThat(fill.matchType()).isEqualTo("ONE_PARTY_TRADE_REPORT");
+            assertThat(fill.price()).isEqualByComparingTo("28000.00000000");
+            assertThat(fill.quantity()).isEqualByComparingTo("0.50000000");
+            assertThat(fill.allocationId()).isEqualTo(0L);
+        });
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("POST");
+            assertThat(call.uri()).contains("/api/v3/sor/order?symbol=BTCUSDT&side=BUY");
+            assertThat(call.uri()).doesNotContain("test-secret");
+        });
+    }
+
+    @Test
+    void tests_spot_sor_order_with_commission_rates() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "standardCommissionForOrder": {
+                    "maker": "0.00000112",
+                    "taker": "0.00000114"
+                  },
+                  "taxCommissionForOrder": {
+                    "maker": "0.00000112",
+                    "taker": "0.00000114"
+                  },
+                  "discount": {
+                    "enabledForAccount": true,
+                    "enabledForSymbol": true,
+                    "discountAsset": "BNB",
+                    "discount": "0.25000000"
+                  }
+                }
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        BinanceSorTestOrderResult result = client.testSorOrder(spotLimitOrder("sor-test-1"), true);
+
+        assertThat(result.standardCommissionForOrder().maker()).isEqualByComparingTo("0.00000112");
+        assertThat(result.taxCommissionForOrder().taker()).isEqualByComparingTo("0.00000114");
+        assertThat(result.discount().discountAsset()).isEqualTo("BNB");
+        assertThat(result.discount().discount()).isEqualByComparingTo("0.25000000");
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("POST");
+            assertThat(call.uri()).contains("/api/v3/sor/order/test?symbol=BTCUSDT&side=BUY");
+            assertThat(call.uri()).contains("computeCommissionRates=true");
+        });
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -852,6 +943,8 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -903,6 +996,8 @@ class BinanceOrderClientTest {
                 "/api/v3/myPreventedMatches",
                 "/api/v3/order/amend/keepPriority",
                 "/api/v3/order/cancelReplace",
+                "/api/v3/sor/order",
+                "/api/v3/sor/order/test",
                 null,
                 null,
                 null,

@@ -869,6 +869,62 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_spot_sor_order_requests() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest live = factory.sorOrder(
+                spotLimitCommand("BTCUSDT", "BUY", "sor-1", "50000.00", "0.001000"),
+                "test-secret"
+        );
+        BinanceSignedRequest test = factory.sorTestOrder(
+                spotLimitCommand("BTCUSDT", "BUY", "sor-1", "50000.00", "0.001000"),
+                true,
+                "test-secret"
+        );
+
+        assertThat(live.payload())
+                .isEqualTo("symbol=BTCUSDT&side=BUY&type=LIMIT&timeInForce=GTC&newOrderRespType=FULL"
+                        + "&selfTradePreventionMode=NONE&newClientOrderId=sor-1&quantity=0.001&price=50000"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(live.uri().toString()).startsWith("https://api.binance.com/api/v3/sor/order?");
+        assertThat(test.payload())
+                .isEqualTo("symbol=BTCUSDT&side=BUY&type=LIMIT&timeInForce=GTC&newOrderRespType=FULL"
+                        + "&selfTradePreventionMode=NONE&newClientOrderId=sor-1&quantity=0.001&price=50000"
+                        + "&computeCommissionRates=true&timestamp=1499827319559&recvWindow=5000");
+        assertThat(test.uri().toString()).startsWith("https://api.binance.com/api/v3/sor/order/test?");
+    }
+
+    @Test
+    void rejects_invalid_spot_sor_order_requests() {
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> spotFactory.sorOrder(
+                spotStopLossCommand("BTCUSDT", "SELL", "sor-stop", "0.001"),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SOR orders only support LIMIT and MARKET");
+        assertThatThrownBy(() -> spotFactory.sorOrder(
+                new BinanceOrderCommand(
+                        "BTCUSDT", "BUY", "MARKET", null, null, "FULL", "NONE",
+                        null, null, null, null, null, null, "sor-market",
+                        null, null, new BigDecimal("50"), null, null, null,
+                        null, null, null, null, null, null, null, null, null
+                ),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity is required for SOR orders");
+        assertThatThrownBy(() -> futuresFactory.sorOrder(
+                limitCommand("BTCUSDT", "BUY", "sor-1", "50000", "0.001"),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sorOrderPath is not configured");
+    }
+
+    @Test
     void builds_coin_m_history_request_by_pair() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(coinmBinance(), FIXED_CLOCK, 0);
 
@@ -1010,6 +1066,40 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 price == null ? null : new BigDecimal(price),
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private BinanceOrderCommand spotStopLossCommand(String symbol, String side, String clientOrderId, String quantity) {
+        return new BinanceOrderCommand(
+                symbol,
+                side,
+                "STOP_LOSS",
+                null,
+                null,
+                "FULL",
+                "NONE",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                clientOrderId,
+                null,
+                quantity == null ? null : new BigDecimal(quantity),
+                null,
+                null,
+                new BigDecimal("49000"),
                 null,
                 null,
                 null,
@@ -1214,6 +1304,8 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -1265,6 +1357,8 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/myPreventedMatches",
                 "/api/v3/order/amend/keepPriority",
                 "/api/v3/order/cancelReplace",
+                "/api/v3/sor/order",
+                "/api/v3/sor/order/test",
                 null,
                 null,
                 null,
@@ -1323,6 +1417,8 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -1363,6 +1459,8 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/openOrders",
                 "/dapi/v1/allOrders",
                 "/dapi/v1/userTrades",
+                null,
+                null,
                 null,
                 null,
                 null,

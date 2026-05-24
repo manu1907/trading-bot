@@ -168,6 +168,15 @@ final class BinanceOrderClient {
         throw toApiException(response);
     }
 
+    BinanceSorOrderResult placeSorOrder(BinanceOrderCommand command) {
+        return toSorOrderResult(readJson(send(requestFactory.sorOrder(command, privateCredential), "POST")));
+    }
+
+    BinanceSorTestOrderResult testSorOrder(BinanceOrderCommand command, boolean computeCommissionRates) {
+        JsonNode root = readJson(send(requestFactory.sorTestOrder(command, computeCommissionRates, privateCredential), "POST"));
+        return toSorTestOrderResult(root);
+    }
+
     BinanceOrderAck cancelAllOpenOrders(String symbol) {
         JsonNode root = readJson(send(requestFactory.cancelAllOpenOrders(symbol, privateCredential), "DELETE"));
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
@@ -396,6 +405,57 @@ final class BinanceOrderClient {
             return null;
         }
         return new BinanceCancelReplaceError(child.required("code").asInt(), text(child, "msg"));
+    }
+
+    private BinanceSorOrderResult toSorOrderResult(JsonNode node) {
+        return new BinanceSorOrderResult(
+                text(node, "symbol"),
+                longValue(node, "orderId"),
+                longValue(node, "orderListId"),
+                text(node, "clientOrderId"),
+                longValue(node, "transactTime"),
+                decimal(node, "price"),
+                decimal(node, "origQty"),
+                decimal(node, "executedQty"),
+                decimal(node, "origQuoteOrderQty"),
+                firstDecimal(node, "cummulativeQuoteQty", "cumulativeQuoteQty"),
+                text(node, "status"),
+                text(node, "timeInForce"),
+                text(node, "type"),
+                text(node, "side"),
+                longValue(node, "workingTime"),
+                node.hasNonNull("fills") ? sorFills(node.required("fills")) : List.of(),
+                text(node, "workingFloor"),
+                text(node, "selfTradePreventionMode"),
+                node.hasNonNull("usedSor") ? node.required("usedSor").asBoolean() : null
+        );
+    }
+
+    private List<BinanceSorFill> sorFills(JsonNode fillsNode) {
+        if (!fillsNode.isArray()) {
+            throw new IllegalStateException("Expected Binance SOR fills array response");
+        }
+        List<BinanceSorFill> fills = new ArrayList<>();
+        for (JsonNode fill : fillsNode) {
+            fills.add(new BinanceSorFill(
+                    text(fill, "matchType"),
+                    decimal(fill, "price"),
+                    decimal(fill, "qty"),
+                    decimal(fill, "commission"),
+                    text(fill, "commissionAsset"),
+                    longValue(fill, "tradeId"),
+                    longValue(fill, "allocId")
+            ));
+        }
+        return List.copyOf(fills);
+    }
+
+    private BinanceSorTestOrderResult toSorTestOrderResult(JsonNode node) {
+        return new BinanceSorTestOrderResult(
+                node.hasNonNull("standardCommissionForOrder") ? toCommissionRateSet(node, "standardCommissionForOrder") : null,
+                node.hasNonNull("taxCommissionForOrder") ? toCommissionRateSet(node, "taxCommissionForOrder") : null,
+                node.hasNonNull("discount") ? toCommissionDiscount(node) : null
+        );
     }
 
     private BinanceCommissionRateSet toCommissionRateSet(JsonNode node, String field) {

@@ -19,6 +19,7 @@ final class BinanceOrderRequestFactory {
     private static final Set<String> CANCEL_REPLACE_MODES = Set.of("STOP_ON_FAILURE", "ALLOW_FAILURE");
     private static final Set<String> CANCEL_RESTRICTIONS = Set.of("ONLY_NEW", "ONLY_PARTIALLY_FILLED");
     private static final Set<String> ORDER_RATE_LIMIT_EXCEEDED_MODES = Set.of("DO_NOTHING", "CANCEL_ONLY");
+    private static final Set<String> SOR_ORDER_TYPES = Set.of("LIMIT", "MARKET");
 
     private final BinanceProperties binance;
     private final BinanceRestRequestFactory restRequestFactory;
@@ -181,6 +182,22 @@ final class BinanceOrderRequestFactory {
         add(parameters, "cancelRestrictions", command.cancelRestrictions());
         add(parameters, "orderRateLimitExceededMode", command.orderRateLimitExceededMode());
         return restRequestFactory.signedUri(binance.trading().cancelReplacePath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest sorOrder(BinanceOrderCommand command, String privateCredential) {
+        requireConfiguredPath("sorOrderPath", binance.trading().sorOrderPath());
+        validateSorOrder(command);
+        return restRequestFactory.signedUri(binance.trading().sorOrderPath(), orderParameters(command), privateCredential);
+    }
+
+    BinanceSignedRequest sorTestOrder(BinanceOrderCommand command, boolean computeCommissionRates, String privateCredential) {
+        requireConfiguredPath("sorTestOrderPath", binance.trading().sorTestOrderPath());
+        validateSorOrder(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>(orderParameters(command));
+        if (computeCommissionRates) {
+            parameters.add(BinanceRequestParameter.of("computeCommissionRates", "true"));
+        }
+        return restRequestFactory.signedUri(binance.trading().sorTestOrderPath(), parameters, privateCredential);
     }
 
     BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
@@ -455,6 +472,22 @@ final class BinanceOrderRequestFactory {
         requirePositive("cancelOrderId", command.cancelOrderId());
         if (command.cancelOrderId() == null && !hasText(command.cancelOriginalClientOrderId())) {
             throw new IllegalArgumentException("cancelOrderId or cancelOrigClientOrderId is required");
+        }
+    }
+
+    private void validateSorOrder(BinanceOrderCommand command) {
+        BinanceOrderCommandValidator.validate(command, binance.trading());
+        if (!SOR_ORDER_TYPES.contains(command.type())) {
+            throw new IllegalArgumentException("SOR orders only support LIMIT and MARKET order types");
+        }
+        if (command.quantity() == null) {
+            throw new IllegalArgumentException("quantity is required for SOR orders");
+        }
+        if (command.quoteOrderQty() != null) {
+            throw new IllegalArgumentException("quoteOrderQty is not supported for SOR orders");
+        }
+        if (hasText(command.pegPriceType()) || hasText(command.pegOffsetType()) || command.pegOffsetValue() != null) {
+            throw new IllegalArgumentException("pegged order parameters are not supported for SOR orders");
         }
     }
 
