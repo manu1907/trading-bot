@@ -4,6 +4,7 @@ import io.github.manu.events.SerializedTradingEvent;
 import io.github.manu.messaging.TradingEventHandlerRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.nio.file.Path;
@@ -23,7 +24,8 @@ class JournalConfigurationTest {
     void keeps_chronicle_journal_disabled_by_default() {
         contextRunner.run(context -> assertThat(context)
                 .hasSingleBean(JournalProperties.class)
-                .doesNotHaveBean(TradingEventJournal.class));
+                .doesNotHaveBean(TradingEventJournal.class)
+                .doesNotHaveBean(SmartLifecycle.class));
     }
 
     @Test
@@ -61,7 +63,10 @@ class JournalConfigurationTest {
                 .withBean(TradingEventJournal.class, () -> new InMemoryTradingEventJournal(List.of()))
                 .withBean(TradingEventHandlerRegistry.class, () -> new TradingEventHandlerRegistry(List.of()))
                 .withPropertyValues("trading.journal.recovery.enabled=true")
-                .run(context -> assertThat(context).hasSingleBean(JournalRecoveryService.class));
+                .run(context -> assertThat(context)
+                        .hasSingleBean(JournalRecoveryService.class)
+                        .hasSingleBean(SmartLifecycle.class)
+                        .hasSingleBean(JournalRecoveryLifecycle.class));
     }
 
     private record InMemoryTradingEventJournal(List<JournaledTradingEvent> events) implements TradingEventJournal {

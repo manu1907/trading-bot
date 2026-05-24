@@ -3,6 +3,7 @@ package io.github.manu.journal;
 import io.github.manu.messaging.TradingEventHandlerRegistry;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,5 +24,11 @@ public class JournalConfiguration {
             TradingEventHandlerRegistry handlerRegistry
     ) {
         return new JournalRecoveryService(journal, handlerRegistry);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.journal.recovery", name = "enabled", havingValue = "true")
+    SmartLifecycle journalRecoveryLifecycle(JournalRecoveryService recoveryService) {
+        return new JournalRecoveryLifecycle(recoveryService);
     }
 }
