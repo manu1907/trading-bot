@@ -743,6 +743,58 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_spot_amend_keep_priority_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.amendKeepPriority(
+                new BinanceAmendKeepPriorityCommand("BTCUSDT", 33L, null, "amended-33", new BigDecimal("0.500000")),
+                "test-secret"
+        );
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&orderId=33&newClientOrderId=amended-33&newQty=0.5"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/api/v3/order/amend/keepPriority?");
+    }
+
+    @Test
+    void rejects_invalid_spot_amend_keep_priority_requests() {
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> spotFactory.amendKeepPriority(
+                new BinanceAmendKeepPriorityCommand(" ", 33L, null, null, new BigDecimal("0.5")),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("symbol is required");
+        assertThatThrownBy(() -> spotFactory.amendKeepPriority(
+                new BinanceAmendKeepPriorityCommand("BTCUSDT", null, null, null, new BigDecimal("0.5")),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderId or origClientOrderId is required");
+        assertThatThrownBy(() -> spotFactory.amendKeepPriority(
+                new BinanceAmendKeepPriorityCommand("BTCUSDT", 33L, null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("newQty is required");
+        assertThatThrownBy(() -> spotFactory.amendKeepPriority(
+                new BinanceAmendKeepPriorityCommand("BTCUSDT", 33L, null, null, BigDecimal.ZERO),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("newQty must be positive");
+        assertThatThrownBy(() -> futuresFactory.amendKeepPriority(
+                new BinanceAmendKeepPriorityCommand("BTCUSDT", 33L, null, null, new BigDecimal("0.5")),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("amendKeepPriorityPath is not configured");
+    }
+
+    @Test
     void builds_coin_m_history_request_by_pair() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(coinmBinance(), FIXED_CLOCK, 0);
 
@@ -1052,6 +1104,7 @@ class BinanceOrderRequestFactoryTest {
                 "/fapi/v1/userTrades",
                 null,
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -1101,6 +1154,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/myTrades",
                 "/api/v3/account/commission",
                 "/api/v3/myPreventedMatches",
+                "/api/v3/order/amend/keepPriority",
                 null,
                 null,
                 null,
@@ -1157,6 +1211,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -1197,6 +1252,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/openOrders",
                 "/dapi/v1/allOrders",
                 "/dapi/v1/userTrades",
+                null,
                 null,
                 null,
                 "/dapi/v1/batchOrders",

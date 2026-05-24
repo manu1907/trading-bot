@@ -218,6 +218,8 @@ of truth. As of the current code, the connector covers these foundations:
   standard, special, tax, and BNB-discount commission fields.
 - Spot prevented-match history client with catalog-backed path, documented
   query-shape validation, and typed STP match parsing.
+- Spot amend-keep-priority client with catalog-backed path, documented
+  identity/new-quantity validation, and typed amended-order parsing.
 - Catalog-backed order feature enums and limits for price-match, futures
   trigger controls, pegged-order, and margin side-effect controls.
 - Public WebSocket stream endpoint planning and reconnect/rollover policy.
@@ -226,9 +228,8 @@ of truth. As of the current code, the connector covers these foundations:
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
 
-- Spot advanced trading endpoints: cancel-replace, amend-keep-priority, order
-  lists (OCO, OTO, OTOCO, OPO, OPOCO), SOR orders, and WebSocket API order
-  placement.
+- Spot advanced trading endpoints: cancel-replace, order lists (OCO, OTO,
+  OTOCO, OPO, OPOCO), SOR orders, and WebSocket API order placement.
 - Margin borrow/repay, transfer, margin OCO/OTO/OTOCO, account/risk endpoints,
   prevented matches, and low-latency special-key workflows are not implemented.
 - User-data and market-data WebSocket payloads are not yet mapped into the core

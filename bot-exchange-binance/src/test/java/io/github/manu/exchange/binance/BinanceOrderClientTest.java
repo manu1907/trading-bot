@@ -387,6 +387,58 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void amends_spot_order_keep_priority() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "transactTime": 1741926410255,
+                  "executionId": 75,
+                  "amendedOrder": {
+                    "symbol": "BTCUSDT",
+                    "orderId": 33,
+                    "orderListId": -1,
+                    "origClientOrderId": "original-33",
+                    "clientOrderId": "amended-33",
+                    "price": "6.00000000",
+                    "qty": "5.00000000",
+                    "executedQty": "0.00000000",
+                    "preventedQty": "0.00000000",
+                    "quoteOrderQty": "0.00000000",
+                    "cumulativeQuoteQty": "0.00000000",
+                    "status": "NEW",
+                    "timeInForce": "GTC",
+                    "type": "LIMIT",
+                    "side": "SELL",
+                    "workingTime": 1741926410242,
+                    "selfTradePreventionMode": "NONE"
+                  }
+                }
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        BinanceAmendKeepPriorityResult result = client.amendKeepPriority(
+                new BinanceAmendKeepPriorityCommand("BTCUSDT", 33L, null, "amended-33", new BigDecimal("5.00000000"))
+        );
+
+        assertThat(result.transactTime()).isEqualTo(1741926410255L);
+        assertThat(result.executionId()).isEqualTo(75L);
+        assertThat(result.amendedOrder()).satisfies(order -> {
+            assertThat(order.symbol()).isEqualTo("BTCUSDT");
+            assertThat(order.orderId()).isEqualTo(33L);
+            assertThat(order.originalClientOrderId()).isEqualTo("original-33");
+            assertThat(order.clientOrderId()).isEqualTo("amended-33");
+            assertThat(order.quantity()).isEqualByComparingTo("5.00000000");
+            assertThat(order.cumulativeQuoteQuantity()).isEqualByComparingTo("0.00000000");
+            assertThat(order.status()).isEqualTo("NEW");
+        });
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("PUT");
+            assertThat(call.uri()).contains("/api/v3/order/amend/keepPriority?symbol=BTCUSDT&orderId=33");
+            assertThat(call.uri()).contains("newClientOrderId=amended-33&newQty=5");
+            assertThat(call.uri()).doesNotContain("test-secret");
+        });
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -647,6 +699,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/userTrades",
                 null,
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -696,6 +749,7 @@ class BinanceOrderClientTest {
                 "/api/v3/myTrades",
                 "/api/v3/account/commission",
                 "/api/v3/myPreventedMatches",
+                "/api/v3/order/amend/keepPriority",
                 null,
                 null,
                 null,

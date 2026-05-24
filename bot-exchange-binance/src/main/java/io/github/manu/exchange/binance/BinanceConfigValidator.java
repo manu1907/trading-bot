@@ -193,6 +193,12 @@ final class BinanceConfigValidator {
                 expected.preventedMatchesPath(),
                 errors
         );
+        requireConfiguredPath(
+                path + ".amend_keep_priority_path",
+                trading.amendKeepPriorityPath(),
+                expected.amendKeepPriorityPath(),
+                errors
+        );
         requireConfiguredPath(path + ".batch_orders_path", trading.batchOrdersPath(), expected.batchOrdersPath(), errors);
         requireConfiguredPath(path + ".modify_order_path", trading.modifyOrderPath(), expected.modifyOrderPath(), errors);
         requireConfiguredPath(

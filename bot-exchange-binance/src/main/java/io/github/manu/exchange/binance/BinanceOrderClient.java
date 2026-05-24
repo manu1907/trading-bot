@@ -155,6 +155,10 @@ final class BinanceOrderClient {
         return List.copyOf(matches);
     }
 
+    BinanceAmendKeepPriorityResult amendKeepPriority(BinanceAmendKeepPriorityCommand command) {
+        return toAmendKeepPriorityResult(readJson(send(requestFactory.amendKeepPriority(command, privateCredential), "PUT")));
+    }
+
     BinanceOrderAck cancelAllOpenOrders(String symbol) {
         JsonNode root = readJson(send(requestFactory.cancelAllOpenOrders(symbol, privateCredential), "DELETE"));
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
@@ -317,6 +321,35 @@ final class BinanceOrderClient {
                 decimal(node, "price"),
                 decimal(node, "makerPreventedQuantity"),
                 longValue(node, "transactTime")
+        );
+    }
+
+    private BinanceAmendKeepPriorityResult toAmendKeepPriorityResult(JsonNode node) {
+        return new BinanceAmendKeepPriorityResult(
+                longValue(node, "transactTime"),
+                longValue(node, "executionId"),
+                toAmendedOrder(node.required("amendedOrder"))
+        );
+    }
+
+    private BinanceAmendedOrder toAmendedOrder(JsonNode node) {
+        return new BinanceAmendedOrder(
+                text(node, "symbol"),
+                longValue(node, "orderId"),
+                longValue(node, "orderListId"),
+                text(node, "origClientOrderId"),
+                text(node, "clientOrderId"),
+                decimal(node, "price"),
+                decimal(node, "qty"),
+                decimal(node, "executedQty"),
+                decimal(node, "preventedQty"),
+                firstDecimal(node, "cumulativeQuoteQty", "cummulativeQuoteQty"),
+                text(node, "status"),
+                text(node, "timeInForce"),
+                text(node, "type"),
+                text(node, "side"),
+                longValue(node, "workingTime"),
+                text(node, "selfTradePreventionMode")
         );
     }
 

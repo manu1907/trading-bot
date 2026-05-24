@@ -153,6 +153,18 @@ final class BinanceOrderRequestFactory {
         return restRequestFactory.signedUri(binance.trading().preventedMatchesPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest amendKeepPriority(BinanceAmendKeepPriorityCommand command, String privateCredential) {
+        requireConfiguredPath("amendKeepPriorityPath", binance.trading().amendKeepPriorityPath());
+        validateAmendKeepPriority(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", command.symbol());
+        add(parameters, "orderId", command.orderId());
+        add(parameters, "origClientOrderId", command.originalClientOrderId());
+        add(parameters, "newClientOrderId", command.newClientOrderId());
+        add(parameters, "newQty", command.newQuantity());
+        return restRequestFactory.signedUri(binance.trading().amendKeepPriorityPath(), parameters, privateCredential);
+    }
+
     BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
         requireConfiguredPath("cancelAllOpenOrdersPath", binance.trading().cancelAllOpenOrdersPath());
         requireSymbol(symbol);
@@ -400,6 +412,19 @@ final class BinanceOrderRequestFactory {
         }
         if (hasLimit && !hasFromPreventedMatchId) {
             throw new IllegalArgumentException("limit requires fromPreventedMatchId for prevented-match queries");
+        }
+    }
+
+    private void validateAmendKeepPriority(BinanceAmendKeepPriorityCommand command) {
+        Objects.requireNonNull(command, "command");
+        requireSymbol(command.symbol());
+        requirePositive("orderId", command.orderId());
+        requirePositive("newQty", command.newQuantity());
+        if (command.orderId() == null && !hasText(command.originalClientOrderId())) {
+            throw new IllegalArgumentException("orderId or origClientOrderId is required");
+        }
+        if (command.newQuantity() == null) {
+            throw new IllegalArgumentException("newQty is required");
         }
     }
 
