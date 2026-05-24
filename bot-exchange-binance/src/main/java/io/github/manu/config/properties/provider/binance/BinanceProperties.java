@@ -182,10 +182,15 @@ public record BinanceProperties(
             @NotNull String borrowRepayPath,
             @NotNull String transferHistoryPath,
             @NotNull String maxTransferablePath,
+            @NotNull String crossAccountPath,
+            @NotNull String isolatedAccountPath,
+            @NotNull String isolatedAccountLimitPath,
+            @NotNull String tradeCoeffPath,
             @NotNull List<String> supportedBorrowRepayTypes,
             @NotNull List<String> supportedTransferHistoryTypes,
             Integer maxTransferHistoryDays,
-            Integer maxTransferHistorySize
+            Integer maxTransferHistorySize,
+            Integer maxIsolatedAccountSymbols
     ) {
         public MarginAccount {
             supportedBorrowRepayTypes = List.copyOf(supportedBorrowRepayTypes);

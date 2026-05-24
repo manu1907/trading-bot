@@ -1836,10 +1836,15 @@ class BinanceOrderRequestFactoryTest {
                 "/sapi/v1/margin/borrow-repay",
                 "/sapi/v1/margin/transfer",
                 "/sapi/v1/margin/maxTransferable",
+                "/sapi/v1/margin/account",
+                "/sapi/v1/margin/isolated/account",
+                "/sapi/v1/margin/isolated/accountLimit",
+                "/sapi/v1/margin/tradeCoeff",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
                 30,
-                100
+                100,
+                5
         );
     }
 

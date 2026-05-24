@@ -127,6 +127,35 @@ class BinanceMarginAccountRequestFactoryTest {
     }
 
     @Test
+    void builds_margin_account_and_risk_read_requests() {
+        BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
+                marginBinance("MARGIN_ISOLATED"),
+                FIXED_CLOCK,
+                0
+        );
+
+        BinanceSignedRequest crossAccount = factory.crossAccount("test-secret");
+        BinanceSignedRequest isolatedAccount = factory.isolatedAccount(
+                new BinanceIsolatedMarginAccountQuery(List.of("BTCUSDT", "ETHUSDT")),
+                "test-secret"
+        );
+        BinanceSignedRequest isolatedLimit = factory.isolatedAccountLimit("test-secret");
+        BinanceSignedRequest tradeCoeff = factory.tradeCoeff("test-secret");
+
+        assertThat(crossAccount.payload()).isEqualTo("timestamp=1499827319559&recvWindow=5000");
+        assertThat(crossAccount.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/account?");
+        assertThat(isolatedAccount.payload())
+                .isEqualTo("symbols=BTCUSDT%2CETHUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(isolatedAccount.uri().toString())
+                .startsWith("https://api.binance.com/sapi/v1/margin/isolated/account?");
+        assertThat(isolatedLimit.payload()).isEqualTo("timestamp=1499827319559&recvWindow=5000");
+        assertThat(isolatedLimit.uri().toString())
+                .startsWith("https://api.binance.com/sapi/v1/margin/isolated/accountLimit?");
+        assertThat(tradeCoeff.payload()).isEqualTo("timestamp=1499827319559&recvWindow=5000");
+        assertThat(tradeCoeff.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/tradeCoeff?");
+    }
+
+    @Test
     void validates_transfer_queries_against_documented_limits() {
         BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
                 marginBinance("MARGIN_CROSS"),
@@ -155,6 +184,18 @@ class BinanceMarginAccountRequestFactoryTest {
         assertThatThrownBy(() -> factory.maxTransferable(null, null, "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("asset is required");
+        assertThatThrownBy(() -> factory.isolatedAccount(
+                new BinanceIsolatedMarginAccountQuery(List.of("BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT", "XRPUSDT")),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("symbols size must be at most 5");
+        assertThatThrownBy(() -> factory.isolatedAccount(
+                new BinanceIsolatedMarginAccountQuery(List.of(" ")),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("symbols is required");
     }
 
     @Test
@@ -252,10 +293,15 @@ class BinanceMarginAccountRequestFactoryTest {
                 "/sapi/v1/margin/borrow-repay",
                 "/sapi/v1/margin/transfer",
                 "/sapi/v1/margin/maxTransferable",
+                "/sapi/v1/margin/account",
+                "/sapi/v1/margin/isolated/account",
+                "/sapi/v1/margin/isolated/accountLimit",
+                "/sapi/v1/margin/tradeCoeff",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
                 30,
-                100
+                100,
+                5
         );
     }
 }

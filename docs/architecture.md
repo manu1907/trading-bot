@@ -190,6 +190,9 @@ of truth. As of the current code, the connector covers these foundations:
 - Margin OCO, OTO, and OTOCO order-list placement with catalog-backed paths,
   documented margin controls, legacy OCO parameter mapping, and typed
   order-list parsing.
+- Margin cross-account, isolated-account, isolated-account-limit, and
+  trade-coefficient risk reads with catalog-backed paths, documented isolated
+  symbol limits, and typed parsing.
 - Futures `workingType` and `priceProtect` command fields, validation, and
   signed request parameters.
 - Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
@@ -249,6 +252,8 @@ of truth. As of the current code, the connector covers these foundations:
   margin controls, legacy margin OCO parameter mapping, and typed order-list
   parsing. Margin OPO/OPOCO placement is not claimed because the current
   Binance margin docs do not expose those placement pages.
+- Margin cross-account, isolated-account, isolated-account-limit, and
+  trade-coefficient risk clients with catalog-backed paths and typed parsing.
 - Catalog-backed order feature enums and limits for price-match, futures
   trigger controls, pegged-order, and margin side-effect controls.
 - Public WebSocket stream endpoint planning and reconnect/rollover policy.
@@ -260,10 +265,10 @@ of truth. As of the current code, the connector covers these foundations:
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
 
-- Margin account/risk endpoints, prevented matches, and low-latency special-key
-  workflows are not implemented. Active margin transfer placement and margin
-  OPO/OPOCO placement are not exposed in the current Binance margin docs; do
-  not claim them until Binance documents endpoints for them.
+- Margin prevented matches and low-latency special-key workflows are not
+  implemented. Active margin transfer placement and margin OPO/OPOCO placement
+  are not exposed in the current Binance margin docs; do not claim them until
+  Binance documents endpoints for them.
 - User-data and market-data WebSocket payloads are not yet mapped into the core
   Avro event model.
 - The exchange module lifecycle currently connects config/metadata primitives;

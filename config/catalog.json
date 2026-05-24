@@ -251,6 +251,10 @@
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
                       "transfer_history_path": "/sapi/v1/margin/transfer",
                       "max_transferable_path": "/sapi/v1/margin/maxTransferable",
+                      "cross_account_path": "/sapi/v1/margin/account",
+                      "isolated_account_path": "/sapi/v1/margin/isolated/account",
+                      "isolated_account_limit_path": "/sapi/v1/margin/isolated/accountLimit",
+                      "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -260,7 +264,8 @@
                         "ROLL_OUT"
                       ],
                       "max_transfer_history_days": 30,
-                      "max_transfer_history_size": 100
+                      "max_transfer_history_size": 100,
+                      "max_isolated_account_symbols": 5
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -414,6 +419,10 @@
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
                       "transfer_history_path": "/sapi/v1/margin/transfer",
                       "max_transferable_path": "/sapi/v1/margin/maxTransferable",
+                      "cross_account_path": "/sapi/v1/margin/account",
+                      "isolated_account_path": "/sapi/v1/margin/isolated/account",
+                      "isolated_account_limit_path": "/sapi/v1/margin/isolated/accountLimit",
+                      "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -423,7 +432,8 @@
                         "ROLL_OUT"
                       ],
                       "max_transfer_history_days": 30,
-                      "max_transfer_history_size": 100
+                      "max_transfer_history_size": 100,
+                      "max_isolated_account_symbols": 5
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -1255,6 +1265,10 @@
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
                       "transfer_history_path": "/sapi/v1/margin/transfer",
                       "max_transferable_path": "/sapi/v1/margin/maxTransferable",
+                      "cross_account_path": "/sapi/v1/margin/account",
+                      "isolated_account_path": "/sapi/v1/margin/isolated/account",
+                      "isolated_account_limit_path": "/sapi/v1/margin/isolated/accountLimit",
+                      "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -1264,7 +1278,8 @@
                         "ROLL_OUT"
                       ],
                       "max_transfer_history_days": 30,
-                      "max_transfer_history_size": 100
+                      "max_transfer_history_size": 100,
+                      "max_isolated_account_symbols": 5
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -1418,6 +1433,10 @@
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
                       "transfer_history_path": "/sapi/v1/margin/transfer",
                       "max_transferable_path": "/sapi/v1/margin/maxTransferable",
+                      "cross_account_path": "/sapi/v1/margin/account",
+                      "isolated_account_path": "/sapi/v1/margin/isolated/account",
+                      "isolated_account_limit_path": "/sapi/v1/margin/isolated/accountLimit",
+                      "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -1427,7 +1446,8 @@
                         "ROLL_OUT"
                       ],
                       "max_transfer_history_days": 30,
-                      "max_transfer_history_size": 100
+                      "max_transfer_history_size": 100,
+                      "max_isolated_account_symbols": 5
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",

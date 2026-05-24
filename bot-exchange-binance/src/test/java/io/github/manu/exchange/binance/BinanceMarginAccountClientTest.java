@@ -107,6 +107,130 @@ class BinanceMarginAccountClientTest {
     }
 
     @Test
+    void reads_margin_account_and_risk_snapshots() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        {
+                          "created": true,
+                          "borrowEnabled": true,
+                          "marginLevel": "11.64405625",
+                          "collateralMarginLevel": "3.2",
+                          "totalAssetOfBtc": "6.82728457",
+                          "totalLiabilityOfBtc": "0.58633215",
+                          "totalNetAssetOfBtc": "6.24095242",
+                          "TotalCollateralValueInUSDT": "5.82728457",
+                          "totalOpenOrderLossInUSDT": "582.728457",
+                          "tradeEnabled": true,
+                          "transferInEnabled": true,
+                          "transferOutEnabled": true,
+                          "accountType": "MARGIN_1",
+                          "userAssets": [
+                            {
+                              "asset": "BTC",
+                              "borrowed": "0.00000000",
+                              "free": "0.00499500",
+                              "interest": "0.00000000",
+                              "locked": "0.00000000",
+                              "netAsset": "0.00499500"
+                            }
+                          ]
+                        }
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "assets": [
+                            {
+                              "baseAsset": {
+                                "asset": "BTC",
+                                "borrowEnabled": true,
+                                "borrowed": "0.00000000",
+                                "free": "0.00000000",
+                                "interest": "0.00000000",
+                                "locked": "0.00000000",
+                                "netAsset": "0.00000000",
+                                "netAssetOfBtc": "0.00000000",
+                                "repayEnabled": true,
+                                "totalAsset": "0.00000000"
+                              },
+                              "quoteAsset": {
+                                "asset": "USDT",
+                                "borrowEnabled": true,
+                                "borrowed": "0.00000000",
+                                "free": "0.00000000",
+                                "interest": "0.00000000",
+                                "locked": "0.00000000",
+                                "netAsset": "0.00000000",
+                                "netAssetOfBtc": "0.00000000",
+                                "repayEnabled": true,
+                                "totalAsset": "0.00000000"
+                              },
+                              "symbol": "BTCUSDT",
+                              "isolatedCreated": true,
+                              "enabled": true,
+                              "marginLevel": "0.00000000",
+                              "marginLevelStatus": "EXCESSIVE",
+                              "marginRatio": "0.00000000",
+                              "indexPrice": "10000.00000000",
+                              "liquidatePrice": "1000.00000000",
+                              "liquidateRate": "1.00000000",
+                              "tradeEnabled": true
+                            }
+                          ],
+                          "totalAssetOfBtc": "0.00000000",
+                          "totalLiabilityOfBtc": "0.00000000",
+                          "totalNetAssetOfBtc": "0.00000000"
+                        }
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "enabledAccount": 5,
+                          "maxAccount": 20
+                        }
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "normalBar": "1.5",
+                          "marginCallBar": "1.3",
+                          "forceLiquidationBar": "1.1"
+                        }
+                        """)
+        );
+        BinanceMarginAccountClient client = client(transport);
+
+        BinanceCrossMarginAccountSnapshot crossAccount = client.crossAccount();
+        BinanceIsolatedMarginAccountSnapshot isolatedAccount = client.isolatedAccount(
+                new BinanceIsolatedMarginAccountQuery(List.of("BTCUSDT"))
+        );
+        BinanceIsolatedMarginAccountLimit isolatedLimit = client.isolatedAccountLimit();
+        BinanceMarginTradeCoeff tradeCoeff = client.tradeCoeff();
+
+        assertThat(crossAccount.accountType()).isEqualTo("MARGIN_1");
+        assertThat(crossAccount.marginLevel()).isEqualByComparingTo("11.64405625");
+        assertThat(crossAccount.totalCollateralValueInUsdt()).isEqualByComparingTo("5.82728457");
+        assertThat(crossAccount.userAssets()).singleElement().satisfies(asset -> {
+            assertThat(asset.asset()).isEqualTo("BTC");
+            assertThat(asset.free()).isEqualByComparingTo("0.00499500");
+        });
+        assertThat(isolatedAccount.assets()).singleElement().satisfies(pair -> {
+            assertThat(pair.symbol()).isEqualTo("BTCUSDT");
+            assertThat(pair.marginLevelStatus()).isEqualTo("EXCESSIVE");
+            assertThat(pair.baseAsset().asset()).isEqualTo("BTC");
+            assertThat(pair.quoteAsset().asset()).isEqualTo("USDT");
+        });
+        assertThat(isolatedLimit.enabledAccount()).isEqualTo(5);
+        assertThat(isolatedLimit.maxAccount()).isEqualTo(20);
+        assertThat(tradeCoeff.normalBar()).isEqualByComparingTo("1.5");
+        assertThat(tradeCoeff.marginCallBar()).isEqualByComparingTo("1.3");
+        assertThat(tradeCoeff.forceLiquidationBar()).isEqualByComparingTo("1.1");
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "GET", "GET", "GET");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/account?"))
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/isolated/account?symbols=BTCUSDT"))
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/isolated/accountLimit?"))
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/tradeCoeff?"));
+    }
+
+    @Test
     void converts_binance_error_response_to_api_exception() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {
@@ -214,10 +338,15 @@ class BinanceMarginAccountClientTest {
                 "/sapi/v1/margin/borrow-repay",
                 "/sapi/v1/margin/transfer",
                 "/sapi/v1/margin/maxTransferable",
+                "/sapi/v1/margin/account",
+                "/sapi/v1/margin/isolated/account",
+                "/sapi/v1/margin/isolated/accountLimit",
+                "/sapi/v1/margin/tradeCoeff",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
                 30,
-                100
+                100,
+                5
         );
     }
 

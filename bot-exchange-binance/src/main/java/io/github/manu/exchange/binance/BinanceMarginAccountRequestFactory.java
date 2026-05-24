@@ -57,6 +57,30 @@ final class BinanceMarginAccountRequestFactory {
         return restRequestFactory.signedUri(account.maxTransferablePath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest crossAccount(String privateCredential) {
+        return restRequestFactory.signedUri(account.crossAccountPath(), List.of(), privateCredential);
+    }
+
+    BinanceSignedRequest isolatedAccount(BinanceIsolatedMarginAccountQuery query, String privateCredential) {
+        BinanceIsolatedMarginAccountQuery safeQuery = query == null
+                ? new BinanceIsolatedMarginAccountQuery(List.of())
+                : query;
+        validateIsolatedAccountQuery(safeQuery);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        if (!safeQuery.symbols().isEmpty()) {
+            add(parameters, "symbols", String.join(",", safeQuery.symbols()));
+        }
+        return restRequestFactory.signedUri(account.isolatedAccountPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest isolatedAccountLimit(String privateCredential) {
+        return restRequestFactory.signedUri(account.isolatedAccountLimitPath(), List.of(), privateCredential);
+    }
+
+    BinanceSignedRequest tradeCoeff(String privateCredential) {
+        return restRequestFactory.signedUri(account.tradeCoeffPath(), List.of(), privateCredential);
+    }
+
     private void validateBorrowRepay(BinanceMarginBorrowRepayCommand command) {
         Objects.requireNonNull(command, "command");
         requireText("asset", command.asset());
@@ -81,6 +105,16 @@ final class BinanceMarginAccountRequestFactory {
         }
         requireOrderedTimes(query.startTime(), query.endTime());
         requireMaxInterval(query.startTime(), query.endTime());
+    }
+
+    private void validateIsolatedAccountQuery(BinanceIsolatedMarginAccountQuery query) {
+        for (String symbol : query.symbols()) {
+            requireText("symbols", symbol);
+        }
+        if (account.maxIsolatedAccountSymbols() != null
+                && query.symbols().size() > account.maxIsolatedAccountSymbols()) {
+            throw new IllegalArgumentException("symbols size must be at most " + account.maxIsolatedAccountSymbols());
+        }
     }
 
     private void requireText(String field, String value) {

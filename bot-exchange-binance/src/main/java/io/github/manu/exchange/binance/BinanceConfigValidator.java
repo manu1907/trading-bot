@@ -191,12 +191,22 @@ final class BinanceConfigValidator {
         requireMatching(path + ".transfer_history_path", account.transferHistoryPath(), "/sapi/v1/margin/transfer", errors);
         requirePath(path + ".max_transferable_path", account.maxTransferablePath(), errors);
         requireMatching(path + ".max_transferable_path", account.maxTransferablePath(), "/sapi/v1/margin/maxTransferable", errors);
+        requirePath(path + ".cross_account_path", account.crossAccountPath(), errors);
+        requireMatching(path + ".cross_account_path", account.crossAccountPath(), "/sapi/v1/margin/account", errors);
+        requirePath(path + ".isolated_account_path", account.isolatedAccountPath(), errors);
+        requireMatching(path + ".isolated_account_path", account.isolatedAccountPath(), "/sapi/v1/margin/isolated/account", errors);
+        requirePath(path + ".isolated_account_limit_path", account.isolatedAccountLimitPath(), errors);
+        requireMatching(path + ".isolated_account_limit_path", account.isolatedAccountLimitPath(), "/sapi/v1/margin/isolated/accountLimit", errors);
+        requirePath(path + ".trade_coeff_path", account.tradeCoeffPath(), errors);
+        requireMatching(path + ".trade_coeff_path", account.tradeCoeffPath(), "/sapi/v1/margin/tradeCoeff", errors);
         requireSameValues(path + ".supported_borrow_repay_types", account.supportedBorrowRepayTypes(), Set.of("BORROW", "REPAY"), errors);
         requireSameValues(path + ".supported_transfer_history_types", account.supportedTransferHistoryTypes(), Set.of("ROLL_IN", "ROLL_OUT"), errors);
         requireAtLeast(path + ".max_transfer_history_days", account.maxTransferHistoryDays(), 1, errors);
         requireAtMost(path + ".max_transfer_history_days", account.maxTransferHistoryDays(), 30, errors);
         requireAtLeast(path + ".max_transfer_history_size", account.maxTransferHistorySize(), 1, errors);
         requireAtMost(path + ".max_transfer_history_size", account.maxTransferHistorySize(), 100, errors);
+        requireAtLeast(path + ".max_isolated_account_symbols", account.maxIsolatedAccountSymbols(), 1, errors);
+        requireAtMost(path + ".max_isolated_account_symbols", account.maxIsolatedAccountSymbols(), 5, errors);
     }
 
     private static void validateTrading(String path,

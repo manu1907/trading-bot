@@ -81,6 +81,60 @@ final class BinanceMarginAccountClient {
         return new BinanceMarginMaxTransferable(decimal(root, "amount"));
     }
 
+    BinanceCrossMarginAccountSnapshot crossAccount() {
+        JsonNode root = readJson(send(requestFactory.crossAccount(privateCredential), "GET"));
+        List<BinanceMarginAssetBalance> userAssets = new ArrayList<>();
+        JsonNode assetsNode = root.required("userAssets");
+        for (JsonNode item : assetsNode) {
+            userAssets.add(toMarginAssetBalance(item));
+        }
+        return new BinanceCrossMarginAccountSnapshot(
+                optionalBoolean(root, "created").orElse(null),
+                optionalBoolean(root, "borrowEnabled").orElse(null),
+                decimal(root, "marginLevel"),
+                decimal(root, "collateralMarginLevel"),
+                decimal(root, "totalAssetOfBtc"),
+                decimal(root, "totalLiabilityOfBtc"),
+                decimal(root, "totalNetAssetOfBtc"),
+                decimal(root, "TotalCollateralValueInUSDT"),
+                decimal(root, "totalOpenOrderLossInUSDT"),
+                optionalBoolean(root, "tradeEnabled").orElse(null),
+                optionalBoolean(root, "transferInEnabled").orElse(null),
+                optionalBoolean(root, "transferOutEnabled").orElse(null),
+                text(root, "accountType"),
+                userAssets
+        );
+    }
+
+    BinanceIsolatedMarginAccountSnapshot isolatedAccount(BinanceIsolatedMarginAccountQuery query) {
+        JsonNode root = readJson(send(requestFactory.isolatedAccount(query, privateCredential), "GET"));
+        List<BinanceIsolatedMarginPairSnapshot> assets = new ArrayList<>();
+        JsonNode assetsNode = root.required("assets");
+        for (JsonNode item : assetsNode) {
+            assets.add(toIsolatedMarginPairSnapshot(item));
+        }
+        return new BinanceIsolatedMarginAccountSnapshot(
+                assets,
+                decimal(root, "totalAssetOfBtc"),
+                decimal(root, "totalLiabilityOfBtc"),
+                decimal(root, "totalNetAssetOfBtc")
+        );
+    }
+
+    BinanceIsolatedMarginAccountLimit isolatedAccountLimit() {
+        JsonNode root = readJson(send(requestFactory.isolatedAccountLimit(privateCredential), "GET"));
+        return new BinanceIsolatedMarginAccountLimit(integer(root, "enabledAccount"), integer(root, "maxAccount"));
+    }
+
+    BinanceMarginTradeCoeff tradeCoeff() {
+        JsonNode root = readJson(send(requestFactory.tradeCoeff(privateCredential), "GET"));
+        return new BinanceMarginTradeCoeff(
+                decimal(root, "normalBar"),
+                decimal(root, "marginCallBar"),
+                decimal(root, "forceLiquidationBar")
+        );
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }
@@ -127,6 +181,49 @@ final class BinanceMarginAccountClient {
         );
     }
 
+    private BinanceMarginAssetBalance toMarginAssetBalance(JsonNode node) {
+        return new BinanceMarginAssetBalance(
+                text(node, "asset"),
+                decimal(node, "borrowed"),
+                decimal(node, "free"),
+                decimal(node, "interest"),
+                decimal(node, "locked"),
+                decimal(node, "netAsset")
+        );
+    }
+
+    private BinanceIsolatedMarginPairSnapshot toIsolatedMarginPairSnapshot(JsonNode node) {
+        return new BinanceIsolatedMarginPairSnapshot(
+                toIsolatedMarginAssetBalance(node.required("baseAsset")),
+                toIsolatedMarginAssetBalance(node.required("quoteAsset")),
+                text(node, "symbol"),
+                optionalBoolean(node, "isolatedCreated").orElse(null),
+                optionalBoolean(node, "enabled").orElse(null),
+                decimal(node, "marginLevel"),
+                text(node, "marginLevelStatus"),
+                decimal(node, "marginRatio"),
+                decimal(node, "indexPrice"),
+                decimal(node, "liquidatePrice"),
+                decimal(node, "liquidateRate"),
+                optionalBoolean(node, "tradeEnabled").orElse(null)
+        );
+    }
+
+    private BinanceIsolatedMarginAssetBalance toIsolatedMarginAssetBalance(JsonNode node) {
+        return new BinanceIsolatedMarginAssetBalance(
+                text(node, "asset"),
+                optionalBoolean(node, "borrowEnabled").orElse(null),
+                decimal(node, "borrowed"),
+                decimal(node, "free"),
+                decimal(node, "interest"),
+                decimal(node, "locked"),
+                decimal(node, "netAsset"),
+                decimal(node, "netAssetOfBtc"),
+                optionalBoolean(node, "repayEnabled").orElse(null),
+                decimal(node, "totalAsset")
+        );
+    }
+
     private String text(JsonNode node, String field) {
         if (!node.hasNonNull(field)) {
             return null;
@@ -142,6 +239,14 @@ final class BinanceMarginAccountClient {
 
     private Long longValue(JsonNode node, String field) {
         return node.hasNonNull(field) ? node.required(field).asLong() : null;
+    }
+
+    private Integer integer(JsonNode node, String field) {
+        return node.hasNonNull(field) ? node.required(field).asInt() : null;
+    }
+
+    private Optional<Boolean> optionalBoolean(JsonNode node, String field) {
+        return node.hasNonNull(field) ? Optional.of(node.required(field).asBoolean()) : Optional.empty();
     }
 
     private String requireText(String value, String name) {
