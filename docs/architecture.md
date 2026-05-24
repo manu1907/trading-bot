@@ -2,6 +2,29 @@
 
 The bot is organized around one application core and pluggable runtime modules.
 
+## Continuation Standard
+
+This repository should be developed as a production trading system, not a demo
+script. Future chats or agents should follow the same process:
+
+- Read the current code before deciding the next slice.
+- Keep slices narrow, commit-sized, and tied to the delivery plan.
+- Do not overclaim readiness. If a provider capability is documented but not
+  implemented, record it as a gap rather than implying support.
+- Preserve user-local tracked edits unless explicitly told to include them.
+- Run focused tests first, then the relevant Gradle quality gate. For core
+  slices, `./gradlew :bot-core:check` runs tests, Spotless, Checkstyle, and
+  SpotBugs. For cross-module or documentation slices, prefer `./gradlew check`
+  or `./gradlew spotlessCheck` plus the affected module checks.
+- After every push, check GitHub Actions and wait for the pushed commit's run
+  to complete.
+- Treat unknown exchange status, stale data, rate limits, failed recovery, and
+  missing protective orders as safety problems, not logging-only problems.
+
+The current standard is conservative: no strategy signal may reach the exchange
+without risk gating, idempotent order identity, durable event journaling,
+reconciliation, and observable state transitions.
+
 ## Modules
 
 - `bot-core`: owns application startup, config loading, runtime identity,
@@ -146,6 +169,45 @@ The checked-in Binance demo user-data stream lifecycle test is opt-in and
 requires `BINANCE_DEMO_API_KEY`; it starts, renews, and closes the configured
 USD-M demo stream.
 
+### Binance Capability Review
+
+The Binance connector tracks the official Binance documentation as the source
+of truth. As of the current code, the connector covers these foundations:
+
+- HMAC, RSA PKCS#8, and Ed25519 signing.
+- Server-time synchronization and `recvWindow` validation.
+- Product-family config for Spot, Cross Margin, Isolated Margin, USD-M Futures,
+  COIN-M Futures, and Options.
+- `exchangeInfo` loading and parsing for symbol filters, order enums,
+  precision, rate limits, trigger protection, and lifecycle metadata.
+- Basic signed order create, query, open-orders, and cancel requests.
+- Public WebSocket stream endpoint planning and reconnect/rollover policy.
+- User-data listen-key or listen-token lifecycle for configured products.
+
+The connector is not yet complete enough to be called a full Binance execution
+adapter. Known gaps that must remain on the plan:
+
+- Spot advanced trading endpoints: cancel-replace, amend-keep-priority, order
+  lists (OCO, OTO, OTOCO, OPO, OPOCO), SOR orders, all-orders, trades,
+  prevented matches, commission rates, and WebSocket API order placement.
+- Spot pegged-order request fields are documented and declared as supported in
+  config, but the current `BinanceOrderCommand` does not yet carry
+  `pegPriceType`, `pegOffsetValue`, or `pegOffsetType`.
+- Margin order side-effect controls such as `sideEffectType` and
+  `autoRepayAtCancel`, plus borrow/repay, transfer, margin OCO/OTO/OTOCO, and
+  low-latency special-key workflows are not implemented.
+- Futures conditional-order controls such as `workingType` and `priceProtect`,
+  plus leverage, margin type, position mode, multi-assets mode, batch orders,
+  modify order, cancel-all/countdown cancel-all, account snapshots, income,
+  funding, liquidation, and ADL/position-risk endpoints are not implemented.
+- User-data and market-data WebSocket payloads are not yet mapped into the core
+  Avro event model.
+- The exchange module lifecycle currently connects config/metadata primitives;
+  it is not yet the risk-gated execution engine.
+
+These gaps are intentional roadmap items. They should be closed before the bot
+is described as real-trading ready.
+
 ## Trading Events
 
 Trading events are schema-first Avro contracts owned by `bot-core`. The source
@@ -251,6 +313,20 @@ dead-letter publisher and are not written to the primary event journal.
 `JournalRecoveryService` replays raw Avro journal records through registered
 typed handlers in journal order. Recovery fails fast on decode or handler
 failure because partial state rebuilds are not acceptable for trading state.
+When `trading.journal.recovery.enabled=true`, an early startup lifecycle runs
+journal recovery before auto-starting messaging loops; any replay failure fails
+the process.
+
+Archive object names for journal exports are defined by
+`TradingEventArchiveLayout`. The layout is deterministic and GCS-friendly:
+
+```text
+{prefix}/trading-events/v1/event_type={event-type}/topic={topic}/date={yyyy-MM-dd}/hour={HH}/{journal-index}.avrobin
+```
+
+The layout is a contract for later upload/archive code; hot-path trading should
+append to the local journal and publish events without waiting on GCS or
+database writes.
 
 ## Demo And Real
 
@@ -269,6 +345,10 @@ There should be no separate toy execution code path for real-readiness work.
 Before a commit:
 
 - Relevant unit and integration tests must pass.
+- Spotless, Checkstyle, and SpotBugs must pass through the appropriate Gradle
+  check task.
 - Warnings should be corrected, not hidden.
 - Tests should use explicit inputs and expected outputs.
 - Comments should explain non-obvious design choices only.
+- If a slice is pushed, GitHub Actions for that pushed commit must be checked
+  before calling the work complete.

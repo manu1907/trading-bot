@@ -16,8 +16,103 @@ green tests, corrected warnings, and a short review of what changed.
   input data and expected output.
 - Before commit: run the relevant Gradle tasks, keep tests green, fix warnings
   rather than suppressing them, and avoid unused imports or dead code.
+- `:bot-core:check` runs tests, Spotless, Checkstyle, and SpotBugs for core
+  changes. Use affected module checks for provider/strategy changes, and use
+  `./gradlew check` before broad cross-module pushes.
+- After every push, check GitHub Actions for the pushed commit and wait for the
+  run to finish before marking the slice complete.
+- Do not hide tracked working files behind `.gitignore`. If tracked local
+  notes are intentionally changed, either commit them explicitly or keep them
+  out of staged slices deliberately.
 - Comments should be sparse and useful: explain non-obvious decisions, not
   obvious line-by-line behavior.
+
+## Current Seriousness Review
+
+The current codebase has serious foundations, but it is not yet a complete
+professional trading bot. The strong parts are:
+
+- Layered config with active runtime target, override validation, schema
+  versioning, and atomic runtime writes.
+- Provider/strategy module boundaries.
+- Binance config validation, request signing, server-time sync, exchangeInfo
+  parsing, rate-limit header tracking, basic order REST calls, user-data stream
+  lifecycle, and WebSocket endpoint planning.
+- Schema-first Avro events, Redpanda routing, Schema Registry encoding,
+  consumer/dead-letter flow, Chronicle journaling, startup recovery, restart
+  recovery coverage, and deterministic archive object naming.
+- CI security gates and local quality gates.
+
+The bot is not professional-execution-ready until these gaps are closed:
+
+- No risk-gated execution state machine yet.
+- No idempotent order-command lifecycle from strategy signal through exchange
+  result, user-stream execution report, reconciliation, and final position
+  state.
+- No account/position synchronization projection.
+- No PostgreSQL/TimescaleDB projection store.
+- No GCS uploader/archive worker; only the object layout exists.
+- No market-data/user-data WebSocket payload mapping into Avro events.
+- No LFA strategy lifecycle, feature calculations, or signal tests.
+- No deterministic backtest runtime.
+- No production secrets integration, metrics, alerts, deployment manifests, or
+  runbooks.
+
+Each future phase should close one of these gaps without weakening the already
+established safety boundaries.
+
+## Binance Documentation Parity Review
+
+Source-of-truth docs checked during this review:
+
+- Spot REST API:
+  `https://developers.binance.com/docs/binance-spot-api-docs/rest-api`
+- Spot user data stream:
+  `https://developers.binance.com/docs/binance-spot-api-docs/user-data-stream`
+- Margin new order:
+  `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-Order`
+- USD-M futures new order:
+  `https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Order`
+- COIN-M futures new order:
+  `https://developers.binance.com/docs/derivatives/coin-margined-futures/trade/rest-api/New-Order`
+- USD-M and COIN-M futures listen-key keepalive/close pages under
+  `https://developers.binance.com/docs/derivatives/.../user-data-streams/`
+
+Implemented Binance foundations:
+
+- Product family modeling for Spot, Cross Margin, Isolated Margin, USD-M
+  Futures, COIN-M Futures, and Options.
+- HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
+- Timestamp/recvWindow handling, server-time offset, and deterministic
+  signature payload construction.
+- `exchangeInfo` fetch/parse for symbol metadata, filters, rate limits, order
+  types, time-in-force, trigger protection, and precision fields.
+- Basic order create/query/open/cancel endpoints.
+- REST rate-limit header observation.
+- User-data listen-key/listen-token lifecycle where configured.
+- Public WebSocket stream URI planning and reconnect/rollover policy.
+
+Binance parity gaps to close before claiming full connector support:
+
+- Spot: implement cancel-replace, amend-keep-priority, OCO/OTO/OTOCO/OPO/OPOCO,
+  SOR, all-orders, trade list, prevented matches, commission rates, and
+  WebSocket API order placement.
+- Spot: add pegged-order request fields to `BinanceOrderCommand` and request
+  construction, or set `supports_pegged_orders=false` until implemented.
+- Margin: add `sideEffectType`, `autoRepayAtCancel`, borrow/repay, transfers,
+  margin order lists, margin account/risk endpoints, and special low-latency
+  key workflows.
+- Futures: add `workingType`, `priceProtect`, leverage/margin-type/position
+  mode management, batch orders, modify order, cancel-all/countdown cancel-all,
+  account snapshots, position risk, funding/income, liquidation, ADL, and
+  portfolio-margin boundaries.
+- Options: verify current `/eapi` coverage against current Binance options
+  documentation before enabling real options trading; keep it disabled unless
+  order, MMP, account, and stream semantics are fully tested.
+- All products: map user-data and market-data stream events into core Avro
+  events and reconcile them against REST snapshots.
+- All products: enforce exchange filters in risk/execution before order
+  submission; do not rely on Binance rejections as validation.
 
 ## Target Stack
 
@@ -108,6 +203,7 @@ Deliver:
 - Rate-limit header tracking.
 - User-data stream create/keepalive/close.
 - WebSocket connect/reconnect and 24-hour rollover policy.
+- Documentation parity register for every enabled Binance product family.
 
 Tests:
 
@@ -120,6 +216,45 @@ Gate:
 
 - Binance demo metadata loads.
 - User-data lifecycle works against demo credentials when enabled.
+- Connector capability flags do not claim request fields that are not actually
+  present in command validation and request construction.
+
+## Phase 2A: Binance Connector Parity Hardening
+
+Commit:
+
+```text
+feat(exchange-binance): close documented Binance capability gaps
+```
+
+Deliver:
+
+- Spot cancel-replace, amend-keep-priority, order-list, SOR, all-orders,
+  account-trade, prevented-match, and commission-rate clients where needed by
+  execution/reconciliation.
+- Spot pegged-order command fields and request construction, or disable the
+  capability flag until implemented.
+- Margin `sideEffectType`, `autoRepayAtCancel`, borrow/repay, transfer, order
+  list, and margin account/risk endpoints.
+- Futures `workingType`, `priceProtect`, leverage, margin type, position mode,
+  batch/modify/cancel-all/countdown-cancel-all, position-risk, funding/income,
+  liquidation, and ADL endpoint support.
+- User-data and market-data WebSocket payload mappers to core Avro events.
+- REST snapshot reconciliation clients for account, balances, open orders,
+  positions, and recent trades.
+
+Tests:
+
+- Request-factory tests for every documented parameter combination.
+- Fixture parser tests for user-data and market-data stream payloads.
+- Reconciliation tests for REST snapshot plus user-stream event ordering.
+- Demo smoke tests remain opt-in and must refuse real targets.
+
+Gate:
+
+- Every enabled Binance market type has a parity matrix showing implemented,
+  deliberately disabled, and unsupported-by-product features.
+- No execution feature depends on undocumented behavior.
 
 ## Phase 3: Trading Event Model
 
@@ -183,6 +318,10 @@ Deliver:
 - PostgreSQL/TimescaleDB projection store.
 - GCS archive layout.
 - Recovery process from journal and Redpanda.
+- Archive uploader worker that reads journaled events and writes outside the
+  hot path.
+- Projection handlers that rebuild account, order, position, risk, config, and
+  strategy views from events.
 
 Tests:
 
@@ -193,6 +332,7 @@ Gate:
 
 - Runtime state can be rebuilt after restart.
 - Hot-path trading decisions do not block on database writes.
+- GCS/database outages do not block journal append or exchange execution.
 
 ## Phase 6: Risk And Execution Core
 
@@ -211,6 +351,10 @@ Deliver:
 - Cancel/replace handling.
 - Reduce-only emergency path.
 - Position/account synchronization.
+- Exchange filter enforcement using parsed `exchangeInfo` metadata.
+- Protective order placement and verification.
+- Explicit order state machine covering pending, accepted, partially filled,
+  filled, canceled, rejected, expired, unknown, and reconciled states.
 
 Tests:
 
@@ -222,6 +366,7 @@ Gate:
 
 - Every order is traceable from strategy signal to exchange/account state.
 - Unknown exchange status cannot cause blind duplicate orders.
+- No strategy can bypass risk, idempotency, or reconciliation.
 
 ## Phase 7: Strategy Plugin Boundary
 

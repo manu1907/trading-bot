@@ -1,459 +1,1495 @@
-Here is a concrete research spec for the strategy.
+Below is a **complete capital- and venue-agnostic strategy specification** built from the stronger version we discussed.
 
-## LFA: Liquidation Fragility Anticipator
+Important caveat: no strategy is “highly profitable” by design alone. This is a **high-profitability candidate**. It becomes real only if it passes backtest and/or live execution validation. Your original LFA concept is valuable because it uses crowding, mark/oracle premium, OI, book fragility, and forced-flow triggers rather than only price/volume.  This version puts that inside a broader professional trading framework.
 
-**Objective:** capture **5 to 90 minute** directional moves caused by one-sided forced unwinds in perpetual futures.
+# Strategy: ARF-LFA
 
-The design principle is simple: in perps, the important state variables are not just price and volume, but **mark/oracle premium, funding, open interest, and book fragility**, because liquidation and funding are tied to mark/oracle mechanics rather than raw last trade. Hyperliquid’s oracle and mark update about every 3 seconds and mark is used for liquidations; dYdX funding is built from hourly averages of impact-price premiums; Binance also liquidates on mark price and ties margin risk to maintenance-margin tiers. The fragility piece is inspired by the recent SaR framework, which explicitly treats order-book microstructure as a forward-looking stress signal. ([Hyperliquid Docs][1])
+## Adaptive Regime-Flow Liquidation and Trend Strategy - Liquidation Fragility Anticipator
 
-### 1. Tradable universe
+Core idea:
 
-Trade top liquid cryptocurrencies. in what follows, we'll take
+```text
+Trade only liquid instruments where market regime, relative strength, flow, positioning,
+costs, and execution quality align.
 
-* BTC perp
-* ETH perp
-
-as examples, but the strategy is valid for top liquid cryptocurrencies.
-
-### 2. Required data
-
-Decision frequency: **1 minute**
-Microstructure frequency: **5-second or 1-second book snapshots** if available
-
-At each time ( t ), collect:
-
-* ( M_t ): mark price
-* ( O_t ): oracle or index price
-* ( mid_t ): mid price
-* ( F_t ): current or predicted funding rate
-* ( OI_t ): open interest
-* top-(N) order book on both sides
-* aggressive buy and sell notional over the last minute
-* realized volatility / ATR from mark price
-
-Optional:
-
-* exchange-tagged **USDT net inflow** for BTC and ETH
-* exchange-tagged **ETH net inflow** for ETH
-
-That optional on-chain filter is worth testing because a 2025 revision of the intraday on-chain-flows paper found that **USDT net inflows into exchanges positively predict BTC and ETH returns**, while **ETH net inflows negatively predict ETH returns** at intraday horizons. ([arXiv][2])
+Use trend/relative strength as the main profit engine.
+Use liquidation/fragility signals as timing and conviction.
+Use dynamic risk, breakeven/replacement logic, partial exits, and trailing stops
+to protect capital and let winners run.
+```
 
 ---
 
-## 3. Core feature set
+# 1. Strategy objective
 
-### 3.1 Premium
+The strategy aims to capture:
 
-Use mark-oracle premium, not raw last-price premium:
+```text
+1. Trend continuation after confirmed regime alignment.
+2. Breakouts in the strongest liquid instruments.
+3. Liquidation-driven squeezes/cascades when positioning is crowded.
+4. Funding/basis distortions when they improve expected return.
+```
 
-[
-prem_t = \frac{M_t - O_t}{O_t}
-]
+It can trade:
 
-This is the cleanest common state variable across venues.
+```text
+spot
+perpetual futures
+dated futures
+margin spot, only if borrow cost and borrow availability are modeled
+```
 
-### 3.2 Crowding scores
+It is **capital-agnostic** because position sizing is based on:
 
-The goal is to estimate whether the market is crowded **long** or crowded **short**.
+```text
+equity
+risk percentage
+stop distance
+fees
+spread
+slippage
+funding/borrow cost
+book depth
+portfolio correlation
+```
 
-Let:
-[
-\Delta OI_{30m,t} = \ln(OI_t) - \ln(OI_{t-30m})
-]
-
-Let ( z(x_t) ) be a rolling z-score using a **7-day lookback**.
-
-**Long-crowding score**:
-[
-C^{long}*t = 0.45 , z(F_t) + 0.35 , z(\Delta OI*{30m,t}) + 0.20 , z(prem_t)
-]
-
-Interpretation: positive funding, rising OI, and positive premium suggest crowded longs.
-
-**Short-crowding score**:
-[
-C^{short}*t = 0.45 , z(-F_t) + 0.35 , z(\Delta OI*{30m,t}) + 0.20 , z(-prem_t)
-]
-
-Interpretation: negative funding, rising OI, and negative premium suggest crowded shorts.
-
----
-
-## 4. Fragility scores
-
-This is the heart of the model.
-
-Define a hypothetical liquidation packet size:
-[
-Q_t = 3 \times \text{median}_{24h}(\text{1-minute aggressive notional})
-]
-
-Now walk the book to estimate the average execution price for a buy or sell of size ( Q_t ).
-
-Buy-side slippage:
-[
-slip^{buy}_t(Q_t) = \frac{\bar p^{ask}_t(Q_t) - mid_t}{mid_t}
-]
-
-Sell-side slippage:
-[
-slip^{sell}_t(Q_t) = \frac{mid_t - \bar p^{bid}_t(Q_t)}{mid_t}
-]
-
-Now add a concentration penalty. For the levels required to fill ( Q_t ):
-
-[
-HHI^{ask}_t = \sum_i w_i^2, \quad
-w_i = \frac{q^{ask}_i}{\sum_j q^{ask}_j}
-]
-
-[
-HHI^{bid}_t = \sum_i w_i^2, \quad
-w_i = \frac{q^{bid}_i}{\sum_j q^{bid}_j}
-]
-
-Then define:
-
-**Upward fragility**
-This is the vulnerability of shorts, because forced short covers must buy into asks:
-[
-Frag^{up}_t = z(slip^{buy}_t(Q_t)) + 0.5 , z(HHI^{ask}_t)
-]
-
-**Downward fragility**
-This is the vulnerability of longs, because forced long liquidations must sell into bids:
-[
-Frag^{down}_t = z(slip^{sell}_t(Q_t)) + 0.5 , z(HHI^{bid}_t)
-]
-
-This is a simplified, backtestable version of the forward-looking microstructure idea behind SaR and its concentration adjustment. ([arXiv][3])
+It is **venue-agnostic** because all venue-specific assumptions are configurable.
 
 ---
 
-## 5. Trigger scores
+# 2. Strategy hierarchy
 
-Crowding plus fragility is not enough. That gets you “good idea, bad timing.”
+The strategy has five layers:
 
-You need a **trigger** that says the unwind may be starting now.
+```text
+Layer 1: Market regime
+Layer 2: Instrument selection
+Layer 3: Setup detection
+Layer 4: Execution and risk sizing
+Layer 5: Position management and replacement
+```
 
-Define 5-minute oracle return:
-[
-r^{oracle}*{5m,t} = \ln\left(\frac{O_t}{O*{t-5m}}\right)
-]
+The hierarchy matters.
 
-Define premium change:
-[
-\Delta prem_{5m,t} = prem_t - prem_{t-5m}
-]
-
-Define 1-minute order-flow imbalance:
-[
-OFI_t = \frac{AggBuyNotional_t - AggSellNotional_t}{AggBuyNotional_t + AggSellNotional_t}
-]
-
-Then:
-
-**Long trigger**:
-[
-T^{L}*t = 0.50 , z(r^{oracle}*{5m,t}) + 0.30 , z(\Delta prem_{5m,t}) + 0.20 , z(OFI_t)
-]
-
-**Short trigger**:
-[
-T^{S}*t = 0.50 , z(-r^{oracle}*{5m,t}) + 0.30 , z(-\Delta prem_{5m,t}) + 0.20 , z(-OFI_t)
-]
-
-Optional on-chain filters:
-
-For BTC or ETH longs:
-[
-USDTFlow_t = z(\text{USDT net inflow to exchanges over 1h})
-]
-
-For ETH shorts:
-[
-ETHFlow_t = z(\text{ETH net inflow to exchanges over 1h})
-]
-
-Use them only as filters:
-
-* require ( USDTFlow_t > 0 ) for longs
-* require ( ETHFlow_t > 0 ) for ETH shorts
-
-That matches the documented sign of the intraday predictive results without letting the on-chain data dominate the system. ([arXiv][2])
+You do **not** enter because one indicator fires.
+You enter only when the full stack agrees.
 
 ---
 
-## 6. Composite scores
+# 3. Tradable universe
 
-### Long setup
+## 3.1 Eligible instruments
 
-This is a bet on a **short squeeze**.
+An instrument is eligible only if it passes all liquidity filters.
 
-[
-Score^{L}_t = 0.45 , C^{short}_t + 0.35 , Frag^{up}_t + 0.20 , T^{L}_t
-]
+```text
+Minimum 30d average volume: configurable
+Minimum open interest for derivatives: configurable
+Maximum spread: configurable
+Minimum executable depth: configurable
+Minimum data quality: required
+No delisting/migration/abnormal maintenance risk
+No unstable borrow conditions for margin shorting
+```
 
-### Short setup
+Default eligible categories:
 
-This is a bet on a **long liquidation cascade**.
+```text
+Tier 1: BTC, ETH
+Tier 2: SOL, BNB, XRP, DOGE, LINK, ADA, AVAX, SUI, NEAR, LTC, BCH
+Tier 3: other instruments only if liquidity, depth, spread, and slippage qualify
+```
 
-[
-Score^{S}_t = 0.45 , C^{long}_t + 0.35 , Frag^{down}_t + 0.20 , T^{S}_t
-]
+But the system should never hardcode coins. It should select dynamically.
 
----
+## 3.2 Liquidity score
 
-## 7. Entry rules
+Each instrument receives:
 
-Enter **long** at time ( t+1 ) if all are true:
+```text
+LiquidityScore =
+0.30 * normalized_quote_volume
++ 0.25 * normalized_order_book_depth
++ 0.20 * normalized_open_interest
++ 0.15 * inverse_spread_score
++ 0.10 * inverse_slippage_score
+```
 
-[
-C^{short}_t \ge 1.5
-]
-[
-Frag^{up}_t \ge 1.0
-]
-[
-T^{L}_t \ge 0.5
-]
-[
-Score^{L}_t \ge 1.25
-]
+Eligible only if:
 
-Optional:
-[
-USDTFlow_t > 0
-]
+```text
+LiquidityScore >= 70 / 100
+```
 
-Enter **short** at time ( t+1 ) if all are true:
+For small capital, require:
 
-[
-C^{long}_t \ge 1.5
-]
-[
-Frag^{down}_t \ge 1.0
-]
-[
-T^{S}_t \ge 0.5
-]
-[
-Score^{S}_t \ge 1.25
-]
+```text
+LiquidityScore >= 80 / 100
+```
 
-Optional for ETH:
-[
-ETHFlow_t > 0
-]
+For large capital, require:
 
-No entry if both sides trigger at once.
+```text
+LiquidityScore >= 90 / 100
+```
+
+because larger size creates more market impact.
 
 ---
 
-## 8. Position sizing and leverage
+# 4. Capital tiers
 
-This strategy should be traded with **boring leverage**.
+The same strategy should behave differently at different account sizes.
 
-Use isolated margin and size from stop distance, because both Hyperliquid and Binance risk mechanics are mark-price-driven, and Binance liquidation is explicitly tied to maintenance margin and mark price. ([Hyperliquid Docs][1])
+|          Tier |     Equity | Max positions |  Risk/trade | Max gross exposure | Notes                   |
+| ------------: | ---------: | ------------: | ----------: | -----------------: | ----------------------- |
+|         Micro |      <$10k |             1 | 0.20%–0.40% |          1.0x–1.5x | Avoid overtrading       |
+|         Small |  $10k–$50k |           1–2 | 0.25%–0.50% |          1.5x–2.0x | Best practical range    |
+|        Medium | $50k–$250k |           2–3 | 0.25%–0.60% |          2.0x–2.5x | Add portfolio controls  |
+|         Large |  $250k–$1m |           3–5 | 0.20%–0.50% |               2.5x | Execution matters more  |
+| Institutional |       $1m+ |       dynamic | 0.10%–0.40% |    venue-dependent | Slippage/depth dominate |
 
-Define stop distance:
+Default risk:
 
-For longs:
-[
-stop_pct_t = \max\left(1.5 \cdot ATR_{5m,36}/M_t,; 1.25 \cdot slip^{buy}_t(Q_t),; 0.35%\right)
-]
+```text
+Base risk per trade: 0.35%
+Strong setup: 0.50%
+Exceptional setup: 0.75%
+Maximum allowed: 1.00%, only after proven live edge
+```
 
-For shorts:
-[
-stop_pct_t = \max\left(1.5 \cdot ATR_{5m,36}/M_t,; 1.25 \cdot slip^{sell}_t(Q_t),; 0.35%\right)
-]
+For most traders, especially small accounts, the practical maximum should be:
 
-Risk per trade:
-[
-r = 0.35% \text{ of equity}
-]
-
-Position notional:
-[
-N_t = \frac{Equity_t \cdot r}{stop_pct_t + fee_pct + impact_pct}
-]
-
-Hard caps:
-
-* effective leverage ( \le 2.5x )
-* liquidation distance from entry ( \ge 3 \times stop_pct_t )
-* max one live position per asset
+```text
+0.50% per trade
+```
 
 ---
 
-## 9. Exit rules
+# 5. Market regime model
 
-Use **mark price** for stop logic.
+The strategy trades only when the market regime allows it.
 
-For a long:
+## 5.1 Regime states
 
-1. Initial stop at
-   [
-   EntryPrice \cdot (1 - stop_pct_t)
-   ]
+```text
+Bull trend
+Bear trend
+Range/chop
+Volatility expansion
+Volatility compression
+Liquidation regime
+News/event risk regime
+```
 
-2. Take off **33%** at ( +1.25R )
+## 5.2 Regime score
 
-3. Move stop to breakeven once price reaches ( +1.0R )
+```text
+RegimeScore =
+0.25 * BTC trend score
++ 0.20 * ETH trend score
++ 0.15 * market breadth
++ 0.15 * volatility expansion
++ 0.10 * funding dispersion
++ 0.10 * OI expansion / flush state
++ 0.05 * stablecoin / liquidity proxy if available
+```
 
-4. Exit the rest on the first of:
-   [
-   Score^{L}*t < 0.25
-   ]
-   or
-   [
-   prem_t \text{ has mean-reverted by 70% from its post-entry extreme}
-   ]
-   or
-   [
-   1.0 \cdot ATR*{5m,12} \text{ trailing stop is hit}
-   ]
-   or
-   [
-   90 \text{ minutes have elapsed}
-   ]
+## 5.3 Trading permissions
 
-Mirror for shorts.
+```text
+If BullTrend:
+    allow longs, allow only exceptional shorts
 
-This makes it an **event strategy**, not a swing strategy.
+If BearTrend:
+    allow shorts, allow only exceptional longs
 
----
+If Range:
+    allow mean-reversion only if costs are low
+    otherwise skip
 
-## 10. Backtest protocol
+If VolatilityExpansion:
+    allow breakout and liquidation trades
 
-Use a strict walk-forward design.
+If VolatilityCompression:
+    reduce size or skip unless breakout is confirmed
 
-### Sample
+If News/EventRisk:
+    reduce size, widen stops, or disable new entries
+```
 
-At least **18 months** of minute data if possible.
+Default rule:
 
-### Split
-
-* train: 60 days
-* test: 30 days
-* roll forward by 30 days
-
-### Execution assumptions
-
-At entry:
-
-* fill at next-minute mid plus modeled half-spread plus book-walk impact
-
-At stop:
-
-* stop triggers on **mark price**
-* fill at the worse of stop price or next-minute executable book-walk price
-
-### Costs
-
-Include:
-
-* taker or maker fees
-* modeled slippage
-* funding accrual if the position crosses a funding event
-
-That matters because venue funding mechanics differ: Hyperliquid computes an 8-hour rate but pays hourly at one-eighth, dYdX funds hourly from the prior hour’s premium samples, and Binance funding uses its own premium-and-interest formula and interval schedule. ([help.dydx.trade][4])
-
-### Metrics
-
-Track:
-
-* net Sharpe
-* Sortino
-* max drawdown
-* hit rate
-* average win / average loss
-* turnover
-* PnL by hour of day
-* PnL by funding-sign regime
-* PnL by volatility quintile
-
-### Required stress tests
-
-Run all of these:
-
-* add 1-minute latency
-* double fees
-* double slippage
-* remove top 10 winning trades
-* stale the order book by 5 seconds
-* shift all entries one bar later
-
-If the edge disappears under mild friction, it is not real.
+```text
+No trade unless RegimeScore supports the direction.
+```
 
 ---
 
-## 11. First ablations to run
+# 6. Instrument selection
 
-Run these in order:
+Every decision cycle, rank instruments.
 
-1. **Trigger only**
-2. **Crowding only**
-3. **Crowding + trigger**
-4. **Crowding + fragility**
-5. **Full model**
-6. **Full model + on-chain filter**
+## 6.1 Relative strength score
 
-That tells you whether the true edge is coming from:
+For each instrument:
 
-* funding/OI crowding,
-* order-book fragility,
-* or simply short-horizon momentum.
+```text
+RelativeStrengthScore =
+0.25 * return_vs_BTC
++ 0.20 * return_vs_ETH
++ 0.20 * trend_quality
++ 0.15 * volume_expansion
++ 0.10 * OI_confirmation
++ 0.10 * pullback_resilience
+```
+
+## 6.2 Long candidates
+
+Prefer instruments that are:
+
+```text
+outperforming BTC
+outperforming ETH
+above VWAP
+above higher-timeframe trend filter
+showing volume expansion
+not excessively expensive after funding/fees
+```
+
+## 6.3 Short candidates
+
+Prefer instruments that are:
+
+```text
+underperforming BTC
+underperforming ETH
+below VWAP
+below higher-timeframe trend filter
+showing sell-flow acceleration
+not already overextended into major support
+not paying punitive negative funding
+```
+
+## 6.4 Cross-sectional rank
+
+Trade only:
+
+```text
+rank <= 1 for micro accounts
+rank <= 2 for small accounts
+rank <= 3 for medium accounts
+rank <= 5 for large accounts
+```
+
+This prevents mediocre correlated trades.
 
 ---
 
-## 12. Optional cross-venue execution overlay
+# 7. Setup engine
 
-Only add this after the single-venue version works.
+The strategy has three setup families.
 
-Because Hyperliquid, dYdX, and Binance define mark/funding/premium differently, compare venues only after **within-venue normalization**. Hyperliquid’s mark is a median across oracle/internal/external inputs, dYdX premium uses impact prices, and Binance mark is a median of multiple fair-value proxies. ([Hyperliquid Docs][1])
+## 7.1 Trend continuation setup
 
-For venue ( v ):
-[
-NP_{v,t} = z_v\left(\frac{M_{v,t} - O_{v,t}}{O_{v,t}}\right)
-]
+Long:
 
-Then:
+```text
+Regime is bullish or neutral-positive
+Instrument ranks in top relative strength bucket
+Price above 1h VWAP
+Price above 4h trend filter
+Pullback holds above structure
+Volume expands on reclaim
+Funding not hostile
+Expected move >= 3x all-in cost
+```
 
-* for longs, prefer the venue with the **lowest** ( NP_{v,t} - executionCost_{v,t} )
-* for shorts, prefer the venue with the **highest** ( NP_{v,t} - executionCost_{v,t} )
+Short:
 
-That keeps the trigger model directional, while the venue choice becomes an execution edge.
+```text
+Regime is bearish or neutral-negative
+Instrument ranks in bottom relative strength bucket
+Price below 1h VWAP
+Price below 4h trend filter
+Bounce fails below structure
+Sell volume expands
+Funding not hostile
+Expected move >= 3x all-in cost
+```
+
+## 7.2 Breakout setup
+
+Long:
+
+```text
+Price compresses near range high
+Volatility compression precedes breakout
+Volume expands on breakout
+CVD confirms
+BTC/ETH regime does not conflict
+Order book does not show severe spoof risk
+```
+
+Short:
+
+```text
+Price compresses near range low
+Volatility compression precedes breakdown
+Sell volume expands on breakdown
+CVD confirms
+BTC/ETH regime does not conflict
+Order book does not show severe spoof risk
+```
+
+## 7.3 Liquidation/fragility setup
+
+This is where your original LFA concept enters.
+
+Long squeeze:
+
+```text
+Short crowding elevated
+Short liquidation pressure elevated
+Ask-side book fragile
+Aggressive buy flow accelerating
+Mark/index premium expanding
+Relative strength improving
+```
+
+Long liquidation short:
+
+```text
+Long crowding elevated
+Long liquidation pressure elevated
+Bid-side book fragile
+Aggressive sell flow accelerating
+Mark/index premium compressing
+Relative weakness increasing
+```
+
+The original LFA used crowding, fragility, trigger, and composite score thresholds. Keep that idea, but use it as part of a broader system rather than the only entry engine.
 
 ---
 
-## 13. The simplest production candidate
+# 8. Opportunity score
 
-If you want the tightest first version, start here:
+Each potential trade receives a unified score.
 
-* BTC and ETH only
-* one venue only
-* no on-chain filter
-* no cross-venue overlay
-* 1-minute decisions
-* 5-second book snapshots
-* core signals only:
+## 8.1 Long opportunity
 
-  * ( C^{long/short} )
-  * ( Frag^{up/down} )
-  * ( T^{L/S} )
+```text
+LongOpportunityScore =
+0.25 * RegimeAlignment
++ 0.20 * RelativeStrength
++ 0.15 * BreakoutOrTrendQuality
++ 0.15 * FlowConfirmation
++ 0.10 * LiquidationSqueezePotential
++ 0.10 * NetExpectedReturnAfterCosts
++ 0.05 * PortfolioFit
+```
 
-That is the minimum viable version.
+## 8.2 Short opportunity
 
-The full hypothesis is:
+```text
+ShortOpportunityScore =
+0.25 * RegimeAlignment
++ 0.20 * RelativeWeakness
++ 0.15 * BreakdownOrTrendQuality
++ 0.15 * FlowConfirmation
++ 0.10 * LongLiquidationPotential
++ 0.10 * NetExpectedReturnAfterCosts
++ 0.05 * PortfolioFit
+```
 
-**Crowded side + fragile book on the forced-flow side + early directional trigger = imminent liquidation cascade.**
+## 8.3 Required thresholds
 
-That is specific enough to backtest honestly and simple enough to kill quickly if it does not work.
+Default:
 
-I can turn this next into either **Python-style pseudocode** or a **column-by-column feature schema for a backtest dataset**.
+```text
+Minimum trade score: 75 / 100
+Strong trade score: 85 / 100
+Exceptional trade score: 92 / 100
+```
 
-[1]: https://hyperliquid.gitbook.io/hyperliquid-docs/trading/robust-price-indices "Robust price indices | Hyperliquid Docs"
-[2]: https://arxiv.org/abs/2411.06327 "[2411.06327] Return and Volatility Forecasting Using On-Chain Flows in Cryptocurrency Markets"
-[3]: https://arxiv.org/abs/2603.09164 "[2603.09164] Slippage-at-Risk (SaR): A Forward-Looking Liquidity Risk Framework for Perpetual Futures Exchanges"
-[4]: https://help.dydx.trade/en/articles/166992-default-funding-rates-on-dydx "Default funding rates on dYdX | dYdX Help Center"
+Risk tier:
+
+```text
+75–84 score: 0.25% risk
+85–91 score: 0.35%–0.50% risk
+92+ score: 0.50%–0.75% risk
+```
+
+---
+
+# 9. Cost model
+
+No trade is allowed unless expected return covers friction.
+
+## 9.1 All-in cost
+
+```text
+AllInCost =
+entry fee
++ exit fee
++ entry spread
++ exit spread
++ expected entry slippage
++ expected exit slippage
++ adverse selection penalty
++ funding cost
++ borrow cost
++ gas/transfer cost if relevant
+```
+
+## 9.2 Entry permission
+
+Default:
+
+```text
+ExpectedMove >= 3.0 * AllInCost
+```
+
+For taker-heavy trades:
+
+```text
+ExpectedMove >= 4.0 * AllInCost
+```
+
+For liquidation/cascade trades:
+
+```text
+ExpectedMove >= 5.0 * AllInCost
+```
+
+because these trades are fast, competitive, and slippage-prone.
+
+---
+
+# 10. Maker versus taker logic
+
+## 10.1 Default execution rules
+
+| Signal quality           | Entry mode                                      | Exit mode                  |
+| ------------------------ | ----------------------------------------------- | -------------------------- |
+| Weak                     | No trade                                        | No trade                   |
+| Valid but not urgent     | Maker / post-only                               | Mixed                      |
+| Strong                   | Maker if fill probability high, otherwise taker | Taker stop, maker partials |
+| Exceptional live cascade | Taker / IOC                                     | Taker stop, trailing exit  |
+
+## 10.2 Maker is preferred when
+
+```text
+signal decay is slow
+spread is meaningful
+fill probability is high
+price is pulling back into desired zone
+missing the trade is acceptable
+```
+
+## 10.3 Taker is preferred when
+
+```text
+breakout is already accelerating
+liquidation cascade is live
+book is being depleted in trade direction
+waiting for maker fill would destroy edge
+```
+
+## 10.4 Skip trade when
+
+```text
+maker fill probability is low
+taker cost is too high
+expected move does not clear cost threshold
+```
+
+---
+
+# 11. Position sizing
+
+## 11.1 Risk-based notional
+
+```text
+RiskDollars = Equity * RiskPct
+
+PositionNotional =
+RiskDollars / (StopPct + EstimatedExitSlippagePct + EmergencyCostPct)
+```
+
+## 11.2 Depth cap
+
+```text
+PositionNotional <= DepthParticipationLimit * ExecutableDepth
+```
+
+Defaults:
+
+```text
+BTC/ETH depth participation max: 20%
+Large alts: 10%
+Smaller alts: 5%
+```
+
+## 11.3 Leverage cap
+
+```text
+EffectiveLeverage <= MaxLeverageByTier
+```
+
+Defaults:
+
+```text
+Micro: 1.5x
+Small: 2.0x
+Medium: 2.5x
+Large: venue/depth dependent
+```
+
+## 11.4 Portfolio cap
+
+```text
+TotalOpenRisk <= 1.5% of equity
+SameDirectionCorrelatedRisk <= 1.0% of equity
+DailyLossLimit <= 1.5% to 2.0%
+WeeklyLossLimit <= 4.0%
+MonthlyLossLimit <= 8.0%
+```
+
+---
+
+# 12. Stop-loss design
+
+There is no universal “best” stop. The best stop is the one that matches volatility, structure, liquidity, and invalidation.
+
+Use the maximum of several stop types.
+
+## 12.1 Long initial stop
+
+```text
+LongStopPct =
+max(
+ATRStopPct,
+StructureStopPct,
+LiquidityStopPct,
+MinimumStopPct
+)
+```
+
+Where:
+
+```text
+ATRStopPct = ATR_15m_14 * ATRMultiplier / entry_price
+
+StructureStopPct =
+(entry_price - invalidation_level) / entry_price
+
+LiquidityStopPct =
+1.25 * expected_adverse_slippage
+
+MinimumStopPct =
+asset_class_minimum
+```
+
+## 12.2 Short initial stop
+
+```text
+ShortStopPct =
+max(
+ATRStopPct,
+StructureStopPct,
+LiquidityStopPct,
+MinimumStopPct
+)
+```
+
+Where:
+
+```text
+StructureStopPct =
+(invalidation_level - entry_price) / entry_price
+```
+
+## 12.3 Default stop parameters
+
+| Instrument type   | Minimum stop | ATR multiplier |
+| ----------------- | -----------: | -------------: |
+| BTC/ETH           |        0.35% |       1.2–1.6x |
+| Large liquid alts |        0.50% |       1.5–2.0x |
+| High-beta alts    |        0.75% |       1.8–2.5x |
+| Spot swing trades |  1.50%–3.00% |       2.0–3.0x |
+
+## 12.4 Hard invalidation
+
+Exit immediately if:
+
+```text
+trend thesis breaks
+BTC/ETH regime flips hard against position
+CVD reverses sharply
+breakout fails back into range
+liquidation pressure disappears
+funding/basis flips strongly adverse
+book refills against trade
+data feed becomes stale
+venue risk appears
+```
+
+This is important: a professional strategy does not always wait for the hard stop. If the reason for the trade is gone, exit.
+
+---
+
+# 13. Take-profit model
+
+The strategy uses two exit modes:
+
+```text
+Normal mode
+Runner mode
+```
+
+## 13.1 Normal mode
+
+Use when the trade is valid but not accelerating.
+
+```text
+At +1.5R: take 25% off
+At +2.5R: take another 25% off
+Remaining 50% trails
+```
+
+Stop management:
+
+```text
+At +1.0R: reduce risk by 50%
+At +1.5R: move stop to breakeven plus fees
+At +2.5R: trail remaining position
+```
+
+## 13.2 Runner mode
+
+Use when the trade becomes a strong trend or liquidation cascade.
+
+Runner mode activates when:
+
+```text
+unrealized PnL >= +2R
+price structure remains clean
+volume confirms
+CVD confirms
+relative strength/weakness persists
+no major regime conflict
+```
+
+Runner exit:
+
+```text
+At +2R: take 15% off
+At +3R: take 15% off
+At +5R: take 20% off
+Remaining 50% trails until trend failure
+```
+
+This prevents cutting the biggest winners too early.
+
+## 13.3 No fixed final take-profit
+
+Do **not** fully exit just because a target is hit.
+
+Full exit happens when:
+
+```text
+trailing stop is hit
+trend filter flips
+position replacement rule triggers
+regime changes
+liquidity/cost conditions deteriorate
+signal score collapses
+```
+
+---
+
+# 14. Trailing stop model
+
+Use an adaptive trailing stop.
+
+## 14.1 Long trailing stop
+
+```text
+LongTrail =
+highest_price_since_entry
+-
+max(
+ATR_Trail_Multiplier * ATR,
+StructureTrailDistance,
+LiquidityTrailDistance,
+MinimumTrailDistance
+)
+```
+
+## 14.2 Short trailing stop
+
+```text
+ShortTrail =
+lowest_price_since_entry
++
+max(
+ATR_Trail_Multiplier * ATR,
+StructureTrailDistance,
+LiquidityTrailDistance,
+MinimumTrailDistance
+)
+```
+
+## 14.3 Trail multiplier by regime
+
+| Regime              | ATR trail multiplier |
+| ------------------- | -------------------: |
+| Choppy              |            1.2x–1.5x |
+| Normal trend        |            1.8x–2.2x |
+| Strong trend        |            2.2x–3.0x |
+| Liquidation cascade |  1.5x–2.5x, adaptive |
+| Spot swing          |            2.5x–4.0x |
+
+## 14.4 Trail tightening
+
+Tighten trail when:
+
+```text
+volume dries up
+CVD diverges
+funding becomes extremely crowded in trade direction
+price reaches major higher-timeframe level
+BTC/ETH regime weakens
+position has exceeded expected holding time
+```
+
+## 14.5 Trail widening
+
+Widen trail when:
+
+```text
+trade is in runner mode
+trend strength is increasing
+liquidation pressure remains active
+price is moving cleanly with shallow pullbacks
+volatility expansion supports continuation
+```
+
+---
+
+# 15. Breakeven logic
+
+Breakeven must include fees and slippage.
+
+## 15.1 True breakeven price
+
+For long:
+
+```text
+TrueBreakevenLong =
+entry_price * (1 + total_round_trip_cost_pct)
+```
+
+For short:
+
+```text
+TrueBreakevenShort =
+entry_price * (1 - total_round_trip_cost_pct)
+```
+
+Do not call it breakeven unless fees, spread, and estimated exit cost are included.
+
+## 15.2 Standard breakeven trigger
+
+Move stop to true breakeven when:
+
+```text
+unrealized PnL >= +1.5R
+and
+price has held above/below entry structure
+and
+trade score has not deteriorated sharply
+```
+
+Earlier risk reduction:
+
+```text
+At +1.0R:
+    move stop to reduce open risk by 50%
+```
+
+This avoids getting wicked out too early.
+
+---
+
+# 16. Same-instrument replacement logic
+
+This addresses your specific request:
+
+> break-even a position if a more profitable one exists on the same instrument.
+
+The system should compare the current open position with new opportunities on the same instrument.
+
+## 16.1 Current position value score
+
+```text
+CurrentPositionValue =
+0.30 * RemainingExpectedMove
++ 0.20 * CurrentSignalStrength
++ 0.15 * UnrealizedPnLQuality
++ 0.15 * TrendPersistence
++ 0.10 * CostToHoldAdvantage
++ 0.10 * ExitLiquidityQuality
+```
+
+## 16.2 New opportunity value score
+
+```text
+NewOpportunityValue =
+0.30 * ExpectedMove
++ 0.20 * OpportunityScore
++ 0.15 * FreshFlowConfirmation
++ 0.15 * CostAdjustedRewardRisk
++ 0.10 * RegimeAlignment
++ 0.10 * ExecutionQuality
+```
+
+## 16.3 Replacement condition
+
+Replace or restructure only if:
+
+```text
+NewOpportunityValue - CurrentPositionValue >= ReplacementThreshold
+```
+
+Default:
+
+```text
+ReplacementThreshold = 15 points out of 100
+```
+
+and:
+
+```text
+Expected incremental profit >= 2.0 * switching cost
+```
+
+Switching cost includes:
+
+```text
+exit fee
+entry fee
+spread
+slippage
+funding impact
+missed continuation risk
+tax/accounting impact if relevant
+```
+
+## 16.4 Same direction, better setup
+
+Example: already long SOL, but a stronger long setup appears after consolidation.
+
+Action:
+
+```text
+If current position is profitable:
+    move stop to true breakeven
+    keep existing position
+    add only if new signal is exceptional
+    maximum add = 25% to 50% of original size
+```
+
+Add only if:
+
+```text
+position is already risk-free
+new signal score >= 90
+expected move >= 4x cost
+portfolio risk remains within cap
+new stop can be placed logically
+```
+
+No more than:
+
+```text
+1 add-on per position
+```
+
+## 16.5 Opposite direction, better setup
+
+Example: already long, but a high-quality short setup appears on the same instrument.
+
+Action hierarchy:
+
+```text
+1. If current position is negative:
+       exit only if long thesis is invalidated.
+       Do not reverse automatically.
+
+2. If current position is slightly positive:
+       move stop to true breakeven.
+       exit if opposite setup confirms.
+
+3. If current position is strongly positive:
+       take partial profit.
+       trail remaining aggressively.
+       reverse only if opposite score is exceptional.
+
+4. Reverse only if:
+       opposite score >= 92
+       current thesis invalidated
+       expected move >= 5x switching cost
+       regime supports reversal
+       liquidity is excellent
+```
+
+Default rule:
+
+```text
+Do not reverse directly from long to short or short to long unless the new setup is exceptional.
+```
+
+Reversals are expensive and often emotional.
+
+---
+
+# 17. Position upgrade/downgrade states
+
+Every open position has a state.
+
+```text
+State 1: New position
+State 2: Confirmed
+State 3: Risk-reduced
+State 4: Breakeven protected
+State 5: Runner
+State 6: Deteriorating
+State 7: Exit immediately
+```
+
+## 17.1 Upgrade rules
+
+```text
+New -> Confirmed:
+    trade reaches +0.75R and signal remains valid
+
+Confirmed -> Risk-reduced:
+    trade reaches +1R
+
+Risk-reduced -> Breakeven:
+    trade reaches +1.5R
+
+Breakeven -> Runner:
+    trade reaches +2R and trend/flow confirms
+```
+
+## 17.2 Downgrade rules
+
+```text
+Any state -> Deteriorating:
+    signal score drops below 60
+    regime weakens
+    flow diverges
+    volatility dries up
+
+Deteriorating -> Exit:
+    price loses key level
+    CVD flips
+    trail is hit
+    replacement logic favors exit
+```
+
+---
+
+# 18. Portfolio construction
+
+## 18.1 Max exposure
+
+```text
+Max gross exposure:
+    Micro: 1.5x
+    Small: 2.0x
+    Medium: 2.5x
+    Large: depth-based
+
+Max net directional exposure:
+    Micro: 1.0x
+    Small: 1.5x
+    Medium: 2.0x
+```
+
+## 18.2 Correlation groups
+
+Group instruments:
+
+```text
+BTC/ETH core
+High-beta L1s
+Exchange/infra coins
+Meme/high beta
+Legacy majors
+AI/gaming/narrative baskets
+Stable/rate/basis trades
+```
+
+Rules:
+
+```text
+Max one trade per correlation group for micro/small accounts.
+Max two trades per group for medium accounts.
+Total same-direction correlated risk <= 1.0% equity.
+```
+
+## 18.3 Portfolio kill switches
+
+Disable new trades if:
+
+```text
+daily drawdown <= -1.5%
+weekly drawdown <= -4.0%
+monthly drawdown <= -8.0%
+three consecutive full-stop losses occur
+venue latency is abnormal
+market spread regime is abnormal
+data integrity fails
+```
+
+---
+
+# 19. Funding, basis, and carry handling
+
+For derivatives:
+
+```text
+ExpectedCarry =
+expected_funding_received
+- expected_funding_paid
+- borrow_cost
+- basis_decay_risk
+```
+
+Directional long futures are penalized if:
+
+```text
+funding is extremely positive
+perp premium is stretched
+spot alternative is cheaper
+```
+
+Directional short futures are penalized if:
+
+```text
+funding is extremely negative
+perp discount is stretched
+short is overcrowded
+```
+
+Choose product:
+
+```text
+Use futures when:
+    need short exposure
+    liquidation signal is central
+    funding is favorable or tolerable
+    execution is strong
+
+Use spot when:
+    long-only trend is clean
+    funding is expensive
+    holding period is longer
+    liquidation risk is unnecessary
+
+Use no trade when:
+    costs destroy expected edge
+```
+
+---
+
+# 20. Timeframes
+
+Use multiple timeframes.
+
+```text
+4h / 1d: regime and major structure
+1h: trend and instrument quality
+15m: setup validation
+5m: entry timing
+1m or lower: execution and flow confirmation
+```
+
+Default:
+
+```text
+Do not enter against 1h trend unless setup is exceptional.
+Do not enter against 4h structure unless it is a liquidation mean-reversion setup.
+```
+
+---
+
+# 21. Configurable parameter block
+
+Here is a clean configuration template.
+
+```yaml
+strategy:
+  name: "ARF-LFA"
+  mode: "live_or_backtest"
+  decision_interval: "1m"
+  base_currency: "USDT"
+
+universe:
+  min_30d_quote_volume_usd: 500000000
+  min_30d_open_interest_usd: 150000000
+  max_spread_bps_major: 2
+  max_spread_bps_alt: 5
+  min_liquidity_score: 80
+  max_depth_participation_major: 0.20
+  max_depth_participation_alt: 0.10
+  allow_spot: true
+  allow_perps: true
+  allow_dated_futures: true
+  allow_margin_short: false
+
+capital:
+  equity_usd: null
+  risk_per_trade_base: 0.0035
+  risk_per_trade_low: 0.0025
+  risk_per_trade_strong: 0.0050
+  risk_per_trade_exceptional: 0.0075
+  max_risk_per_trade: 0.0100
+  max_open_risk: 0.0150
+  max_daily_loss: 0.0150
+  max_weekly_loss: 0.0400
+  max_monthly_loss: 0.0800
+  max_positions_micro: 1
+  max_positions_small: 2
+  max_positions_medium: 3
+  max_positions_large: 5
+
+leverage:
+  max_effective_leverage_micro: 1.5
+  max_effective_leverage_small: 2.0
+  max_effective_leverage_medium: 2.5
+  require_liquidation_distance_multiple_of_stop: 3.0
+
+fees_and_costs:
+  maker_fee_pct: null
+  taker_fee_pct: null
+  funding_rate_source: "venue"
+  borrow_rate_source: "venue"
+  min_expected_move_to_cost_normal: 3.0
+  min_expected_move_to_cost_taker: 4.0
+  min_expected_move_to_cost_cascade: 5.0
+  adverse_selection_penalty_bps: 2
+  emergency_slippage_buffer_bps: 5
+
+regime:
+  btc_trend_weight: 0.25
+  eth_trend_weight: 0.20
+  breadth_weight: 0.15
+  volatility_weight: 0.15
+  funding_dispersion_weight: 0.10
+  oi_state_weight: 0.10
+  liquidity_proxy_weight: 0.05
+  min_regime_alignment_score: 60
+  no_trade_during_event_risk: true
+
+relative_strength:
+  return_vs_btc_weight: 0.25
+  return_vs_eth_weight: 0.20
+  trend_quality_weight: 0.20
+  volume_expansion_weight: 0.15
+  oi_confirmation_weight: 0.10
+  pullback_resilience_weight: 0.10
+  min_long_rank_percentile: 80
+  min_short_rank_percentile: 80
+
+opportunity_score:
+  min_trade_score: 75
+  strong_trade_score: 85
+  exceptional_trade_score: 92
+  regime_alignment_weight: 0.25
+  relative_strength_weight: 0.20
+  setup_quality_weight: 0.15
+  flow_confirmation_weight: 0.15
+  liquidation_potential_weight: 0.10
+  net_expected_return_weight: 0.10
+  portfolio_fit_weight: 0.05
+
+execution:
+  default_entry_type: "maker_if_possible"
+  use_taker_for_exceptional_breakouts: true
+  use_taker_for_live_cascades: true
+  post_only_timeout_seconds: 20
+  cancel_if_signal_score_drops_below: 70
+  max_entry_slippage_bps_major: 5
+  max_entry_slippage_bps_alt: 10
+  max_exit_slippage_bps_major: 8
+  max_exit_slippage_bps_alt: 15
+
+stops:
+  atr_timeframe: "15m"
+  atr_length: 14
+  atr_multiplier_major: 1.5
+  atr_multiplier_alt: 2.0
+  atr_multiplier_high_beta: 2.5
+  min_stop_pct_major: 0.0035
+  min_stop_pct_alt: 0.0050
+  min_stop_pct_high_beta: 0.0075
+  adverse_slippage_multiplier: 1.25
+  use_structure_stop: true
+  use_liquidity_stop: true
+
+breakeven:
+  risk_reduce_at_r: 1.0
+  risk_reduce_fraction: 0.50
+  move_to_true_breakeven_at_r: 1.5
+  include_fees_in_breakeven: true
+  include_estimated_exit_slippage: true
+
+take_profit:
+  normal_tp1_r: 1.5
+  normal_tp1_fraction: 0.25
+  normal_tp2_r: 2.5
+  normal_tp2_fraction: 0.25
+  normal_runner_fraction: 0.50
+  runner_tp1_r: 2.0
+  runner_tp1_fraction: 0.15
+  runner_tp2_r: 3.0
+  runner_tp2_fraction: 0.15
+  runner_tp3_r: 5.0
+  runner_tp3_fraction: 0.20
+  runner_remaining_fraction: 0.50
+  no_fixed_final_target: true
+
+trailing_stop:
+  trail_timeframe_normal: "15m"
+  trail_timeframe_runner: "1h"
+  atr_length: 14
+  atr_mult_chop: 1.5
+  atr_mult_normal_trend: 2.0
+  atr_mult_strong_trend: 2.5
+  atr_mult_cascade: 2.0
+  atr_mult_spot_swing: 3.0
+  tighten_on_volume_decay: true
+  tighten_on_cvd_divergence: true
+  widen_in_runner_mode: true
+
+replacement:
+  enable_same_instrument_replacement: true
+  replacement_threshold_points: 15
+  min_incremental_profit_to_switching_cost: 2.0
+  allow_same_direction_add: true
+  max_add_count: 1
+  max_add_fraction_of_original: 0.50
+  require_position_risk_free_before_add: true
+  allow_direct_reversal: true
+  direct_reversal_min_score: 92
+  direct_reversal_min_expected_move_to_cost: 5.0
+
+portfolio:
+  max_correlated_open_risk: 0.0100
+  max_same_group_positions_micro: 1
+  max_same_group_positions_small: 1
+  max_same_group_positions_medium: 2
+  btc_eth_override_enabled: true
+  reduce_alt_longs_if_btc_eth_bearish: true
+  reduce_alt_shorts_if_btc_eth_bullish: true
+
+kill_switches:
+  disable_after_consecutive_full_losses: 3
+  disable_if_data_stale_seconds: 5
+  disable_if_spread_multiple_of_normal: 2.0
+  disable_if_orderbook_latency_ms_above: 1000
+  disable_if_venue_status_abnormal: true
+```
+
+---
+
+# 22. Complete entry algorithm
+
+```text
+For each decision interval:
+
+1. Update venue, fee, funding, spread, depth, and latency data.
+
+2. Build eligible universe:
+       remove illiquid instruments
+       remove high-spread instruments
+       remove stale-data instruments
+       remove instruments with abnormal venue risk
+
+3. Compute market regime:
+       BTC trend
+       ETH trend
+       market breadth
+       volatility state
+       funding dispersion
+       OI state
+
+4. Rank instruments:
+       relative strength
+       relative weakness
+       liquidity quality
+       opportunity quality
+
+5. Generate candidate setups:
+       trend continuation
+       breakout/breakdown
+       liquidation/fragility setup
+
+6. Compute opportunity score.
+
+7. Compute all-in cost.
+
+8. Require:
+       OpportunityScore >= threshold
+       ExpectedMove >= required multiple of AllInCost
+       instrument rank allowed by capital tier
+       portfolio risk limits pass
+
+9. Select execution:
+       maker if signal is strong but not urgent
+       taker if signal is exceptional and fast
+       skip if cost or fill quality is poor
+
+10. Size position:
+       risk-based size
+       depth cap
+       leverage cap
+       portfolio cap
+
+11. Place order.
+
+12. Immediately attach:
+       hard stop
+       invalidation logic
+       profit-taking rules
+       trailing stop plan
+       replacement logic
+
+13. Handle rollover and everything a high-profitable and professional strategy requires.
+```
+
+---
+
+# 23. Complete position management algorithm
+
+```text
+For each open position:
+
+1. Recalculate current position value.
+
+2. Recalculate current opportunity score.
+
+3. Recalculate replacement opportunities on the same instrument.
+
+4. If position reaches +1R:
+       reduce risk by 50%.
+
+5. If position reaches +1.5R:
+       move stop to true breakeven.
+
+6. If position reaches +2R and trend/flow confirms:
+       switch to runner mode.
+
+7. If normal mode:
+       take partials at +1.5R and +2.5R.
+       trail remaining 50%.
+
+8. If runner mode:
+       take smaller partials at +2R, +3R, +5R.
+       trail remaining 50% wider.
+
+9. If better same-direction opportunity appears:
+       move stop to breakeven.
+       add only if position is risk-free and new signal is exceptional.
+
+10. If better opposite-direction opportunity appears:
+       protect current position.
+       exit or reverse only if current thesis is invalidated and new score is exceptional.
+
+11. If signal deteriorates:
+       tighten stop or exit.
+
+12. If hard invalidation occurs:
+       exit immediately.
+```
+
+---
+
+# 24. What makes this strategy “serious”
+
+A highly serious strategy must account for:
+
+```text
+capital size
+fees
+maker/taker choice
+spread
+slippage
+funding
+borrow cost
+venue risk
+liquidity
+order-book depth
+position sizing
+correlation
+drawdown limits
+regime
+instrument ranking
+execution quality
+breakeven logic
+same-instrument replacement
+partial profits
+trailing stops
+winner-running
+kill switches
+backtest stress tests
+live performance decay
+```
+
+This specification includes all of those.
+
+---
+
+# 25. Realistic default for most traders
+
+For a smaller account, the simplified production version should be:
+
+```text
+Trade only top liquid instruments.
+Max 1–2 positions.
+Risk 0.25%–0.50% per trade.
+Use trend/relative strength as main signal.
+Use LFA/liquidation data as confirmation.
+Use maker entries unless signal is exceptional.
+Move to true breakeven at +1.5R.
+Take 25% at +1.5R.
+Take 25% at +2.5R.
+Trail remaining 50%.
+Let runner trades extend to +5R or more.
+Never trade if expected move is less than 3–4x total cost.
+Stop for the day after -1.5% to -2.0%.
+```
+
+## Final verdict
+
+The strategy you want is not a single magic entry rule. It is a **full decision system**:
+
+```text
+Regime decides whether to trade.
+Relative strength decides what to trade.
+Flow and liquidation pressure decide when to trade.
+Fees and liquidity decide whether the trade is worth taking.
+Risk model decides size.
+Breakeven and replacement logic protect capital.
+Trailing stops and runner mode create convexity.
+Portfolio rules prevent correlated blowups.
+Kill switches keep the strategy alive.
+```
+
+That is the closest thing to a complete, professional, high-profitability framework.
