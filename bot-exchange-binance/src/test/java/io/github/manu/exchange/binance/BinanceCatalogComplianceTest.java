@@ -53,6 +53,10 @@ class BinanceCatalogComplianceTest {
                     .isEqualTo("/fapi/v1/order");
             assertThat(markets.required("coinm_futures").required("trading").required("new_order_path").asString())
                     .isEqualTo("/dapi/v1/order");
+            assertThat(markets.required("usdm_futures").required("futures_account").required("portfolio_margin_expected").asBoolean())
+                    .isFalse();
+            assertThat(markets.required("coinm_futures").required("futures_account").required("portfolio_margin_expected").asBoolean())
+                    .isFalse();
             assertThat(markets.required("options").required("trading").required("new_order_path").asString())
                     .isEqualTo("/eapi/v1/order");
         }

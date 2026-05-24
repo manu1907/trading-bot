@@ -389,6 +389,7 @@ final class BinanceConfigValidator {
         }
         requireMatching(path + ".min_initial_leverage", account.minInitialLeverage(), 1, errors);
         requireMatching(path + ".max_initial_leverage", account.maxInitialLeverage(), 125, errors);
+        requireMatching(path + ".portfolio_margin_expected", account.portfolioMarginExpected(), false, errors);
     }
 
     private static String futuresPathPrefix(BinanceMarketType marketType) {

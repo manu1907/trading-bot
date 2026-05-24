@@ -186,6 +186,8 @@ of truth. As of the current code, the connector covers these foundations:
   signed request parameters.
 - Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
   mode request clients with catalog-backed paths, enums, and leverage bounds.
+- Standard USD-M and COIN-M futures config rejects portfolio-margin accounts
+  instead of routing `/papi` semantics through the standard futures connector.
 - Spot, margin, USD-M futures, and COIN-M futures all-orders and account-trade
   history clients with catalog-backed paths, documented query-shape validation,
   and response parsing for later reconciliation.
@@ -225,7 +227,6 @@ adapter. Known gaps that must remain on the plan:
   commission rates, and WebSocket API order placement.
 - Margin borrow/repay, transfer, margin OCO/OTO/OTOCO, account/risk endpoints,
   prevented matches, and low-latency special-key workflows are not implemented.
-- Futures portfolio-margin boundary checks are not implemented.
 - User-data and market-data WebSocket payloads are not yet mapped into the core
   Avro event model.
 - The exchange module lifecycle currently connects config/metadata primitives;

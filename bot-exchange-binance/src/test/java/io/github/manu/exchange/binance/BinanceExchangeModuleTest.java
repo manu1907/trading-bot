@@ -82,6 +82,16 @@ class BinanceExchangeModuleTest {
                 .hasMessageContaining("credentials.key_type must be one of");
     }
 
+    @Test
+    void rejects_portfolio_margin_futures_under_standard_futures_connector() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
+                market.withObject("futures_account").put("portfolio_margin_expected", true));
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("futures_account.portfolio_margin_expected must be false");
+    }
+
     private ResolvedExchangeConfig checkedInResolvedConfig() throws IOException {
         return checkedInResolvedConfig(market -> {
         });
