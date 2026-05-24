@@ -157,8 +157,20 @@ public record BinanceProperties(
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record FuturesAccount(
             @NotNull String positionMode,
+            @NotNull List<String> supportedPositionModes,
+            @NotNull String positionModePath,
+            @NotNull String marginTypePath,
+            @NotNull String leveragePath,
+            String multiAssetsModePath,
+            Integer minInitialLeverage,
+            Integer maxInitialLeverage,
+            @NotNull List<String> supportedMarginTypes,
             boolean multiAssetsModeExpected,
             boolean portfolioMarginExpected
     ) {
+        public FuturesAccount {
+            supportedPositionModes = List.copyOf(supportedPositionModes);
+            supportedMarginTypes = List.copyOf(supportedMarginTypes);
+        }
     }
 }

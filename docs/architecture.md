@@ -184,6 +184,8 @@ of truth. As of the current code, the connector covers these foundations:
   and signed request parameters.
 - Futures `workingType` and `priceProtect` command fields, validation, and
   signed request parameters.
+- Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
+  mode request clients with catalog-backed paths, enums, and leverage bounds.
 - Catalog-backed order feature enums and limits for price-match, futures
   trigger controls, pegged-order, and margin side-effect controls.
 - Public WebSocket stream endpoint planning and reconnect/rollover policy.
@@ -197,10 +199,9 @@ adapter. Known gaps that must remain on the plan:
   prevented matches, commission rates, and WebSocket API order placement.
 - Margin borrow/repay, transfer, margin OCO/OTO/OTOCO, account/risk endpoints,
   and low-latency special-key workflows are not implemented.
-- Futures leverage, margin type, position mode, multi-assets mode, batch
-  orders, modify order, cancel-all/countdown cancel-all, account snapshots,
-  income, funding, liquidation, and ADL/position-risk endpoints are not
-  implemented.
+- Futures batch orders, modify order, cancel-all/countdown cancel-all, account
+  snapshots, income, funding, liquidation, and ADL/position-risk endpoints are
+  not implemented.
 - User-data and market-data WebSocket payloads are not yet mapped into the core
   Avro event model.
 - The exchange module lifecycle currently connects config/metadata primitives;

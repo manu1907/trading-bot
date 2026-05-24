@@ -136,7 +136,7 @@ class BinanceLiveOrderLifecycleSmokeTest {
                               String apiKey,
                               String apiSecret) throws IOException, InterruptedException {
         BinanceRestRequestFactory factory = new BinanceRestRequestFactory(binance.rest(), Clock.systemUTC(), serverTimeOffsetMillis(binance));
-        BinanceSignedRequest request = factory.signedUri("/fapi/v1/positionSide/dual", List.of(), apiSecret);
+        BinanceSignedRequest request = factory.signedUri(binance.futuresAccount().positionModePath(), List.of(), apiSecret);
         HttpResponse<String> response = sendSigned(request, "GET", apiKey, binance.rest().apiKeyHeader());
         assertThat(response.statusCode())
                 .as("position mode response: " + response.body())

@@ -15,87 +15,92 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class BinanceUserDataStreamClientTest {
+class BinanceFuturesAccountClientTest {
 
     private static final Clock FIXED_CLOCK = Clock.fixed(
-            Instant.parse("2026-05-22T20:00:00Z"),
+            Instant.ofEpochMilli(1_499_827_319_559L),
             ZoneOffset.UTC
     );
 
     @Test
-    void starts_renews_and_closes_listen_key_stream() {
+    void changes_position_mode_margin_type_and_multi_assets_mode() {
         FakeTransport transport = new FakeTransport(
-                new BinanceHttpResponse(200, "{\"listenKey\":\"stream-1\"}"),
-                new BinanceHttpResponse(200, "{\"listenKey\":\"stream-1\"}"),
-                new BinanceHttpResponse(200, "{}")
+                ack(),
+                ack(),
+                ack()
         );
-        BinanceUserDataStreamClient client = client(transport);
+        BinanceFuturesAccountClient client = client(transport);
 
-        BinanceUserDataStreamSession started = client.start();
-        BinanceUserDataStreamSession renewed = client.keepAlive(started.streamId());
-        client.close(started.streamId());
+        assertThat(client.changePositionMode("HEDGE").message()).isEqualTo("success");
+        assertThat(client.changeMarginType("BTCUSDT", "ISOLATED").code()).isEqualTo(200);
+        assertThat(client.changeMultiAssetsMode(false).code()).isEqualTo(200);
 
-        assertThat(started.mode()).isEqualTo("listen_key");
-        assertThat(started.streamId()).isEqualTo("stream-1");
-        assertThat(started.expiresAt()).isEqualTo(Instant.parse("2026-05-22T21:00:00Z"));
-        assertThat(started.renewAfter()).isEqualTo(Instant.parse("2026-05-22T20:30:00Z"));
-        assertThat(renewed.streamId()).isEqualTo("stream-1");
-        assertThat(transport.calls()).extracting(FakeCall::method)
-                .containsExactly("POST", "PUT", "DELETE");
-        assertThat(transport.calls()).allSatisfy(call -> {
-            assertThat(call.uri()).isEqualTo("https://demo-fapi.binance.com/fapi/v1/listenKey");
-            assertThat(call.payload()).isEmpty();
-            assertThat(call.signature()).isEmpty();
-            assertThat(call.apiKey()).isEqualTo("api-key");
-            assertThat(call.apiKeyHeader()).isEqualTo("X-MBX-APIKEY");
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("POST", "POST", "POST");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/fapi/v1/positionSide/dual?dualSidePosition=true"))
+                .anySatisfy(uri -> assertThat(uri).contains("/fapi/v1/marginType?symbol=BTCUSDT&marginType=ISOLATED"))
+                .anySatisfy(uri -> assertThat(uri).contains("/fapi/v1/multiAssetsMargin?multiAssetsMargin=false"));
+    }
+
+    @Test
+    void changes_initial_leverage_and_parses_usdm_response() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "leverage": 21,
+                  "maxNotionalValue": "1000000",
+                  "symbol": "BTCUSDT"
+                }
+                """, Map.of(
+                "X-MBX-USED-WEIGHT-1M", List.of("1"),
+                "X-MBX-ORDER-COUNT-10S", List.of("1")
+        )));
+        BinanceFuturesAccountClient client = client(transport);
+
+        BinanceFuturesLeverageResult result = client.changeInitialLeverage("BTCUSDT", 21);
+
+        assertThat(result.symbol()).isEqualTo("BTCUSDT");
+        assertThat(result.leverage()).isEqualTo(21);
+        assertThat(result.maxNotionalValue()).isEqualByComparingTo("1000000");
+        assertThat(result.maxQty()).isNull();
+        assertThat(client.currentRateLimitUsage()).hasValueSatisfying(usage -> {
+            assertThat(usage.usedWeights()).containsEntry("X-MBX-USED-WEIGHT-1M", 1L);
+            assertThat(usage.orderCounts()).containsEntry("X-MBX-ORDER-COUNT-10S", 1L);
         });
     }
 
     @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
-                {"code": -1125, "msg": "This listenKey does not exist."}
+                {"code": -4046, "msg": "No need to change margin type."}
                 """));
-        BinanceUserDataStreamClient client = client(transport);
+        BinanceFuturesAccountClient client = client(transport);
 
-        assertThatThrownBy(() -> client.start())
+        assertThatThrownBy(() -> client.changeMarginType("BTCUSDT", "ISOLATED"))
                 .isInstanceOf(BinanceApiException.class)
                 .hasMessageContaining("httpStatusCode=400")
-                .hasMessageContaining("exchangeCode=-1125")
-                .hasMessageContaining("listenKey");
+                .hasMessageContaining("exchangeCode=-4046")
+                .hasMessageContaining("No need to change margin type");
     }
 
-    @Test
-    void rejects_missing_listen_key_response() {
-        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
-        BinanceUserDataStreamClient client = client(transport);
-
-        assertThatThrownBy(client::start)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("missing listenKey");
-    }
-
-    @Test
-    void captures_rate_limit_headers_from_user_stream_responses() {
-        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{\"listenKey\":\"stream-1\"}", Map.of(
-                "X-MBX-USED-WEIGHT-1M", List.of("5")
-        )));
-        BinanceUserDataStreamClient client = client(transport);
-
-        client.start();
-
-        assertThat(client.currentRateLimitUsage()).hasValueSatisfying(usage ->
-                assertThat(usage.usedWeights()).containsEntry("X-MBX-USED-WEIGHT-1M", 5L));
-    }
-
-    private BinanceUserDataStreamClient client(FakeTransport transport) {
-        return new BinanceUserDataStreamClient(
+    private BinanceFuturesAccountClient client(FakeTransport transport) {
+        return new BinanceFuturesAccountClient(
                 binance(),
                 "api-key",
+                "test-secret",
                 FIXED_CLOCK,
+                0,
                 transport,
                 JsonMapperFactory.create()
         );
+    }
+
+    private BinanceHttpResponse ack() {
+        return new BinanceHttpResponse(200, """
+                {
+                  "code": 200,
+                  "msg": "success"
+                }
+                """);
     }
 
     private BinanceProperties binance() {
@@ -112,19 +117,7 @@ class BinanceUserDataStreamClientTest {
                 websocket(),
                 trading(),
                 userData(),
-                new BinanceProperties.FuturesAccount(
-                        "ONE_WAY",
-                        List.of("ONE_WAY", "HEDGE"),
-                        "/fapi/v1/positionSide/dual",
-                        "/fapi/v1/marginType",
-                        "/fapi/v1/leverage",
-                        "/fapi/v1/multiAssetsMargin",
-                        1,
-                        125,
-                        List.of("CROSSED", "ISOLATED"),
-                        false,
-                        false
-                )
+                futuresAccount()
         );
     }
 
@@ -223,7 +216,23 @@ class BinanceUserDataStreamClientTest {
         );
     }
 
-    private record FakeCall(String method, String uri, String payload, String signature, String apiKey, String apiKeyHeader) {
+    private BinanceProperties.FuturesAccount futuresAccount() {
+        return new BinanceProperties.FuturesAccount(
+                "ONE_WAY",
+                List.of("ONE_WAY", "HEDGE"),
+                "/fapi/v1/positionSide/dual",
+                "/fapi/v1/marginType",
+                "/fapi/v1/leverage",
+                "/fapi/v1/multiAssetsMargin",
+                1,
+                125,
+                List.of("CROSSED", "ISOLATED"),
+                false,
+                false
+        );
+    }
+
+    private record FakeCall(String method, String uri) {
     }
 
     private static final class FakeTransport implements BinanceHttpTransport {
@@ -244,14 +253,7 @@ class BinanceUserDataStreamClientTest {
                                         String method,
                                         String apiKey,
                                         String apiKeyHeader) {
-            calls.add(new FakeCall(
-                    method,
-                    request.uri().toString(),
-                    request.payload(),
-                    request.signature(),
-                    apiKey,
-                    apiKeyHeader
-            ));
+            calls.add(new FakeCall(method, request.uri().toString()));
             return responses.removeFirst();
         }
 

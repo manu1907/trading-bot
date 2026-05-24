@@ -23,6 +23,7 @@ final class BinanceConfigValidator {
     private static final Set<String> TIMESTAMP_UNITS = Set.of("MILLISECONDS", "MICROSECONDS");
     private static final Set<String> ORDER_RESPONSE_TYPES = Set.of("ACK", "RESULT", "FULL");
     private static final Set<String> FUTURES_POSITION_MODES = Set.of("ONE_WAY", "HEDGE");
+    private static final Set<String> FUTURES_MARGIN_TYPES = Set.of("CROSSED", "ISOLATED");
     private static final String LISTEN_KEY = "listen_key";
     private static final String LISTEN_TOKEN = "listen_token";
     private static final String WEBSOCKET_API = "websocket_api";
@@ -160,7 +161,7 @@ final class BinanceConfigValidator {
 
         String path = marketPath(active);
         validateUserData(path + ".user_data", binance.userDataStream(), marketType, true, errors);
-        validateFuturesAccount(path + ".futures_account", binance.futuresAccount(), errors);
+        validateFuturesAccount(path + ".futures_account", binance.futuresAccount(), marketType, errors);
     }
 
     private static void validateTrading(String path,
@@ -325,6 +326,7 @@ final class BinanceConfigValidator {
 
     private static void validateFuturesAccount(String path,
                                                BinanceProperties.FuturesAccount account,
+                                               BinanceMarketType marketType,
                                                List<String> errors) {
         if (account == null) {
             errors.add(path + " is required for Binance futures markets");
@@ -332,6 +334,28 @@ final class BinanceConfigValidator {
         }
 
         requireOneOf(path + ".position_mode", account.positionMode(), FUTURES_POSITION_MODES, errors);
+        requireSameValues(path + ".supported_position_modes", account.supportedPositionModes(), FUTURES_POSITION_MODES, errors);
+        requireSameValues(path + ".supported_margin_types", account.supportedMarginTypes(), FUTURES_MARGIN_TYPES, errors);
+        String pathPrefix = futuresPathPrefix(marketType);
+        requireMatching(path + ".position_mode_path", account.positionModePath(), pathPrefix + "/v1/positionSide/dual", errors);
+        requireMatching(path + ".margin_type_path", account.marginTypePath(), pathPrefix + "/v1/marginType", errors);
+        requireMatching(path + ".leverage_path", account.leveragePath(), pathPrefix + "/v1/leverage", errors);
+        if (marketType == BinanceMarketType.FUTURES_USD_M) {
+            requireMatching(path + ".multi_assets_mode_path", account.multiAssetsModePath(), "/fapi/v1/multiAssetsMargin", errors);
+        } else {
+            requireOptionalMatching(path + ".multi_assets_mode_path", account.multiAssetsModePath(), null, errors);
+            requireMatching(path + ".multi_assets_mode_expected", account.multiAssetsModeExpected(), false, errors);
+        }
+        requireMatching(path + ".min_initial_leverage", account.minInitialLeverage(), 1, errors);
+        requireMatching(path + ".max_initial_leverage", account.maxInitialLeverage(), 125, errors);
+    }
+
+    private static String futuresPathPrefix(BinanceMarketType marketType) {
+        return switch (marketType) {
+            case FUTURES_USD_M -> "/fapi";
+            case FUTURES_COIN_M -> "/dapi";
+            default -> throw new IllegalArgumentException("Expected Binance futures market type");
+        };
     }
 
     private static BinanceMarketType marketType(String value, String path, List<String> errors) {
@@ -478,6 +502,12 @@ final class BinanceConfigValidator {
             }
             return;
         }
+        if (!expected.equals(actual)) {
+            errors.add(path + " must be " + expected);
+        }
+    }
+
+    private static void requireMatching(String path, Integer actual, Integer expected, List<String> errors) {
         if (!expected.equals(actual)) {
             errors.add(path + " must be " + expected);
         }

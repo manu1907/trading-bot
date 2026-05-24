@@ -291,7 +291,19 @@ class BinanceOrderRequestFactoryTest {
                 websocket(),
                 trading(),
                 userData(),
-                new BinanceProperties.FuturesAccount("ONE_WAY", false, false)
+                new BinanceProperties.FuturesAccount(
+                        "ONE_WAY",
+                        List.of("ONE_WAY", "HEDGE"),
+                        "/fapi/v1/positionSide/dual",
+                        "/fapi/v1/marginType",
+                        "/fapi/v1/leverage",
+                        "/fapi/v1/multiAssetsMargin",
+                        1,
+                        125,
+                        List.of("CROSSED", "ISOLATED"),
+                        false,
+                        false
+                )
         );
     }
 
