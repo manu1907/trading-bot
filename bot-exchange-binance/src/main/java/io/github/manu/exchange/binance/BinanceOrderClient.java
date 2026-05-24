@@ -177,6 +177,10 @@ final class BinanceOrderClient {
         return toSorTestOrderResult(root);
     }
 
+    BinanceOrderListResult placeOcoOrderList(BinanceOcoOrderListCommand command) {
+        return toOrderListResult(readJson(send(requestFactory.ocoOrderList(command, privateCredential), "POST")));
+    }
+
     BinanceOrderAck cancelAllOpenOrders(String symbol) {
         JsonNode root = readJson(send(requestFactory.cancelAllOpenOrders(symbol, privateCredential), "DELETE"));
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
@@ -456,6 +460,65 @@ final class BinanceOrderClient {
                 node.hasNonNull("taxCommissionForOrder") ? toCommissionRateSet(node, "taxCommissionForOrder") : null,
                 node.hasNonNull("discount") ? toCommissionDiscount(node) : null
         );
+    }
+
+    private BinanceOrderListResult toOrderListResult(JsonNode node) {
+        return new BinanceOrderListResult(
+                longValue(node, "orderListId"),
+                text(node, "contingencyType"),
+                text(node, "listStatusType"),
+                text(node, "listOrderStatus"),
+                text(node, "listClientOrderId"),
+                longValue(node, "transactionTime"),
+                text(node, "symbol"),
+                toOrderListOrders(node.hasNonNull("orders") ? node.required("orders") : jsonMapper.createArrayNode()),
+                toOrderListReports(node.hasNonNull("orderReports") ? node.required("orderReports") : jsonMapper.createArrayNode())
+        );
+    }
+
+    private List<BinanceOrderListOrder> toOrderListOrders(JsonNode ordersNode) {
+        if (!ordersNode.isArray()) {
+            throw new IllegalStateException("Expected Binance order-list orders array response");
+        }
+        List<BinanceOrderListOrder> orders = new ArrayList<>();
+        for (JsonNode order : ordersNode) {
+            orders.add(new BinanceOrderListOrder(
+                    text(order, "symbol"),
+                    longValue(order, "orderId"),
+                    text(order, "clientOrderId")
+            ));
+        }
+        return List.copyOf(orders);
+    }
+
+    private List<BinanceOrderListReport> toOrderListReports(JsonNode reportsNode) {
+        if (!reportsNode.isArray()) {
+            throw new IllegalStateException("Expected Binance order-list reports array response");
+        }
+        List<BinanceOrderListReport> reports = new ArrayList<>();
+        for (JsonNode report : reportsNode) {
+            reports.add(new BinanceOrderListReport(
+                    text(report, "symbol"),
+                    longValue(report, "orderId"),
+                    longValue(report, "orderListId"),
+                    text(report, "clientOrderId"),
+                    longValue(report, "transactTime"),
+                    decimal(report, "price"),
+                    decimal(report, "origQty"),
+                    decimal(report, "executedQty"),
+                    decimal(report, "origQuoteOrderQty"),
+                    firstDecimal(report, "cummulativeQuoteQty", "cumulativeQuoteQty"),
+                    text(report, "status"),
+                    text(report, "timeInForce"),
+                    text(report, "type"),
+                    text(report, "side"),
+                    decimal(report, "stopPrice"),
+                    decimal(report, "icebergQty"),
+                    longValue(report, "workingTime"),
+                    text(report, "selfTradePreventionMode")
+            ));
+        }
+        return List.copyOf(reports);
     }
 
     private BinanceCommissionRateSet toCommissionRateSet(JsonNode node, String field) {

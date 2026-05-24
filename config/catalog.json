@@ -100,6 +100,7 @@
                       "cancel_replace_path": "/api/v3/order/cancelReplace",
                       "sor_order_path": "/api/v3/sor/order",
                       "sor_test_order_path": "/api/v3/sor/order/test",
+                      "order_list_oco_path": "/api/v3/orderList/oco",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1061,6 +1062,7 @@
                       "cancel_replace_path": "/api/v3/order/cancelReplace",
                       "sor_order_path": "/api/v3/sor/order",
                       "sor_test_order_path": "/api/v3/sor/order/test",
+                      "order_list_oco_path": "/api/v3/orderList/oco",
                       "supported_sides": [
                         "BUY",
                         "SELL"

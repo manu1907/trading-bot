@@ -20,6 +20,23 @@ final class BinanceOrderRequestFactory {
     private static final Set<String> CANCEL_RESTRICTIONS = Set.of("ONLY_NEW", "ONLY_PARTIALLY_FILLED");
     private static final Set<String> ORDER_RATE_LIMIT_EXCEEDED_MODES = Set.of("DO_NOTHING", "CANCEL_ONLY");
     private static final Set<String> SOR_ORDER_TYPES = Set.of("LIMIT", "MARKET");
+    private static final Set<String> OCO_ABOVE_TYPES = Set.of(
+            "STOP_LOSS_LIMIT",
+            "STOP_LOSS",
+            "LIMIT_MAKER",
+            "TAKE_PROFIT",
+            "TAKE_PROFIT_LIMIT"
+    );
+    private static final Set<String> OCO_BELOW_TYPES = Set.of(
+            "STOP_LOSS",
+            "STOP_LOSS_LIMIT",
+            "TAKE_PROFIT",
+            "TAKE_PROFIT_LIMIT"
+    );
+    private static final Set<String> OCO_PROFIT_OR_LIMIT_TYPES = Set.of("LIMIT_MAKER", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT");
+    private static final Set<String> OCO_STOP_TYPES = Set.of("STOP_LOSS", "STOP_LOSS_LIMIT");
+    private static final Set<String> LIMIT_PRICE_TYPES = Set.of("LIMIT_MAKER", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT");
+    private static final Set<String> STOP_TRIGGER_TYPES = Set.of("STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT");
 
     private final BinanceProperties binance;
     private final BinanceRestRequestFactory restRequestFactory;
@@ -198,6 +215,43 @@ final class BinanceOrderRequestFactory {
             parameters.add(BinanceRequestParameter.of("computeCommissionRates", "true"));
         }
         return restRequestFactory.signedUri(binance.trading().sorTestOrderPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest ocoOrderList(BinanceOcoOrderListCommand command, String privateCredential) {
+        requireConfiguredPath("orderListOcoPath", binance.trading().orderListOcoPath());
+        validateOcoOrderList(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", command.symbol());
+        add(parameters, "listClientOrderId", command.listClientOrderId());
+        add(parameters, "side", command.side());
+        add(parameters, "quantity", command.quantity());
+        add(parameters, "aboveType", command.aboveType());
+        add(parameters, "aboveClientOrderId", command.aboveClientOrderId());
+        add(parameters, "aboveIcebergQty", command.aboveIcebergQuantity());
+        add(parameters, "abovePrice", command.abovePrice());
+        add(parameters, "aboveStopPrice", command.aboveStopPrice());
+        add(parameters, "aboveTrailingDelta", command.aboveTrailingDelta());
+        add(parameters, "aboveTimeInForce", command.aboveTimeInForce());
+        add(parameters, "aboveStrategyId", command.aboveStrategyId());
+        add(parameters, "aboveStrategyType", command.aboveStrategyType());
+        add(parameters, "abovePegPriceType", command.abovePegPriceType());
+        add(parameters, "abovePegOffsetType", command.abovePegOffsetType());
+        add(parameters, "abovePegOffsetValue", command.abovePegOffsetValue());
+        add(parameters, "belowType", command.belowType());
+        add(parameters, "belowClientOrderId", command.belowClientOrderId());
+        add(parameters, "belowIcebergQty", command.belowIcebergQuantity());
+        add(parameters, "belowPrice", command.belowPrice());
+        add(parameters, "belowStopPrice", command.belowStopPrice());
+        add(parameters, "belowTrailingDelta", command.belowTrailingDelta());
+        add(parameters, "belowTimeInForce", command.belowTimeInForce());
+        add(parameters, "belowStrategyId", command.belowStrategyId());
+        add(parameters, "belowStrategyType", command.belowStrategyType());
+        add(parameters, "belowPegPriceType", command.belowPegPriceType());
+        add(parameters, "belowPegOffsetType", command.belowPegOffsetType());
+        add(parameters, "belowPegOffsetValue", command.belowPegOffsetValue());
+        add(parameters, "newOrderRespType", command.orderResponseType());
+        add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
+        return restRequestFactory.signedUri(binance.trading().orderListOcoPath(), parameters, privateCredential);
     }
 
     BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
@@ -488,6 +542,84 @@ final class BinanceOrderRequestFactory {
         }
         if (hasText(command.pegPriceType()) || hasText(command.pegOffsetType()) || command.pegOffsetValue() != null) {
             throw new IllegalArgumentException("pegged order parameters are not supported for SOR orders");
+        }
+    }
+
+    private void validateOcoOrderList(BinanceOcoOrderListCommand command) {
+        Objects.requireNonNull(command, "command");
+        BinanceTradingCapability capability = BinanceTradingCapability.fromConfig(binance.trading());
+        requireSymbol(command.symbol());
+        requireOneOf("side", command.side(), capability.supportedSides());
+        requirePositive("quantity", command.quantity());
+        if (command.quantity() == null) {
+            throw new IllegalArgumentException("quantity is required for OCO order lists");
+        }
+        requireOneOf("aboveType", command.aboveType(), OCO_ABOVE_TYPES);
+        requireOneOf("belowType", command.belowType(), OCO_BELOW_TYPES);
+        if (!isValidOcoPair(command.aboveType(), command.belowType())) {
+            throw new IllegalArgumentException("OCO order lists require one limit/profit leg and one stop-loss leg");
+        }
+        validateOcoLeg("above", command.aboveType(), command.abovePrice(), command.aboveStopPrice(), command.aboveTrailingDelta(),
+                command.aboveTimeInForce(), command.aboveIcebergQuantity());
+        validateOcoLeg("below", command.belowType(), command.belowPrice(), command.belowStopPrice(), command.belowTrailingDelta(),
+                command.belowTimeInForce(), command.belowIcebergQuantity());
+        requireOptionalOneOf("newOrderRespType", command.orderResponseType(), capability.supportedOrderResponseTypes());
+        requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
+        validatePeggedOcoLeg("above", command.abovePegPriceType(), command.abovePegOffsetType(), command.abovePegOffsetValue(), capability);
+        validatePeggedOcoLeg("below", command.belowPegPriceType(), command.belowPegOffsetType(), command.belowPegOffsetValue(), capability);
+    }
+
+    private boolean isValidOcoPair(String aboveType, String belowType) {
+        return (OCO_PROFIT_OR_LIMIT_TYPES.contains(aboveType) && OCO_STOP_TYPES.contains(belowType))
+                || (OCO_STOP_TYPES.contains(aboveType) && OCO_PROFIT_OR_LIMIT_TYPES.contains(belowType));
+    }
+
+    private void validateOcoLeg(String prefix,
+                                String type,
+                                BigDecimal price,
+                                BigDecimal stopPrice,
+                                Long trailingDelta,
+                                String timeInForce,
+                                BigDecimal icebergQuantity) {
+        requirePositive(prefix + "Price", price);
+        requirePositive(prefix + "StopPrice", stopPrice);
+        requirePositive(prefix + "TrailingDelta", trailingDelta);
+        requirePositive(prefix + "IcebergQty", icebergQuantity);
+        requireOptionalOneOf(prefix + "TimeInForce", timeInForce, BinanceTradingCapability.fromConfig(binance.trading()).supportedTimeInForce());
+        if (LIMIT_PRICE_TYPES.contains(type) && price == null) {
+            throw new IllegalArgumentException(prefix + "Price is required for " + type + " OCO legs");
+        }
+        if (STOP_TRIGGER_TYPES.contains(type) && stopPrice == null && trailingDelta == null) {
+            throw new IllegalArgumentException(prefix + "StopPrice or " + prefix + "TrailingDelta is required for " + type + " OCO legs");
+        }
+        if (type.endsWith("_LIMIT") && !hasText(timeInForce)) {
+            throw new IllegalArgumentException(prefix + "TimeInForce is required for " + type + " OCO legs");
+        }
+        if (icebergQuantity != null && hasText(timeInForce) && !"GTC".equals(timeInForce)) {
+            throw new IllegalArgumentException(prefix + "IcebergQty requires " + prefix + "TimeInForce GTC");
+        }
+    }
+
+    private void validatePeggedOcoLeg(String prefix,
+                                      String pegPriceType,
+                                      String pegOffsetType,
+                                      Integer pegOffsetValue,
+                                      BinanceTradingCapability capability) {
+        if (!hasText(pegPriceType) && !hasText(pegOffsetType) && pegOffsetValue == null) {
+            return;
+        }
+        if (!capability.supportsPeggedOrders()) {
+            throw new IllegalArgumentException(prefix + " pegged order parameters are not supported for this Binance market");
+        }
+        requireOptionalOneOf(prefix + "PegPriceType", pegPriceType, capability.supportedPegPriceTypes());
+        requireOptionalOneOf(prefix + "PegOffsetType", pegOffsetType, capability.supportedPegOffsetTypes());
+        requirePositive(prefix + "PegOffsetValue", pegOffsetValue);
+        if (hasText(pegOffsetType) != (pegOffsetValue != null)) {
+            throw new IllegalArgumentException(prefix + "PegOffsetType and " + prefix + "PegOffsetValue must be sent together");
+        }
+        if (pegOffsetValue != null && capability.maxPegOffsetValue() != null && pegOffsetValue > capability.maxPegOffsetValue()) {
+            throw new IllegalArgumentException(prefix + "PegOffsetValue must be less than or equal to "
+                    + capability.maxPegOffsetValue());
         }
     }
 
