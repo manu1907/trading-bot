@@ -928,6 +928,93 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void places_spot_opo_order_list_and_parses_reports() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "orderListId": 4,
+                  "contingencyType": "OPO",
+                  "listStatusType": "EXEC_STARTED",
+                  "listOrderStatus": "EXECUTING",
+                  "listClientOrderId": "opo-list-1",
+                  "transactionTime": 1712293372842,
+                  "symbol": "BTCUSDT",
+                  "orders": [
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 40,
+                      "clientOrderId": "opo-working-1"
+                    },
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 41,
+                      "clientOrderId": "opo-pending-1"
+                    }
+                  ],
+                  "orderReports": [
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 40,
+                      "orderListId": 4,
+                      "clientOrderId": "opo-working-1",
+                      "transactTime": 1712293372842,
+                      "price": "52000.00000000",
+                      "origQty": "0.01000000",
+                      "executedQty": "0.00000000",
+                      "origQuoteOrderQty": "0.000000",
+                      "cummulativeQuoteQty": "0.00000000",
+                      "status": "NEW",
+                      "timeInForce": "GTC",
+                      "type": "LIMIT",
+                      "side": "SELL",
+                      "workingTime": 1712293372842,
+                      "selfTradePreventionMode": "NONE"
+                    },
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 41,
+                      "orderListId": 4,
+                      "clientOrderId": "opo-pending-1",
+                      "transactTime": 1712293372842,
+                      "price": "48000.00000000",
+                      "origQty": "0.00000000",
+                      "executedQty": "0.00000000",
+                      "origQuoteOrderQty": "0.000000",
+                      "cummulativeQuoteQty": "0.00000000",
+                      "status": "PENDING_NEW",
+                      "timeInForce": "GTC",
+                      "type": "STOP_LOSS_LIMIT",
+                      "side": "BUY",
+                      "stopPrice": "48100.00000000",
+                      "workingTime": -1,
+                      "selfTradePreventionMode": "NONE"
+                    }
+                  ]
+                }
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        BinanceOrderListResult result = client.placeOpoOrderList(opoOrderList());
+
+        assertThat(result.orderListId()).isEqualTo(4L);
+        assertThat(result.contingencyType()).isEqualTo("OPO");
+        assertThat(result.orders()).extracting(BinanceOrderListOrder::clientOrderId)
+                .containsExactly("opo-working-1", "opo-pending-1");
+        assertThat(result.orderReports()).hasSize(2);
+        assertThat(result.orderReports().get(1)).satisfies(report -> {
+            assertThat(report.status()).isEqualTo("PENDING_NEW");
+            assertThat(report.type()).isEqualTo("STOP_LOSS_LIMIT");
+            assertThat(report.stopPrice()).isEqualByComparingTo("48100.00000000");
+        });
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("POST");
+            assertThat(call.uri()).contains("/api/v3/orderList/opo?symbol=BTCUSDT");
+            assertThat(call.uri()).contains("workingType=LIMIT");
+            assertThat(call.uri()).contains("pendingType=STOP_LOSS_LIMIT");
+            assertThat(call.uri()).doesNotContain("pendingQuantity");
+        });
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -1178,6 +1265,40 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceOpoOrderListCommand opoOrderList() {
+        return new BinanceOpoOrderListCommand(
+                "BTCUSDT",
+                "opo-list-1",
+                "RESULT",
+                "NONE",
+                "LIMIT",
+                "SELL",
+                "opo-working-1",
+                new BigDecimal("52000"),
+                new BigDecimal("0.01"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "STOP_LOSS_LIMIT",
+                "BUY",
+                "opo-pending-1",
+                new BigDecimal("48000"),
+                new BigDecimal("48100"),
+                null,
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
     private BinanceHttpResponse orderResponse(String clientOrderId, String status) {
         return new BinanceHttpResponse(200, orderResponseBody(clientOrderId, status));
     }
@@ -1346,6 +1467,7 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -1402,6 +1524,7 @@ class BinanceOrderClientTest {
                 "/api/v3/orderList/oco",
                 "/api/v3/orderList/oto",
                 "/api/v3/orderList/otoco",
+                "/api/v3/orderList/opo",
                 null,
                 null,
                 null,

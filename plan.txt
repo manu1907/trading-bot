@@ -123,6 +123,8 @@ Implemented Binance foundations:
   pending order validation, and shared typed order-list/order-report parsing.
 - Spot OTOCO order-list client with catalog-backed path, documented working
   order and pending OCO-pair validation, and shared typed order-list parsing.
+- Spot OPO order-list client with catalog-backed path, documented working
+  order and pending order validation, and typed order-list parsing.
 - USD-M and COIN-M futures cancel-all and countdown-cancel-all clients with
   catalog-backed paths for outage and emergency-order cleanup workflows.
 - USD-M and COIN-M futures batch-order placement clients with catalog-backed
@@ -153,7 +155,7 @@ Implemented Binance foundations:
 
 Binance parity gaps to close before claiming full connector support:
 
-- Spot: implement OPO/OPOCO order lists and WebSocket API order placement.
+- Spot: implement OPOCO order lists and WebSocket API order placement.
 - Margin: add borrow/repay, transfers, margin order lists, margin account/risk
   endpoints, prevented matches, and special low-latency key workflows.
 - Options: verify current `/eapi` coverage against current Binance options

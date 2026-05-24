@@ -1,0 +1,36 @@
+package io.github.manu.exchange.binance;
+
+import java.math.BigDecimal;
+
+record BinanceOpoOrderListCommand(
+        String symbol,
+        String listClientOrderId,
+        String orderResponseType,
+        String selfTradePreventionMode,
+        String workingType,
+        String workingSide,
+        String workingClientOrderId,
+        BigDecimal workingPrice,
+        BigDecimal workingQuantity,
+        BigDecimal workingIcebergQuantity,
+        String workingTimeInForce,
+        Long workingStrategyId,
+        Integer workingStrategyType,
+        String workingPegPriceType,
+        String workingPegOffsetType,
+        Integer workingPegOffsetValue,
+        String pendingType,
+        String pendingSide,
+        String pendingClientOrderId,
+        BigDecimal pendingPrice,
+        BigDecimal pendingStopPrice,
+        Long pendingTrailingDelta,
+        BigDecimal pendingIcebergQuantity,
+        String pendingTimeInForce,
+        Long pendingStrategyId,
+        Integer pendingStrategyType,
+        String pendingPegPriceType,
+        String pendingPegOffsetType,
+        Integer pendingPegOffsetValue
+) {
+}
