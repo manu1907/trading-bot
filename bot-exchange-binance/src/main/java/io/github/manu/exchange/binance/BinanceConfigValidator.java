@@ -208,6 +208,7 @@ final class BinanceConfigValidator {
         requireConfiguredPath(path + ".sor_order_path", trading.sorOrderPath(), expected.sorOrderPath(), errors);
         requireConfiguredPath(path + ".sor_test_order_path", trading.sorTestOrderPath(), expected.sorTestOrderPath(), errors);
         requireConfiguredPath(path + ".order_list_oco_path", trading.orderListOcoPath(), expected.orderListOcoPath(), errors);
+        requireConfiguredPath(path + ".order_list_oto_path", trading.orderListOtoPath(), expected.orderListOtoPath(), errors);
         requireConfiguredPath(path + ".batch_orders_path", trading.batchOrdersPath(), expected.batchOrdersPath(), errors);
         requireConfiguredPath(path + ".modify_order_path", trading.modifyOrderPath(), expected.modifyOrderPath(), errors);
         requireConfiguredPath(

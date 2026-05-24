@@ -974,6 +974,60 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_spot_oto_order_list_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.otoOrderList(otoCommand(), "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&listClientOrderId=oto-list-1&newOrderRespType=RESULT"
+                        + "&selfTradePreventionMode=NONE&workingType=LIMIT&workingSide=SELL"
+                        + "&workingClientOrderId=oto-working-1&workingPrice=52000&workingQuantity=0.01"
+                        + "&workingTimeInForce=GTC&pendingType=STOP_LOSS_LIMIT&pendingSide=BUY"
+                        + "&pendingClientOrderId=oto-pending-1&pendingPrice=48000&pendingStopPrice=48100"
+                        + "&pendingQuantity=0.01&pendingTimeInForce=GTC"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/api/v3/orderList/oto?");
+    }
+
+    @Test
+    void rejects_invalid_spot_oto_order_list_requests() {
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> spotFactory.otoOrderList(new BinanceOtoOrderListCommand(
+                "BTCUSDT", "oto-list-1", "RESULT", "NONE",
+                "MARKET", "SELL", "oto-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, "GTC",
+                null, null, null, null, null,
+                "STOP_LOSS_LIMIT", "BUY", "oto-pending-1", new BigDecimal("48000"), new BigDecimal("48100"), null,
+                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingType must be one of");
+        assertThatThrownBy(() -> spotFactory.otoOrderList(new BinanceOtoOrderListCommand(
+                "BTCUSDT", "oto-list-1", "RESULT", "NONE",
+                "LIMIT", "SELL", "oto-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, null,
+                null, null, null, null, null,
+                "STOP_LOSS_LIMIT", "BUY", "oto-pending-1", new BigDecimal("48000"), new BigDecimal("48100"), null,
+                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingTimeInForce is required");
+        assertThatThrownBy(() -> spotFactory.otoOrderList(new BinanceOtoOrderListCommand(
+                "BTCUSDT", "oto-list-1", "RESULT", "NONE",
+                "LIMIT", "SELL", "oto-working-1", new BigDecimal("52000"), new BigDecimal("0.01"), null, "GTC",
+                null, null, null, null, null,
+                "STOP_LOSS_LIMIT", "BUY", "oto-pending-1", new BigDecimal("48000"), null, null,
+                new BigDecimal("0.01"), null, "GTC", null, null, null, null, null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pendingStopPrice or pendingTrailingDelta is required");
+        assertThatThrownBy(() -> futuresFactory.otoOrderList(otoCommand(), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderListOtoPath is not configured");
+    }
+
+    @Test
     void builds_coin_m_history_request_by_pair() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(coinmBinance(), FIXED_CLOCK, 0);
 
@@ -1209,6 +1263,41 @@ class BinanceOrderRequestFactoryTest {
         );
     }
 
+    private BinanceOtoOrderListCommand otoCommand() {
+        return new BinanceOtoOrderListCommand(
+                "BTCUSDT",
+                "oto-list-1",
+                "RESULT",
+                "NONE",
+                "LIMIT",
+                "SELL",
+                "oto-working-1",
+                new BigDecimal("52000.00"),
+                new BigDecimal("0.010000"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "STOP_LOSS_LIMIT",
+                "BUY",
+                "oto-pending-1",
+                new BigDecimal("48000.00"),
+                new BigDecimal("48100.00"),
+                null,
+                new BigDecimal("0.010000"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
     private BinanceProperties spotBinance() {
         return new BinanceProperties(
                 "SPOT",
@@ -1391,6 +1480,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -1445,6 +1535,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/sor/order",
                 "/api/v3/sor/order/test",
                 "/api/v3/orderList/oco",
+                "/api/v3/orderList/oto",
                 null,
                 null,
                 null,
@@ -1506,6 +1597,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -1546,6 +1638,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/openOrders",
                 "/dapi/v1/allOrders",
                 "/dapi/v1/userTrades",
+                null,
                 null,
                 null,
                 null,

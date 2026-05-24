@@ -37,6 +37,7 @@ final class BinanceOrderRequestFactory {
     private static final Set<String> OCO_STOP_TYPES = Set.of("STOP_LOSS", "STOP_LOSS_LIMIT");
     private static final Set<String> LIMIT_PRICE_TYPES = Set.of("LIMIT_MAKER", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT");
     private static final Set<String> STOP_TRIGGER_TYPES = Set.of("STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT");
+    private static final Set<String> OTO_WORKING_TYPES = Set.of("LIMIT", "LIMIT_MAKER");
 
     private final BinanceProperties binance;
     private final BinanceRestRequestFactory restRequestFactory;
@@ -252,6 +253,43 @@ final class BinanceOrderRequestFactory {
         add(parameters, "newOrderRespType", command.orderResponseType());
         add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
         return restRequestFactory.signedUri(binance.trading().orderListOcoPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest otoOrderList(BinanceOtoOrderListCommand command, String privateCredential) {
+        requireConfiguredPath("orderListOtoPath", binance.trading().orderListOtoPath());
+        validateOtoOrderList(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", command.symbol());
+        add(parameters, "listClientOrderId", command.listClientOrderId());
+        add(parameters, "newOrderRespType", command.orderResponseType());
+        add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
+        add(parameters, "workingType", command.workingType());
+        add(parameters, "workingSide", command.workingSide());
+        add(parameters, "workingClientOrderId", command.workingClientOrderId());
+        add(parameters, "workingPrice", command.workingPrice());
+        add(parameters, "workingQuantity", command.workingQuantity());
+        add(parameters, "workingIcebergQty", command.workingIcebergQuantity());
+        add(parameters, "workingTimeInForce", command.workingTimeInForce());
+        add(parameters, "workingStrategyId", command.workingStrategyId());
+        add(parameters, "workingStrategyType", command.workingStrategyType());
+        add(parameters, "workingPegPriceType", command.workingPegPriceType());
+        add(parameters, "workingPegOffsetType", command.workingPegOffsetType());
+        add(parameters, "workingPegOffsetValue", command.workingPegOffsetValue());
+        add(parameters, "pendingType", command.pendingType());
+        add(parameters, "pendingSide", command.pendingSide());
+        add(parameters, "pendingClientOrderId", command.pendingClientOrderId());
+        add(parameters, "pendingPrice", command.pendingPrice());
+        add(parameters, "pendingStopPrice", command.pendingStopPrice());
+        add(parameters, "pendingTrailingDelta", command.pendingTrailingDelta());
+        add(parameters, "pendingQuantity", command.pendingQuantity());
+        add(parameters, "pendingIcebergQty", command.pendingIcebergQuantity());
+        add(parameters, "pendingTimeInForce", command.pendingTimeInForce());
+        add(parameters, "pendingStrategyId", command.pendingStrategyId());
+        add(parameters, "pendingStrategyType", command.pendingStrategyType());
+        add(parameters, "pendingPegPriceType", command.pendingPegPriceType());
+        add(parameters, "pendingPegOffsetType", command.pendingPegOffsetType());
+        add(parameters, "pendingPegOffsetValue", command.pendingPegOffsetValue());
+        return restRequestFactory.signedUri(binance.trading().orderListOtoPath(), parameters, privateCredential);
     }
 
     BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
@@ -563,10 +601,63 @@ final class BinanceOrderRequestFactory {
                 command.aboveTimeInForce(), command.aboveIcebergQuantity());
         validateOcoLeg("below", command.belowType(), command.belowPrice(), command.belowStopPrice(), command.belowTrailingDelta(),
                 command.belowTimeInForce(), command.belowIcebergQuantity());
+        validateStrategyType("aboveStrategyType", command.aboveStrategyType());
+        validateStrategyType("belowStrategyType", command.belowStrategyType());
         requireOptionalOneOf("newOrderRespType", command.orderResponseType(), capability.supportedOrderResponseTypes());
         requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
         validatePeggedOcoLeg("above", command.abovePegPriceType(), command.abovePegOffsetType(), command.abovePegOffsetValue(), capability);
         validatePeggedOcoLeg("below", command.belowPegPriceType(), command.belowPegOffsetType(), command.belowPegOffsetValue(), capability);
+    }
+
+    private void validateOtoOrderList(BinanceOtoOrderListCommand command) {
+        Objects.requireNonNull(command, "command");
+        BinanceTradingCapability capability = BinanceTradingCapability.fromConfig(binance.trading());
+        requireSymbol(command.symbol());
+        requireOneOf("workingType", command.workingType(), OTO_WORKING_TYPES);
+        requireOneOf("workingSide", command.workingSide(), capability.supportedSides());
+        requirePositive("workingPrice", command.workingPrice());
+        requirePositive("workingQuantity", command.workingQuantity());
+        requirePositive("workingIcebergQty", command.workingIcebergQuantity());
+        if (command.workingPrice() == null) {
+            throw new IllegalArgumentException("workingPrice is required for OTO order lists");
+        }
+        if (command.workingQuantity() == null) {
+            throw new IllegalArgumentException("workingQuantity is required for OTO order lists");
+        }
+        if ("LIMIT".equals(command.workingType()) && !hasText(command.workingTimeInForce())) {
+            throw new IllegalArgumentException("workingTimeInForce is required for LIMIT OTO working orders");
+        }
+        requireOptionalOneOf("workingTimeInForce", command.workingTimeInForce(), capability.supportedTimeInForce());
+        validateIcebergTimeInForce("working", command.workingType(), command.workingIcebergQuantity(), command.workingTimeInForce());
+        validateStrategyType("workingStrategyType", command.workingStrategyType());
+        validatePeggedOcoLeg("working", command.workingPegPriceType(), command.workingPegOffsetType(), command.workingPegOffsetValue(), capability);
+
+        requireOneOf("pendingType", command.pendingType(), capability.supportedOrderTypes());
+        if ("MARKET".equals(command.pendingType()) && command.pendingPrice() != null) {
+            throw new IllegalArgumentException("pendingPrice is not supported for MARKET OTO pending orders");
+        }
+        requireOneOf("pendingSide", command.pendingSide(), capability.supportedSides());
+        requirePositive("pendingPrice", command.pendingPrice());
+        requirePositive("pendingStopPrice", command.pendingStopPrice());
+        requirePositive("pendingTrailingDelta", command.pendingTrailingDelta());
+        requirePositive("pendingQuantity", command.pendingQuantity());
+        requirePositive("pendingIcebergQty", command.pendingIcebergQuantity());
+        if (command.pendingQuantity() == null) {
+            throw new IllegalArgumentException("pendingQuantity is required for OTO order lists");
+        }
+        validatePendingOrderLeg(
+                "pending",
+                command.pendingType(),
+                command.pendingPrice(),
+                command.pendingStopPrice(),
+                command.pendingTrailingDelta(),
+                command.pendingTimeInForce(),
+                command.pendingIcebergQuantity()
+        );
+        validateStrategyType("pendingStrategyType", command.pendingStrategyType());
+        validatePeggedOcoLeg("pending", command.pendingPegPriceType(), command.pendingPegOffsetType(), command.pendingPegOffsetValue(), capability);
+        requireOptionalOneOf("newOrderRespType", command.orderResponseType(), capability.supportedOrderResponseTypes());
+        requireOptionalOneOf("selfTradePreventionMode", command.selfTradePreventionMode(), capability.supportedSelfTradePreventionModes());
     }
 
     private boolean isValidOcoPair(String aboveType, String belowType) {
@@ -597,6 +688,39 @@ final class BinanceOrderRequestFactory {
         }
         if (icebergQuantity != null && hasText(timeInForce) && !"GTC".equals(timeInForce)) {
             throw new IllegalArgumentException(prefix + "IcebergQty requires " + prefix + "TimeInForce GTC");
+        }
+    }
+
+    private void validatePendingOrderLeg(String prefix,
+                                         String type,
+                                         BigDecimal price,
+                                         BigDecimal stopPrice,
+                                         Long trailingDelta,
+                                         String timeInForce,
+                                         BigDecimal icebergQuantity) {
+        requireOptionalOneOf(prefix + "TimeInForce", timeInForce, BinanceTradingCapability.fromConfig(binance.trading()).supportedTimeInForce());
+        if (("LIMIT".equals(type) || LIMIT_PRICE_TYPES.contains(type)) && price == null) {
+            throw new IllegalArgumentException(prefix + "Price is required for " + type + " OTO pending orders");
+        }
+        if (("LIMIT".equals(type) || type.endsWith("_LIMIT")) && !hasText(timeInForce)) {
+            throw new IllegalArgumentException(prefix + "TimeInForce is required for " + type + " OTO pending orders");
+        }
+        if (STOP_TRIGGER_TYPES.contains(type) && stopPrice == null && trailingDelta == null) {
+            throw new IllegalArgumentException(prefix + "StopPrice or " + prefix + "TrailingDelta is required for "
+                    + type + " OTO pending orders");
+        }
+        validateIcebergTimeInForce(prefix, type, icebergQuantity, timeInForce);
+    }
+
+    private void validateIcebergTimeInForce(String prefix, String type, BigDecimal icebergQuantity, String timeInForce) {
+        if (icebergQuantity != null && !"LIMIT_MAKER".equals(type) && !"GTC".equals(timeInForce)) {
+            throw new IllegalArgumentException(prefix + "IcebergQty requires " + prefix + "TimeInForce GTC unless type is LIMIT_MAKER");
+        }
+    }
+
+    private void validateStrategyType(String name, Integer strategyType) {
+        if (strategyType != null && strategyType < 1_000_000) {
+            throw new IllegalArgumentException(name + " must be greater than or equal to 1000000 when configured");
         }
     }
 

@@ -92,6 +92,7 @@ public record BinanceProperties(
             String sorOrderPath,
             String sorTestOrderPath,
             String orderListOcoPath,
+            String orderListOtoPath,
             String batchOrdersPath,
             String modifyOrderPath,
             String modifyMultipleOrdersPath,
