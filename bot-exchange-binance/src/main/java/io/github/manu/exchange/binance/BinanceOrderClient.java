@@ -159,6 +159,15 @@ final class BinanceOrderClient {
         return toAmendKeepPriorityResult(readJson(send(requestFactory.amendKeepPriority(command, privateCredential), "PUT")));
     }
 
+    BinanceCancelReplaceResult cancelReplace(BinanceCancelReplaceCommand command) {
+        BinanceHttpResponse response = sendRaw(requestFactory.cancelReplace(command, privateCredential), "POST");
+        JsonNode root = readJson(response);
+        if ((response.statusCode() >= 200 && response.statusCode() <= 299) || root.hasNonNull("data")) {
+            return toCancelReplaceResult(root, response.statusCode());
+        }
+        throw toApiException(response);
+    }
+
     BinanceOrderAck cancelAllOpenOrders(String symbol) {
         JsonNode root = readJson(send(requestFactory.cancelAllOpenOrders(symbol, privateCredential), "DELETE"));
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
@@ -178,12 +187,17 @@ final class BinanceOrderClient {
     }
 
     private BinanceHttpResponse send(BinanceSignedRequest request, String method) {
+        BinanceHttpResponse response = sendRaw(request, method);
+        if (response.statusCode() < 200 || response.statusCode() > 299) {
+            throw toApiException(response);
+        }
+        return response;
+    }
+
+    private BinanceHttpResponse sendRaw(BinanceSignedRequest request, String method) {
         try {
             BinanceHttpResponse response = transport.send(request, method, apiKey, binance.rest().apiKeyHeader());
             rateLimitTracker.observe(binance.rest(), response);
-            if (response.statusCode() < 200 || response.statusCode() > 299) {
-                throw toApiException(response);
-            }
             return response;
         } catch (IOException e) {
             throw new IllegalStateException("Failed to communicate with Binance API", e);
@@ -252,7 +266,7 @@ final class BinanceOrderClient {
                 decimal(node, "executedQty"),
                 decimal(node, "avgPrice"),
                 firstDecimal(node, "cumQuote", "cummulativeQuoteQty", "cumBase"),
-                longValue(node, "updateTime")
+                firstLong(node, "updateTime", "transactTime")
         );
     }
 
@@ -353,6 +367,37 @@ final class BinanceOrderClient {
         );
     }
 
+    private BinanceCancelReplaceResult toCancelReplaceResult(JsonNode root, int httpStatusCode) {
+        JsonNode data = root.hasNonNull("data") ? root.required("data") : root;
+        return new BinanceCancelReplaceResult(
+                httpStatusCode,
+                root.hasNonNull("code") ? root.required("code").asInt() : null,
+                text(root, "msg"),
+                text(data, "cancelResult"),
+                text(data, "newOrderResult"),
+                toOptionalOrderResult(data, "cancelResponse"),
+                toOptionalOrderResult(data, "newOrderResponse"),
+                toOptionalError(data, "cancelResponse"),
+                toOptionalError(data, "newOrderResponse")
+        );
+    }
+
+    private BinanceOrderResult toOptionalOrderResult(JsonNode node, String field) {
+        JsonNode child = node.hasNonNull(field) ? node.required(field) : null;
+        if (child == null || child.hasNonNull("code")) {
+            return null;
+        }
+        return toOrderResult(child);
+    }
+
+    private BinanceCancelReplaceError toOptionalError(JsonNode node, String field) {
+        JsonNode child = node.hasNonNull(field) ? node.required(field) : null;
+        if (child == null || !child.hasNonNull("code")) {
+            return null;
+        }
+        return new BinanceCancelReplaceError(child.required("code").asInt(), text(child, "msg"));
+    }
+
     private BinanceCommissionRateSet toCommissionRateSet(JsonNode node, String field) {
         JsonNode rates = node.required(field);
         return new BinanceCommissionRateSet(
@@ -388,6 +433,16 @@ final class BinanceOrderClient {
 
     private Long longValue(JsonNode node, String field) {
         return node.hasNonNull(field) ? node.required(field).asLong() : null;
+    }
+
+    private Long firstLong(JsonNode node, String... fields) {
+        for (String field : fields) {
+            Long value = longValue(node, field);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private BigDecimal decimal(JsonNode node, String field) {

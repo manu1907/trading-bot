@@ -111,6 +111,9 @@ Implemented Binance foundations:
   query-shape validation, and typed STP match parsing.
 - Spot amend-keep-priority client with catalog-backed path, documented
   identity/new-quantity validation, and typed amended-order parsing.
+- Spot cancel-replace client with catalog-backed path, reused replacement-order
+  validation, documented cancel mode/restriction validation, and typed
+  success/partial-failure parsing.
 - USD-M and COIN-M futures cancel-all and countdown-cancel-all clients with
   catalog-backed paths for outage and emergency-order cleanup workflows.
 - USD-M and COIN-M futures batch-order placement clients with catalog-backed
@@ -141,8 +144,8 @@ Implemented Binance foundations:
 
 Binance parity gaps to close before claiming full connector support:
 
-- Spot: implement cancel-replace, OCO/OTO/OTOCO/OPO/OPOCO, SOR, and WebSocket
-  API order placement.
+- Spot: implement OCO/OTO/OTOCO/OPO/OPOCO, SOR, and WebSocket API order
+  placement.
 - Margin: add borrow/repay, transfers, margin order lists, margin account/risk
   endpoints, prevented matches, and special low-latency key workflows.
 - Options: verify current `/eapi` coverage against current Binance options
@@ -268,7 +271,7 @@ feat(exchange-binance): close documented Binance capability gaps
 
 Deliver:
 
-- Spot cancel-replace, amend-keep-priority, order-list, SOR,
+- Spot order-list, SOR,
   prevented-match, and commission-rate clients where needed by
   execution/reconciliation.
 - Margin borrow/repay, transfer, order list, and margin account/risk endpoints.

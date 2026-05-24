@@ -88,6 +88,7 @@ public record BinanceProperties(
             String commissionRatesPath,
             String preventedMatchesPath,
             String amendKeepPriorityPath,
+            String cancelReplacePath,
             String batchOrdersPath,
             String modifyOrderPath,
             String modifyMultipleOrdersPath,

@@ -97,6 +97,7 @@
                       "commission_rates_path": "/api/v3/account/commission",
                       "prevented_matches_path": "/api/v3/myPreventedMatches",
                       "amend_keep_priority_path": "/api/v3/order/amend/keepPriority",
+                      "cancel_replace_path": "/api/v3/order/cancelReplace",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1055,6 +1056,7 @@
                       "commission_rates_path": "/api/v3/account/commission",
                       "prevented_matches_path": "/api/v3/myPreventedMatches",
                       "amend_keep_priority_path": "/api/v3/order/amend/keepPriority",
+                      "cancel_replace_path": "/api/v3/order/cancelReplace",
                       "supported_sides": [
                         "BUY",
                         "SELL"

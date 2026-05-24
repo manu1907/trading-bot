@@ -11,9 +11,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 final class BinanceOrderRequestFactory {
+
+    private static final Set<String> CANCEL_REPLACE_MODES = Set.of("STOP_ON_FAILURE", "ALLOW_FAILURE");
+    private static final Set<String> CANCEL_RESTRICTIONS = Set.of("ONLY_NEW", "ONLY_PARTIALLY_FILLED");
+    private static final Set<String> ORDER_RATE_LIMIT_EXCEEDED_MODES = Set.of("DO_NOTHING", "CANCEL_ONLY");
 
     private final BinanceProperties binance;
     private final BinanceRestRequestFactory restRequestFactory;
@@ -163,6 +168,19 @@ final class BinanceOrderRequestFactory {
         add(parameters, "newClientOrderId", command.newClientOrderId());
         add(parameters, "newQty", command.newQuantity());
         return restRequestFactory.signedUri(binance.trading().amendKeepPriorityPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest cancelReplace(BinanceCancelReplaceCommand command, String privateCredential) {
+        requireConfiguredPath("cancelReplacePath", binance.trading().cancelReplacePath());
+        validateCancelReplace(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>(orderParameters(command.replacementOrder()));
+        add(parameters, "cancelReplaceMode", command.cancelReplaceMode());
+        add(parameters, "cancelNewClientOrderId", command.cancelNewClientOrderId());
+        add(parameters, "cancelOrigClientOrderId", command.cancelOriginalClientOrderId());
+        add(parameters, "cancelOrderId", command.cancelOrderId());
+        add(parameters, "cancelRestrictions", command.cancelRestrictions());
+        add(parameters, "orderRateLimitExceededMode", command.orderRateLimitExceededMode());
+        return restRequestFactory.signedUri(binance.trading().cancelReplacePath(), parameters, privateCredential);
     }
 
     BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
@@ -428,6 +446,18 @@ final class BinanceOrderRequestFactory {
         }
     }
 
+    private void validateCancelReplace(BinanceCancelReplaceCommand command) {
+        Objects.requireNonNull(command, "command");
+        BinanceOrderCommandValidator.validate(command.replacementOrder(), binance.trading());
+        requireOneOf("cancelReplaceMode", command.cancelReplaceMode(), CANCEL_REPLACE_MODES);
+        requireOptionalOneOf("cancelRestrictions", command.cancelRestrictions(), CANCEL_RESTRICTIONS);
+        requireOptionalOneOf("orderRateLimitExceededMode", command.orderRateLimitExceededMode(), ORDER_RATE_LIMIT_EXCEEDED_MODES);
+        requirePositive("cancelOrderId", command.cancelOrderId());
+        if (command.cancelOrderId() == null && !hasText(command.cancelOriginalClientOrderId())) {
+            throw new IllegalArgumentException("cancelOrderId or cancelOrigClientOrderId is required");
+        }
+    }
+
     private void validateCancelMultipleOrdersQuery(BinanceCancelMultipleOrdersQuery query) {
         Objects.requireNonNull(query, "query");
         requireSymbol(query.symbol());
@@ -500,6 +530,18 @@ final class BinanceOrderRequestFactory {
     private void requireExactlyOneSymbolOrPair(String symbol, String pair) {
         if (hasText(symbol) == hasText(pair)) {
             throw new IllegalArgumentException("exactly one of symbol or pair is required");
+        }
+    }
+
+    private void requireOneOf(String name, String value, Set<String> allowed) {
+        if (!allowed.contains(value)) {
+            throw new IllegalArgumentException(name + " must be one of " + allowed);
+        }
+    }
+
+    private void requireOptionalOneOf(String name, String value, Set<String> allowed) {
+        if (hasText(value) && !allowed.contains(value)) {
+            throw new IllegalArgumentException(name + " must be one of " + allowed);
         }
     }
 

@@ -35,11 +35,13 @@ class BinanceTradingCapabilityTest {
         assertThat(spot.commissionRatesPath()).isEqualTo("/api/v3/account/commission");
         assertThat(spot.preventedMatchesPath()).isEqualTo("/api/v3/myPreventedMatches");
         assertThat(spot.amendKeepPriorityPath()).isEqualTo("/api/v3/order/amend/keepPriority");
+        assertThat(spot.cancelReplacePath()).isEqualTo("/api/v3/order/cancelReplace");
         assertThat(margin.allOrdersPath()).isEqualTo("/sapi/v1/margin/allOrders");
         assertThat(margin.accountTradesPath()).isEqualTo("/sapi/v1/margin/myTrades");
         assertThat(margin.commissionRatesPath()).isNull();
         assertThat(margin.preventedMatchesPath()).isNull();
         assertThat(margin.amendKeepPriorityPath()).isNull();
+        assertThat(margin.cancelReplacePath()).isNull();
         assertThat(margin.batchOrdersPath()).isNull();
         assertThat(margin.modifyOrderPath()).isNull();
         assertThat(margin.modifyMultipleOrdersPath()).isNull();
@@ -49,6 +51,7 @@ class BinanceTradingCapabilityTest {
         assertThat(usdm.commissionRatesPath()).isNull();
         assertThat(usdm.preventedMatchesPath()).isNull();
         assertThat(usdm.amendKeepPriorityPath()).isNull();
+        assertThat(usdm.cancelReplacePath()).isNull();
         assertThat(usdm.batchOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
         assertThat(usdm.modifyOrderPath()).isEqualTo("/fapi/v1/order");
         assertThat(usdm.modifyMultipleOrdersPath()).isEqualTo("/fapi/v1/batchOrders");
@@ -58,6 +61,7 @@ class BinanceTradingCapabilityTest {
         assertThat(coinm.commissionRatesPath()).isNull();
         assertThat(coinm.preventedMatchesPath()).isNull();
         assertThat(coinm.amendKeepPriorityPath()).isNull();
+        assertThat(coinm.cancelReplacePath()).isNull();
         assertThat(coinm.batchOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
         assertThat(coinm.modifyOrderPath()).isEqualTo("/dapi/v1/order");
         assertThat(coinm.modifyMultipleOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
@@ -67,6 +71,7 @@ class BinanceTradingCapabilityTest {
         assertThat(options.commissionRatesPath()).isNull();
         assertThat(options.preventedMatchesPath()).isNull();
         assertThat(options.amendKeepPriorityPath()).isNull();
+        assertThat(options.cancelReplacePath()).isNull();
         assertThat(options.batchOrdersPath()).isNull();
         assertThat(options.modifyOrderPath()).isNull();
         assertThat(options.modifyMultipleOrdersPath()).isNull();

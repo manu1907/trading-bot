@@ -795,6 +795,80 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_spot_cancel_replace_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.cancelReplace(new BinanceCancelReplaceCommand(
+                spotLimitCommand("BTCUSDT", "BUY", "replace-1", "50000.00", "0.001000"),
+                "STOP_ON_FAILURE",
+                "cancel-1",
+                null,
+                33L,
+                "ONLY_NEW",
+                "DO_NOTHING"
+        ), "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&side=BUY&type=LIMIT&timeInForce=GTC&newOrderRespType=FULL"
+                        + "&selfTradePreventionMode=NONE&newClientOrderId=replace-1&quantity=0.001&price=50000"
+                        + "&cancelReplaceMode=STOP_ON_FAILURE&cancelNewClientOrderId=cancel-1&cancelOrderId=33"
+                        + "&cancelRestrictions=ONLY_NEW&orderRateLimitExceededMode=DO_NOTHING"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/api/v3/order/cancelReplace?");
+    }
+
+    @Test
+    void rejects_invalid_spot_cancel_replace_requests() {
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> spotFactory.cancelReplace(new BinanceCancelReplaceCommand(
+                spotLimitCommand("BTCUSDT", "BUY", "replace-1", "50000", "0.001"),
+                "BAD_MODE",
+                null,
+                "cancel-1",
+                null,
+                null,
+                null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cancelReplaceMode must be one of");
+        assertThatThrownBy(() -> spotFactory.cancelReplace(new BinanceCancelReplaceCommand(
+                spotLimitCommand("BTCUSDT", "BUY", "replace-1", "50000", "0.001"),
+                "STOP_ON_FAILURE",
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cancelOrderId or cancelOrigClientOrderId is required");
+        assertThatThrownBy(() -> spotFactory.cancelReplace(new BinanceCancelReplaceCommand(
+                spotLimitCommand("BTCUSDT", "BUY", "replace-1", "50000", "0.001"),
+                "STOP_ON_FAILURE",
+                null,
+                "cancel-1",
+                null,
+                "BAD_RESTRICTION",
+                null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cancelRestrictions must be one of");
+        assertThatThrownBy(() -> futuresFactory.cancelReplace(new BinanceCancelReplaceCommand(
+                limitCommand("BTCUSDT", "BUY", "replace-1", "50000", "0.001"),
+                "STOP_ON_FAILURE",
+                null,
+                "cancel-1",
+                null,
+                null,
+                null
+        ), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cancelReplacePath is not configured");
+    }
+
+    @Test
     void builds_coin_m_history_request_by_pair() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(coinmBinance(), FIXED_CLOCK, 0);
 
@@ -890,6 +964,40 @@ class BinanceOrderRequestFactoryTest {
                 "BOTH",
                 "RESULT",
                 "EXPIRE_MAKER",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                clientOrderId,
+                null,
+                quantity == null ? null : new BigDecimal(quantity),
+                null,
+                price == null ? null : new BigDecimal(price),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private BinanceOrderCommand spotLimitCommand(String symbol, String side, String clientOrderId, String price, String quantity) {
+        return new BinanceOrderCommand(
+                symbol,
+                side,
+                "LIMIT",
+                "GTC",
+                null,
+                "FULL",
+                "NONE",
                 null,
                 null,
                 null,
@@ -1105,6 +1213,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -1155,6 +1264,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/account/commission",
                 "/api/v3/myPreventedMatches",
                 "/api/v3/order/amend/keepPriority",
+                "/api/v3/order/cancelReplace",
                 null,
                 null,
                 null,
@@ -1212,6 +1322,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -1252,6 +1363,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/openOrders",
                 "/dapi/v1/allOrders",
                 "/dapi/v1/userTrades",
+                null,
                 null,
                 null,
                 null,

@@ -439,6 +439,123 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void cancels_and_replaces_spot_order() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "cancelResult": "SUCCESS",
+                  "newOrderResult": "SUCCESS",
+                  "cancelResponse": {
+                    "symbol": "BTCUSDT",
+                    "origClientOrderId": "old-1",
+                    "orderId": 33,
+                    "clientOrderId": "cancel-1",
+                    "price": "50000.00000000",
+                    "origQty": "0.00100000",
+                    "executedQty": "0.00000000",
+                    "cummulativeQuoteQty": "0.00000000",
+                    "status": "CANCELED",
+                    "timeInForce": "GTC",
+                    "type": "LIMIT",
+                    "side": "BUY"
+                  },
+                  "newOrderResponse": {
+                    "symbol": "BTCUSDT",
+                    "orderId": 34,
+                    "clientOrderId": "replace-1",
+                    "transactTime": 1660813156959,
+                    "price": "49900.00000000",
+                    "origQty": "0.00100000",
+                    "executedQty": "0.00000000",
+                    "cummulativeQuoteQty": "0.00000000",
+                    "status": "NEW",
+                    "timeInForce": "GTC",
+                    "type": "LIMIT",
+                    "side": "BUY"
+                  }
+                }
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        BinanceCancelReplaceResult result = client.cancelReplace(new BinanceCancelReplaceCommand(
+                spotLimitOrder("replace-1"),
+                "STOP_ON_FAILURE",
+                "cancel-1",
+                null,
+                33L,
+                "ONLY_NEW",
+                null
+        ));
+
+        assertThat(result.httpStatusCode()).isEqualTo(200);
+        assertThat(result.cancelResult()).isEqualTo("SUCCESS");
+        assertThat(result.newOrderResult()).isEqualTo("SUCCESS");
+        assertThat(result.cancelResponse().status()).isEqualTo("CANCELED");
+        assertThat(result.newOrderResponse().orderId()).isEqualTo(34L);
+        assertThat(result.newOrderResponse().updateTime()).isEqualTo(1660813156959L);
+        assertThat(result.cancelError()).isNull();
+        assertThat(result.newOrderError()).isNull();
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("POST");
+            assertThat(call.uri()).contains("/api/v3/order/cancelReplace?symbol=BTCUSDT&side=BUY");
+            assertThat(call.uri()).contains("cancelReplaceMode=STOP_ON_FAILURE");
+            assertThat(call.uri()).doesNotContain("test-secret");
+        });
+    }
+
+    @Test
+    void preserves_spot_cancel_replace_partial_failure_body() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(409, """
+                {
+                  "code": -2021,
+                  "msg": "Order cancel-replace partially failed.",
+                  "data": {
+                    "cancelResult": "SUCCESS",
+                    "newOrderResult": "FAILURE",
+                    "cancelResponse": {
+                      "symbol": "BTCUSDT",
+                      "origClientOrderId": "old-1",
+                      "orderId": 33,
+                      "clientOrderId": "cancel-1",
+                      "price": "50000.00000000",
+                      "origQty": "0.00100000",
+                      "executedQty": "0.00000000",
+                      "cummulativeQuoteQty": "0.00000000",
+                      "status": "CANCELED",
+                      "timeInForce": "GTC",
+                      "type": "LIMIT",
+                      "side": "BUY"
+                    },
+                    "newOrderResponse": {
+                      "code": -2010,
+                      "msg": "Order would immediately match and take."
+                    }
+                  }
+                }
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        BinanceCancelReplaceResult result = client.cancelReplace(new BinanceCancelReplaceCommand(
+                spotLimitOrder("replace-1"),
+                "ALLOW_FAILURE",
+                "cancel-1",
+                null,
+                33L,
+                null,
+                "CANCEL_ONLY"
+        ));
+
+        assertThat(result.httpStatusCode()).isEqualTo(409);
+        assertThat(result.exchangeCode()).isEqualTo(-2021);
+        assertThat(result.exchangeMessage()).contains("partially failed");
+        assertThat(result.cancelResult()).isEqualTo("SUCCESS");
+        assertThat(result.newOrderResult()).isEqualTo("FAILURE");
+        assertThat(result.cancelResponse().status()).isEqualTo("CANCELED");
+        assertThat(result.newOrderResponse()).isNull();
+        assertThat(result.newOrderError().code()).isEqualTo(-2010);
+        assertThat(result.newOrderError().message()).contains("immediately match");
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -512,6 +629,40 @@ class BinanceOrderClientTest {
                 new BigDecimal("0.001"),
                 null,
                 new BigDecimal("50000"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private BinanceOrderCommand spotLimitOrder(String clientOrderId) {
+        return new BinanceOrderCommand(
+                "BTCUSDT",
+                "BUY",
+                "LIMIT",
+                "GTC",
+                null,
+                "FULL",
+                "NONE",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                clientOrderId,
+                null,
+                new BigDecimal("0.001"),
+                null,
+                new BigDecimal("49900"),
                 null,
                 null,
                 null,
@@ -700,6 +851,7 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -750,6 +902,7 @@ class BinanceOrderClientTest {
                 "/api/v3/account/commission",
                 "/api/v3/myPreventedMatches",
                 "/api/v3/order/amend/keepPriority",
+                "/api/v3/order/cancelReplace",
                 null,
                 null,
                 null,
