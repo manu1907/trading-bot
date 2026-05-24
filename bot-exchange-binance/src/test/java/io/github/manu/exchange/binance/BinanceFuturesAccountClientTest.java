@@ -322,6 +322,7 @@ class BinanceFuturesAccountClientTest {
                 websocket(),
                 trading(),
                 userData(),
+                null,
                 futuresAccount()
         );
     }

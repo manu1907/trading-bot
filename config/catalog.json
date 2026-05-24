@@ -247,6 +247,13 @@
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
                     },
+                    "margin_account": {
+                      "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
+                      "supported_borrow_repay_types": [
+                        "BORROW",
+                        "REPAY"
+                      ]
+                    },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
                       "query_order_path": "/sapi/v1/margin/order",
@@ -391,6 +398,13 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "margin_account": {
+                      "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
+                      "supported_borrow_repay_types": [
+                        "BORROW",
+                        "REPAY"
+                      ]
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -1215,6 +1229,13 @@
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
                     },
+                    "margin_account": {
+                      "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
+                      "supported_borrow_repay_types": [
+                        "BORROW",
+                        "REPAY"
+                      ]
+                    },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
                       "query_order_path": "/sapi/v1/margin/order",
@@ -1359,6 +1380,13 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "margin_account": {
+                      "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
+                      "supported_borrow_repay_types": [
+                        "BORROW",
+                        "REPAY"
+                      ]
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",

@@ -103,6 +103,7 @@ class BinanceWebSocketApiRequestFactoryTest {
                 websocket("wss://ws-api.binance.com:443", "/ws-api/v3"),
                 spotTrading(),
                 userData(),
+                null,
                 null
         );
     }
@@ -115,6 +116,7 @@ class BinanceWebSocketApiRequestFactoryTest {
                 websocket(null, null),
                 futuresTrading(),
                 userData(),
+                null,
                 null
         );
     }

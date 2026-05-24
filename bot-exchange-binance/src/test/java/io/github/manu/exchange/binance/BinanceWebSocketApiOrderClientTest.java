@@ -152,6 +152,7 @@ class BinanceWebSocketApiOrderClientTest {
                 websocket(),
                 spotTrading(),
                 userData(),
+                null,
                 null
         );
     }

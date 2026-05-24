@@ -36,6 +36,7 @@ public record BinanceAccountProperties(
                 market.websocket(),
                 market.trading(),
                 market.userData(),
+                market.marginAccount(),
                 market.futuresAccount()
         );
     }

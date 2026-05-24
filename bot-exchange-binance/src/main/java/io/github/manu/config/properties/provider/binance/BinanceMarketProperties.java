@@ -12,6 +12,7 @@ public record BinanceMarketProperties(
         @Valid @NotNull BinanceProperties.Websocket websocket,
         @Valid @NotNull BinanceProperties.Trading trading,
         @Valid BinanceProperties.UserDataStream userData,
+        @Valid BinanceProperties.MarginAccount marginAccount,
         @Valid BinanceProperties.FuturesAccount futuresAccount
 ) {
 }

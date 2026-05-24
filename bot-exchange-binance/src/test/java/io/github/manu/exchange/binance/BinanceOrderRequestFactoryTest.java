@@ -1260,6 +1260,7 @@ class BinanceOrderRequestFactoryTest {
                 websocket(),
                 trading(),
                 userData(),
+                null,
                 new BinanceProperties.FuturesAccount(
                         "ONE_WAY",
                         List.of("ONE_WAY", "HEDGE"),
@@ -1608,6 +1609,7 @@ class BinanceOrderRequestFactoryTest {
                 websocket(),
                 spotTrading(),
                 userData(),
+                null,
                 null
         );
     }
@@ -1626,6 +1628,7 @@ class BinanceOrderRequestFactoryTest {
                 websocket(),
                 marginTrading(),
                 userData(),
+                marginAccount(),
                 null
         );
     }
@@ -1644,6 +1647,7 @@ class BinanceOrderRequestFactoryTest {
                 websocket(),
                 coinmTrading(),
                 userData(),
+                null,
                 new BinanceProperties.FuturesAccount(
                         "ONE_WAY",
                         List.of("ONE_WAY", "HEDGE"),
@@ -1664,6 +1668,13 @@ class BinanceOrderRequestFactoryTest {
                         false,
                         false
                 )
+        );
+    }
+
+    private BinanceProperties.MarginAccount marginAccount() {
+        return new BinanceProperties.MarginAccount(
+                "/sapi/v1/margin/borrow-repay",
+                List.of("BORROW", "REPAY")
         );
     }
 

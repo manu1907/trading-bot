@@ -40,6 +40,7 @@ final class BinanceConfigValidator {
         validateRest(marketPath(active) + ".rest", binance.rest(), marketType, errors);
         validateWebsocket(marketPath(active) + ".websocket", binance.websocket(), marketType, errors);
         validateTrading(marketPath(active) + ".trading", binance.trading(), marketType, errors);
+        validateMarginAccount(marketPath(active) + ".margin_account", binance.marginAccount(), marketType, errors);
         if (!marketType.futures()) {
             validateUserData(marketPath(active) + ".user_data", binance.userDataStream(), marketType, false, errors);
         }
@@ -170,6 +171,23 @@ final class BinanceConfigValidator {
         String path = marketPath(active);
         validateUserData(path + ".user_data", binance.userDataStream(), marketType, true, errors);
         validateFuturesAccount(path + ".futures_account", binance.futuresAccount(), marketType, errors);
+    }
+
+    private static void validateMarginAccount(String path,
+                                              BinanceProperties.MarginAccount account,
+                                              BinanceMarketType marketType,
+                                              List<String> errors) {
+        if (marketType != BinanceMarketType.MARGIN_CROSS && marketType != BinanceMarketType.MARGIN_ISOLATED) {
+            return;
+        }
+        if (account == null) {
+            errors.add(path + " is required");
+            return;
+        }
+
+        requirePath(path + ".borrow_repay_path", account.borrowRepayPath(), errors);
+        requireMatching(path + ".borrow_repay_path", account.borrowRepayPath(), "/sapi/v1/margin/borrow-repay", errors);
+        requireSameValues(path + ".supported_borrow_repay_types", account.supportedBorrowRepayTypes(), Set.of("BORROW", "REPAY"), errors);
     }
 
     private static void validateTrading(String path,

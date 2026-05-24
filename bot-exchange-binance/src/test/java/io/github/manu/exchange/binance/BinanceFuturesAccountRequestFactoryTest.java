@@ -252,6 +252,7 @@ class BinanceFuturesAccountRequestFactoryTest {
                 websocket(),
                 trading(pathPrefix),
                 userData(pathPrefix),
+                null,
                 futuresAccount(pathPrefix, multiAssetsModePath)
         );
     }

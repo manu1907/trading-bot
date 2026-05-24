@@ -1489,6 +1489,7 @@ class BinanceOrderClientTest {
                 websocket(),
                 trading(),
                 userData(),
+                null,
                 futuresAccount()
         );
     }
@@ -1507,6 +1508,7 @@ class BinanceOrderClientTest {
                 websocket(),
                 spotTrading(),
                 userData(),
+                null,
                 null
         );
     }

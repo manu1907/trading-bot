@@ -112,6 +112,7 @@ class BinanceUserDataStreamClientTest {
                 websocket(),
                 trading(),
                 userData(),
+                null,
                 new BinanceProperties.FuturesAccount(
                         "ONE_WAY",
                         List.of("ONE_WAY", "HEDGE"),

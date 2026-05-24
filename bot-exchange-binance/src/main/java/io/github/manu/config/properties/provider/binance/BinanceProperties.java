@@ -14,6 +14,7 @@ public record BinanceProperties(
         @Valid @NotNull Websocket websocket,
         @Valid @NotNull Trading trading,
         @Valid UserDataStream userDataStream,
+        @Valid MarginAccount marginAccount,
         @Valid FuturesAccount futuresAccount
 ) {
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -173,6 +174,16 @@ public record BinanceProperties(
         public UnknownExecutionStatus {
             retryableMessages = List.copyOf(retryableMessages);
             reconcileBeforeRetryStatusCodes = List.copyOf(reconcileBeforeRetryStatusCodes);
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record MarginAccount(
+            @NotNull String borrowRepayPath,
+            @NotNull List<String> supportedBorrowRepayTypes
+    ) {
+        public MarginAccount {
+            supportedBorrowRepayTypes = List.copyOf(supportedBorrowRepayTypes);
         }
     }
 
