@@ -74,6 +74,50 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void queries_order_and_trade_history_for_reconciliation() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, "[" + orderResponseBody("HISTORY", "FILLED") + "]"),
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "symbol": "BTCUSDT",
+                            "id": 698759,
+                            "orderId": 25851813,
+                            "price": "7819.01",
+                            "qty": "0.002",
+                            "quoteQty": "15.63802",
+                            "realizedPnl": "-0.91539999",
+                            "commission": "0.07819010",
+                            "commissionAsset": "USDT",
+                            "side": "SELL",
+                            "positionSide": "SHORT",
+                            "buyer": false,
+                            "maker": false,
+                            "time": 1569514978020
+                          }
+                        ]
+                        """)
+        );
+        BinanceOrderClient client = client(transport);
+
+        List<BinanceOrderResult> orders = client.allOrders(
+                new BinanceOrderHistoryQuery("BTCUSDT", null, null, 1L, 2L, 100, null)
+        );
+        List<BinanceAccountTrade> trades = client.accountTrades(
+                new BinanceTradeHistoryQuery("BTCUSDT", null, 25851813L, null, null, null, 500, null)
+        );
+
+        assertThat(orders).singleElement().extracting(BinanceOrderResult::status).isEqualTo("FILLED");
+        assertThat(trades).singleElement().satisfies(trade -> {
+            assertThat(trade.orderId()).isEqualTo(25851813L);
+            assertThat(trade.realizedPnl()).isEqualByComparingTo("-0.91539999");
+            assertThat(trade.buyer()).isFalse();
+        });
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "GET");
+        assertThat(transport.calls()).extracting(FakeCall::uri).allSatisfy(uri -> assertThat(uri).doesNotContain("test-secret"));
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -257,6 +301,8 @@ class BinanceOrderClientTest {
                 "/fapi/v1/order",
                 "/fapi/v1/order",
                 "/fapi/v1/openOrders",
+                "/fapi/v1/allOrders",
+                "/fapi/v1/userTrades",
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
                 List.of("GTC", "IOC", "FOK", "GTX", "GTD"),

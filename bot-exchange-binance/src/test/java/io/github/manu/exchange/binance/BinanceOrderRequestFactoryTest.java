@@ -10,6 +10,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BinanceOrderRequestFactoryTest {
 
@@ -277,6 +278,86 @@ class BinanceOrderRequestFactoryTest {
         assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/openOrders?");
     }
 
+    @Test
+    void builds_all_orders_history_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.allOrders(
+                new BinanceOrderHistoryQuery("BTCUSDT", null, 12_345L, 1_700_000_000_000L, 1_700_001_000_000L, 100, null),
+                "test-secret"
+        );
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&orderId=12345&startTime=1700000000000&endTime=1700001000000"
+                        + "&limit=100&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/allOrders?");
+    }
+
+    @Test
+    void builds_margin_account_trade_history_request_with_isolated_flag() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(marginBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.accountTrades(
+                new BinanceTradeHistoryQuery("BTCUSDT", null, null, null, null, 98L, 500, true),
+                "test-secret"
+        );
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&fromId=98&limit=500&isIsolated=TRUE"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/myTrades?");
+    }
+
+    @Test
+    void builds_coin_m_history_request_by_pair() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(coinmBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.allOrders(
+                new BinanceOrderHistoryQuery(null, "BTCUSD", null, null, null, 50, null),
+                "test-secret"
+        );
+
+        assertThat(request.payload()).isEqualTo("pair=BTCUSD&limit=50&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-dapi.binance.com/dapi/v1/allOrders?");
+    }
+
+    @Test
+    void rejects_invalid_history_query_shapes() {
+        BinanceOrderRequestFactory usdmFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory coinmFactory = new BinanceOrderRequestFactory(coinmBinance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> usdmFactory.allOrders(
+                new BinanceOrderHistoryQuery(null, "BTCUSD", null, null, null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("symbol is required");
+        assertThatThrownBy(() -> coinmFactory.accountTrades(
+                new BinanceTradeHistoryQuery(null, "BTCUSD", 123L, null, null, null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderId requires symbol");
+        assertThatThrownBy(() -> coinmFactory.accountTrades(
+                new BinanceTradeHistoryQuery(null, "BTCUSD", null, null, null, 123L, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("fromId cannot be sent with pair");
+        assertThatThrownBy(() -> usdmFactory.allOrders(
+                new BinanceOrderHistoryQuery("BTCUSDT", null, null, null, null, 0, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limit must be positive");
+        assertThatThrownBy(() -> usdmFactory.accountTrades(
+                new BinanceTradeHistoryQuery("BTCUSDT", null, null, null, null, null, 100, true),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("isIsolated is only supported");
+    }
+
     private BinanceProperties binance() {
         return new BinanceProperties(
                 "FUTURES_USD_M",
@@ -343,6 +424,36 @@ class BinanceOrderRequestFactoryTest {
         );
     }
 
+    private BinanceProperties coinmBinance() {
+        return new BinanceProperties(
+                "FUTURES_COIN_M",
+                new BinanceProperties.Credentials(
+                        "binance_demo_main",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_STREAM", "USER_DATA", "TRADE")
+                ),
+                coinmRest(),
+                websocket(),
+                coinmTrading(),
+                userData(),
+                new BinanceProperties.FuturesAccount(
+                        "ONE_WAY",
+                        List.of("ONE_WAY", "HEDGE"),
+                        "/dapi/v1/positionSide/dual",
+                        "/dapi/v1/marginType",
+                        "/dapi/v1/leverage",
+                        null,
+                        1,
+                        125,
+                        List.of("CROSSED", "ISOLATED"),
+                        false,
+                        false
+                )
+        );
+    }
+
     private BinanceProperties.Rest rest() {
         return new BinanceProperties.Rest(
                 "https://demo-fapi.binance.com",
@@ -391,6 +502,30 @@ class BinanceOrderRequestFactoryTest {
         );
     }
 
+    private BinanceProperties.Rest coinmRest() {
+        return new BinanceProperties.Rest(
+                "https://demo-dapi.binance.com",
+                "/dapi/v1/exchangeInfo",
+                "/dapi/v1/time",
+                "X-MBX-APIKEY",
+                "HMAC_SHA256",
+                "MILLISECONDS",
+                5000,
+                2000,
+                5000,
+                3,
+                200,
+                List.of(408, 429, 500, 502, 503, 504),
+                List.of("X-MBX-USED-WEIGHT"),
+                List.of("X-MBX-ORDER-COUNT"),
+                "RESULT",
+                new BinanceProperties.UnknownExecutionStatus(
+                        List.of("Unknown error, please check your request or try again later."),
+                        List.of(503)
+                )
+        );
+    }
+
     private BinanceProperties.Websocket websocket() {
         return new BinanceProperties.Websocket(
                 "wss://fstream.binancefuture.com",
@@ -419,6 +554,8 @@ class BinanceOrderRequestFactoryTest {
                 "/fapi/v1/order",
                 "/fapi/v1/order",
                 "/fapi/v1/openOrders",
+                "/fapi/v1/allOrders",
+                "/fapi/v1/userTrades",
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
                 List.of("GTC", "IOC", "FOK", "GTX", "GTD"),
@@ -457,6 +594,8 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/order",
                 "/api/v3/order",
                 "/api/v3/openOrders",
+                "/api/v3/allOrders",
+                "/api/v3/myTrades",
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -495,6 +634,8 @@ class BinanceOrderRequestFactoryTest {
                 "/sapi/v1/margin/order",
                 "/sapi/v1/margin/order",
                 "/sapi/v1/margin/openOrders",
+                "/sapi/v1/margin/allOrders",
+                "/sapi/v1/margin/myTrades",
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -522,6 +663,46 @@ class BinanceOrderRequestFactoryTest {
                 true,
                 true,
                 true,
+                false
+        );
+    }
+
+    private BinanceProperties.Trading coinmTrading() {
+        return new BinanceProperties.Trading(
+                "/dapi/v1/order",
+                null,
+                "/dapi/v1/order",
+                "/dapi/v1/order",
+                "/dapi/v1/openOrders",
+                "/dapi/v1/allOrders",
+                "/dapi/v1/userTrades",
+                List.of("BUY", "SELL"),
+                List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
+                List.of("GTC", "IOC", "FOK", "GTX", "GTD"),
+                List.of("ACK", "RESULT"),
+                List.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
+                List.of("BOTH", "LONG", "SHORT"),
+                List.of("LIMIT", "STOP", "TAKE_PROFIT"),
+                List.of("STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
+                List.of("MARK_PRICE", "CONTRACT_PRICE"),
+                List.of("STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
                 false
         );
     }

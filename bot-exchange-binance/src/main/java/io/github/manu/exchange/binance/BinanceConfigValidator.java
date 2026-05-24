@@ -179,6 +179,8 @@ final class BinanceConfigValidator {
         requireMatching(path + ".query_order_path", trading.queryOrderPath(), expected.queryOrderPath(), errors);
         requireMatching(path + ".cancel_order_path", trading.cancelOrderPath(), expected.cancelOrderPath(), errors);
         requireMatching(path + ".open_orders_path", trading.openOrdersPath(), expected.openOrdersPath(), errors);
+        requireConfiguredPath(path + ".all_orders_path", trading.allOrdersPath(), expected.allOrdersPath(), errors);
+        requireConfiguredPath(path + ".account_trades_path", trading.accountTradesPath(), expected.accountTradesPath(), errors);
         requireSameValues(path + ".supported_sides", trading.supportedSides(), expected.supportedSides(), errors);
         requireSameValues(path + ".supported_order_types", trading.supportedOrderTypes(), expected.supportedOrderTypes(), errors);
         requireSameValues(path + ".supported_time_in_force", trading.supportedTimeInForce(), expected.supportedTimeInForce(), errors);
@@ -492,6 +494,15 @@ final class BinanceConfigValidator {
             }
             return;
         }
+        requireMatching(path, actual, expected, errors);
+    }
+
+    private static void requireConfiguredPath(String path, String actual, String expected, List<String> errors) {
+        if (expected == null) {
+            requireOptionalMatching(path, actual, null, errors);
+            return;
+        }
+        requirePath(path, actual, errors);
         requireMatching(path, actual, expected, errors);
     }
 

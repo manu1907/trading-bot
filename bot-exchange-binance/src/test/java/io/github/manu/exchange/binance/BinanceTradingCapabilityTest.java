@@ -23,6 +23,26 @@ class BinanceTradingCapabilityTest {
     }
 
     @Test
+    void maps_documented_order_and_trade_history_paths_by_market_type() {
+        BinanceTradingCapability spot = BinanceTradingCapability.forMarketType(BinanceMarketType.SPOT);
+        BinanceTradingCapability margin = BinanceTradingCapability.forMarketType(BinanceMarketType.MARGIN_CROSS);
+        BinanceTradingCapability usdm = BinanceTradingCapability.forMarketType(BinanceMarketType.FUTURES_USD_M);
+        BinanceTradingCapability coinm = BinanceTradingCapability.forMarketType(BinanceMarketType.FUTURES_COIN_M);
+        BinanceTradingCapability options = BinanceTradingCapability.forMarketType(BinanceMarketType.OPTIONS);
+
+        assertThat(spot.allOrdersPath()).isEqualTo("/api/v3/allOrders");
+        assertThat(spot.accountTradesPath()).isEqualTo("/api/v3/myTrades");
+        assertThat(margin.allOrdersPath()).isEqualTo("/sapi/v1/margin/allOrders");
+        assertThat(margin.accountTradesPath()).isEqualTo("/sapi/v1/margin/myTrades");
+        assertThat(usdm.allOrdersPath()).isEqualTo("/fapi/v1/allOrders");
+        assertThat(usdm.accountTradesPath()).isEqualTo("/fapi/v1/userTrades");
+        assertThat(coinm.allOrdersPath()).isEqualTo("/dapi/v1/allOrders");
+        assertThat(coinm.accountTradesPath()).isEqualTo("/dapi/v1/userTrades");
+        assertThat(options.allOrdersPath()).isNull();
+        assertThat(options.accountTradesPath()).isNull();
+    }
+
+    @Test
     void distinguishes_market_specific_order_features() {
         BinanceTradingCapability spot = BinanceTradingCapability.forMarketType(BinanceMarketType.SPOT);
         BinanceTradingCapability usdm = BinanceTradingCapability.forMarketType(BinanceMarketType.FUTURES_USD_M);

@@ -55,6 +55,35 @@ final class BinanceOrderRequestFactory {
         return restRequestFactory.signedUri(binance.trading().openOrdersPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest allOrders(BinanceOrderHistoryQuery query, String privateCredential) {
+        requireHistoryPath("allOrdersPath", binance.trading().allOrdersPath());
+        validateOrderHistoryQuery(query);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", query.symbol());
+        add(parameters, "pair", query.pair());
+        add(parameters, "orderId", query.orderId());
+        add(parameters, "startTime", query.startTime());
+        add(parameters, "endTime", query.endTime());
+        add(parameters, "limit", query.limit());
+        addMarginIsolated(parameters, query.isolatedMargin());
+        return restRequestFactory.signedUri(binance.trading().allOrdersPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest accountTrades(BinanceTradeHistoryQuery query, String privateCredential) {
+        requireHistoryPath("accountTradesPath", binance.trading().accountTradesPath());
+        validateTradeHistoryQuery(query);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", query.symbol());
+        add(parameters, "pair", query.pair());
+        add(parameters, "orderId", query.orderId());
+        add(parameters, "startTime", query.startTime());
+        add(parameters, "endTime", query.endTime());
+        add(parameters, "fromId", query.fromId());
+        add(parameters, "limit", query.limit());
+        addMarginIsolated(parameters, query.isolatedMargin());
+        return restRequestFactory.signedUri(binance.trading().accountTradesPath(), parameters, privateCredential);
+    }
+
     private List<BinanceRequestParameter> orderParameters(BinanceOrderCommand command) {
         List<BinanceRequestParameter> parameters = new ArrayList<>();
         add(parameters, "symbol", command.symbol());
@@ -87,6 +116,93 @@ final class BinanceOrderRequestFactory {
         add(parameters, "isIsolated", command.isolatedMargin());
         add(parameters, "marketMakerProtection", command.marketMakerProtection());
         return parameters;
+    }
+
+    private void validateOrderHistoryQuery(BinanceOrderHistoryQuery query) {
+        Objects.requireNonNull(query, "query");
+        BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
+        requirePositive("orderId", query.orderId());
+        requirePositive("startTime", query.startTime());
+        requirePositive("endTime", query.endTime());
+        requirePositive("limit", query.limit());
+        requireMarginFlagOnlyOnMargin(marketType, query.isolatedMargin());
+        if (marketType == BinanceMarketType.FUTURES_COIN_M) {
+            requireExactlyOneSymbolOrPair(query.symbol(), query.pair());
+            if (hasText(query.pair()) && query.orderId() != null) {
+                throw new IllegalArgumentException("orderId requires symbol for COIN-M all-orders queries");
+            }
+            return;
+        }
+        requireSymbol(query.symbol());
+        requireNoPair(query.pair());
+    }
+
+    private void validateTradeHistoryQuery(BinanceTradeHistoryQuery query) {
+        Objects.requireNonNull(query, "query");
+        BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
+        requirePositive("orderId", query.orderId());
+        requirePositive("startTime", query.startTime());
+        requirePositive("endTime", query.endTime());
+        requirePositive("fromId", query.fromId());
+        requirePositive("limit", query.limit());
+        requireMarginFlagOnlyOnMargin(marketType, query.isolatedMargin());
+        if (marketType == BinanceMarketType.FUTURES_COIN_M) {
+            requireExactlyOneSymbolOrPair(query.symbol(), query.pair());
+            if (hasText(query.pair()) && query.orderId() != null) {
+                throw new IllegalArgumentException("orderId requires symbol for COIN-M account-trade queries");
+            }
+            if (hasText(query.pair()) && query.fromId() != null) {
+                throw new IllegalArgumentException("fromId cannot be sent with pair for COIN-M account-trade queries");
+            }
+        } else {
+            requireSymbol(query.symbol());
+            requireNoPair(query.pair());
+        }
+        if (query.fromId() != null && (query.startTime() != null || query.endTime() != null)) {
+            throw new IllegalArgumentException("fromId cannot be sent with startTime or endTime");
+        }
+    }
+
+    private void requirePositive(String name, Long value) {
+        if (value != null && value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive when configured");
+        }
+    }
+
+    private void requirePositive(String name, Integer value) {
+        if (value != null && value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive when configured");
+        }
+    }
+
+    private void requireMarginFlagOnlyOnMargin(BinanceMarketType marketType, Boolean isolatedMargin) {
+        if (isolatedMargin != null && marketType != BinanceMarketType.MARGIN_CROSS && marketType != BinanceMarketType.MARGIN_ISOLATED) {
+            throw new IllegalArgumentException("isIsolated is only supported for margin history queries");
+        }
+    }
+
+    private void requireHistoryPath(String name, String path) {
+        if (!hasText(path)) {
+            throw new IllegalArgumentException("Binance trading " + name + " is not configured for this market");
+        }
+    }
+
+    private void requireSymbol(String symbol) {
+        if (!hasText(symbol)) {
+            throw new IllegalArgumentException("symbol is required");
+        }
+    }
+
+    private void requireNoPair(String pair) {
+        if (hasText(pair)) {
+            throw new IllegalArgumentException("pair is only supported for COIN-M futures history queries");
+        }
+    }
+
+    private void requireExactlyOneSymbolOrPair(String symbol, String pair) {
+        if (hasText(symbol) == hasText(pair)) {
+            throw new IllegalArgumentException("exactly one of symbol or pair is required");
+        }
     }
 
     private void add(List<BinanceRequestParameter> parameters, String name, String value) {
@@ -123,5 +239,15 @@ final class BinanceOrderRequestFactory {
         if (value != null) {
             parameters.add(BinanceRequestParameter.of(name, value.toString()));
         }
+    }
+
+    private void addMarginIsolated(List<BinanceRequestParameter> parameters, Boolean value) {
+        if (value != null) {
+            parameters.add(BinanceRequestParameter.of("isIsolated", value ? "TRUE" : "FALSE"));
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

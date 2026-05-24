@@ -92,6 +92,8 @@
                       "query_order_path": "/api/v3/order",
                       "cancel_order_path": "/api/v3/order",
                       "open_orders_path": "/api/v3/openOrders",
+                      "all_orders_path": "/api/v3/allOrders",
+                      "account_trades_path": "/api/v3/myTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -237,6 +239,8 @@
                       "query_order_path": "/sapi/v1/margin/order",
                       "cancel_order_path": "/sapi/v1/margin/order",
                       "open_orders_path": "/sapi/v1/margin/openOrders",
+                      "all_orders_path": "/sapi/v1/margin/allOrders",
+                      "account_trades_path": "/sapi/v1/margin/myTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -380,6 +384,8 @@
                       "query_order_path": "/sapi/v1/margin/order",
                       "cancel_order_path": "/sapi/v1/margin/order",
                       "open_orders_path": "/sapi/v1/margin/openOrders",
+                      "all_orders_path": "/sapi/v1/margin/allOrders",
+                      "account_trades_path": "/sapi/v1/margin/myTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -544,6 +550,8 @@
                       "query_order_path": "/fapi/v1/order",
                       "cancel_order_path": "/fapi/v1/order",
                       "open_orders_path": "/fapi/v1/openOrders",
+                      "all_orders_path": "/fapi/v1/allOrders",
+                      "account_trades_path": "/fapi/v1/userTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -712,6 +720,8 @@
                       "query_order_path": "/dapi/v1/order",
                       "cancel_order_path": "/dapi/v1/order",
                       "open_orders_path": "/dapi/v1/openOrders",
+                      "all_orders_path": "/dapi/v1/allOrders",
+                      "account_trades_path": "/dapi/v1/userTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1009,6 +1019,8 @@
                       "query_order_path": "/api/v3/order",
                       "cancel_order_path": "/api/v3/order",
                       "open_orders_path": "/api/v3/openOrders",
+                      "all_orders_path": "/api/v3/allOrders",
+                      "account_trades_path": "/api/v3/myTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1154,6 +1166,8 @@
                       "query_order_path": "/sapi/v1/margin/order",
                       "cancel_order_path": "/sapi/v1/margin/order",
                       "open_orders_path": "/sapi/v1/margin/openOrders",
+                      "all_orders_path": "/sapi/v1/margin/allOrders",
+                      "account_trades_path": "/sapi/v1/margin/myTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1297,6 +1311,8 @@
                       "query_order_path": "/sapi/v1/margin/order",
                       "cancel_order_path": "/sapi/v1/margin/order",
                       "open_orders_path": "/sapi/v1/margin/openOrders",
+                      "all_orders_path": "/sapi/v1/margin/allOrders",
+                      "account_trades_path": "/sapi/v1/margin/myTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1461,6 +1477,8 @@
                       "query_order_path": "/fapi/v1/order",
                       "cancel_order_path": "/fapi/v1/order",
                       "open_orders_path": "/fapi/v1/openOrders",
+                      "all_orders_path": "/fapi/v1/allOrders",
+                      "account_trades_path": "/fapi/v1/userTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1629,6 +1647,8 @@
                       "query_order_path": "/dapi/v1/order",
                       "cancel_order_path": "/dapi/v1/order",
                       "open_orders_path": "/dapi/v1/openOrders",
+                      "all_orders_path": "/dapi/v1/allOrders",
+                      "account_trades_path": "/dapi/v1/userTrades",
                       "supported_sides": [
                         "BUY",
                         "SELL"

@@ -96,6 +96,23 @@ final class BinanceOrderClient {
         return List.copyOf(orders);
     }
 
+    List<BinanceOrderResult> allOrders(BinanceOrderHistoryQuery query) {
+        return parseOrderArray(send(requestFactory.allOrders(query, privateCredential), "GET"), "all orders");
+    }
+
+    List<BinanceAccountTrade> accountTrades(BinanceTradeHistoryQuery query) {
+        JsonNode root = readJson(send(requestFactory.accountTrades(query, privateCredential), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance account trades array response");
+        }
+
+        List<BinanceAccountTrade> trades = new ArrayList<>();
+        for (JsonNode item : root) {
+            trades.add(toAccountTrade(item));
+        }
+        return List.copyOf(trades);
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }
@@ -131,6 +148,19 @@ final class BinanceOrderClient {
         return jsonMapper.readTree(response.body());
     }
 
+    private List<BinanceOrderResult> parseOrderArray(BinanceHttpResponse response, String responseName) {
+        JsonNode root = readJson(response);
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance " + responseName + " array response");
+        }
+
+        List<BinanceOrderResult> orders = new ArrayList<>();
+        for (JsonNode item : root) {
+            orders.add(toOrderResult(item));
+        }
+        return List.copyOf(orders);
+    }
+
     private BinanceOrderResult toOrderResult(JsonNode node) {
         return new BinanceOrderResult(
                 text(node, "symbol"),
@@ -144,8 +174,32 @@ final class BinanceOrderClient {
                 decimal(node, "origQty"),
                 decimal(node, "executedQty"),
                 decimal(node, "avgPrice"),
-                decimal(node, "cumQuote"),
+                firstDecimal(node, "cumQuote", "cummulativeQuoteQty", "cumBase"),
                 longValue(node, "updateTime")
+        );
+    }
+
+    private BinanceAccountTrade toAccountTrade(JsonNode node) {
+        return new BinanceAccountTrade(
+                text(node, "symbol"),
+                longValue(node, "id"),
+                longValue(node, "orderId"),
+                longValue(node, "orderListId"),
+                text(node, "pair"),
+                text(node, "side"),
+                text(node, "positionSide"),
+                decimal(node, "price"),
+                decimal(node, "qty"),
+                decimal(node, "quoteQty"),
+                decimal(node, "baseQty"),
+                decimal(node, "realizedPnl"),
+                decimal(node, "commission"),
+                text(node, "commissionAsset"),
+                text(node, "marginAsset"),
+                firstBoolean(node, "buyer", "isBuyer").orElse(null),
+                firstBoolean(node, "maker", "isMaker").orElse(null),
+                firstBoolean(node, "isBestMatch").orElse(null),
+                longValue(node, "time")
         );
     }
 
@@ -169,6 +223,25 @@ final class BinanceOrderClient {
     private BigDecimal decimal(JsonNode node, String field) {
         String value = text(node, field);
         return value == null ? null : new BigDecimal(value);
+    }
+
+    private BigDecimal firstDecimal(JsonNode node, String... fields) {
+        for (String field : fields) {
+            BigDecimal value = decimal(node, field);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private Optional<Boolean> firstBoolean(JsonNode node, String... fields) {
+        for (String field : fields) {
+            if (node.hasNonNull(field)) {
+                return Optional.of(node.required(field).asBoolean());
+            }
+        }
+        return Optional.empty();
     }
 
     private String requireText(String value, String name) {

@@ -186,6 +186,9 @@ of truth. As of the current code, the connector covers these foundations:
   signed request parameters.
 - Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
   mode request clients with catalog-backed paths, enums, and leverage bounds.
+- Spot, margin, USD-M futures, and COIN-M futures all-orders and account-trade
+  history clients with catalog-backed paths, documented query-shape validation,
+  and response parsing for later reconciliation.
 - Catalog-backed order feature enums and limits for price-match, futures
   trigger controls, pegged-order, and margin side-effect controls.
 - Public WebSocket stream endpoint planning and reconnect/rollover policy.
@@ -195,10 +198,10 @@ The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
 
 - Spot advanced trading endpoints: cancel-replace, amend-keep-priority, order
-  lists (OCO, OTO, OTOCO, OPO, OPOCO), SOR orders, all-orders, trades,
-  prevented matches, commission rates, and WebSocket API order placement.
+  lists (OCO, OTO, OTOCO, OPO, OPOCO), SOR orders, prevented matches,
+  commission rates, and WebSocket API order placement.
 - Margin borrow/repay, transfer, margin OCO/OTO/OTOCO, account/risk endpoints,
-  and low-latency special-key workflows are not implemented.
+  prevented matches, and low-latency special-key workflows are not implemented.
 - Futures batch orders, modify order, cancel-all/countdown cancel-all, account
   snapshots, income, funding, liquidation, and ADL/position-risk endpoints are
   not implemented.

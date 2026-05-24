@@ -83,6 +83,8 @@ public record BinanceProperties(
             @NotNull String queryOrderPath,
             @NotNull String cancelOrderPath,
             @NotNull String openOrdersPath,
+            String allOrdersPath,
+            String accountTradesPath,
             @NotNull List<String> supportedSides,
             @NotNull List<String> supportedOrderTypes,
             @NotNull List<String> supportedTimeInForce,

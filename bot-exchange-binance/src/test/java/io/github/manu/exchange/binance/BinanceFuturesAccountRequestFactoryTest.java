@@ -157,6 +157,8 @@ class BinanceFuturesAccountRequestFactoryTest {
                 pathPrefix + "/order",
                 pathPrefix + "/order",
                 pathPrefix + "/openOrders",
+                pathPrefix + "/allOrders",
+                pathPrefix + "/userTrades",
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
                 List.of("GTC", "IOC", "FOK", "GTX", "GTD"),
