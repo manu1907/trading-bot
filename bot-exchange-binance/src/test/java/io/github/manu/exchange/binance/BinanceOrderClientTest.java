@@ -96,6 +96,29 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void modifies_order_and_parses_response() {
+        FakeTransport transport = new FakeTransport(orderResponse("MODIFY", "NEW"));
+        BinanceOrderClient client = client(transport);
+
+        BinanceOrderResult result = client.modifyOrder(new BinanceModifyOrderCommand(
+                "BTCUSDT",
+                12345L,
+                null,
+                "BUY",
+                new BigDecimal("0.001"),
+                new BigDecimal("50000"),
+                null
+        ));
+
+        assertThat(result.clientOrderId()).isEqualTo("MODIFY");
+        assertThat(result.status()).isEqualTo("NEW");
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("PUT");
+            assertThat(call.uri()).contains("/fapi/v1/order?symbol=BTCUSDT&orderId=12345");
+        });
+    }
+
+    @Test
     void queries_cancels_and_lists_orders() {
         FakeTransport transport = new FakeTransport(
                 orderResponse("QUERY", "FILLED"),
@@ -379,6 +402,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
                 "/fapi/v1/batchOrders",
+                "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",

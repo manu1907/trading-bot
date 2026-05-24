@@ -190,6 +190,7 @@ class BinanceUserDataStreamClientTest {
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
                 "/fapi/v1/batchOrders",
+                "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",

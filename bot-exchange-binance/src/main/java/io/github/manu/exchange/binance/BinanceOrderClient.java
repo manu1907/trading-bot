@@ -92,6 +92,10 @@ final class BinanceOrderClient {
         return List.copyOf(results);
     }
 
+    BinanceOrderResult modifyOrder(BinanceModifyOrderCommand command) {
+        return parseOrderResult(send(requestFactory.modifyOrder(command, privateCredential), "PUT"));
+    }
+
     BinanceOrderResult cancelOrder(String symbol, String originalClientOrderId) {
         return parseOrderResult(send(requestFactory.cancelOrder(symbol, originalClientOrderId, privateCredential), "DELETE"));
     }

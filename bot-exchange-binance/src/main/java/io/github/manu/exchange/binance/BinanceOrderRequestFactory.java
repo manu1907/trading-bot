@@ -37,6 +37,20 @@ final class BinanceOrderRequestFactory {
         ), privateCredential);
     }
 
+    BinanceSignedRequest modifyOrder(BinanceModifyOrderCommand command, String privateCredential) {
+        requireConfiguredPath("modifyOrderPath", binance.trading().modifyOrderPath());
+        validateModifyOrder(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", command.symbol());
+        add(parameters, "orderId", command.orderId());
+        add(parameters, "origClientOrderId", command.originalClientOrderId());
+        add(parameters, "side", command.side());
+        add(parameters, "quantity", command.quantity());
+        add(parameters, "price", command.price());
+        add(parameters, "priceMatch", command.priceMatch());
+        return restRequestFactory.signedUri(binance.trading().modifyOrderPath(), parameters, privateCredential);
+    }
+
     BinanceSignedRequest cancelOrder(String symbol, String originalClientOrderId, String privateCredential) {
         if (symbol == null || symbol.isBlank()) {
             throw new IllegalArgumentException("symbol is required");
@@ -194,6 +208,39 @@ final class BinanceOrderRequestFactory {
         return parameters;
     }
 
+    private void validateModifyOrder(BinanceModifyOrderCommand command) {
+        Objects.requireNonNull(command, "command");
+        BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
+        requireSymbol(command.symbol());
+        requirePositive("orderId", command.orderId());
+        if (command.orderId() == null && !hasText(command.originalClientOrderId())) {
+            throw new IllegalArgumentException("orderId or origClientOrderId is required");
+        }
+        if (!BinanceTradingCapability.forMarketType(marketType).supportedSides().contains(command.side())) {
+            throw new IllegalArgumentException("side is not supported for this Binance market");
+        }
+        requirePositive("quantity", command.quantity());
+        requirePositive("price", command.price());
+        if (command.quantity() == null) {
+            throw new IllegalArgumentException("quantity is required for futures modify order");
+        }
+        if (command.price() == null && !hasText(command.priceMatch())) {
+            throw new IllegalArgumentException("price or priceMatch is required for futures modify order");
+        }
+        if (command.price() != null && hasText(command.priceMatch())) {
+            throw new IllegalArgumentException("priceMatch cannot be used with price");
+        }
+        if (hasText(command.priceMatch())) {
+            BinanceTradingCapability capability = BinanceTradingCapability.fromConfig(binance.trading());
+            if (!capability.supportsPriceMatch()) {
+                throw new IllegalArgumentException("priceMatch is not supported for this Binance market");
+            }
+            if (!capability.supportedPriceMatchOrderTypes().contains("LIMIT")) {
+                throw new IllegalArgumentException("priceMatch is not supported for LIMIT modify order");
+            }
+        }
+    }
+
     private void validateOrderHistoryQuery(BinanceOrderHistoryQuery query) {
         Objects.requireNonNull(query, "query");
         BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
@@ -270,6 +317,12 @@ final class BinanceOrderRequestFactory {
 
     private void requirePositive(String name, Integer value) {
         if (value != null && value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive when configured");
+        }
+    }
+
+    private void requirePositive(String name, BigDecimal value) {
+        if (value != null && value.signum() <= 0) {
             throw new IllegalArgumentException(name + " must be positive when configured");
         }
     }

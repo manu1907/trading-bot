@@ -194,6 +194,9 @@ of truth. As of the current code, the connector covers these foundations:
 - USD-M and COIN-M futures batch-order placement clients with catalog-backed
   paths, max-5 batch validation, reused new-order validation, and per-item
   error parsing.
+- USD-M and COIN-M futures modify-order clients with catalog-backed paths,
+  documented order-id/client-order-id identity, LIMIT modification fields, and
+  price-match collision validation.
 - USD-M and COIN-M futures cancel-multiple-orders clients with catalog-backed
   paths and documented order-id/client-order-id batch-shape validation.
 - USD-M and COIN-M futures balance, account-information, and position-risk
@@ -216,8 +219,8 @@ adapter. Known gaps that must remain on the plan:
   commission rates, and WebSocket API order placement.
 - Margin borrow/repay, transfer, margin OCO/OTO/OTOCO, account/risk endpoints,
   prevented matches, and low-latency special-key workflows are not implemented.
-- Futures modify order, modify-multiple-order, modify-history, and
-  portfolio-margin boundary checks are not implemented.
+- Futures modify-multiple-order, modify-history, and portfolio-margin boundary
+  checks are not implemented.
 - User-data and market-data WebSocket payloads are not yet mapped into the core
   Avro event model.
 - The exchange module lifecycle currently connects config/metadata primitives;
