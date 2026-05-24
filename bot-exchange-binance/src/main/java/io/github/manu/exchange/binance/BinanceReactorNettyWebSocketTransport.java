@@ -35,6 +35,7 @@ final class BinanceReactorNettyWebSocketTransport implements BinanceWebSocketTra
         Objects.requireNonNull(listener, "listener is required");
 
         Sinks.Empty<Void> closeSignal = Sinks.empty();
+        Sinks.Many<String> outboundMessages = Sinks.many().unicast().onBackpressureBuffer();
         AtomicReference<Disposable> subscription = new AtomicReference<>();
         AtomicBoolean closeNotified = new AtomicBoolean(false);
         Mono<Void> socketFlow = webSocketClient.execute(plan.uri(), session -> {
@@ -43,17 +44,25 @@ final class BinanceReactorNettyWebSocketTransport implements BinanceWebSocketTra
                     .filter(message -> WebSocketMessage.Type.TEXT.equals(message.getType()))
                     .map(WebSocketMessage::getPayloadAsText)
                     .doOnNext(listener::onText)
+                    .doFinally(ignored -> outboundMessages.tryEmitComplete())
                     .then();
-            return Mono.firstWithSignal(inbound, closeSignal.asMono());
+            Mono<Void> outbound = session.send(outboundMessages.asFlux().map(session::textMessage));
+            return Mono.when(outbound, Mono.firstWithSignal(inbound, closeSignal.asMono()));
         }).doOnError(listener::onError)
                 .doFinally(ignored -> notifyClosed(listener, closeNotified));
 
         subscription.set(socketFlow.subscribe());
         return new BinanceWebSocketConnection(plan, clock.instant(), () -> {
+            outboundMessages.tryEmitComplete();
             closeSignal.tryEmitEmpty();
             Disposable current = subscription.get();
             if (current != null && !current.isDisposed()) {
                 current.dispose();
+            }
+        }, text -> {
+            Sinks.EmitResult result = outboundMessages.tryEmitNext(text);
+            if (result.isFailure()) {
+                throw new IllegalStateException("Failed to send Binance websocket message: " + result);
             }
         });
     }

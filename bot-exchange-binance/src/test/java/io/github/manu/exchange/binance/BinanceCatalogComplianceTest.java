@@ -67,11 +67,19 @@ class BinanceCatalogComplianceTest {
         ObjectNode root = mergedCatalog("real");
 
         assertMarketBaseUrls(root, "spot", "https://api.binance.com", "wss://stream.binance.com:9443");
+        assertSpotWebSocketApiUrl(root, "real", "wss://ws-api.binance.com:443", "/ws-api/v3");
         assertMarketBaseUrls(root, "margin_cross", "https://api.binance.com", "wss://stream.binance.com:9443");
         assertMarketBaseUrls(root, "margin_isolated", "https://api.binance.com", "wss://stream.binance.com:9443");
         assertMarketBaseUrls(root, "usdm_futures", "https://fapi.binance.com", "wss://fstream.binance.com");
         assertMarketBaseUrls(root, "coinm_futures", "https://dapi.binance.com", "wss://dstream.binance.com");
         assertMarketBaseUrls(root, "options", "https://eapi.binance.com", "wss://fstream.binance.com");
+    }
+
+    @Test
+    void demo_spot_environment_uses_binance_testnet_websocket_api() throws IOException {
+        ObjectNode root = mergedCatalog("demo");
+
+        assertSpotWebSocketApiUrl(root, "demo", "wss://ws-api.testnet.binance.vision", "/ws-api/v3");
     }
 
     @Test
@@ -105,6 +113,14 @@ class BinanceCatalogComplianceTest {
         ObjectNode market = markets(root, "real").withObject(marketName);
         assertThat(market.withObject("rest").required("base_url").asString()).isEqualTo(restBaseUrl);
         assertThat(market.withObject("websocket").required("base_url").asString()).isEqualTo(websocketBaseUrl);
+    }
+
+    private void assertSpotWebSocketApiUrl(ObjectNode root, String environmentName, String apiBaseUrl, String apiPath) {
+        ObjectNode websocket = markets(root, environmentName)
+                .withObject("spot")
+                .withObject("websocket");
+        assertThat(websocket.required("api_base_url").asString()).isEqualTo(apiBaseUrl);
+        assertThat(websocket.required("api_path").asString()).isEqualTo(apiPath);
     }
 
     private ObjectNode markets(ObjectNode root, String environmentName) {

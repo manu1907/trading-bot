@@ -297,7 +297,9 @@ class BinanceFuturesAccountRequestFactoryTest {
                 10,
                 1024,
                 null,
-                "MILLISECONDS"
+                "MILLISECONDS",
+                null,
+                null
         );
     }
 

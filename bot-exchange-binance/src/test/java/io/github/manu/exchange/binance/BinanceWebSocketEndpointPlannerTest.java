@@ -39,6 +39,19 @@ class BinanceWebSocketEndpointPlannerTest {
     }
 
     @Test
+    void builds_spot_websocket_api_uri_and_rollover_schedule() {
+        BinanceWebSocketEndpointPlanner planner = new BinanceWebSocketEndpointPlanner(spotWebsocket(), FIXED_CLOCK);
+
+        BinanceWebSocketConnectionPlan plan = planner.api();
+
+        assertThat(plan.uri().toString()).isEqualTo("wss://ws-api.binance.com:443/ws-api/v3");
+        assertThat(plan.streams()).isEmpty();
+        assertThat(plan.route()).isEqualTo(BinanceWebSocketRoute.PRIVATE);
+        assertThat(plan.createdAt()).isEqualTo(Instant.parse("2026-05-22T20:00:00Z"));
+        assertThat(plan.reconnectAt()).isEqualTo(Instant.parse("2026-05-23T19:50:00Z"));
+    }
+
+    @Test
     void builds_routed_usdm_combined_market_stream_uri() {
         BinanceWebSocketEndpointPlanner planner = new BinanceWebSocketEndpointPlanner(usdmWebsocket(), FIXED_CLOCK);
 
@@ -119,7 +132,9 @@ class BinanceWebSocketEndpointPlannerTest {
                 5,
                 1024,
                 300,
-                "MILLISECONDS"
+                "MILLISECONDS",
+                "wss://ws-api.binance.com:443",
+                "/ws-api/v3"
         );
     }
 
@@ -140,7 +155,9 @@ class BinanceWebSocketEndpointPlannerTest {
                 10,
                 1024,
                 null,
-                "MILLISECONDS"
+                "MILLISECONDS",
+                null,
+                null
         );
     }
 
@@ -161,7 +178,9 @@ class BinanceWebSocketEndpointPlannerTest {
                 5,
                 1024,
                 300,
-                "MICROSECONDS"
+                "MICROSECONDS",
+                "wss://ws-api.binance.com:443",
+                "/ws-api/v3"
         );
     }
 }

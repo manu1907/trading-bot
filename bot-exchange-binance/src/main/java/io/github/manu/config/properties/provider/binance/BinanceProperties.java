@@ -72,7 +72,9 @@ public record BinanceProperties(
             Integer maxIncomingMessagesPerSecond,
             Integer maxStreamsPerConnection,
             Integer maxConnectionAttemptsPerFiveMinutes,
-            @NotNull String timestampUnit
+            @NotNull String timestampUnit,
+            String apiBaseUrl,
+            String apiPath
     ) {
     }
 

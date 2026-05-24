@@ -17,7 +17,9 @@
                       "base_url": "https://api.binance.com"
                     },
                     "websocket": {
-                      "base_url": "wss://stream.binance.com:9443"
+                      "base_url": "wss://stream.binance.com:9443",
+                      "api_base_url": "wss://ws-api.binance.com:443",
+                      "api_path": "/ws-api/v3"
                     }
                   },
                   "usdm_futures": {

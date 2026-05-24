@@ -33,6 +33,25 @@ final class BinanceWebSocketEndpointPlanner {
         return plan(BinanceWebSocketMode.COMBINED, route, streams);
     }
 
+    BinanceWebSocketConnectionPlan api() {
+        Instant createdAt = clock.instant();
+        Instant expiresAt = createdAt.plus(connectionLifetime());
+        return new BinanceWebSocketConnectionPlan(
+                URI.create(normalizeBaseUrl(requiredOptionalUri(websocket.apiBaseUrl(), "apiBaseUrl"))
+                        + normalizePath(requiredOptionalPath(websocket.apiPath(), "apiPath"))
+                        + timeUnitQueryPrefix("?")),
+                BinanceWebSocketMode.RAW,
+                BinanceWebSocketRoute.PRIVATE,
+                List.of(),
+                createdAt,
+                expiresAt,
+                expiresAt.minus(reconnectBeforeExpiry()),
+                serverPingInterval(),
+                pongTimeout(),
+                websocket.maxIncomingMessagesPerSecond()
+        );
+    }
+
     String streamName(String symbol, String channel) {
         requireText(symbol, "symbol");
         requireText(channel, "channel");
@@ -138,6 +157,13 @@ final class BinanceWebSocketEndpointPlanner {
             throw new IllegalArgumentException(name + " is required for routed Binance websocket connections");
         }
         return normalizePath(value);
+    }
+
+    private String requiredOptionalUri(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " is required for Binance websocket API connections");
+        }
+        return normalizeBaseUrl(value);
     }
 
     private String normalizeBaseUrl(String value) {

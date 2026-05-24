@@ -17,7 +17,9 @@
                       "base_url": "https://testnet.binance.vision"
                     },
                     "websocket": {
-                      "base_url": "wss://stream.testnet.binance.vision"
+                      "base_url": "wss://stream.testnet.binance.vision",
+                      "api_base_url": "wss://ws-api.testnet.binance.vision",
+                      "api_path": "/ws-api/v3"
                     }
                   },
                   "usdm_futures": {

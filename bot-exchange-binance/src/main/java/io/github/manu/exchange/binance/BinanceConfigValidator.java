@@ -38,7 +38,7 @@ final class BinanceConfigValidator {
 
         validateCredentials(accountPath(active) + ".credentials", binance.credentials(), marketType, errors);
         validateRest(marketPath(active) + ".rest", binance.rest(), marketType, errors);
-        validateWebsocket(marketPath(active) + ".websocket", binance.websocket(), errors);
+        validateWebsocket(marketPath(active) + ".websocket", binance.websocket(), marketType, errors);
         validateTrading(marketPath(active) + ".trading", binance.trading(), marketType, errors);
         if (!marketType.futures()) {
             validateUserData(marketPath(active) + ".user_data", binance.userDataStream(), marketType, false, errors);
@@ -113,6 +113,7 @@ final class BinanceConfigValidator {
 
     private static void validateWebsocket(String path,
                                           BinanceProperties.Websocket websocket,
+                                          BinanceMarketType marketType,
                                           List<String> errors) {
         if (websocket == null) {
             errors.add(path + " is required");
@@ -149,6 +150,13 @@ final class BinanceConfigValidator {
                 errors
         );
         requireOneOf(path + ".timestamp_unit", websocket.timestampUnit(), TIMESTAMP_UNITS, errors);
+        if (marketType == BinanceMarketType.SPOT) {
+            requireUri(path + ".api_base_url", websocket.apiBaseUrl(), Set.of("ws", "wss"), errors);
+            requirePath(path + ".api_path", websocket.apiPath(), errors);
+        } else {
+            requireOptionalUri(path + ".api_base_url", websocket.apiBaseUrl(), Set.of("ws", "wss"), errors);
+            requireOptionalPath(path + ".api_path", websocket.apiPath(), errors);
+        }
     }
 
     private static void validateFutures(ExchangeProperties active,
@@ -495,6 +503,13 @@ final class BinanceConfigValidator {
         } catch (IllegalArgumentException e) {
             errors.add(path + " must be a valid absolute URI");
         }
+    }
+
+    private static void requireOptionalUri(String path, String value, Set<String> schemes, List<String> errors) {
+        if (value == null) {
+            return;
+        }
+        requireUri(path, value, schemes, errors);
     }
 
     private static void requireOneOf(String path, String value, Set<String> allowed, List<String> errors) {

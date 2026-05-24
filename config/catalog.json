@@ -82,7 +82,9 @@
                       "max_incoming_messages_per_second": 5,
                       "max_streams_per_connection": 1024,
                       "max_connection_attempts_per_five_minutes": 300,
-                      "timestamp_unit": "MILLISECONDS"
+                      "timestamp_unit": "MILLISECONDS",
+                      "api_base_url": "wss://example.invalid",
+                      "api_path": "/ws-api/v3"
                     },
                     "user_data": {
                       "mode": "websocket_api"
@@ -1048,7 +1050,9 @@
                       "max_incoming_messages_per_second": 5,
                       "max_streams_per_connection": 1024,
                       "max_connection_attempts_per_five_minutes": 300,
-                      "timestamp_unit": "MILLISECONDS"
+                      "timestamp_unit": "MILLISECONDS",
+                      "api_base_url": "wss://example.invalid",
+                      "api_path": "/ws-api/v3"
                     },
                     "user_data": {
                       "mode": "websocket_api"

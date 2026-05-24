@@ -154,10 +154,12 @@ Implemented Binance foundations:
 - Public WebSocket stream URI planning and reconnect/rollover policy.
 - Spot OPOCO order-list placement with catalog-backed path, documented working
   order validation, pending OCO-pair validation, and typed order-list parsing.
+- Spot WebSocket API order placement with configurable API endpoint, signed
+  `order.place` request generation, outbound WebSocket transport support, and
+  correlated response/error parsing.
 
 Binance parity gaps to close before claiming full connector support:
 
-- Spot: implement WebSocket API order placement.
 - Margin: add borrow/repay, transfers, margin order lists, margin account/risk
   endpoints, prevented matches, and special low-latency key workflows.
 - Options: verify current `/eapi` coverage against current Binance options
