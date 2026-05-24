@@ -820,6 +820,114 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void places_spot_otoco_order_list_and_parses_reports() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "orderListId": 3,
+                  "contingencyType": "OTO",
+                  "listStatusType": "EXEC_STARTED",
+                  "listOrderStatus": "EXECUTING",
+                  "listClientOrderId": "otoco-list-1",
+                  "transactionTime": 1712291372842,
+                  "symbol": "BTCUSDT",
+                  "orders": [
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 30,
+                      "clientOrderId": "otoco-working-1"
+                    },
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 31,
+                      "clientOrderId": "otoco-above-1"
+                    },
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 32,
+                      "clientOrderId": "otoco-below-1"
+                    }
+                  ],
+                  "orderReports": [
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 30,
+                      "orderListId": 3,
+                      "clientOrderId": "otoco-working-1",
+                      "transactTime": 1712291372842,
+                      "price": "52000.00000000",
+                      "origQty": "0.01000000",
+                      "executedQty": "0.00000000",
+                      "origQuoteOrderQty": "0.000000",
+                      "cummulativeQuoteQty": "0.00000000",
+                      "status": "NEW",
+                      "timeInForce": "GTC",
+                      "type": "LIMIT",
+                      "side": "SELL",
+                      "workingTime": 1712291372842,
+                      "selfTradePreventionMode": "NONE"
+                    },
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 31,
+                      "orderListId": 3,
+                      "clientOrderId": "otoco-above-1",
+                      "transactTime": 1712291372842,
+                      "price": "53000.00000000",
+                      "origQty": "0.01000000",
+                      "executedQty": "0.00000000",
+                      "origQuoteOrderQty": "0.000000",
+                      "cummulativeQuoteQty": "0.00000000",
+                      "status": "PENDING_NEW",
+                      "timeInForce": "GTC",
+                      "type": "LIMIT_MAKER",
+                      "side": "BUY",
+                      "workingTime": -1,
+                      "selfTradePreventionMode": "NONE"
+                    },
+                    {
+                      "symbol": "BTCUSDT",
+                      "orderId": 32,
+                      "orderListId": 3,
+                      "clientOrderId": "otoco-below-1",
+                      "transactTime": 1712291372842,
+                      "price": "48000.00000000",
+                      "origQty": "0.01000000",
+                      "executedQty": "0.00000000",
+                      "origQuoteOrderQty": "0.000000",
+                      "cummulativeQuoteQty": "0.00000000",
+                      "status": "PENDING_NEW",
+                      "timeInForce": "GTC",
+                      "type": "STOP_LOSS_LIMIT",
+                      "side": "BUY",
+                      "stopPrice": "48100.00000000",
+                      "workingTime": -1,
+                      "selfTradePreventionMode": "NONE"
+                    }
+                  ]
+                }
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        BinanceOrderListResult result = client.placeOtocoOrderList(otocoOrderList());
+
+        assertThat(result.orderListId()).isEqualTo(3L);
+        assertThat(result.orders()).extracting(BinanceOrderListOrder::clientOrderId)
+                .containsExactly("otoco-working-1", "otoco-above-1", "otoco-below-1");
+        assertThat(result.orderReports()).hasSize(3);
+        assertThat(result.orderReports().get(2)).satisfies(report -> {
+            assertThat(report.status()).isEqualTo("PENDING_NEW");
+            assertThat(report.type()).isEqualTo("STOP_LOSS_LIMIT");
+            assertThat(report.stopPrice()).isEqualByComparingTo("48100.00000000");
+        });
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("POST");
+            assertThat(call.uri()).contains("/api/v3/orderList/otoco?symbol=BTCUSDT");
+            assertThat(call.uri()).contains("pendingAboveType=LIMIT_MAKER");
+            assertThat(call.uri()).contains("pendingBelowType=STOP_LOSS_LIMIT");
+        });
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -1023,6 +1131,53 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceOtocoOrderListCommand otocoOrderList() {
+        return new BinanceOtocoOrderListCommand(
+                "BTCUSDT",
+                "otoco-list-1",
+                "RESULT",
+                "NONE",
+                "LIMIT",
+                "SELL",
+                "otoco-working-1",
+                new BigDecimal("52000"),
+                new BigDecimal("0.01"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "BUY",
+                new BigDecimal("0.01"),
+                "LIMIT_MAKER",
+                "otoco-above-1",
+                new BigDecimal("53000"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "STOP_LOSS_LIMIT",
+                "otoco-below-1",
+                new BigDecimal("48000"),
+                new BigDecimal("48100"),
+                null,
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
     private BinanceHttpResponse orderResponse(String clientOrderId, String status) {
         return new BinanceHttpResponse(200, orderResponseBody(clientOrderId, status));
     }
@@ -1190,6 +1345,7 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 null,
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -1245,6 +1401,7 @@ class BinanceOrderClientTest {
                 "/api/v3/sor/order/test",
                 "/api/v3/orderList/oco",
                 "/api/v3/orderList/oto",
+                "/api/v3/orderList/otoco",
                 null,
                 null,
                 null,

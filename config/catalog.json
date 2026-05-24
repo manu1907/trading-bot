@@ -102,6 +102,7 @@
                       "sor_test_order_path": "/api/v3/sor/order/test",
                       "order_list_oco_path": "/api/v3/orderList/oco",
                       "order_list_oto_path": "/api/v3/orderList/oto",
+                      "order_list_otoco_path": "/api/v3/orderList/otoco",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1065,6 +1066,7 @@
                       "sor_test_order_path": "/api/v3/sor/order/test",
                       "order_list_oco_path": "/api/v3/orderList/oco",
                       "order_list_oto_path": "/api/v3/orderList/oto",
+                      "order_list_otoco_path": "/api/v3/orderList/otoco",
                       "supported_sides": [
                         "BUY",
                         "SELL"
