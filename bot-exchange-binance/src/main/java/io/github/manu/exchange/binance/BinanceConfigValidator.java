@@ -342,6 +342,9 @@ final class BinanceConfigValidator {
         requireMatching(path + ".position_mode_path", account.positionModePath(), pathPrefix + "/v1/positionSide/dual", errors);
         requireMatching(path + ".margin_type_path", account.marginTypePath(), pathPrefix + "/v1/marginType", errors);
         requireMatching(path + ".leverage_path", account.leveragePath(), pathPrefix + "/v1/leverage", errors);
+        requireMatching(path + ".balance_path", account.balancePath(), futuresAccountReadPathPrefix(marketType) + "/balance", errors);
+        requireMatching(path + ".account_info_path", account.accountInfoPath(), futuresAccountReadPathPrefix(marketType) + "/account", errors);
+        requireMatching(path + ".position_risk_path", account.positionRiskPath(), futuresPositionRiskPath(marketType), errors);
         if (marketType == BinanceMarketType.FUTURES_USD_M) {
             requireMatching(path + ".multi_assets_mode_path", account.multiAssetsModePath(), "/fapi/v1/multiAssetsMargin", errors);
         } else {
@@ -356,6 +359,22 @@ final class BinanceConfigValidator {
         return switch (marketType) {
             case FUTURES_USD_M -> "/fapi";
             case FUTURES_COIN_M -> "/dapi";
+            default -> throw new IllegalArgumentException("Expected Binance futures market type");
+        };
+    }
+
+    private static String futuresAccountReadPathPrefix(BinanceMarketType marketType) {
+        return switch (marketType) {
+            case FUTURES_USD_M -> "/fapi/v3";
+            case FUTURES_COIN_M -> "/dapi/v1";
+            default -> throw new IllegalArgumentException("Expected Binance futures market type");
+        };
+    }
+
+    private static String futuresPositionRiskPath(BinanceMarketType marketType) {
+        return switch (marketType) {
+            case FUTURES_USD_M -> "/fapi/v3/positionRisk";
+            case FUTURES_COIN_M -> "/dapi/v1/positionRisk";
             default -> throw new IllegalArgumentException("Expected Binance futures market type");
         };
     }

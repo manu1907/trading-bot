@@ -69,6 +69,96 @@ class BinanceFuturesAccountClientTest {
     }
 
     @Test
+    void reads_balances_account_info_and_position_risk() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "accountAlias": "SgsR",
+                            "asset": "USDT",
+                            "balance": "122607.35137903",
+                            "crossWalletBalance": "23.72469206",
+                            "crossUnPnl": "0.00000000",
+                            "availableBalance": "23.72469206",
+                            "maxWithdrawAmount": "23.72469206",
+                            "marginAvailable": true,
+                            "updateTime": 1617939110373
+                          }
+                        ]
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "totalWalletBalance": "103.12345678",
+                          "availableBalance": "103.12345678",
+                          "assets": [
+                            {
+                              "asset": "USDT",
+                              "walletBalance": "23.72469206",
+                              "unrealizedProfit": "0.00000000",
+                              "marginBalance": "23.72469206",
+                              "crossUnPnl": "0.00000000",
+                              "availableBalance": "23.72469206",
+                              "updateTime": 1625474304765
+                            }
+                          ],
+                          "positions": [
+                            {
+                              "symbol": "BTCUSDT",
+                              "positionSide": "BOTH",
+                              "positionAmt": "1.000",
+                              "entryPrice": "30000.0",
+                              "unrealizedProfit": "0.00000000",
+                              "initialMargin": "0",
+                              "maintMargin": "0",
+                              "updateTime": 0
+                            }
+                          ]
+                        }
+                        """),
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "symbol": "ADAUSDT",
+                            "positionSide": "BOTH",
+                            "positionAmt": "30",
+                            "entryPrice": "0.385",
+                            "breakEvenPrice": "0.385077",
+                            "markPrice": "0.41047590",
+                            "unRealizedProfit": "0.76427700",
+                            "liquidationPrice": "0",
+                            "notional": "12.31427700",
+                            "marginAsset": "USDT",
+                            "adl": 2,
+                            "updateTime": 1720736417660
+                          }
+                        ]
+                        """)
+        );
+        BinanceFuturesAccountClient client = client(transport);
+
+        List<BinanceFuturesBalance> balances = client.balances();
+        BinanceFuturesAccountSnapshot account = client.accountInfo();
+        List<BinanceFuturesPositionSnapshot> positions = client.positionRisk(
+                new BinanceFuturesPositionRiskQuery("ADAUSDT", null, null)
+        );
+
+        assertThat(balances).singleElement().satisfies(balance -> {
+            assertThat(balance.asset()).isEqualTo("USDT");
+            assertThat(balance.balance()).isEqualByComparingTo("122607.35137903");
+            assertThat(balance.marginAvailable()).isTrue();
+        });
+        assertThat(account.totalWalletBalance()).isEqualByComparingTo("103.12345678");
+        assertThat(account.assets()).singleElement().extracting(BinanceFuturesAssetSnapshot::asset).isEqualTo("USDT");
+        assertThat(account.positions()).singleElement().extracting(BinanceFuturesPositionSnapshot::symbol).isEqualTo("BTCUSDT");
+        assertThat(positions).singleElement().satisfies(position -> {
+            assertThat(position.symbol()).isEqualTo("ADAUSDT");
+            assertThat(position.unrealizedProfit()).isEqualByComparingTo("0.76427700");
+            assertThat(position.adl()).isEqualTo(2);
+        });
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "GET", "GET");
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4046, "msg": "No need to change margin type."}
@@ -225,6 +315,9 @@ class BinanceFuturesAccountClientTest {
                 "/fapi/v1/positionSide/dual",
                 "/fapi/v1/marginType",
                 "/fapi/v1/leverage",
+                "/fapi/v3/balance",
+                "/fapi/v3/account",
+                "/fapi/v3/positionRisk",
                 "/fapi/v1/multiAssetsMargin",
                 1,
                 125,

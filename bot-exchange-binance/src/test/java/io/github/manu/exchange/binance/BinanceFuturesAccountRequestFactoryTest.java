@@ -62,6 +62,37 @@ class BinanceFuturesAccountRequestFactoryTest {
     }
 
     @Test
+    void builds_read_only_snapshot_requests_for_usdm() {
+        BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest balances = factory.balances("test-secret");
+        BinanceSignedRequest accountInfo = factory.accountInfo("test-secret");
+        BinanceSignedRequest positionRisk = factory.positionRisk(
+                new BinanceFuturesPositionRiskQuery("BTCUSDT", null, null),
+                "test-secret"
+        );
+
+        assertThat(balances.payload()).isEqualTo("timestamp=1499827319559&recvWindow=5000");
+        assertThat(balances.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v3/balance?");
+        assertThat(accountInfo.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v3/account?");
+        assertThat(positionRisk.payload()).isEqualTo("symbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(positionRisk.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v3/positionRisk?");
+    }
+
+    @Test
+    void builds_coin_m_position_risk_request_by_pair() {
+        BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(coinMBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.positionRisk(
+                new BinanceFuturesPositionRiskQuery(null, "BTCUSD", null),
+                "test-secret"
+        );
+
+        assertThat(request.payload()).isEqualTo("pair=BTCUSD&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-dapi.binance.com/dapi/v1/positionRisk?");
+    }
+
+    @Test
     void rejects_leverage_outside_configured_limits() {
         BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
 
@@ -77,6 +108,31 @@ class BinanceFuturesAccountRequestFactoryTest {
         assertThatThrownBy(() -> factory.changeMultiAssetsMode(true, "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("multi-assets mode is not supported");
+    }
+
+    @Test
+    void rejects_invalid_position_risk_query_shapes() {
+        BinanceFuturesAccountRequestFactory usdmFactory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceFuturesAccountRequestFactory coinmFactory = new BinanceFuturesAccountRequestFactory(coinMBinance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> usdmFactory.positionRisk(
+                new BinanceFuturesPositionRiskQuery(null, "BTCUSD", null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("only supported for COIN-M");
+        assertThatThrownBy(() -> coinmFactory.positionRisk(
+                new BinanceFuturesPositionRiskQuery("BTCUSD_PERP", null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("only supported for USD-M");
+        assertThatThrownBy(() -> coinmFactory.positionRisk(
+                new BinanceFuturesPositionRiskQuery(null, "BTCUSD", "BTC"),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("only one of pair or marginAsset");
     }
 
     private BinanceProperties binance() {
@@ -203,12 +259,16 @@ class BinanceFuturesAccountRequestFactoryTest {
     }
 
     private BinanceProperties.FuturesAccount futuresAccount(String pathPrefix, String multiAssetsModePath) {
+        String readPathPrefix = pathPrefix.startsWith("/fapi") ? "/fapi/v3" : pathPrefix;
         return new BinanceProperties.FuturesAccount(
                 "ONE_WAY",
                 List.of("ONE_WAY", "HEDGE"),
                 pathPrefix + "/positionSide/dual",
                 pathPrefix + "/marginType",
                 pathPrefix + "/leverage",
+                readPathPrefix + "/balance",
+                readPathPrefix + "/account",
+                readPathPrefix + "/positionRisk",
                 multiAssetsModePath,
                 1,
                 125,
