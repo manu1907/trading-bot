@@ -118,6 +118,10 @@ final class BinanceOrderClient {
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
     }
 
+    List<BinanceOrderResult> cancelMultipleOrders(BinanceCancelMultipleOrdersQuery query) {
+        return parseOrderArray(send(requestFactory.cancelMultipleOrders(query, privateCredential), "DELETE"), "cancel multiple orders");
+    }
+
     BinanceCountdownCancelAll countdownCancelAll(String symbol, long countdownTime) {
         JsonNode root = readJson(send(requestFactory.countdownCancelAll(symbol, countdownTime, privateCredential), "POST"));
         return new BinanceCountdownCancelAll(text(root, "symbol"), longValue(root, "countdownTime"));

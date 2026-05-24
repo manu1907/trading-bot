@@ -293,6 +293,28 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_futures_cancel_multiple_orders_requests() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest byOrderIds = factory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(1234567L, 2345678L), List.of()),
+                "test-secret"
+        );
+        BinanceSignedRequest byClientOrderIds = factory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(), List.of("my_id_1", "my_id_2")),
+                "test-secret"
+        );
+
+        assertThat(byOrderIds.payload())
+                .isEqualTo("symbol=BTCUSDT&orderIdList=%5B1234567%2C2345678%5D&timestamp=1499827319559&recvWindow=5000");
+        assertThat(byOrderIds.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/batchOrders?");
+        assertThat(byClientOrderIds.payload())
+                .isEqualTo("symbol=BTCUSDT&origClientOrderIdList=%5B%22my_id_1%22%2C%22my_id_2%22%5D"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(byClientOrderIds.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/batchOrders?");
+    }
+
+    @Test
     void rejects_invalid_futures_cancel_all_requests() {
         BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
         BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
@@ -306,6 +328,49 @@ class BinanceOrderRequestFactoryTest {
         assertThatThrownBy(() -> spotFactory.cancelAllOpenOrders("BTCUSDT", "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cancelAllOpenOrdersPath is not configured");
+    }
+
+    @Test
+    void rejects_invalid_futures_cancel_multiple_orders_requests() {
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> futuresFactory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(), List.of()),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exactly one of orderIds or originalClientOrderIds is required");
+        assertThatThrownBy(() -> futuresFactory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(1L), List.of("client-1")),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exactly one of orderIds or originalClientOrderIds is required");
+        assertThatThrownBy(() -> futuresFactory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L), List.of()),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most 10 values");
+        assertThatThrownBy(() -> futuresFactory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(0L), List.of()),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderIds must be positive");
+        assertThatThrownBy(() -> futuresFactory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(), List.of(" ")),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("originalClientOrderIds must not contain blank values");
+        assertThatThrownBy(() -> spotFactory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(1L), List.of()),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cancelMultipleOrdersPath is not configured");
     }
 
     @Test
@@ -600,6 +665,7 @@ class BinanceOrderRequestFactoryTest {
                 "/fapi/v1/openOrders",
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
+                "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",
                 List.of("BUY", "SELL"),
@@ -644,6 +710,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/myTrades",
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -686,6 +753,7 @@ class BinanceOrderRequestFactoryTest {
                 "/sapi/v1/margin/myTrades",
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -726,6 +794,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/openOrders",
                 "/dapi/v1/allOrders",
                 "/dapi/v1/userTrades",
+                "/dapi/v1/batchOrders",
                 "/dapi/v1/allOpenOrders",
                 "/dapi/v1/countdownCancelAll",
                 List.of("BUY", "SELL"),

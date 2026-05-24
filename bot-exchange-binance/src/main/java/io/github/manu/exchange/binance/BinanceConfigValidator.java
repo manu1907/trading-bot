@@ -182,6 +182,12 @@ final class BinanceConfigValidator {
         requireConfiguredPath(path + ".all_orders_path", trading.allOrdersPath(), expected.allOrdersPath(), errors);
         requireConfiguredPath(path + ".account_trades_path", trading.accountTradesPath(), expected.accountTradesPath(), errors);
         requireConfiguredPath(
+                path + ".cancel_multiple_orders_path",
+                trading.cancelMultipleOrdersPath(),
+                expected.cancelMultipleOrdersPath(),
+                errors
+        );
+        requireConfiguredPath(
                 path + ".cancel_all_open_orders_path",
                 trading.cancelAllOpenOrdersPath(),
                 expected.cancelAllOpenOrdersPath(),

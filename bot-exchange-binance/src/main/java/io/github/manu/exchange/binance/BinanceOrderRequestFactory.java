@@ -7,6 +7,7 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 final class BinanceOrderRequestFactory {
 
@@ -90,6 +91,20 @@ final class BinanceOrderRequestFactory {
         return restRequestFactory.signedUri(binance.trading().cancelAllOpenOrdersPath(), List.of(
                 BinanceRequestParameter.of("symbol", symbol)
         ), privateCredential);
+    }
+
+    BinanceSignedRequest cancelMultipleOrders(BinanceCancelMultipleOrdersQuery query, String privateCredential) {
+        requireConfiguredPath("cancelMultipleOrdersPath", binance.trading().cancelMultipleOrdersPath());
+        validateCancelMultipleOrdersQuery(query);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", query.symbol());
+        if (!query.orderIds().isEmpty()) {
+            add(parameters, "orderIdList", longList(query.orderIds()));
+        }
+        if (!query.originalClientOrderIds().isEmpty()) {
+            add(parameters, "origClientOrderIdList", stringList(query.originalClientOrderIds()));
+        }
+        return restRequestFactory.signedUri(binance.trading().cancelMultipleOrdersPath(), parameters, privateCredential);
     }
 
     BinanceSignedRequest countdownCancelAll(String symbol, long countdownTime, String privateCredential) {
@@ -183,6 +198,29 @@ final class BinanceOrderRequestFactory {
         }
     }
 
+    private void validateCancelMultipleOrdersQuery(BinanceCancelMultipleOrdersQuery query) {
+        Objects.requireNonNull(query, "query");
+        requireSymbol(query.symbol());
+        boolean hasOrderIds = !query.orderIds().isEmpty();
+        boolean hasClientOrderIds = !query.originalClientOrderIds().isEmpty();
+        if (hasOrderIds == hasClientOrderIds) {
+            throw new IllegalArgumentException("exactly one of orderIds or originalClientOrderIds is required");
+        }
+        if (query.orderIds().size() > 10 || query.originalClientOrderIds().size() > 10) {
+            throw new IllegalArgumentException("cancel-multiple order lists can contain at most 10 values");
+        }
+        for (Long orderId : query.orderIds()) {
+            if (orderId == null || orderId <= 0) {
+                throw new IllegalArgumentException("orderIds must be positive");
+            }
+        }
+        for (String originalClientOrderId : query.originalClientOrderIds()) {
+            if (!hasText(originalClientOrderId)) {
+                throw new IllegalArgumentException("originalClientOrderIds must not contain blank values");
+            }
+        }
+    }
+
     private void requirePositive(String name, Long value) {
         if (value != null && value <= 0) {
             throw new IllegalArgumentException(name + " must be positive when configured");
@@ -269,6 +307,18 @@ final class BinanceOrderRequestFactory {
         if (value != null) {
             parameters.add(BinanceRequestParameter.of("isIsolated", value ? "TRUE" : "FALSE"));
         }
+    }
+
+    private String longList(List<Long> values) {
+        return values.stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(",", "[", "]"));
+    }
+
+    private String stringList(List<String> values) {
+        return values.stream()
+                .map(value -> "\"" + value + "\"")
+                .collect(Collectors.joining(",", "[", "]"));
     }
 
     private boolean hasText(String value) {

@@ -66,6 +66,7 @@ class BinanceOrderClientTest {
                           "msg": "The operation of cancel all open order is done."
                         }
                         """),
+                new BinanceHttpResponse(200, "[" + orderResponseBody("BATCH_CANCEL", "CANCELED") + "]"),
                 new BinanceHttpResponse(200, """
                         {
                           "symbol": "BTCUSDT",
@@ -79,16 +80,23 @@ class BinanceOrderClientTest {
         BinanceOrderResult cancelled = client.cancelOrder("BTCUSDT", "tb_cancel");
         List<BinanceOrderResult> openOrders = client.openOrders("BTCUSDT");
         BinanceOrderAck cancelAll = client.cancelAllOpenOrders("BTCUSDT");
+        List<BinanceOrderResult> cancelMultiple = client.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTCUSDT", List.of(12345L), List.of())
+        );
         BinanceCountdownCancelAll countdown = client.countdownCancelAll("BTCUSDT", 120_000L);
 
         assertThat(queried.status()).isEqualTo("FILLED");
         assertThat(cancelled.status()).isEqualTo("CANCELED");
         assertThat(openOrders).singleElement().extracting(BinanceOrderResult::status).isEqualTo("NEW");
         assertThat(cancelAll.code()).isEqualTo(200);
+        assertThat(cancelMultiple).singleElement().extracting(BinanceOrderResult::status).isEqualTo("CANCELED");
         assertThat(countdown.countdownTime()).isEqualTo(120_000L);
-        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "DELETE", "GET", "DELETE", "POST");
+        assertThat(transport.calls()).extracting(FakeCall::method)
+                .containsExactly("GET", "DELETE", "GET", "DELETE", "DELETE", "POST");
         assertThat(transport.calls()).extracting(FakeCall::uri)
                 .anySatisfy(uri -> assertThat(uri).contains("/fapi/v1/allOpenOrders?symbol=BTCUSDT"))
+                .anySatisfy(uri -> assertThat(uri).contains("/fapi/v1/batchOrders?symbol=BTCUSDT"))
+                .anySatisfy(uri -> assertThat(uri).contains("orderIdList=%5B12345%5D"))
                 .anySatisfy(uri -> assertThat(uri).contains("/fapi/v1/countdownCancelAll?symbol=BTCUSDT&countdownTime=120000"));
     }
 
@@ -329,6 +337,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/openOrders",
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
+                "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",
                 List.of("BUY", "SELL"),
