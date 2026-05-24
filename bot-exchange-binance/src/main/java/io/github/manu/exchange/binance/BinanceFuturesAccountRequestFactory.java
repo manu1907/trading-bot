@@ -11,6 +11,7 @@ final class BinanceFuturesAccountRequestFactory {
 
     private static final String HEDGE = "HEDGE";
     private static final String ONE_WAY = "ONE_WAY";
+    private static final List<String> AUTO_CLOSE_TYPES = List.of("LIQUIDATION", "ADL");
 
     private final BinanceProperties binance;
     private final BinanceProperties.FuturesAccount account;
@@ -84,6 +85,26 @@ final class BinanceFuturesAccountRequestFactory {
         return restRequestFactory.signedUri(account.positionRiskPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest adlQuantiles(String symbol, String privateCredential) {
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", symbol);
+        return restRequestFactory.signedUri(account.adlQuantilePath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest forceOrders(BinanceFuturesForceOrderQuery query, String privateCredential) {
+        BinanceFuturesForceOrderQuery safeQuery = query == null
+                ? new BinanceFuturesForceOrderQuery(null, null, null, null, null)
+                : query;
+        validateForceOrderQuery(safeQuery);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", safeQuery.symbol());
+        add(parameters, "autoCloseType", safeQuery.autoCloseType());
+        add(parameters, "startTime", safeQuery.startTime());
+        add(parameters, "endTime", safeQuery.endTime());
+        add(parameters, "limit", safeQuery.limit());
+        return restRequestFactory.signedUri(account.forceOrdersPath(), parameters, privateCredential);
+    }
+
     private void validatePositionRiskQuery(BinanceMarketType marketType, BinanceFuturesPositionRiskQuery query) {
         if (marketType == BinanceMarketType.FUTURES_USD_M) {
             if (hasText(query.pair()) || hasText(query.marginAsset())) {
@@ -96,6 +117,30 @@ final class BinanceFuturesAccountRequestFactory {
         }
         if (hasText(query.pair()) && hasText(query.marginAsset())) {
             throw new IllegalArgumentException("only one of pair or marginAsset can be configured");
+        }
+    }
+
+    private void validateForceOrderQuery(BinanceFuturesForceOrderQuery query) {
+        if (hasText(query.autoCloseType()) && !AUTO_CLOSE_TYPES.contains(query.autoCloseType())) {
+            throw new IllegalArgumentException("autoCloseType must be one of " + AUTO_CLOSE_TYPES);
+        }
+        requirePositive("startTime", query.startTime());
+        requirePositive("endTime", query.endTime());
+        requirePositive("limit", query.limit());
+        if (query.limit() != null && query.limit() > 100) {
+            throw new IllegalArgumentException("limit must be at most 100");
+        }
+    }
+
+    private void requirePositive(String field, Long value) {
+        if (value != null && value <= 0) {
+            throw new IllegalArgumentException(field + " must be positive when configured");
+        }
+    }
+
+    private void requirePositive(String field, Integer value) {
+        if (value != null && value <= 0) {
+            throw new IllegalArgumentException(field + " must be positive when configured");
         }
     }
 
@@ -115,6 +160,18 @@ final class BinanceFuturesAccountRequestFactory {
     private void add(List<BinanceRequestParameter> parameters, String name, String value) {
         if (hasText(value)) {
             parameters.add(BinanceRequestParameter.of(name, value));
+        }
+    }
+
+    private void add(List<BinanceRequestParameter> parameters, String name, Long value) {
+        if (value != null) {
+            parameters.add(BinanceRequestParameter.of(name, value.toString()));
+        }
+    }
+
+    private void add(List<BinanceRequestParameter> parameters, String name, Integer value) {
+        if (value != null) {
+            parameters.add(BinanceRequestParameter.of(name, value.toString()));
         }
     }
 

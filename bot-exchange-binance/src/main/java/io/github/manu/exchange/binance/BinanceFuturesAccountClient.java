@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -150,6 +151,30 @@ final class BinanceFuturesAccountClient {
         return List.copyOf(positions);
     }
 
+    List<BinanceFuturesAdlQuantile> adlQuantiles(String symbol) {
+        JsonNode root = readJson(send(requestFactory.adlQuantiles(symbol, privateCredential), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance futures ADL quantile array response");
+        }
+        List<BinanceFuturesAdlQuantile> quantiles = new ArrayList<>();
+        for (JsonNode item : root) {
+            quantiles.add(toAdlQuantile(item));
+        }
+        return List.copyOf(quantiles);
+    }
+
+    List<BinanceFuturesForceOrder> forceOrders(BinanceFuturesForceOrderQuery query) {
+        JsonNode root = readJson(send(requestFactory.forceOrders(query, privateCredential), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance futures force orders array response");
+        }
+        List<BinanceFuturesForceOrder> forceOrders = new ArrayList<>();
+        for (JsonNode item : root) {
+            forceOrders.add(toForceOrder(item));
+        }
+        return List.copyOf(forceOrders);
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }
@@ -261,6 +286,48 @@ final class BinanceFuturesAccountClient {
                 intValue(node, "adl"),
                 decimal(node, "bidNotional"),
                 decimal(node, "askNotional"),
+                longValue(node, "updateTime")
+        );
+    }
+
+    private BinanceFuturesAdlQuantile toAdlQuantile(JsonNode node) {
+        JsonNode quantileNode = node.get("adlQuantile");
+        if (quantileNode == null || !quantileNode.isObject()) {
+            return new BinanceFuturesAdlQuantile(text(node, "symbol"), java.util.Map.of());
+        }
+        java.util.Map<String, Integer> quantiles = new LinkedHashMap<>();
+        for (java.util.Map.Entry<String, JsonNode> entry : quantileNode.properties()) {
+            if (entry.getValue().isNumber()) {
+                quantiles.put(entry.getKey(), entry.getValue().asInt());
+            }
+        }
+        return new BinanceFuturesAdlQuantile(text(node, "symbol"), quantiles);
+    }
+
+    private BinanceFuturesForceOrder toForceOrder(JsonNode node) {
+        return new BinanceFuturesForceOrder(
+                longValue(node, "orderId"),
+                text(node, "symbol"),
+                text(node, "pair"),
+                text(node, "status"),
+                text(node, "clientOrderId"),
+                decimal(node, "price"),
+                decimal(node, "avgPrice"),
+                decimal(node, "origQty"),
+                decimal(node, "executedQty"),
+                decimal(node, "cumQuote"),
+                decimal(node, "cumBase"),
+                text(node, "timeInForce"),
+                text(node, "type"),
+                bool(node, "reduceOnly").orElse(null),
+                bool(node, "closePosition").orElse(null),
+                text(node, "side"),
+                text(node, "positionSide"),
+                decimal(node, "stopPrice"),
+                text(node, "workingType"),
+                bool(node, "priceProtect").orElse(null),
+                text(node, "origType"),
+                longValue(node, "time"),
                 longValue(node, "updateTime")
         );
     }

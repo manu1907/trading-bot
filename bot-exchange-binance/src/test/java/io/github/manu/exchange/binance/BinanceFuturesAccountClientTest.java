@@ -159,6 +159,67 @@ class BinanceFuturesAccountClientTest {
     }
 
     @Test
+    void reads_adl_quantiles_and_force_orders() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "symbol": "BTCUSDT",
+                            "adlQuantile": {
+                              "LONG": 1,
+                              "SHORT": 2,
+                              "BOTH": 0
+                            }
+                          }
+                        ]
+                        """),
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "orderId": 6071832819,
+                            "symbol": "BTCUSDT",
+                            "status": "FILLED",
+                            "clientOrderId": "autoclose-1596107620040000020",
+                            "price": "10871.09",
+                            "avgPrice": "10913.21000",
+                            "origQty": "0.001",
+                            "executedQty": "0.001",
+                            "cumQuote": "10.91321",
+                            "timeInForce": "IOC",
+                            "type": "LIMIT",
+                            "reduceOnly": false,
+                            "closePosition": false,
+                            "side": "SELL",
+                            "positionSide": "BOTH",
+                            "stopPrice": "0",
+                            "workingType": "CONTRACT_PRICE",
+                            "origType": "LIMIT",
+                            "time": 1596107620044,
+                            "updateTime": 1596107620087
+                          }
+                        ]
+                        """)
+        );
+        BinanceFuturesAccountClient client = client(transport);
+
+        List<BinanceFuturesAdlQuantile> quantiles = client.adlQuantiles("BTCUSDT");
+        List<BinanceFuturesForceOrder> forceOrders = client.forceOrders(
+                new BinanceFuturesForceOrderQuery("BTCUSDT", "LIQUIDATION", null, null, 50)
+        );
+
+        assertThat(quantiles).singleElement().satisfies(quantile -> {
+            assertThat(quantile.symbol()).isEqualTo("BTCUSDT");
+            assertThat(quantile.quantiles()).containsEntry("LONG", 1).containsEntry("SHORT", 2);
+        });
+        assertThat(forceOrders).singleElement().satisfies(order -> {
+            assertThat(order.orderId()).isEqualTo(6071832819L);
+            assertThat(order.cumulativeQuote()).isEqualByComparingTo("10.91321");
+            assertThat(order.reduceOnly()).isFalse();
+        });
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "GET");
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4046, "msg": "No need to change margin type."}
@@ -318,6 +379,8 @@ class BinanceFuturesAccountClientTest {
                 "/fapi/v3/balance",
                 "/fapi/v3/account",
                 "/fapi/v3/positionRisk",
+                "/fapi/v1/adlQuantile",
+                "/fapi/v1/forceOrders",
                 "/fapi/v1/multiAssetsMargin",
                 1,
                 125,

@@ -93,6 +93,24 @@ class BinanceFuturesAccountRequestFactoryTest {
     }
 
     @Test
+    void builds_adl_quantile_and_force_order_requests() {
+        BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest adlQuantiles = factory.adlQuantiles("BTCUSDT", "test-secret");
+        BinanceSignedRequest forceOrders = factory.forceOrders(
+                new BinanceFuturesForceOrderQuery("BTCUSDT", "LIQUIDATION", 1_700_000_000_000L, 1_700_001_000_000L, 100),
+                "test-secret"
+        );
+
+        assertThat(adlQuantiles.payload()).isEqualTo("symbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(adlQuantiles.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/adlQuantile?");
+        assertThat(forceOrders.payload())
+                .isEqualTo("symbol=BTCUSDT&autoCloseType=LIQUIDATION&startTime=1700000000000"
+                        + "&endTime=1700001000000&limit=100&timestamp=1499827319559&recvWindow=5000");
+        assertThat(forceOrders.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/forceOrders?");
+    }
+
+    @Test
     void rejects_leverage_outside_configured_limits() {
         BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
 
@@ -133,6 +151,30 @@ class BinanceFuturesAccountRequestFactoryTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("only one of pair or marginAsset");
+    }
+
+    @Test
+    void rejects_invalid_force_order_query_shapes() {
+        BinanceFuturesAccountRequestFactory factory = new BinanceFuturesAccountRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> factory.forceOrders(
+                new BinanceFuturesForceOrderQuery("BTCUSDT", "EXPIRED", null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("autoCloseType must be one of");
+        assertThatThrownBy(() -> factory.forceOrders(
+                new BinanceFuturesForceOrderQuery("BTCUSDT", "ADL", null, null, 101),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limit must be at most 100");
+        assertThatThrownBy(() -> factory.forceOrders(
+                new BinanceFuturesForceOrderQuery("BTCUSDT", "ADL", 0L, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("startTime must be positive");
     }
 
     private BinanceProperties binance() {
@@ -269,6 +311,8 @@ class BinanceFuturesAccountRequestFactoryTest {
                 readPathPrefix + "/balance",
                 readPathPrefix + "/account",
                 readPathPrefix + "/positionRisk",
+                pathPrefix + "/adlQuantile",
+                pathPrefix + "/forceOrders",
                 multiAssetsModePath,
                 1,
                 125,

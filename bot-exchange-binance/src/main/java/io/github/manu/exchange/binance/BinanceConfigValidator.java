@@ -345,6 +345,8 @@ final class BinanceConfigValidator {
         requireMatching(path + ".balance_path", account.balancePath(), futuresAccountReadPathPrefix(marketType) + "/balance", errors);
         requireMatching(path + ".account_info_path", account.accountInfoPath(), futuresAccountReadPathPrefix(marketType) + "/account", errors);
         requireMatching(path + ".position_risk_path", account.positionRiskPath(), futuresPositionRiskPath(marketType), errors);
+        requireMatching(path + ".adl_quantile_path", account.adlQuantilePath(), pathPrefix + "/v1/adlQuantile", errors);
+        requireMatching(path + ".force_orders_path", account.forceOrdersPath(), pathPrefix + "/v1/forceOrders", errors);
         if (marketType == BinanceMarketType.FUTURES_USD_M) {
             requireMatching(path + ".multi_assets_mode_path", account.multiAssetsModePath(), "/fapi/v1/multiAssetsMargin", errors);
         } else {

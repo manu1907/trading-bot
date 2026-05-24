@@ -105,6 +105,8 @@ Implemented Binance foundations:
   history clients with catalog-backed paths for later reconciliation.
 - USD-M and COIN-M futures balance, account-information, and position-risk
   snapshot clients with catalog-backed paths for risk and reconciliation.
+- USD-M and COIN-M futures ADL quantile and force-order history clients with
+  catalog-backed paths for liquidation/ADL risk monitoring.
 - Catalog-backed order feature defaults for price-match, futures trigger
   controls, pegged-order, and margin side-effect controls.
 - REST rate-limit header observation.
@@ -118,7 +120,7 @@ Binance parity gaps to close before claiming full connector support:
 - Margin: add borrow/repay, transfers, margin order lists, margin account/risk
   endpoints, prevented matches, and special low-latency key workflows.
 - Futures: add batch orders, modify order, cancel-all/countdown cancel-all,
-  funding/income, liquidation, ADL, and portfolio-margin boundaries.
+  funding/income and portfolio-margin boundaries.
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
@@ -246,8 +248,8 @@ Deliver:
   prevented-match, and commission-rate clients where needed by
   execution/reconciliation.
 - Margin borrow/repay, transfer, order list, and margin account/risk endpoints.
-- Futures batch/modify/cancel-all/countdown-cancel-all, funding/income,
-  liquidation, and ADL endpoint support.
+- Futures batch/modify/cancel-all/countdown-cancel-all and funding/income
+  endpoint support.
 - User-data and market-data WebSocket payload mappers to core Avro events.
 - REST snapshot reconciliation clients for account, balances, open orders,
   positions, and recent trades.

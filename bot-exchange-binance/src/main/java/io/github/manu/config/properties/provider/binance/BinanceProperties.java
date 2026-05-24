@@ -166,6 +166,8 @@ public record BinanceProperties(
             @NotNull String balancePath,
             @NotNull String accountInfoPath,
             @NotNull String positionRiskPath,
+            @NotNull String adlQuantilePath,
+            @NotNull String forceOrdersPath,
             String multiAssetsModePath,
             Integer minInitialLeverage,
             Integer maxInitialLeverage,
