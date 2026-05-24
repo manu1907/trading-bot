@@ -97,8 +97,10 @@ Implemented Binance foundations:
 - Spot pegged-order command fields, validation, and request construction.
 - Margin `sideEffectType` and `autoRepayAtCancel` command fields, validation,
   and request construction.
-- Catalog-backed order feature defaults for price-match, pegged-order, and
-  margin side-effect controls.
+- Futures `workingType` and `priceProtect` command fields, validation, and
+  request construction.
+- Catalog-backed order feature defaults for price-match, futures trigger
+  controls, pegged-order, and margin side-effect controls.
 - REST rate-limit header observation.
 - User-data listen-key/listen-token lifecycle where configured.
 - Public WebSocket stream URI planning and reconnect/rollover policy.
@@ -110,10 +112,9 @@ Binance parity gaps to close before claiming full connector support:
   WebSocket API order placement.
 - Margin: add borrow/repay, transfers, margin order lists, margin account/risk
   endpoints, and special low-latency key workflows.
-- Futures: add `workingType`, `priceProtect`, leverage/margin-type/position
-  mode management, batch orders, modify order, cancel-all/countdown cancel-all,
-  account snapshots, position risk, funding/income, liquidation, ADL, and
-  portfolio-margin boundaries.
+- Futures: add leverage/margin-type/position mode management, batch orders,
+  modify order, cancel-all/countdown cancel-all, account snapshots, position
+  risk, funding/income, liquidation, ADL, and portfolio-margin boundaries.
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
@@ -241,7 +242,7 @@ Deliver:
   account-trade, prevented-match, and commission-rate clients where needed by
   execution/reconciliation.
 - Margin borrow/repay, transfer, order list, and margin account/risk endpoints.
-- Futures `workingType`, `priceProtect`, leverage, margin type, position mode,
+- Futures leverage, margin type, position mode,
   batch/modify/cancel-all/countdown-cancel-all, position-risk, funding/income,
   liquidation, and ADL endpoint support.
 - User-data and market-data WebSocket payload mappers to core Avro events.

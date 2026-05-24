@@ -42,63 +42,63 @@ fun loadLocalEnv(file: File): Map<String, String> {
         .toMap()
 }
 
-tasks.register<Test>("binanceDemoOrderSmokeTest") {
+tasks.register<Test>("binanceLiveOrderSmokeTest") {
     group = "verification"
-    description = "Runs the guarded Binance demo order lifecycle test against the active demo USD-M config."
+    description = "Runs the guarded Binance live order lifecycle test against the active Binance config."
 
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
     filter {
-        includeTestsMatching("io.github.manu.exchange.binance.BinanceDemoOrderLifecycleTest")
+        includeTestsMatching("io.github.manu.exchange.binance.BinanceLiveOrderLifecycleSmokeTest")
     }
     loadLocalEnv(rootProject.file("api.env")).forEach { (key, value) ->
         environment(key, value)
     }
-    systemProperty("binance.demo.order.smoke", "true")
+    systemProperty("binance.live.order.smoke", "true")
 }
 
-tasks.register<Test>("binanceDemoServerTimeSmokeTest") {
+tasks.register<Test>("binanceLiveServerTimeSmokeTest") {
     group = "verification"
-    description = "Runs the guarded Binance demo server-time sync smoke test against the active demo USD-M config."
+    description = "Runs the guarded Binance live server-time sync smoke test against the active Binance config."
 
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
     filter {
-        includeTestsMatching("io.github.manu.exchange.binance.BinanceDemoServerTimeSyncTest")
+        includeTestsMatching("io.github.manu.exchange.binance.BinanceLiveServerTimeSyncSmokeTest")
     }
-    systemProperty("binance.demo.servertime.smoke", "true")
+    systemProperty("binance.live.servertime.smoke", "true")
 }
 
-tasks.register<Test>("binanceDemoUserDataStreamSmokeTest") {
+tasks.register<Test>("binanceLiveUserDataStreamSmokeTest") {
     group = "verification"
-    description = "Runs the guarded Binance demo user data stream lifecycle test against the active demo USD-M config."
+    description = "Runs the guarded Binance live user data stream lifecycle test against the active Binance config."
 
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
     filter {
-        includeTestsMatching("io.github.manu.exchange.binance.BinanceDemoUserDataStreamLifecycleTest")
+        includeTestsMatching("io.github.manu.exchange.binance.BinanceLiveUserDataStreamLifecycleSmokeTest")
     }
     loadLocalEnv(rootProject.file("api.env")).forEach { (key, value) ->
         environment(key, value)
     }
-    systemProperty("binance.demo.userdata.smoke", "true")
+    systemProperty("binance.live.userdata.smoke", "true")
 }
 
-tasks.register<Test>("binanceDemoWebSocketSmokeTest") {
+tasks.register<Test>("binanceLiveWebSocketSmokeTest") {
     group = "verification"
-    description = "Runs the guarded Binance demo WebSocket market stream smoke test against the active demo USD-M config."
+    description = "Runs the guarded Binance live WebSocket market stream smoke test against the active Binance config."
 
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
     filter {
-        includeTestsMatching("io.github.manu.exchange.binance.BinanceDemoWebSocketMarketStreamTest")
+        includeTestsMatching("io.github.manu.exchange.binance.BinanceLiveWebSocketMarketStreamSmokeTest")
     }
     loadLocalEnv(rootProject.file("api.env")).forEach { (key, value) ->
         environment(key, value)
     }
-    systemProperty("binance.demo.websocket.smoke", "true")
+    systemProperty("binance.live.websocket.smoke", "true")
 }

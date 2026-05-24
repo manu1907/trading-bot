@@ -128,6 +128,8 @@
                       "supports_reduce_only": false,
                       "supports_close_position": false,
                       "supports_price_match": false,
+                      "supports_working_type": false,
+                      "supports_price_protect": false,
                       "supports_pegged_orders": true,
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
@@ -135,6 +137,15 @@
                       "supports_market_maker_protection": false,
                       "test_order_path": "/api/v3/order/test",
                       "supported_price_match_order_types": [
+
+                      ],
+                      "supported_working_type_order_types": [
+
+                      ],
+                      "supported_working_types": [
+
+                      ],
+                      "supported_price_protect_order_types": [
 
                       ],
                       "supported_pegged_order_types": [
@@ -262,12 +273,23 @@
                       "supports_reduce_only": false,
                       "supports_close_position": false,
                       "supports_price_match": false,
+                      "supports_working_type": false,
+                      "supports_price_protect": false,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": false,
                       "supports_market_maker_protection": false,
                       "supported_price_match_order_types": [
+
+                      ],
+                      "supported_working_type_order_types": [
+
+                      ],
+                      "supported_working_types": [
+
+                      ],
+                      "supported_price_protect_order_types": [
 
                       ],
                       "supported_pegged_order_types": [
@@ -394,12 +416,23 @@
                       "supports_reduce_only": false,
                       "supports_close_position": false,
                       "supports_price_match": false,
+                      "supports_working_type": false,
+                      "supports_price_protect": false,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": true,
                       "supports_market_maker_protection": false,
                       "supported_price_match_order_types": [
+
+                      ],
+                      "supported_working_type_order_types": [
+
+                      ],
+                      "supported_working_types": [
+
+                      ],
+                      "supported_price_protect_order_types": [
 
                       ],
                       "supported_pegged_order_types": [
@@ -535,6 +568,8 @@
                       "supports_reduce_only": true,
                       "supports_close_position": true,
                       "supports_price_match": true,
+                      "supports_working_type": true,
+                      "supports_price_protect": true,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
@@ -544,6 +579,23 @@
                         "LIMIT",
                         "STOP",
                         "TAKE_PROFIT"
+                      ],
+                      "supported_working_type_order_types": [
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET",
+                        "TRAILING_STOP_MARKET"
+                      ],
+                      "supported_working_types": [
+                        "MARK_PRICE",
+                        "CONTRACT_PRICE"
+                      ],
+                      "supported_price_protect_order_types": [
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET"
                       ],
                       "supported_pegged_order_types": [
 
@@ -671,6 +723,8 @@
                       "supports_reduce_only": true,
                       "supports_close_position": true,
                       "supports_price_match": true,
+                      "supports_working_type": true,
+                      "supports_price_protect": true,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
@@ -680,6 +734,23 @@
                         "LIMIT",
                         "STOP",
                         "TAKE_PROFIT"
+                      ],
+                      "supported_working_type_order_types": [
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET",
+                        "TRAILING_STOP_MARKET"
+                      ],
+                      "supported_working_types": [
+                        "MARK_PRICE",
+                        "CONTRACT_PRICE"
+                      ],
+                      "supported_price_protect_order_types": [
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET"
                       ],
                       "supported_pegged_order_types": [
 
@@ -793,12 +864,23 @@
                       "supports_reduce_only": true,
                       "supports_close_position": false,
                       "supports_price_match": false,
+                      "supports_working_type": false,
+                      "supports_price_protect": false,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
                       "supports_isolated_margin_flag": false,
                       "supports_market_maker_protection": true,
                       "supported_price_match_order_types": [
+
+                      ],
+                      "supported_working_type_order_types": [
+
+                      ],
+                      "supported_working_types": [
+
+                      ],
+                      "supported_price_protect_order_types": [
 
                       ],
                       "supported_pegged_order_types": [
@@ -936,6 +1018,8 @@
                       "supports_reduce_only": false,
                       "supports_close_position": false,
                       "supports_price_match": false,
+                      "supports_working_type": false,
+                      "supports_price_protect": false,
                       "supports_pegged_orders": true,
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
@@ -943,6 +1027,15 @@
                       "supports_market_maker_protection": false,
                       "test_order_path": "/api/v3/order/test",
                       "supported_price_match_order_types": [
+
+                      ],
+                      "supported_working_type_order_types": [
+
+                      ],
+                      "supported_working_types": [
+
+                      ],
+                      "supported_price_protect_order_types": [
 
                       ],
                       "supported_pegged_order_types": [
@@ -1070,12 +1163,23 @@
                       "supports_reduce_only": false,
                       "supports_close_position": false,
                       "supports_price_match": false,
+                      "supports_working_type": false,
+                      "supports_price_protect": false,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": false,
                       "supports_market_maker_protection": false,
                       "supported_price_match_order_types": [
+
+                      ],
+                      "supported_working_type_order_types": [
+
+                      ],
+                      "supported_working_types": [
+
+                      ],
+                      "supported_price_protect_order_types": [
 
                       ],
                       "supported_pegged_order_types": [
@@ -1202,12 +1306,23 @@
                       "supports_reduce_only": false,
                       "supports_close_position": false,
                       "supports_price_match": false,
+                      "supports_working_type": false,
+                      "supports_price_protect": false,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": true,
                       "supports_trailing_delta": true,
                       "supports_isolated_margin_flag": true,
                       "supports_market_maker_protection": false,
                       "supported_price_match_order_types": [
+
+                      ],
+                      "supported_working_type_order_types": [
+
+                      ],
+                      "supported_working_types": [
+
+                      ],
+                      "supported_price_protect_order_types": [
 
                       ],
                       "supported_pegged_order_types": [
@@ -1343,6 +1458,8 @@
                       "supports_reduce_only": true,
                       "supports_close_position": true,
                       "supports_price_match": true,
+                      "supports_working_type": true,
+                      "supports_price_protect": true,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
@@ -1352,6 +1469,23 @@
                         "LIMIT",
                         "STOP",
                         "TAKE_PROFIT"
+                      ],
+                      "supported_working_type_order_types": [
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET",
+                        "TRAILING_STOP_MARKET"
+                      ],
+                      "supported_working_types": [
+                        "MARK_PRICE",
+                        "CONTRACT_PRICE"
+                      ],
+                      "supported_price_protect_order_types": [
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET"
                       ],
                       "supported_pegged_order_types": [
 
@@ -1479,6 +1613,8 @@
                       "supports_reduce_only": true,
                       "supports_close_position": true,
                       "supports_price_match": true,
+                      "supports_working_type": true,
+                      "supports_price_protect": true,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
@@ -1488,6 +1624,23 @@
                         "LIMIT",
                         "STOP",
                         "TAKE_PROFIT"
+                      ],
+                      "supported_working_type_order_types": [
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET",
+                        "TRAILING_STOP_MARKET"
+                      ],
+                      "supported_working_types": [
+                        "MARK_PRICE",
+                        "CONTRACT_PRICE"
+                      ],
+                      "supported_price_protect_order_types": [
+                        "STOP",
+                        "STOP_MARKET",
+                        "TAKE_PROFIT",
+                        "TAKE_PROFIT_MARKET"
                       ],
                       "supported_pegged_order_types": [
 
@@ -1601,12 +1754,23 @@
                       "supports_reduce_only": true,
                       "supports_close_position": false,
                       "supports_price_match": false,
+                      "supports_working_type": false,
+                      "supports_price_protect": false,
                       "supports_pegged_orders": false,
                       "supports_iceberg_qty": false,
                       "supports_trailing_delta": false,
                       "supports_isolated_margin_flag": false,
                       "supports_market_maker_protection": true,
                       "supported_price_match_order_types": [
+
+                      ],
+                      "supported_working_type_order_types": [
+
+                      ],
+                      "supported_working_types": [
+
+                      ],
+                      "supported_price_protect_order_types": [
 
                       ],
                       "supported_pegged_order_types": [

@@ -44,6 +44,7 @@ final class BinanceOrderCommandValidator {
         );
         requireOptionalOneOf("positionSide", command.positionSide(), capability.supportedPositionSides(), errors);
         requireOptionalOneOf("sideEffectType", command.sideEffectType(), capability.supportedMarginSideEffectTypes(), errors);
+        requireOptionalOneOf("workingType", command.workingType(), capability.supportedWorkingTypes(), errors);
         requireOptionalOneOf("pegPriceType", command.pegPriceType(), capability.supportedPegPriceTypes(), errors);
         requireOptionalOneOf("pegOffsetType", command.pegOffsetType(), capability.supportedPegOffsetTypes(), errors);
         validateFeatureFlags(command, capability, errors);
@@ -70,6 +71,12 @@ final class BinanceOrderCommandValidator {
         }
         if (hasText(command.priceMatch()) && !capability.supportsPriceMatch()) {
             errors.add("priceMatch is not supported for this Binance market");
+        }
+        if (hasText(command.workingType()) && !capability.supportsWorkingType()) {
+            errors.add("workingType is not supported for this Binance market");
+        }
+        if (command.priceProtect() != null && !capability.supportsPriceProtect()) {
+            errors.add("priceProtect is not supported for this Binance market");
         }
         if (hasPeggedOrderParameter(command) && !capability.supportsPeggedOrders()) {
             errors.add("pegged orders are not supported for this Binance market");
@@ -124,6 +131,16 @@ final class BinanceOrderCommandValidator {
             if (hasText(command.type()) && !capability.supportedPriceMatchOrderTypes().contains(command.type())) {
                 errors.add("priceMatch is not supported for order type " + command.type());
             }
+        }
+        if (hasText(command.workingType())
+                && hasText(command.type())
+                && !capability.supportedWorkingTypeOrderTypes().contains(command.type())) {
+            errors.add("workingType is not supported for order type " + command.type());
+        }
+        if (command.priceProtect() != null
+                && hasText(command.type())
+                && !capability.supportedPriceProtectOrderTypes().contains(command.type())) {
+            errors.add("priceProtect is not supported for order type " + command.type());
         }
         if (hasPeggedOrderParameter(command)) {
             if (!hasText(command.pegPriceType())) {

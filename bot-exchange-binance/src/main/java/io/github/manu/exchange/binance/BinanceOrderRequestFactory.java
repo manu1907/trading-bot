@@ -66,6 +66,7 @@ final class BinanceOrderRequestFactory {
         add(parameters, "selfTradePreventionMode", command.selfTradePreventionMode());
         add(parameters, "sideEffectType", command.sideEffectType());
         add(parameters, "priceMatch", command.priceMatch());
+        add(parameters, "workingType", command.workingType());
         add(parameters, "pegPriceType", command.pegPriceType());
         add(parameters, "pegOffsetType", command.pegOffsetType());
         add(parameters, "pegOffsetValue", command.pegOffsetValue());
@@ -81,6 +82,7 @@ final class BinanceOrderRequestFactory {
         add(parameters, "icebergQty", command.icebergQty());
         add(parameters, "reduceOnly", command.reduceOnly());
         add(parameters, "closePosition", command.closePosition());
+        addWhenPresent(parameters, "priceProtect", command.priceProtect());
         addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());
         add(parameters, "isIsolated", command.isolatedMargin());
         add(parameters, "marketMakerProtection", command.marketMakerProtection());

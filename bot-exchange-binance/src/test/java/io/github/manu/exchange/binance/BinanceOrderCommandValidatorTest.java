@@ -50,6 +50,59 @@ class BinanceOrderCommandValidatorTest {
     }
 
     @Test
+    void accepts_futures_conditional_order_with_trigger_controls() {
+        BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("STOP_MARKET")
+                .stopPrice("45000")
+                .quantity("0.001")
+                .workingType("MARK_PRICE")
+                .priceProtect(true)
+                .build(), BinanceMarketType.FUTURES_USD_M);
+    }
+
+    @Test
+    void rejects_futures_trigger_controls_on_plain_limit_order() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .price("50000")
+                .workingType("MARK_PRICE")
+                .priceProtect(false)
+                .build(), BinanceMarketType.FUTURES_USD_M))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingType is not supported for order type LIMIT")
+                .hasMessageContaining("priceProtect is not supported for order type LIMIT");
+    }
+
+    @Test
+    void rejects_futures_unknown_working_type() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("STOP_MARKET")
+                .stopPrice("45000")
+                .quantity("0.001")
+                .workingType("LAST_PRICE")
+                .build(), BinanceMarketType.FUTURES_USD_M))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingType must be one of");
+    }
+
+    @Test
+    void rejects_futures_trigger_controls_on_spot() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .price("50000")
+                .workingType("MARK_PRICE")
+                .priceProtect(true)
+                .build(), BinanceMarketType.SPOT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingType is not supported")
+                .hasMessageContaining("priceProtect is not supported");
+    }
+
+    @Test
     void rejects_futures_self_trade_prevention_none() {
         assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
                 .type("LIMIT")
@@ -324,6 +377,7 @@ class BinanceOrderCommandValidatorTest {
         private String selfTradePreventionMode;
         private String sideEffectType;
         private String priceMatch;
+        private String workingType;
         private String pegPriceType;
         private String pegOffsetType;
         private Integer pegOffsetValue;
@@ -334,6 +388,7 @@ class BinanceOrderCommandValidatorTest {
         private BigDecimal stopPrice;
         private Boolean reduceOnly;
         private Boolean closePosition;
+        private Boolean priceProtect;
         private Boolean autoRepayAtCancel;
         private Boolean isolatedMargin;
         private Boolean marketMakerProtection;
@@ -370,6 +425,11 @@ class BinanceOrderCommandValidatorTest {
 
         CommandBuilder sideEffectType(String value) {
             sideEffectType = value;
+            return this;
+        }
+
+        CommandBuilder workingType(String value) {
+            workingType = value;
             return this;
         }
 
@@ -423,6 +483,11 @@ class BinanceOrderCommandValidatorTest {
             return this;
         }
 
+        CommandBuilder priceProtect(boolean value) {
+            priceProtect = value;
+            return this;
+        }
+
         CommandBuilder autoRepayAtCancel(boolean value) {
             autoRepayAtCancel = value;
             return this;
@@ -449,6 +514,7 @@ class BinanceOrderCommandValidatorTest {
                     selfTradePreventionMode,
                     sideEffectType,
                     priceMatch,
+                    workingType,
                     pegPriceType,
                     pegOffsetType,
                     pegOffsetValue,
@@ -464,6 +530,7 @@ class BinanceOrderCommandValidatorTest {
                     null,
                     reduceOnly,
                     closePosition,
+                    priceProtect,
                     autoRepayAtCancel,
                     isolatedMargin,
                     marketMakerProtection

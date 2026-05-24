@@ -12,6 +12,7 @@ record BinanceOrderCommand(
         String selfTradePreventionMode,
         String sideEffectType,
         String priceMatch,
+        String workingType,
         String pegPriceType,
         String pegOffsetType,
         Integer pegOffsetValue,
@@ -27,6 +28,7 @@ record BinanceOrderCommand(
         BigDecimal icebergQty,
         Boolean reduceOnly,
         Boolean closePosition,
+        Boolean priceProtect,
         Boolean autoRepayAtCancel,
         Boolean isolatedMargin,
         Boolean marketMakerProtection

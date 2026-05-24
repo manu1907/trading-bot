@@ -34,11 +34,13 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 "tb_smoke_1",
                 null,
                 new BigDecimal("0.001000"),
                 null,
                 new BigDecimal("50000.00"),
+                null,
                 null,
                 null,
                 null,
@@ -77,9 +79,11 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 "tb_gtd_1",
                 1_771_111_111_000L,
                 new BigDecimal("0.001000"),
+                null,
                 null,
                 null,
                 null,
@@ -105,6 +109,51 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_futures_conditional_order_with_trigger_controls() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderCommand command = new BinanceOrderCommand(
+                "BTCUSDT",
+                "SELL",
+                "STOP_MARKET",
+                null,
+                "BOTH",
+                "RESULT",
+                "EXPIRE_MAKER",
+                null,
+                null,
+                "MARK_PRICE",
+                null,
+                null,
+                null,
+                "tb_stop_1",
+                null,
+                new BigDecimal("0.001000"),
+                null,
+                null,
+                new BigDecimal("45000.00"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null,
+                null
+        );
+
+        BinanceSignedRequest request = factory.newOrder(command, "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&side=SELL&type=STOP_MARKET&positionSide=BOTH"
+                        + "&newOrderRespType=RESULT&selfTradePreventionMode=EXPIRE_MAKER&workingType=MARK_PRICE"
+                        + "&newClientOrderId=tb_stop_1&quantity=0.001&stopPrice=45000&priceProtect=false"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/order?");
+    }
+
+    @Test
     void builds_spot_pegged_limit_order_request() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
         BinanceOrderCommand command = new BinanceOrderCommand(
@@ -117,12 +166,14 @@ class BinanceOrderRequestFactoryTest {
                 "NONE",
                 null,
                 null,
+                null,
                 "PRIMARY_PEG",
                 "PRICE_LEVEL",
                 5,
                 "tb_peg_1",
                 null,
                 new BigDecimal("0.001000"),
+                null,
                 null,
                 null,
                 null,
@@ -164,9 +215,11 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 "tb_margin_1",
                 null,
                 new BigDecimal("0.001000"),
+                null,
                 null,
                 null,
                 null,
@@ -361,6 +414,9 @@ class BinanceOrderRequestFactoryTest {
                 List.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
                 List.of("BOTH", "LONG", "SHORT"),
                 List.of("LIMIT", "STOP", "TAKE_PROFIT"),
+                List.of("STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
+                List.of("MARK_PRICE", "CONTRACT_PRICE"),
+                List.of("STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET"),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -368,6 +424,8 @@ class BinanceOrderRequestFactoryTest {
                 List.of(),
                 null,
                 false,
+                true,
+                true,
                 true,
                 true,
                 true,
@@ -394,6 +452,9 @@ class BinanceOrderRequestFactoryTest {
                 List.of("NONE", "EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
                 List.of("NONE"),
                 List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
                 List.of("LIMIT", "LIMIT_MAKER", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"),
                 List.of("PRIMARY_PEG", "MARKET_PEG"),
                 List.of("PRICE_LEVEL"),
@@ -401,6 +462,8 @@ class BinanceOrderRequestFactoryTest {
                 List.of(),
                 100,
                 true,
+                false,
+                false,
                 false,
                 false,
                 false,
@@ -430,10 +493,15 @@ class BinanceOrderRequestFactoryTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
                 List.of("NO_SIDE_EFFECT", "MARGIN_BUY", "AUTO_REPAY", "AUTO_BORROW_REPAY"),
                 List.of("MARGIN_BUY", "AUTO_BORROW_REPAY"),
                 null,
                 true,
+                false,
+                false,
                 false,
                 false,
                 false,

@@ -206,6 +206,24 @@ final class BinanceConfigValidator {
                 errors
         );
         requireSameValues(
+                path + ".supported_working_type_order_types",
+                trading.supportedWorkingTypeOrderTypes(),
+                expected.supportedWorkingTypeOrderTypes(),
+                errors
+        );
+        requireSameValues(
+                path + ".supported_working_types",
+                trading.supportedWorkingTypes(),
+                expected.supportedWorkingTypes(),
+                errors
+        );
+        requireSameValues(
+                path + ".supported_price_protect_order_types",
+                trading.supportedPriceProtectOrderTypes(),
+                expected.supportedPriceProtectOrderTypes(),
+                errors
+        );
+        requireSameValues(
                 path + ".supported_pegged_order_types",
                 trading.supportedPeggedOrderTypes(),
                 expected.supportedPeggedOrderTypes(),
@@ -245,6 +263,8 @@ final class BinanceConfigValidator {
         requireMatching(path + ".supports_reduce_only", trading.supportsReduceOnly(), expected.supportsReduceOnly(), errors);
         requireMatching(path + ".supports_close_position", trading.supportsClosePosition(), expected.supportsClosePosition(), errors);
         requireMatching(path + ".supports_price_match", trading.supportsPriceMatch(), expected.supportsPriceMatch(), errors);
+        requireMatching(path + ".supports_working_type", trading.supportsWorkingType(), expected.supportsWorkingType(), errors);
+        requireMatching(path + ".supports_price_protect", trading.supportsPriceProtect(), expected.supportsPriceProtect(), errors);
         requireMatching(path + ".supports_pegged_orders", trading.supportsPeggedOrders(), expected.supportsPeggedOrders(), errors);
         requireMatching(path + ".supports_iceberg_qty", trading.supportsIcebergQty(), expected.supportsIcebergQty(), errors);
         requireMatching(path + ".supports_trailing_delta", trading.supportsTrailingDelta(), expected.supportsTrailingDelta(), errors);

@@ -90,6 +90,9 @@ public record BinanceProperties(
             @NotNull List<String> supportedSelfTradePreventionModes,
             @NotNull List<String> supportedPositionSides,
             @NotNull List<String> supportedPriceMatchOrderTypes,
+            @NotNull List<String> supportedWorkingTypeOrderTypes,
+            @NotNull List<String> supportedWorkingTypes,
+            @NotNull List<String> supportedPriceProtectOrderTypes,
             @NotNull List<String> supportedPeggedOrderTypes,
             @NotNull List<String> supportedPegPriceTypes,
             @NotNull List<String> supportedPegOffsetTypes,
@@ -100,6 +103,8 @@ public record BinanceProperties(
             boolean supportsReduceOnly,
             boolean supportsClosePosition,
             boolean supportsPriceMatch,
+            boolean supportsWorkingType,
+            boolean supportsPriceProtect,
             boolean supportsPeggedOrders,
             boolean supportsIcebergQty,
             boolean supportsTrailingDelta,
@@ -115,6 +120,9 @@ public record BinanceProperties(
             supportedSelfTradePreventionModes = List.copyOf(supportedSelfTradePreventionModes);
             supportedPositionSides = List.copyOf(supportedPositionSides);
             supportedPriceMatchOrderTypes = List.copyOf(supportedPriceMatchOrderTypes);
+            supportedWorkingTypeOrderTypes = List.copyOf(supportedWorkingTypeOrderTypes);
+            supportedWorkingTypes = List.copyOf(supportedWorkingTypes);
+            supportedPriceProtectOrderTypes = List.copyOf(supportedPriceProtectOrderTypes);
             supportedPeggedOrderTypes = List.copyOf(supportedPeggedOrderTypes);
             supportedPegPriceTypes = List.copyOf(supportedPegPriceTypes);
             supportedPegOffsetTypes = List.copyOf(supportedPegOffsetTypes);
