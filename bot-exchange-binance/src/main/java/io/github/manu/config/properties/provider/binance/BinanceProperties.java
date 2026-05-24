@@ -85,6 +85,7 @@ public record BinanceProperties(
             @NotNull String openOrdersPath,
             String allOrdersPath,
             String accountTradesPath,
+            String commissionRatesPath,
             String batchOrdersPath,
             String modifyOrderPath,
             String modifyMultipleOrdersPath,

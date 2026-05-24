@@ -655,6 +655,29 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_spot_commission_rates_request() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.commissionRates("BTCUSDT", "test-secret");
+
+        assertThat(request.payload()).isEqualTo("symbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://api.binance.com/api/v3/account/commission?");
+    }
+
+    @Test
+    void rejects_invalid_spot_commission_rates_requests() {
+        BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> spotFactory.commissionRates(" ", "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("symbol is required");
+        assertThatThrownBy(() -> futuresFactory.commissionRates("BTCUSDT", "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("commissionRatesPath is not configured");
+    }
+
+    @Test
     void builds_coin_m_history_request_by_pair() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(coinmBinance(), FIXED_CLOCK, 0);
 
@@ -962,6 +985,7 @@ class BinanceOrderRequestFactoryTest {
                 "/fapi/v1/openOrders",
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -1009,6 +1033,7 @@ class BinanceOrderRequestFactoryTest {
                 "/api/v3/openOrders",
                 "/api/v3/allOrders",
                 "/api/v3/myTrades",
+                "/api/v3/account/commission",
                 null,
                 null,
                 null,
@@ -1063,6 +1088,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -1103,6 +1129,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/openOrders",
                 "/dapi/v1/allOrders",
                 "/dapi/v1/userTrades",
+                null,
                 "/dapi/v1/batchOrders",
                 "/dapi/v1/order",
                 "/dapi/v1/batchOrders",

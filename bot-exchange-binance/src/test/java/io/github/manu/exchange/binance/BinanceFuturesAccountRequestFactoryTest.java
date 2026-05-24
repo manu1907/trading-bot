@@ -310,6 +310,7 @@ class BinanceFuturesAccountRequestFactoryTest {
                 pathPrefix + "/openOrders",
                 pathPrefix + "/allOrders",
                 pathPrefix + "/userTrades",
+                null,
                 pathPrefix + "/batchOrders",
                 pathPrefix + "/order",
                 pathPrefix + "/batchOrders",

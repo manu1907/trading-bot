@@ -138,6 +138,10 @@ final class BinanceOrderClient {
         return List.copyOf(trades);
     }
 
+    BinanceSpotCommissionRates commissionRates(String symbol) {
+        return toCommissionRates(readJson(send(requestFactory.commissionRates(symbol, privateCredential), "GET")));
+    }
+
     BinanceOrderAck cancelAllOpenOrders(String symbol) {
         JsonNode root = readJson(send(requestFactory.cancelAllOpenOrders(symbol, privateCredential), "DELETE"));
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
@@ -275,6 +279,36 @@ final class BinanceOrderClient {
                 firstBoolean(node, "maker", "isMaker").orElse(null),
                 firstBoolean(node, "isBestMatch").orElse(null),
                 longValue(node, "time")
+        );
+    }
+
+    private BinanceSpotCommissionRates toCommissionRates(JsonNode node) {
+        return new BinanceSpotCommissionRates(
+                text(node, "symbol"),
+                toCommissionRateSet(node, "standardCommission"),
+                toCommissionRateSet(node, "specialCommission"),
+                toCommissionRateSet(node, "taxCommission"),
+                toCommissionDiscount(node)
+        );
+    }
+
+    private BinanceCommissionRateSet toCommissionRateSet(JsonNode node, String field) {
+        JsonNode rates = node.required(field);
+        return new BinanceCommissionRateSet(
+                decimal(rates, "maker"),
+                decimal(rates, "taker"),
+                decimal(rates, "buyer"),
+                decimal(rates, "seller")
+        );
+    }
+
+    private BinanceCommissionDiscount toCommissionDiscount(JsonNode node) {
+        JsonNode discount = node.required("discount");
+        return new BinanceCommissionDiscount(
+                discount.required("enabledForAccount").asBoolean(),
+                discount.required("enabledForSymbol").asBoolean(),
+                text(discount, "discountAsset"),
+                decimal(discount, "discount")
         );
     }
 

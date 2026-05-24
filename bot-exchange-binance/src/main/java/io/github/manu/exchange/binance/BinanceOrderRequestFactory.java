@@ -133,6 +133,14 @@ final class BinanceOrderRequestFactory {
         return restRequestFactory.signedUri(binance.trading().accountTradesPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest commissionRates(String symbol, String privateCredential) {
+        requireConfiguredPath("commissionRatesPath", binance.trading().commissionRatesPath());
+        requireSymbol(symbol);
+        return restRequestFactory.signedUri(binance.trading().commissionRatesPath(), List.of(
+                BinanceRequestParameter.of("symbol", symbol)
+        ), privateCredential);
+    }
+
     BinanceSignedRequest cancelAllOpenOrders(String symbol, String privateCredential) {
         requireConfiguredPath("cancelAllOpenOrdersPath", binance.trading().cancelAllOpenOrdersPath());
         requireSymbol(symbol);

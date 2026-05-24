@@ -294,6 +294,56 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void queries_spot_commission_rates() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "symbol": "BTCUSDT",
+                  "standardCommission": {
+                    "maker": "0.00000010",
+                    "taker": "0.00000020",
+                    "buyer": "0.00000030",
+                    "seller": "0.00000040"
+                  },
+                  "specialCommission": {
+                    "maker": "0.01000000",
+                    "taker": "0.02000000",
+                    "buyer": "0.03000000",
+                    "seller": "0.04000000"
+                  },
+                  "taxCommission": {
+                    "maker": "0.00000112",
+                    "taker": "0.00000114",
+                    "buyer": "0.00000118",
+                    "seller": "0.00000116"
+                  },
+                  "discount": {
+                    "enabledForAccount": true,
+                    "enabledForSymbol": true,
+                    "discountAsset": "BNB",
+                    "discount": "0.75000000"
+                  }
+                }
+                """));
+        BinanceOrderClient client = spotClient(transport);
+
+        BinanceSpotCommissionRates rates = client.commissionRates("BTCUSDT");
+
+        assertThat(rates.symbol()).isEqualTo("BTCUSDT");
+        assertThat(rates.standardCommission().maker()).isEqualByComparingTo("0.00000010");
+        assertThat(rates.specialCommission().seller()).isEqualByComparingTo("0.04000000");
+        assertThat(rates.taxCommission().buyer()).isEqualByComparingTo("0.00000118");
+        assertThat(rates.discount().enabledForAccount()).isTrue();
+        assertThat(rates.discount().enabledForSymbol()).isTrue();
+        assertThat(rates.discount().discountAsset()).isEqualTo("BNB");
+        assertThat(rates.discount().discount()).isEqualByComparingTo("0.75000000");
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("GET");
+            assertThat(call.uri()).contains("/api/v3/account/commission?symbol=BTCUSDT");
+            assertThat(call.uri()).doesNotContain("test-secret");
+        });
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -326,6 +376,18 @@ class BinanceOrderClientTest {
     private BinanceOrderClient client(FakeTransport transport) {
         return new BinanceOrderClient(
                 binance(),
+                "api-key",
+                "test-secret",
+                FIXED_CLOCK,
+                0,
+                transport,
+                JsonMapperFactory.create()
+        );
+    }
+
+    private BinanceOrderClient spotClient(FakeTransport transport) {
+        return new BinanceOrderClient(
+                spotBinance(),
                 "api-key",
                 "test-secret",
                 FIXED_CLOCK,
@@ -421,6 +483,24 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceProperties spotBinance() {
+        return new BinanceProperties(
+                "SPOT",
+                new BinanceProperties.Credentials(
+                        "binance_real_main",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_DATA", "TRADE")
+                ),
+                spotRest(),
+                websocket(),
+                spotTrading(),
+                userData(),
+                null
+        );
+    }
+
     private BinanceProperties.FuturesAccount futuresAccount() {
         return new BinanceProperties.FuturesAccount(
                 "ONE_WAY",
@@ -468,6 +548,30 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceProperties.Rest spotRest() {
+        return new BinanceProperties.Rest(
+                "https://api.binance.com",
+                "/api/v3/exchangeInfo",
+                "/api/v3/time",
+                "X-MBX-APIKEY",
+                "HMAC_SHA256",
+                "MILLISECONDS",
+                5000,
+                2000,
+                5000,
+                3,
+                200,
+                List.of(408, 429, 500, 502, 503, 504),
+                List.of("X-MBX-USED-WEIGHT"),
+                List.of("X-MBX-ORDER-COUNT"),
+                "FULL",
+                new BinanceProperties.UnknownExecutionStatus(
+                        List.of("Unknown error, please check your request or try again later."),
+                        List.of(503)
+                )
+        );
+    }
+
     private BinanceProperties.Websocket websocket() {
         return new BinanceProperties.Websocket(
                 "wss://fstream.binancefuture.com",
@@ -498,6 +602,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/openOrders",
                 "/fapi/v1/allOrders",
                 "/fapi/v1/userTrades",
+                null,
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/order",
                 "/fapi/v1/batchOrders",
@@ -530,6 +635,54 @@ class BinanceOrderClientTest {
                 false,
                 false,
                 false,
+                false,
+                false,
+                false
+        );
+    }
+
+    private BinanceProperties.Trading spotTrading() {
+        return new BinanceProperties.Trading(
+                "/api/v3/order",
+                "/api/v3/order/test",
+                "/api/v3/order",
+                "/api/v3/order",
+                "/api/v3/openOrders",
+                "/api/v3/allOrders",
+                "/api/v3/myTrades",
+                "/api/v3/account/commission",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("BUY", "SELL"),
+                List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
+                List.of("GTC", "IOC", "FOK"),
+                List.of("ACK", "RESULT", "FULL"),
+                List.of("NONE", "EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
+                List.of("NONE"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("LIMIT", "LIMIT_MAKER", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"),
+                List.of("PRIMARY_PEG", "MARKET_PEG"),
+                List.of("PRICE_LEVEL"),
+                List.of(),
+                List.of(),
+                100,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                true,
+                true,
                 false,
                 false,
                 false

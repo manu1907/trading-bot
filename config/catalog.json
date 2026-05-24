@@ -94,6 +94,7 @@
                       "open_orders_path": "/api/v3/openOrders",
                       "all_orders_path": "/api/v3/allOrders",
                       "account_trades_path": "/api/v3/myTrades",
+                      "commission_rates_path": "/api/v3/account/commission",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -1049,6 +1050,7 @@
                       "open_orders_path": "/api/v3/openOrders",
                       "all_orders_path": "/api/v3/allOrders",
                       "account_trades_path": "/api/v3/myTrades",
+                      "commission_rates_path": "/api/v3/account/commission",
                       "supported_sides": [
                         "BUY",
                         "SELL"
