@@ -264,6 +264,9 @@ Implemented Binance foundations:
   futures position-risk, cross-margin account, and isolated-margin account
   snapshots into core Avro order-result, balance, and position reconciliation
   envelopes.
+- Binance REST snapshot event publisher boundary that publishes mapped
+  reconciliation envelopes through the core event bus with fresh observation
+  timestamps.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -274,8 +277,9 @@ Binance parity gaps to close before claiming full connector support:
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
 - All products: wire a reconciliation runtime that calls REST snapshots,
-  compares stream state, emits mapped reconciliation events, and enforces
-  ordering/idempotency around stream gaps and unknown execution status.
+  compares stream state, schedules/emits mapped reconciliation events through
+  the publisher boundary, and enforces ordering/idempotency around stream gaps
+  and unknown execution status.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

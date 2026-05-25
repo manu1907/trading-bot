@@ -352,6 +352,9 @@ of truth. As of the current code, the connector covers these foundations:
 - REST snapshot-to-core-event mapping for open orders, futures account/balance,
   futures position risk, cross-margin account, and isolated-margin account
   snapshots.
+- REST snapshot reconciliation publisher boundary that publishes mapped
+  snapshot envelopes through the core event bus with runtime observation
+  timestamps.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -363,8 +366,8 @@ adapter. Known gaps that must remain on the plan:
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
   implemented. Market-data payload mapping, publishing, subscription runtime,
   and opt-in ExchangeModule lifecycle wiring are implemented. REST snapshot
-  event mapping is implemented, but reconciliation runtime orchestration is not
-  yet wired end to end.
+  event mapping and publishing are implemented, but reconciliation runtime
+  orchestration is not yet wired end to end.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 
