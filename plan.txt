@@ -260,6 +260,10 @@ Implemented Binance foundations:
   catalog-backed `market_data.runtime_enabled`. Defaults keep it disabled with
   explicit `connection_mode`, `route`, and `streams` parameters; when enabled,
   startup requires configured streams and an available `TradingEventBus`.
+- Binance REST snapshot event mapper for open-order, futures account/balance,
+  futures position-risk, cross-margin account, and isolated-margin account
+  snapshots into core Avro order-result, balance, and position reconciliation
+  envelopes.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -269,8 +273,9 @@ Binance parity gaps to close before claiming full connector support:
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
-- All products: reconcile user-data/market-data stream state against REST
-  snapshots.
+- All products: wire a reconciliation runtime that calls REST snapshots,
+  compares stream state, emits mapped reconciliation events, and enforces
+  ordering/idempotency around stream gaps and unknown execution status.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

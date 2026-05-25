@@ -213,6 +213,12 @@ runtime to `BinanceExchangeModule`. The default is false with explicit
 `connection_mode`, `route`, and `streams` parameters. If it is enabled, the
 module requires configured streams and a `TradingEventBus` before connecting so
 market-data events cannot be consumed and then lost.
+The Binance REST snapshot event mapper converts open-order, futures
+account/balance, futures position-risk, cross-margin account, and
+isolated-margin account snapshots into core Avro reconciliation envelopes. It
+does not decide when reconciliation runs; that belongs to a runtime that can
+compare stream state, REST state, and journaled events with clear ordering and
+idempotency rules.
 The checked-in Binance live smoke tests are opt-in. They load `active.json`,
 merge `application-{environment}.json`, and use the same connector code for
 demo and real. Credentials may come from process environment variables or local
@@ -343,6 +349,9 @@ of truth. As of the current code, the connector covers these foundations:
 - Opt-in public market-data stream runtime and `BinanceExchangeModule`
   lifecycle wiring, guarded by `market_data.runtime_enabled`, configured
   streams, and `TradingEventBus` availability.
+- REST snapshot-to-core-event mapping for open orders, futures account/balance,
+  futures position risk, cross-margin account, and isolated-margin account
+  snapshots.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -354,7 +363,8 @@ adapter. Known gaps that must remain on the plan:
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
   implemented. Market-data payload mapping, publishing, subscription runtime,
   and opt-in ExchangeModule lifecycle wiring are implemented. REST snapshot
-  reconciliation is not yet wired end to end.
+  event mapping is implemented, but reconciliation runtime orchestration is not
+  yet wired end to end.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 
