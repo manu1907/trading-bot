@@ -16,7 +16,8 @@ public record BinanceProperties(
         @Valid UserDataStream userDataStream,
         @Valid MarginAccount marginAccount,
         @Valid FuturesAccount futuresAccount,
-        @Valid MarketDataStream marketData
+        @Valid MarketDataStream marketData,
+        @Valid Reconciliation reconciliation
 ) {
     public BinanceProperties(
             String marketType,
@@ -37,7 +38,33 @@ public record BinanceProperties(
                 userDataStream,
                 marginAccount,
                 futuresAccount,
-                MarketDataStream.disabled()
+                MarketDataStream.disabled(),
+                Reconciliation.disabled()
+        );
+    }
+
+    public BinanceProperties(
+            String marketType,
+            Credentials credentials,
+            Rest rest,
+            Websocket websocket,
+            Trading trading,
+            UserDataStream userDataStream,
+            MarginAccount marginAccount,
+            FuturesAccount futuresAccount,
+            MarketDataStream marketData
+    ) {
+        this(
+                marketType,
+                credentials,
+                rest,
+                websocket,
+                trading,
+                userDataStream,
+                marginAccount,
+                futuresAccount,
+                marketData,
+                Reconciliation.disabled()
         );
     }
 
@@ -204,6 +231,29 @@ public record BinanceProperties(
 
         static MarketDataStream disabled() {
             return new MarketDataStream(false, "combined", "default", List.of());
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Reconciliation(
+            Boolean runtimeEnabled,
+            Integer intervalSeconds,
+            Boolean openOrdersEnabled,
+            @NotNull List<String> openOrderSymbols,
+            Boolean futuresBalancesEnabled,
+            Boolean futuresAccountEnabled,
+            Boolean futuresPositionsEnabled,
+            Boolean crossMarginAccountEnabled,
+            Boolean isolatedMarginAccountEnabled,
+            @NotNull List<String> isolatedMarginSymbols
+    ) {
+        public Reconciliation {
+            openOrderSymbols = openOrderSymbols == null ? List.of() : List.copyOf(openOrderSymbols);
+            isolatedMarginSymbols = isolatedMarginSymbols == null ? List.of() : List.copyOf(isolatedMarginSymbols);
+        }
+
+        static Reconciliation disabled() {
+            return new Reconciliation(false, 60, false, List.of(), false, false, false, false, false, List.of());
         }
     }
 

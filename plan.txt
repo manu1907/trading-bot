@@ -267,6 +267,9 @@ Implemented Binance foundations:
 - Binance REST snapshot event publisher boundary that publishes mapped
   reconciliation envelopes through the core event bus with fresh observation
   timestamps.
+- Catalog-backed Binance REST snapshot reconciliation runtime, disabled by
+  default, with configurable interval and snapshot-source toggles for open
+  orders, futures balances/account/positions, and margin account snapshots.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -276,10 +279,9 @@ Binance parity gaps to close before claiming full connector support:
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
-- All products: wire a reconciliation runtime that calls REST snapshots,
-  compares stream state, schedules/emits mapped reconciliation events through
-  the publisher boundary, and enforces ordering/idempotency around stream gaps
-  and unknown execution status.
+- All products: extend the reconciliation runtime to compare REST snapshots
+  against stream/projection state and enforce ordering/idempotency around
+  stream gaps and unknown execution status.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

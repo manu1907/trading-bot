@@ -355,6 +355,10 @@ of truth. As of the current code, the connector covers these foundations:
 - REST snapshot reconciliation publisher boundary that publishes mapped
   snapshot envelopes through the core event bus with runtime observation
   timestamps.
+- Catalog-backed REST snapshot reconciliation runtime, disabled by default,
+  that can periodically call configured open-order, futures account/position,
+  and margin account snapshot sources and publish normalized reconciliation
+  events.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -366,8 +370,9 @@ adapter. Known gaps that must remain on the plan:
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
   implemented. Market-data payload mapping, publishing, subscription runtime,
   and opt-in ExchangeModule lifecycle wiring are implemented. REST snapshot
-  event mapping and publishing are implemented, but reconciliation runtime
-  orchestration is not yet wired end to end.
+  event mapping, publishing, and catalog-backed runtime scheduling are
+  implemented. Reconciliation still does not compare stream/projection state or
+  enforce final ordering/idempotency around gaps and unknown execution status.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

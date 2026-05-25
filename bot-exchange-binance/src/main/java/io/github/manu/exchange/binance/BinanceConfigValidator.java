@@ -43,6 +43,7 @@ final class BinanceConfigValidator {
         validateWebsocket(marketPath(active) + ".websocket", binance.websocket(), marketType, errors);
         validateTrading(marketPath(active) + ".trading", binance.trading(), marketType, errors);
         validateMarketData(marketPath(active) + ".market_data", binance.marketData(), binance.websocket(), errors);
+        validateReconciliation(marketPath(active) + ".reconciliation", binance.reconciliation(), marketType, errors);
         validateMarginAccount(marketPath(active) + ".margin_account", binance.marginAccount(), marketType, errors);
         if (!marketType.futures()) {
             validateUserData(marketPath(active) + ".user_data", binance.userDataStream(), marketType, false, errors);
@@ -113,6 +114,44 @@ final class BinanceConfigValidator {
                 status.reconcileBeforeRetryStatusCodes(),
                 errors
         );
+    }
+
+    private static void validateReconciliation(String path,
+                                               BinanceProperties.Reconciliation reconciliation,
+                                               BinanceMarketType marketType,
+                                               List<String> errors) {
+        if (reconciliation == null) {
+            errors.add(path + " is required");
+            return;
+        }
+
+        requirePositive(path + ".interval_seconds", reconciliation.intervalSeconds(), errors);
+        requireNotNull(path + ".open_order_symbols", reconciliation.openOrderSymbols(), errors);
+        requireNotNull(path + ".isolated_margin_symbols", reconciliation.isolatedMarginSymbols(), errors);
+        if (!Boolean.TRUE.equals(reconciliation.runtimeEnabled())) {
+            return;
+        }
+
+        if (!Boolean.TRUE.equals(reconciliation.openOrdersEnabled())
+                && !Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())
+                && !Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())
+                && !Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled())
+                && !Boolean.TRUE.equals(reconciliation.crossMarginAccountEnabled())
+                && !Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled())) {
+            errors.add(path + " must enable at least one snapshot source when runtime_enabled is true");
+        }
+        if (!marketType.futures()
+                && (Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())
+                || Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())
+                || Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled()))) {
+            errors.add(path + " futures snapshot sources require a Binance futures market");
+        }
+        if (marketType != BinanceMarketType.MARGIN_CROSS
+                && marketType != BinanceMarketType.MARGIN_ISOLATED
+                && (Boolean.TRUE.equals(reconciliation.crossMarginAccountEnabled())
+                || Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled()))) {
+            errors.add(path + " margin snapshot sources require a Binance margin market");
+        }
     }
 
     private static void validateWebsocket(String path,

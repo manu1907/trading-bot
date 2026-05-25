@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -33,8 +34,10 @@ public class BinanceExchangeModule implements ExchangeModule {
     private volatile boolean connected;
     private BinanceUserDataStreamRuntime userDataRuntime;
     private BinanceMarketDataStreamRuntime marketDataRuntime;
+    private BinanceRestSnapshotReconciliationRuntime reconciliationRuntime;
     private ScheduledExecutorService userDataSchedulerExecutor;
     private ScheduledExecutorService marketDataSchedulerExecutor;
+    private ScheduledExecutorService reconciliationSchedulerExecutor;
 
     public BinanceExchangeModule() {
         this(null, Clock.systemUTC(), null, null);
@@ -90,7 +93,9 @@ public class BinanceExchangeModule implements ExchangeModule {
         try {
             startUserDataRuntimeIfEnabled(binance);
             startMarketDataRuntimeIfEnabled(binance);
+            startReconciliationRuntimeIfEnabled(binance);
         } catch (RuntimeException e) {
+            stopReconciliationRuntime();
             stopMarketDataRuntime();
             stopUserDataRuntime();
             throw e;
@@ -103,6 +108,7 @@ public class BinanceExchangeModule implements ExchangeModule {
     @Override
     public CompletableFuture<Void> disconnect() {
         stopMarketDataRuntime();
+        stopReconciliationRuntime();
         stopUserDataRuntime();
         connected = false;
         log.info("Binance exchange module disconnected");
@@ -113,6 +119,7 @@ public class BinanceExchangeModule implements ExchangeModule {
     public CompletableFuture<Void> applyMutableConfig(ResolvedExchangeConfig config) {
         boolean wasConnected = connected;
         if (wasConnected) {
+            stopReconciliationRuntime();
             stopMarketDataRuntime();
             stopUserDataRuntime();
         }
@@ -121,7 +128,9 @@ public class BinanceExchangeModule implements ExchangeModule {
             try {
                 startUserDataRuntimeIfEnabled(requireBinance(config));
                 startMarketDataRuntimeIfEnabled(requireBinance(config));
+                startReconciliationRuntimeIfEnabled(requireBinance(config));
             } catch (RuntimeException e) {
+                stopReconciliationRuntime();
                 stopMarketDataRuntime();
                 stopUserDataRuntime();
                 connected = false;
@@ -237,6 +246,132 @@ public class BinanceExchangeModule implements ExchangeModule {
         log.info("Started Binance market-data stream runtime for target {}", config.target());
     }
 
+    private void startReconciliationRuntimeIfEnabled(BinanceProperties binance) {
+        BinanceProperties.Reconciliation reconciliation = binance.reconciliation();
+        if (reconciliation == null || !Boolean.TRUE.equals(reconciliation.runtimeEnabled())) {
+            return;
+        }
+        TradingEventBus eventBus = eventBusProvider == null ? null : eventBusProvider.getIfAvailable();
+        if (eventBus == null) {
+            throw new IllegalStateException("Binance reconciliation.runtime_enabled requires a TradingEventBus");
+        }
+
+        reconciliationSchedulerExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "binance-rest-reconciliation-runtime");
+            thread.setDaemon(true);
+            return thread;
+        });
+        BinanceHttpTransport httpTransport = httpTransportOverride == null
+                ? new BinanceJdkHttpTransport(
+                Duration.ofMillis(binance.rest().connectTimeoutMillis()),
+                Duration.ofMillis(binance.rest().responseTimeoutMillis())
+        )
+                : httpTransportOverride;
+        BinanceRestSnapshotReconciliationRuntime.OrderSnapshots orderSnapshots = null;
+        if (Boolean.TRUE.equals(reconciliation.openOrdersEnabled())) {
+            BinanceOrderClient orderClient = new BinanceOrderClient(
+                    binance,
+                    binance.credentials().apiKey(),
+                    binance.credentials().apiSecret(),
+                    clock,
+                    0L,
+                    httpTransport,
+                    JsonMapperFactory.create()
+            );
+            orderSnapshots = orderClient::openOrders;
+        }
+        BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots = null;
+        if (requiresFuturesSnapshots(reconciliation)) {
+            BinanceFuturesAccountClient futuresAccountClient = new BinanceFuturesAccountClient(
+                    binance,
+                    binance.credentials().apiKey(),
+                    binance.credentials().apiSecret(),
+                    clock,
+                    0L,
+                    httpTransport,
+                    JsonMapperFactory.create()
+            );
+            futuresSnapshots = new BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots() {
+                @Override
+                public List<BinanceFuturesBalance> balances() {
+                    return futuresAccountClient.balances();
+                }
+
+                @Override
+                public BinanceFuturesAccountSnapshot accountInfo() {
+                    return futuresAccountClient.accountInfo();
+                }
+
+                @Override
+                public List<BinanceFuturesPositionSnapshot> positionRisk(BinanceFuturesPositionRiskQuery query) {
+                    return futuresAccountClient.positionRisk(query);
+                }
+            };
+        }
+        BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots = null;
+        if (requiresMarginSnapshots(reconciliation)) {
+            BinanceMarginAccountClient marginAccountClient = new BinanceMarginAccountClient(
+                    binance,
+                    binance.credentials().apiKey(),
+                    binance.credentials().apiSecret(),
+                    clock,
+                    0L,
+                    httpTransport,
+                    JsonMapperFactory.create(),
+                    new BinanceRateLimitTracker(clock)
+            );
+            marginSnapshots = new BinanceRestSnapshotReconciliationRuntime.MarginSnapshots() {
+                @Override
+                public BinanceCrossMarginAccountSnapshot crossAccount() {
+                    return marginAccountClient.crossAccount();
+                }
+
+                @Override
+                public BinanceIsolatedMarginAccountSnapshot isolatedAccount(BinanceIsolatedMarginAccountQuery query) {
+                    return marginAccountClient.isolatedAccount(query);
+                }
+            };
+        }
+        BinanceRestSnapshotReconciliationRuntime runtime = new BinanceRestSnapshotReconciliationRuntime(
+                reconciliation,
+                orderSnapshots,
+                futuresSnapshots,
+                marginSnapshots,
+                new BinanceRestSnapshotEventPublisher(
+                        new BinanceRestSnapshotEventMapper(),
+                        new BinanceRestSnapshotEventPublisher.Context(
+                                provider(),
+                                config.target().environment(),
+                                config.target().account(),
+                                config.target().market()
+                        ),
+                        eventBus,
+                        clock
+                ),
+                reconciliationSchedulerExecutor
+        );
+        try {
+            runtime.start();
+            reconciliationRuntime = runtime;
+        } catch (RuntimeException e) {
+            runtime.close();
+            stopReconciliationRuntime();
+            throw e;
+        }
+        log.info("Started Binance REST snapshot reconciliation runtime for target {}", config.target());
+    }
+
+    private boolean requiresFuturesSnapshots(BinanceProperties.Reconciliation reconciliation) {
+        return Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())
+                || Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())
+                || Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled());
+    }
+
+    private boolean requiresMarginSnapshots(BinanceProperties.Reconciliation reconciliation) {
+        return Boolean.TRUE.equals(reconciliation.crossMarginAccountEnabled())
+                || Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled());
+    }
+
     private void stopUserDataRuntime() {
         if (userDataRuntime != null) {
             userDataRuntime.close();
@@ -256,6 +391,17 @@ public class BinanceExchangeModule implements ExchangeModule {
         if (marketDataSchedulerExecutor != null) {
             marketDataSchedulerExecutor.shutdownNow();
             marketDataSchedulerExecutor = null;
+        }
+    }
+
+    private void stopReconciliationRuntime() {
+        if (reconciliationRuntime != null) {
+            reconciliationRuntime.close();
+            reconciliationRuntime = null;
+        }
+        if (reconciliationSchedulerExecutor != null) {
+            reconciliationSchedulerExecutor.shutdownNow();
+            reconciliationSchedulerExecutor = null;
         }
     }
 

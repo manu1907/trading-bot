@@ -4,6 +4,7 @@ import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.config.properties.ExchangeProperties;
 import io.github.manu.config.properties.TradingBotProperties;
 import io.github.manu.events.TradingEventEnvelope;
+import io.github.manu.events.TradingEventType;
 import io.github.manu.exchange.ResolvedExchangeConfig;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
@@ -26,6 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,6 +80,15 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void rejects_missing_reconciliation_config() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market -> market.remove("reconciliation"));
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reconciliation is required");
+    }
+
+    @Test
     void rejects_enabled_market_data_runtime_without_streams() throws IOException {
         ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
                 market.withObject("market_data").put("runtime_enabled", true));
@@ -84,6 +96,16 @@ class BinanceExchangeModuleTest {
         assertThatThrownBy(() -> module.validateConfig(config))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("market_data.streams must not be empty");
+    }
+
+    @Test
+    void rejects_enabled_reconciliation_runtime_without_snapshot_sources() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
+                market.withObject("reconciliation").put("runtime_enabled", true));
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must enable at least one snapshot source");
     }
 
     @Test
@@ -159,6 +181,18 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void rejects_reconciliation_runtime_without_event_bus() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(this::enableReconciliationRuntime);
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule();
+
+        runtimeModule.configure(config);
+
+        assertThatThrownBy(runtimeModule::connect)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TradingEventBus");
+    }
+
+    @Test
     void starts_and_stops_user_data_runtime_when_enabled_and_event_bus_is_available() throws IOException {
         ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
                 market.withObject("user_data").put("runtime_enabled", true));
@@ -209,6 +243,43 @@ class BinanceExchangeModuleTest {
             assertThat(plan.streams()).containsExactly("btcusdt@aggTrade");
         });
         assertThat(webSocketTransport.closeCount).isEqualTo(1);
+    }
+
+    @Test
+    void starts_and_stops_reconciliation_runtime_when_enabled_and_event_bus_is_available() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(this::enableReconciliationRuntime);
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, """
+                [
+                  {
+                    "accountAlias": "SgsR",
+                    "asset": "USDT",
+                    "balance": "1000",
+                    "crossWalletBalance": "900",
+                    "crossUnPnl": "0",
+                    "availableBalance": "700",
+                    "maxWithdrawAmount": "650",
+                    "withdrawAvailable": "640",
+                    "marginAvailable": true,
+                    "updateTime": 1772000000002
+                  }
+                ]
+                """));
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(eventBus),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+
+        runtimeModule.configure(config);
+        runtimeModule.connect().join();
+        assertThat(eventBus.awaitEvents(1)).isTrue();
+        runtimeModule.disconnect().join();
+
+        assertThat(httpTransport.calls()).extracting(FakeCall::method).containsExactly("GET");
+        assertThat(eventBus.envelopes).singleElement()
+                .satisfies(envelope -> assertThat(envelope.eventType()).isEqualTo(TradingEventType.BALANCE_UPDATE));
     }
 
     private ResolvedExchangeConfig checkedInResolvedConfig() throws IOException {
@@ -291,6 +362,13 @@ class BinanceExchangeModuleTest {
         ObjectNode marketData = market.withObject("market_data");
         marketData.put("runtime_enabled", true);
         marketData.set("streams", jsonMapper.valueToTree(List.of("btcusdt@aggTrade")));
+    }
+
+    private void enableReconciliationRuntime(ObjectNode market) {
+        ObjectNode reconciliation = market.withObject("reconciliation");
+        reconciliation.put("runtime_enabled", true);
+        reconciliation.put("interval_seconds", 3600);
+        reconciliation.put("futures_balances_enabled", true);
     }
 
     private interface ConfigMutation {
@@ -381,10 +459,15 @@ class BinanceExchangeModuleTest {
 
     private static final class CapturingTradingEventBus implements TradingEventBus {
 
+        private final CountDownLatch eventLatch = new CountDownLatch(1);
+        private final List<TradingEventEnvelope<? extends SpecificRecord>> envelopes = new ArrayList<>();
+
         @Override
         public CompletableFuture<PublishedTradingEvent> publish(
                 TradingEventEnvelope<? extends SpecificRecord> envelope
         ) {
+            envelopes.add(envelope);
+            eventLatch.countDown();
             return CompletableFuture.completedFuture(new PublishedTradingEvent(
                     envelope.eventType(),
                     envelope.route().topic(),
@@ -396,6 +479,13 @@ class BinanceExchangeModuleTest {
         @Override
         public CompletableFuture<PublishedTradingEvent> publishDeadLetter(DeadLetterTradingEvent event) {
             throw new UnsupportedOperationException("dead letters are not used by this test");
+        }
+
+        private boolean awaitEvents(int count) throws InterruptedException {
+            if (count != 1) {
+                throw new IllegalArgumentException("this test bus only supports waiting for one event");
+            }
+            return eventLatch.await(5, TimeUnit.SECONDS);
         }
     }
 }

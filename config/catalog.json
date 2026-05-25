@@ -96,6 +96,18 @@
                       "route": "default",
                       "streams": []
                     },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
+                    },
                     "trading": {
                       "new_order_path": "/api/v3/order",
                       "query_order_path": "/api/v3/order",
@@ -260,6 +272,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -447,6 +471,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -636,6 +672,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -828,6 +876,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -1022,6 +1082,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",
@@ -1176,6 +1248,18 @@
                       "route": "default",
                       "streams": []
                     },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
+                    },
                     "trading": {
                       "new_order_path": "/api/v3/order",
                       "query_order_path": "/api/v3/order",
@@ -1340,6 +1424,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -1527,6 +1623,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -1716,6 +1824,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -1908,6 +2028,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -2102,6 +2234,18 @@
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": []
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": false,
+                      "interval_seconds": 60,
+                      "open_orders_enabled": false,
+                      "open_order_symbols": [],
+                      "futures_balances_enabled": false,
+                      "futures_account_enabled": false,
+                      "futures_positions_enabled": false,
+                      "cross_margin_account_enabled": false,
+                      "isolated_margin_account_enabled": false,
+                      "isolated_margin_symbols": []
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",
