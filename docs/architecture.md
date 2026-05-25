@@ -146,6 +146,12 @@ credentials or signed payloads.
 The Binance user-data stream client owns API-key-authenticated start, keepalive,
 and close calls for configured listen-key or listen-token streams. It does not
 use the API secret for REST listen-key lifecycle calls.
+The Binance user-data event mapper converts documented Spot/Margin execution
+reports and balance events plus USD-M/COIN-M futures order-trade and
+account-update payloads into the core Avro execution, balance, and position
+event envelopes. Runtime WebSocket consumers must publish those envelopes
+through the normal event bus and reconcile them against REST snapshots before
+the connector can be treated as an execution adapter.
 REST clients parse Binance rate-limit headers after every response and retain
 the latest observed request-weight, order-count, and retry-after values for
 later risk, throttling, and observability wiring.
@@ -276,6 +282,9 @@ of truth. As of the current code, the connector covers these foundations:
   with signed `order.place` requests, outbound WebSocket transport support, and
   correlated response/error parsing.
 - User-data listen-key or listen-token lifecycle for configured products.
+- User-data event mapping for Spot/Margin execution reports and balance
+  updates plus USD-M/COIN-M futures order-trade and account-update payloads
+  into core Avro execution, balance, and position envelopes.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -283,8 +292,9 @@ adapter. Known gaps that must remain on the plan:
 - Active margin transfer placement and margin OPO/OPOCO placement are not
   exposed in the current Binance margin docs; do not claim them until Binance
   documents endpoints for them.
-- User-data and market-data WebSocket payloads are not yet mapped into the core
-  Avro event model.
+- User-data payload mapping is implemented as a standalone mapper, but runtime
+  WebSocket publishing, market-data stream mapping, and REST snapshot
+  reconciliation are not yet wired end to end.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

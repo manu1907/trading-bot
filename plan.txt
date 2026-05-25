@@ -58,7 +58,9 @@ The bot is not professional-execution-ready until these gaps are closed:
 - No account/position synchronization projection.
 - No PostgreSQL/TimescaleDB projection store.
 - No GCS uploader/archive worker; only the object layout exists.
-- No market-data/user-data WebSocket payload mapping into Avro events.
+- User-data payload mapping has started, but stream publishing, market-data
+  mapping, REST snapshot reconciliation, and account/position projections are
+  not yet wired end to end.
 - No LFA strategy lifecycle, feature calculations, or signal tests.
 - No deterministic backtest runtime.
 - No production secrets integration, metrics, alerts, deployment manifests, or
@@ -117,6 +119,14 @@ Source-of-truth docs checked during this review:
   `https://developers.binance.com/docs/derivatives/coin-margined-futures/trade/rest-api/New-Order`
 - USD-M and COIN-M futures listen-key keepalive/close pages under
   `https://developers.binance.com/docs/derivatives/.../user-data-streams/`
+- USD-M futures user-data order and account-update events:
+  `https://developers.binance.com/docs/derivatives/usds-margined-futures/user-data-streams/Event-Order-Update`
+  and
+  `https://developers.binance.com/docs/derivatives/usds-margined-futures/user-data-streams/Event-Balance-and-Position-Update`
+- COIN-M futures user-data order and account-update events:
+  `https://developers.binance.com/docs/derivatives/coin-margined-futures/user-data-streams/Event-Order-Update`
+  and
+  `https://developers.binance.com/docs/derivatives/coin-margined-futures/user-data-streams/Event-Balance-and-Position-Update`
 
 Implemented Binance foundations:
 
@@ -212,6 +222,9 @@ Implemented Binance foundations:
 - Spot WebSocket API order placement with configurable API endpoint, signed
   `order.place` request generation, outbound WebSocket transport support, and
   correlated response/error parsing.
+- Binance user-data event mapper for Spot/Margin execution reports and balance
+  updates plus USD-M/COIN-M futures order-trade and account-update payloads
+  into core Avro execution, balance, and position envelopes.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -221,8 +234,9 @@ Binance parity gaps to close before claiming full connector support:
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
-- All products: map user-data and market-data stream events into core Avro
-  events and reconcile them against REST snapshots.
+- All products: wire mapped user-data stream events into runtime publishing,
+  map market-data streams into core Avro events, and reconcile stream state
+  against REST snapshots.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

@@ -1,5 +1,5 @@
 plugins {
-    id("java")
+    id("java-library")
     id("application")
     id("org.springframework.boot")
     id("io.spring.dependency-management")
@@ -50,7 +50,7 @@ dependencies {
     // Bean Validation implementation for runtime config validation
     implementation("org.springframework.boot:spring-boot-starter-validation")
     // Schema-first trading event contracts; Java types are generated at build time.
-    implementation("org.apache.avro:avro:${rootProject.ext["avro.version"]}")
+    api("org.apache.avro:avro:${rootProject.ext["avro.version"]}")
     implementation("org.apache.kafka:kafka-clients")
     avroTools("org.apache.avro:avro-tools:${rootProject.ext["avro.version"]}") {
         exclude(group = "org.apache.avro", module = "trevni-avro")
