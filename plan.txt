@@ -275,6 +275,9 @@ Implemented Binance foundations:
 - Binance reconciliation runtime keeps a catalog-configured bounded in-memory
   window of recently published event IDs and suppresses repeats across runtime
   runs.
+- When a core trading-event journal is available, Binance reconciliation
+  startup seeds that bounded event-ID window from journaled REST reconciliation
+  events to reduce duplicate publication after process restart.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -286,7 +289,8 @@ Binance parity gaps to close before claiming full connector support:
   order, MMP, account, and stream semantics are fully tested.
 - All products: extend the reconciliation runtime to compare REST snapshots
   against stream/projection state and enforce durable replay-safe ordering and
-  idempotency around stream gaps and unknown execution status.
+  projection-backed idempotency around stream gaps and unknown execution
+  status.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

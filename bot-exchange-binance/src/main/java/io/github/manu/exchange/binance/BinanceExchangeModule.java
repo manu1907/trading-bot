@@ -3,9 +3,18 @@ package io.github.manu.exchange.binance;
 import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.config.properties.provider.binance.BinanceProperties;
 import io.github.manu.config.properties.provider.binance.BinanceProviderProperties;
+import io.github.manu.events.SerializedTradingEvent;
+import io.github.manu.events.TradingEventCodec;
+import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.OrderResultEvent;
+import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.exchange.ExchangeModule;
 import io.github.manu.exchange.ResolvedExchangeConfig;
+import io.github.manu.journal.JournaledTradingEvent;
+import io.github.manu.journal.TradingEventJournal;
 import io.github.manu.messaging.TradingEventBus;
+import org.apache.avro.specific.SpecificRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -14,7 +23,9 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -26,6 +37,7 @@ public class BinanceExchangeModule implements ExchangeModule {
     private static final Logger log = LoggerFactory.getLogger(BinanceExchangeModule.class);
 
     private final ObjectProvider<TradingEventBus> eventBusProvider;
+    private final ObjectProvider<TradingEventJournal> journalProvider;
     private final Clock clock;
     private final BinanceHttpTransport httpTransportOverride;
     private final BinanceWebSocketTransport webSocketTransportOverride;
@@ -40,19 +52,31 @@ public class BinanceExchangeModule implements ExchangeModule {
     private ScheduledExecutorService reconciliationSchedulerExecutor;
 
     public BinanceExchangeModule() {
-        this(null, Clock.systemUTC(), null, null);
+        this(null, null, Clock.systemUTC(), null, null);
     }
 
     @Autowired
-    BinanceExchangeModule(ObjectProvider<TradingEventBus> eventBusProvider) {
-        this(eventBusProvider, Clock.systemUTC(), null, null);
+    BinanceExchangeModule(
+            ObjectProvider<TradingEventBus> eventBusProvider,
+            ObjectProvider<TradingEventJournal> journalProvider
+    ) {
+        this(eventBusProvider, journalProvider, Clock.systemUTC(), null, null);
     }
 
     BinanceExchangeModule(ObjectProvider<TradingEventBus> eventBusProvider,
                           Clock clock,
                           BinanceHttpTransport httpTransportOverride,
                           BinanceWebSocketTransport webSocketTransportOverride) {
+        this(eventBusProvider, null, clock, httpTransportOverride, webSocketTransportOverride);
+    }
+
+    BinanceExchangeModule(ObjectProvider<TradingEventBus> eventBusProvider,
+                          ObjectProvider<TradingEventJournal> journalProvider,
+                          Clock clock,
+                          BinanceHttpTransport httpTransportOverride,
+                          BinanceWebSocketTransport webSocketTransportOverride) {
         this.eventBusProvider = eventBusProvider;
+        this.journalProvider = journalProvider;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.httpTransportOverride = httpTransportOverride;
         this.webSocketTransportOverride = webSocketTransportOverride;
@@ -348,7 +372,8 @@ public class BinanceExchangeModule implements ExchangeModule {
                         eventBus,
                         clock
                 ),
-                reconciliationSchedulerExecutor
+                reconciliationSchedulerExecutor,
+                recentReconciliationEventIds(reconciliation)
         );
         try {
             runtime.start();
@@ -370,6 +395,64 @@ public class BinanceExchangeModule implements ExchangeModule {
     private boolean requiresMarginSnapshots(BinanceProperties.Reconciliation reconciliation) {
         return Boolean.TRUE.equals(reconciliation.crossMarginAccountEnabled())
                 || Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled());
+    }
+
+    private List<String> recentReconciliationEventIds(BinanceProperties.Reconciliation reconciliation) {
+        if (journalProvider == null) {
+            return List.of();
+        }
+        TradingEventJournal journal = journalProvider.getIfAvailable();
+        if (journal == null) {
+            return List.of();
+        }
+
+        List<String> eventIds = new ArrayList<>();
+        for (JournaledTradingEvent journaled : journal.readAll()) {
+            String eventId = reconciliationEventId(journaled.event());
+            if (eventId != null) {
+                eventIds.add(eventId);
+            }
+        }
+        int window = reconciliation.dedupeWindowEventIds();
+        if (eventIds.size() <= window) {
+            return List.copyOf(eventIds);
+        }
+        return List.copyOf(eventIds.subList(eventIds.size() - window, eventIds.size()));
+    }
+
+    private String reconciliationEventId(SerializedTradingEvent serialized) {
+        TradingEventType eventType = serialized.eventType();
+        if (eventType != TradingEventType.ORDER_RESULT
+                && eventType != TradingEventType.BALANCE_UPDATE
+                && eventType != TradingEventType.POSITION_UPDATE) {
+            return null;
+        }
+        SpecificRecord value = TradingEventCodec.<SpecificRecord>of(eventType.avroSchema())
+                .decode(serialized.valuePayload());
+        if (value instanceof OrderResultEvent event
+                && hasText(event.getCommandId())
+                && event.getCommandId().toString().startsWith("reconciliation:")) {
+            return event.getEventId().toString();
+        }
+        if (value instanceof BalanceUpdateEvent event && restSnapshot(event.getAttributes())) {
+            return event.getEventId().toString();
+        }
+        if (value instanceof PositionUpdateEvent event && restSnapshot(event.getAttributes())) {
+            return event.getEventId().toString();
+        }
+        return null;
+    }
+
+    private boolean restSnapshot(Map<CharSequence, CharSequence> attributes) {
+        if (attributes == null) {
+            return false;
+        }
+        CharSequence source = attributes.get("source");
+        return source != null && "rest_snapshot".contentEquals(source);
+    }
+
+    private boolean hasText(CharSequence value) {
+        return value != null && !value.toString().isBlank();
     }
 
     private void stopUserDataRuntime() {

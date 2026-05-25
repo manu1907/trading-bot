@@ -364,6 +364,9 @@ of truth. As of the current code, the connector covers these foundations:
 - The runtime also keeps a catalog-configured bounded in-memory window of
   recently published reconciliation event IDs and suppresses repeats across
   runtime runs.
+- If the core trading-event journal is available, Binance reconciliation
+  startup decodes journaled REST reconciliation events and seeds that bounded
+  event-ID window, reducing duplicate publication after process restart.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -377,7 +380,7 @@ adapter. Known gaps that must remain on the plan:
   and opt-in ExchangeModule lifecycle wiring are implemented. REST snapshot
   event mapping, publishing, and catalog-backed runtime scheduling are
   implemented. Reconciliation still does not compare stream/projection state or
-  enforce durable replay-safe ordering/idempotency around gaps and unknown
+  enforce projection-backed ordering/idempotency around gaps and unknown
   execution status.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.

@@ -43,6 +43,18 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
             BinanceRestSnapshotEventPublisher publisher,
             ScheduledExecutorService executor
     ) {
+        this(reconciliation, orderSnapshots, futuresSnapshots, marginSnapshots, publisher, executor, List.of());
+    }
+
+    BinanceRestSnapshotReconciliationRuntime(
+            BinanceProperties.Reconciliation reconciliation,
+            OrderSnapshots orderSnapshots,
+            FuturesSnapshots futuresSnapshots,
+            MarginSnapshots marginSnapshots,
+            BinanceRestSnapshotEventPublisher publisher,
+            ScheduledExecutorService executor,
+            List<String> initialRecentEventIds
+    ) {
         this.reconciliation = Objects.requireNonNull(reconciliation, "reconciliation");
         this.orderSnapshots = orderSnapshots;
         this.futuresSnapshots = futuresSnapshots;
@@ -52,6 +64,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         requirePositiveInterval();
         requirePositiveDedupeWindow();
         requireConfiguredSources();
+        rememberEventIds(Objects.requireNonNull(initialRecentEventIds, "initialRecentEventIds"));
     }
 
     void start() {
@@ -184,12 +197,26 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
     private void remember(List<TradingEventEnvelope<?>> envelopes) {
         synchronized (lock) {
             for (TradingEventEnvelope<?> envelope : envelopes) {
-                recentEventIds.remove(eventId(envelope));
-                recentEventIds.add(eventId(envelope));
+                rememberEventId(eventId(envelope));
             }
-            while (recentEventIds.size() > reconciliation.dedupeWindowEventIds()) {
-                recentEventIds.remove(recentEventIds.getFirst());
+        }
+    }
+
+    private void rememberEventIds(List<String> eventIds) {
+        synchronized (lock) {
+            for (String eventId : eventIds) {
+                if (eventId != null && !eventId.isBlank()) {
+                    rememberEventId(eventId.trim());
+                }
             }
+        }
+    }
+
+    private void rememberEventId(String eventId) {
+        recentEventIds.remove(eventId);
+        recentEventIds.add(eventId);
+        while (recentEventIds.size() > reconciliation.dedupeWindowEventIds()) {
+            recentEventIds.remove(recentEventIds.getFirst());
         }
     }
 

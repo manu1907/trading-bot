@@ -134,6 +134,36 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
     }
 
     @Test
+    void suppresses_event_ids_seeded_from_journal() {
+        FakeOrderSnapshots orders = new FakeOrderSnapshots();
+        BinanceRestSnapshotReconciliationRuntime runtime = runtime(
+                new BinanceProperties.Reconciliation(
+                        false,
+                        60,
+                        10,
+                        true,
+                        List.of("BTCUSDT"),
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        List.of()
+                ),
+                orders,
+                null,
+                null,
+                List.of("binance:demo:main:usd_m_futures:ORDER_RECONCILIATION:BTCUSDT:tb-BTCUSDT:12345:1772000000001")
+        );
+
+        List<PublishedTradingEvent> published = runtime.runOnce();
+
+        assertThat(published).isEmpty();
+        assertThat(orders.symbols).containsExactly("BTCUSDT");
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void rejects_missing_snapshot_source_for_enabled_family() {
         BinanceProperties.Reconciliation reconciliation = new BinanceProperties.Reconciliation(
                 false,
@@ -159,6 +189,16 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
             BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots,
             BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots
     ) {
+        return runtime(reconciliation, orderSnapshots, futuresSnapshots, marginSnapshots, List.of());
+    }
+
+    private BinanceRestSnapshotReconciliationRuntime runtime(
+            BinanceProperties.Reconciliation reconciliation,
+            BinanceRestSnapshotReconciliationRuntime.OrderSnapshots orderSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots,
+            List<String> initialRecentEventIds
+    ) {
         return new BinanceRestSnapshotReconciliationRuntime(
                 reconciliation,
                 orderSnapshots,
@@ -170,7 +210,8 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
                         eventBus,
                         Clock.fixed(Instant.parse("2026-05-25T14:00:00Z"), ZoneOffset.UTC)
                 ),
-                executor
+                executor,
+                initialRecentEventIds
         );
     }
 

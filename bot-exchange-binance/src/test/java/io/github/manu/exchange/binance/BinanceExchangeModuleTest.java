@@ -3,9 +3,14 @@ package io.github.manu.exchange.binance;
 import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.config.properties.ExchangeProperties;
 import io.github.manu.config.properties.TradingBotProperties;
+import io.github.manu.events.SerializedTradingEvent;
 import io.github.manu.events.TradingEventEnvelope;
+import io.github.manu.events.TradingEventMessageCodec;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.exchange.ResolvedExchangeConfig;
+import io.github.manu.journal.JournaledTradingEvent;
+import io.github.manu.journal.TradingEventJournal;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
@@ -17,6 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -292,6 +298,45 @@ class BinanceExchangeModuleTest {
                 .satisfies(envelope -> assertThat(envelope.eventType()).isEqualTo(TradingEventType.BALANCE_UPDATE));
     }
 
+    @Test
+    void seeds_reconciliation_event_ids_from_journal_when_available() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(this::enableReconciliationRuntime);
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, """
+                [
+                  {
+                    "accountAlias": "SgsR",
+                    "asset": "USDT",
+                    "balance": "1000",
+                    "crossWalletBalance": "900",
+                    "crossUnPnl": "0",
+                    "availableBalance": "700",
+                    "maxWithdrawAmount": "650",
+                    "withdrawAvailable": "640",
+                    "marginAvailable": true,
+                    "updateTime": 1772000000002
+                  }
+                ]
+                """));
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(eventBus),
+                provider(new InMemoryTradingEventJournal(List.of(new JournaledTradingEvent(
+                        10,
+                        serializedFuturesBalanceReconciliation()
+                )))),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+
+        runtimeModule.configure(config);
+        runtimeModule.connect().join();
+        awaitHttpCalls(httpTransport, 1);
+        runtimeModule.disconnect().join();
+
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
     private ResolvedExchangeConfig checkedInResolvedConfig() throws IOException {
         return checkedInResolvedConfig(market -> {
         });
@@ -381,6 +426,43 @@ class BinanceExchangeModuleTest {
         reconciliation.put("futures_balances_enabled", true);
     }
 
+    private SerializedTradingEvent serializedFuturesBalanceReconciliation() {
+        TradingEventEnvelope<BalanceUpdateEvent> envelope = new BinanceRestSnapshotEventMapper().futuresBalances(
+                List.of(new BinanceFuturesBalance(
+                        "SgsR",
+                        "USDT",
+                        decimal("1000"),
+                        decimal("900"),
+                        decimal("0"),
+                        decimal("700"),
+                        decimal("650"),
+                        decimal("640"),
+                        true,
+                        1_772_000_000_002L
+                )),
+                new BinanceRestSnapshotEventMapper.Context(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usdm_futures",
+                        Instant.parse("2026-05-22T20:00:00Z")
+                )
+        ).getFirst();
+        return new TradingEventMessageCodec().serialize(envelope);
+    }
+
+    private BigDecimal decimal(String value) {
+        return new BigDecimal(value);
+    }
+
+    private void awaitHttpCalls(FakeHttpTransport httpTransport, int count) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (httpTransport.calls().size() < count && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertThat(httpTransport.calls()).hasSize(count);
+    }
+
     private interface ConfigMutation {
         void apply(ObjectNode market);
     }
@@ -389,21 +471,21 @@ class BinanceExchangeModuleTest {
         void apply(ObjectNode root, ExchangeProperties active) throws IOException;
     }
 
-    private ObjectProvider<TradingEventBus> provider(TradingEventBus eventBus) {
+    private <T> ObjectProvider<T> provider(T value) {
         return new ObjectProvider<>() {
             @Override
-            public TradingEventBus getObject(Object... args) {
-                return eventBus;
+            public T getObject(Object... args) {
+                return value;
             }
 
             @Override
-            public TradingEventBus getIfAvailable() {
-                return eventBus;
+            public T getIfAvailable() {
+                return value;
             }
 
             @Override
-            public TradingEventBus getObject() {
-                return eventBus;
+            public T getObject() {
+                return value;
             }
         };
     }
@@ -464,6 +546,27 @@ class BinanceExchangeModuleTest {
                         listener.onClose();
                     }
             );
+        }
+    }
+
+    private record InMemoryTradingEventJournal(List<JournaledTradingEvent> events) implements TradingEventJournal {
+
+        private InMemoryTradingEventJournal {
+            events = List.copyOf(events);
+        }
+
+        @Override
+        public JournaledTradingEvent append(SerializedTradingEvent event) {
+            throw new UnsupportedOperationException("append is not used by this test");
+        }
+
+        @Override
+        public List<JournaledTradingEvent> readAll() {
+            return events;
+        }
+
+        @Override
+        public void close() {
         }
     }
 
