@@ -109,6 +109,16 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void rejects_invalid_reconciliation_dedupe_window() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
+                market.withObject("reconciliation").put("dedupe_window_event_ids", 0));
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dedupe_window_event_ids must be positive");
+    }
+
+    @Test
     void rejects_invalid_recv_window() throws IOException {
         ResolvedExchangeConfig config = checkedInResolvedConfig(market -> market.withObject("rest").put("recv_window_millis", 0));
 

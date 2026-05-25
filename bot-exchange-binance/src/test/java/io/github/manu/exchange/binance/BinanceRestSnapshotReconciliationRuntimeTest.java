@@ -103,6 +103,37 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
     }
 
     @Test
+    void suppresses_recently_published_event_ids_across_runs() {
+        FakeOrderSnapshots orders = new FakeOrderSnapshots();
+        BinanceRestSnapshotReconciliationRuntime runtime = runtime(
+                new BinanceProperties.Reconciliation(
+                        false,
+                        60,
+                        10,
+                        true,
+                        List.of("BTCUSDT"),
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        List.of()
+                ),
+                orders,
+                null,
+                null
+        );
+
+        List<PublishedTradingEvent> firstRun = runtime.runOnce();
+        List<PublishedTradingEvent> secondRun = runtime.runOnce();
+
+        assertThat(firstRun).hasSize(1);
+        assertThat(secondRun).isEmpty();
+        assertThat(orders.symbols).containsExactly("BTCUSDT", "BTCUSDT");
+        assertThat(eventBus.envelopes).hasSize(1);
+    }
+
+    @Test
     void rejects_missing_snapshot_source_for_enabled_family() {
         BinanceProperties.Reconciliation reconciliation = new BinanceProperties.Reconciliation(
                 false,

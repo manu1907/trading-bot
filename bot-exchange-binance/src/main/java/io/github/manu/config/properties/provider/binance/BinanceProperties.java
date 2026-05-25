@@ -238,6 +238,7 @@ public record BinanceProperties(
     public record Reconciliation(
             Boolean runtimeEnabled,
             Integer intervalSeconds,
+            Integer dedupeWindowEventIds,
             Boolean openOrdersEnabled,
             @NotNull List<String> openOrderSymbols,
             Boolean futuresBalancesEnabled,
@@ -252,8 +253,35 @@ public record BinanceProperties(
             isolatedMarginSymbols = isolatedMarginSymbols == null ? List.of() : List.copyOf(isolatedMarginSymbols);
         }
 
+        public Reconciliation(
+                Boolean runtimeEnabled,
+                Integer intervalSeconds,
+                Boolean openOrdersEnabled,
+                List<String> openOrderSymbols,
+                Boolean futuresBalancesEnabled,
+                Boolean futuresAccountEnabled,
+                Boolean futuresPositionsEnabled,
+                Boolean crossMarginAccountEnabled,
+                Boolean isolatedMarginAccountEnabled,
+                List<String> isolatedMarginSymbols
+        ) {
+            this(
+                    runtimeEnabled,
+                    intervalSeconds,
+                    10_000,
+                    openOrdersEnabled,
+                    openOrderSymbols,
+                    futuresBalancesEnabled,
+                    futuresAccountEnabled,
+                    futuresPositionsEnabled,
+                    crossMarginAccountEnabled,
+                    isolatedMarginAccountEnabled,
+                    isolatedMarginSymbols
+            );
+        }
+
         static Reconciliation disabled() {
-            return new Reconciliation(false, 60, false, List.of(), false, false, false, false, false, List.of());
+            return new Reconciliation(false, 60, 10_000, false, List.of(), false, false, false, false, false, List.of());
         }
     }
 

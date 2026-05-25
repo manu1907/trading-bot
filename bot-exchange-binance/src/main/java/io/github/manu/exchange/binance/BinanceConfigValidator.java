@@ -126,6 +126,7 @@ final class BinanceConfigValidator {
         }
 
         requirePositive(path + ".interval_seconds", reconciliation.intervalSeconds(), errors);
+        requirePositive(path + ".dedupe_window_event_ids", reconciliation.dedupeWindowEventIds(), errors);
         requireNotNull(path + ".open_order_symbols", reconciliation.openOrderSymbols(), errors);
         requireNotNull(path + ".isolated_margin_symbols", reconciliation.isolatedMarginSymbols(), errors);
         if (!Boolean.TRUE.equals(reconciliation.runtimeEnabled())) {

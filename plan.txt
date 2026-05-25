@@ -272,6 +272,9 @@ Implemented Binance foundations:
   orders, futures balances/account/positions, and margin account snapshots.
 - Binance reconciliation runs aggregate configured snapshot sources before
   publishing and suppress duplicate reconciliation event IDs inside a run.
+- Binance reconciliation runtime keeps a catalog-configured bounded in-memory
+  window of recently published event IDs and suppresses repeats across runtime
+  runs.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -282,7 +285,7 @@ Binance parity gaps to close before claiming full connector support:
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
 - All products: extend the reconciliation runtime to compare REST snapshots
-  against stream/projection state and enforce durable cross-run ordering and
+  against stream/projection state and enforce durable replay-safe ordering and
   idempotency around stream gaps and unknown execution status.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.

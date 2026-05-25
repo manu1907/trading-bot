@@ -30,6 +30,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
     private final BinanceRestSnapshotEventPublisher publisher;
     private final ScheduledExecutorService executor;
     private final Object lock = new Object();
+    private final LinkedHashSet<String> recentEventIds = new LinkedHashSet<>();
 
     private ScheduledFuture<?> scheduledRun;
     private boolean stopped = true;
@@ -49,6 +50,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.executor = Objects.requireNonNull(executor, "executor");
         requirePositiveInterval();
+        requirePositiveDedupeWindow();
         requireConfiguredSources();
     }
 
@@ -93,7 +95,10 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
                     new BinanceIsolatedMarginAccountQuery(reconciliation.isolatedMarginSymbols())
             )));
         }
-        return publisher.publishEnvelopes(unique(envelopes)).join();
+        List<TradingEventEnvelope<?>> publishable = uniqueAndNotRecentlyPublished(envelopes);
+        List<PublishedTradingEvent> published = publisher.publishEnvelopes(publishable).join();
+        remember(publishable);
+        return published;
     }
 
     @Override
@@ -136,6 +141,13 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         }
     }
 
+    private void requirePositiveDedupeWindow() {
+        Integer dedupeWindowEventIds = reconciliation.dedupeWindowEventIds();
+        if (dedupeWindowEventIds == null || dedupeWindowEventIds <= 0) {
+            throw new IllegalArgumentException("reconciliation.dedupe_window_event_ids must be positive");
+        }
+    }
+
     private void requireConfiguredSources() {
         if (Boolean.TRUE.equals(reconciliation.openOrdersEnabled()) && orderSnapshots == null) {
             throw new IllegalArgumentException("open order reconciliation requires order snapshots");
@@ -151,18 +163,34 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         }
     }
 
-    private List<TradingEventEnvelope<?>> unique(List<TradingEventEnvelope<?>> envelopes) {
+    private List<TradingEventEnvelope<?>> uniqueAndNotRecentlyPublished(List<TradingEventEnvelope<?>> envelopes) {
         Set<String> eventIds = new LinkedHashSet<>();
         List<TradingEventEnvelope<?>> unique = new ArrayList<>();
-        for (TradingEventEnvelope<?> envelope : envelopes) {
-            String eventId = eventId(envelope);
-            if (eventIds.add(eventId)) {
-                unique.add(envelope);
-            } else {
-                log.warn("Suppressing duplicate Binance reconciliation event: {}", eventId);
+        synchronized (lock) {
+            for (TradingEventEnvelope<?> envelope : envelopes) {
+                String eventId = eventId(envelope);
+                if (!eventIds.add(eventId)) {
+                    log.warn("Suppressing duplicate Binance reconciliation event inside run: {}", eventId);
+                } else if (recentEventIds.contains(eventId)) {
+                    log.warn("Suppressing recently published Binance reconciliation event: {}", eventId);
+                } else {
+                    unique.add(envelope);
+                }
             }
         }
         return List.copyOf(unique);
+    }
+
+    private void remember(List<TradingEventEnvelope<?>> envelopes) {
+        synchronized (lock) {
+            for (TradingEventEnvelope<?> envelope : envelopes) {
+                recentEventIds.remove(eventId(envelope));
+                recentEventIds.add(eventId(envelope));
+            }
+            while (recentEventIds.size() > reconciliation.dedupeWindowEventIds()) {
+                recentEventIds.remove(recentEventIds.getFirst());
+            }
+        }
     }
 
     private String eventId(TradingEventEnvelope<?> envelope) {
