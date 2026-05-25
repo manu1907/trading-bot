@@ -199,6 +199,10 @@ final class BinanceConfigValidator {
         requireMatching(path + ".isolated_account_limit_path", account.isolatedAccountLimitPath(), "/sapi/v1/margin/isolated/accountLimit", errors);
         requirePath(path + ".trade_coeff_path", account.tradeCoeffPath(), errors);
         requireMatching(path + ".trade_coeff_path", account.tradeCoeffPath(), "/sapi/v1/margin/tradeCoeff", errors);
+        requirePath(path + ".special_key_list_path", account.specialKeyListPath(), errors);
+        requireMatching(path + ".special_key_list_path", account.specialKeyListPath(), "/sapi/v1/margin/api-key-list", errors);
+        requirePath(path + ".special_key_path", account.specialKeyPath(), errors);
+        requireMatching(path + ".special_key_path", account.specialKeyPath(), "/sapi/v1/margin/apiKey", errors);
         requireSameValues(path + ".supported_borrow_repay_types", account.supportedBorrowRepayTypes(), Set.of("BORROW", "REPAY"), errors);
         requireSameValues(path + ".supported_transfer_history_types", account.supportedTransferHistoryTypes(), Set.of("ROLL_IN", "ROLL_OUT"), errors);
         requireAtLeast(path + ".max_transfer_history_days", account.maxTransferHistoryDays(), 1, errors);

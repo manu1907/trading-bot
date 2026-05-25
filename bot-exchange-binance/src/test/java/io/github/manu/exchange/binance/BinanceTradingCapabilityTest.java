@@ -46,7 +46,7 @@ class BinanceTradingCapabilityTest {
         assertThat(margin.allOrdersPath()).isEqualTo("/sapi/v1/margin/allOrders");
         assertThat(margin.accountTradesPath()).isEqualTo("/sapi/v1/margin/myTrades");
         assertThat(margin.commissionRatesPath()).isNull();
-        assertThat(margin.preventedMatchesPath()).isNull();
+        assertThat(margin.preventedMatchesPath()).isEqualTo("/sapi/v1/margin/myPreventedMatches");
         assertThat(margin.amendKeepPriorityPath()).isNull();
         assertThat(margin.cancelReplacePath()).isNull();
         assertThat(margin.sorOrderPath()).isNull();

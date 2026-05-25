@@ -186,6 +186,8 @@ public record BinanceProperties(
             @NotNull String isolatedAccountPath,
             @NotNull String isolatedAccountLimitPath,
             @NotNull String tradeCoeffPath,
+            @NotNull String specialKeyListPath,
+            @NotNull String specialKeyPath,
             @NotNull List<String> supportedBorrowRepayTypes,
             @NotNull List<String> supportedTransferHistoryTypes,
             Integer maxTransferHistoryDays,

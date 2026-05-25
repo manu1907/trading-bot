@@ -174,6 +174,7 @@ final class BinanceOrderRequestFactory {
         add(parameters, "orderId", query.orderId());
         add(parameters, "fromPreventedMatchId", query.fromPreventedMatchId());
         add(parameters, "limit", query.limit());
+        addMarginIsolated(parameters, query.isolatedMargin());
         return restRequestFactory.signedUri(binance.trading().preventedMatchesPath(), parameters, privateCredential);
     }
 
@@ -653,6 +654,13 @@ final class BinanceOrderRequestFactory {
         requirePositive("limit", query.limit());
         if (query.limit() != null && query.limit() > 1000) {
             throw new IllegalArgumentException("limit must be less than or equal to 1000");
+        }
+        if (isMarginMarket()) {
+            if (query.limit() != null) {
+                throw new IllegalArgumentException("limit is not supported for margin prevented-match queries");
+            }
+        } else if (query.isolatedMargin() != null) {
+            throw new IllegalArgumentException("isIsolated is only supported for margin prevented-match queries");
         }
 
         boolean hasPreventedMatchId = query.preventedMatchId() != null;

@@ -682,11 +682,11 @@ class BinanceOrderRequestFactoryTest {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
 
         BinanceSignedRequest byPreventedMatchId = factory.preventedMatches(
-                new BinancePreventedMatchesQuery("BTCUSDT", 1L, null, null, null),
+                new BinancePreventedMatchesQuery("BTCUSDT", 1L, null, null, null, null),
                 "test-secret"
         );
         BinanceSignedRequest byOrderId = factory.preventedMatches(
-                new BinancePreventedMatchesQuery("BTCUSDT", null, 5L, 10L, 100),
+                new BinancePreventedMatchesQuery("BTCUSDT", null, 5L, 10L, 100, null),
                 "test-secret"
         );
 
@@ -700,46 +700,89 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_margin_prevented_matches_requests() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(marginBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest byPreventedMatchId = factory.preventedMatches(
+                new BinancePreventedMatchesQuery("BTCUSDT", 1L, null, null, null, true),
+                "test-secret"
+        );
+        BinanceSignedRequest byOrderId = factory.preventedMatches(
+                new BinancePreventedMatchesQuery("BTCUSDT", null, 5L, 10L, null, true),
+                "test-secret"
+        );
+
+        assertThat(byPreventedMatchId.payload())
+                .isEqualTo("symbol=BTCUSDT&preventedMatchId=1&isIsolated=TRUE"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(byPreventedMatchId.uri().toString())
+                .startsWith("https://api.binance.com/sapi/v1/margin/myPreventedMatches?");
+        assertThat(byOrderId.payload())
+                .isEqualTo("symbol=BTCUSDT&orderId=5&fromPreventedMatchId=10&isIsolated=TRUE"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(byOrderId.uri().toString())
+                .startsWith("https://api.binance.com/sapi/v1/margin/myPreventedMatches?");
+    }
+
+    @Test
     void rejects_invalid_spot_prevented_matches_requests() {
         BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
         BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
 
         assertThatThrownBy(() -> spotFactory.preventedMatches(
-                new BinancePreventedMatchesQuery(" ", 1L, null, null, null),
+                new BinancePreventedMatchesQuery(" ", 1L, null, null, null, null),
                 "test-secret"
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("symbol is required");
         assertThatThrownBy(() -> spotFactory.preventedMatches(
-                new BinancePreventedMatchesQuery("BTCUSDT", null, null, null, null),
+                new BinancePreventedMatchesQuery("BTCUSDT", null, null, null, null, null),
                 "test-secret"
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("preventedMatchId or orderId is required");
         assertThatThrownBy(() -> spotFactory.preventedMatches(
-                new BinancePreventedMatchesQuery("BTCUSDT", 1L, 2L, null, null),
+                new BinancePreventedMatchesQuery("BTCUSDT", 1L, 2L, null, null, null),
                 "test-secret"
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("preventedMatchId cannot be combined");
         assertThatThrownBy(() -> spotFactory.preventedMatches(
-                new BinancePreventedMatchesQuery("BTCUSDT", null, 2L, null, 100),
+                new BinancePreventedMatchesQuery("BTCUSDT", null, 2L, null, 100, null),
                 "test-secret"
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("limit requires fromPreventedMatchId");
         assertThatThrownBy(() -> spotFactory.preventedMatches(
-                new BinancePreventedMatchesQuery("BTCUSDT", null, 2L, 1L, 1001),
+                new BinancePreventedMatchesQuery("BTCUSDT", null, 2L, 1L, 1001, null),
                 "test-secret"
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("limit must be less than or equal to 1000");
+        assertThatThrownBy(() -> spotFactory.preventedMatches(
+                new BinancePreventedMatchesQuery("BTCUSDT", null, 2L, 1L, null, true),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("isIsolated is only supported");
         assertThatThrownBy(() -> futuresFactory.preventedMatches(
-                new BinancePreventedMatchesQuery("BTCUSDT", 1L, null, null, null),
+                new BinancePreventedMatchesQuery("BTCUSDT", 1L, null, null, null, null),
                 "test-secret"
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("preventedMatchesPath is not configured");
+    }
+
+    @Test
+    void rejects_invalid_margin_prevented_matches_requests() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(marginBinance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> factory.preventedMatches(
+                new BinancePreventedMatchesQuery("BTCUSDT", null, 2L, 1L, 100, true),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limit is not supported for margin prevented-match queries");
     }
 
     @Test
@@ -1840,6 +1883,8 @@ class BinanceOrderRequestFactoryTest {
                 "/sapi/v1/margin/isolated/account",
                 "/sapi/v1/margin/isolated/accountLimit",
                 "/sapi/v1/margin/tradeCoeff",
+                "/sapi/v1/margin/api-key-list",
+                "/sapi/v1/margin/apiKey",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
                 30,
@@ -2069,7 +2114,7 @@ class BinanceOrderRequestFactoryTest {
                 "/sapi/v1/margin/allOrders",
                 "/sapi/v1/margin/myTrades",
                 null,
-                null,
+                "/sapi/v1/margin/myPreventedMatches",
                 null,
                 null,
                 null,

@@ -135,6 +135,22 @@ final class BinanceMarginAccountClient {
         );
     }
 
+    List<BinanceMarginSpecialKey> specialKeys(String symbol) {
+        JsonNode root = readJson(send(requestFactory.specialKeys(symbol, privateCredential), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance margin special-key list array response");
+        }
+        List<BinanceMarginSpecialKey> keys = new ArrayList<>();
+        for (JsonNode item : root) {
+            keys.add(toSpecialKey(item));
+        }
+        return List.copyOf(keys);
+    }
+
+    BinanceMarginSpecialKey specialKey(String apiKey, String symbol) {
+        return toSpecialKey(readJson(send(requestFactory.specialKey(apiKey, symbol, privateCredential), "GET")));
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }
@@ -221,6 +237,16 @@ final class BinanceMarginAccountClient {
                 decimal(node, "netAssetOfBtc"),
                 optionalBoolean(node, "repayEnabled").orElse(null),
                 decimal(node, "totalAsset")
+        );
+    }
+
+    private BinanceMarginSpecialKey toSpecialKey(JsonNode node) {
+        return new BinanceMarginSpecialKey(
+                text(node, "apiName"),
+                text(node, "apiKey"),
+                text(node, "ip"),
+                text(node, "type"),
+                text(node, "permissionMode")
         );
     }
 

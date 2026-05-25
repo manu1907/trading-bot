@@ -81,6 +81,20 @@ final class BinanceMarginAccountRequestFactory {
         return restRequestFactory.signedUri(account.tradeCoeffPath(), List.of(), privateCredential);
     }
 
+    BinanceSignedRequest specialKeys(String symbol, String privateCredential) {
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", symbol);
+        return restRequestFactory.signedUri(account.specialKeyListPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest specialKey(String apiKey, String symbol, String privateCredential) {
+        requireText("apiKey", apiKey);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "apiKey", apiKey);
+        add(parameters, "symbol", symbol);
+        return restRequestFactory.signedUri(account.specialKeyPath(), parameters, privateCredential);
+    }
+
     private void validateBorrowRepay(BinanceMarginBorrowRepayCommand command) {
         Objects.requireNonNull(command, "command");
         requireText("asset", command.asset());

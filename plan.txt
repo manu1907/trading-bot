@@ -97,6 +97,12 @@ Source-of-truth docs checked during this review:
   `https://developers.binance.com/docs/margin_trading/account/Query-Isolated-Margin-Account-Info`
 - Isolated margin account limit:
   `https://developers.binance.com/docs/margin_trading/account/Query-Enabled-Isolated-Margin-Account-Limit`
+- Margin prevented matches:
+  `https://developers.binance.com/docs/margin_trading/trade/Query-Margin-Prevented-Matches`
+- Margin special-key list:
+  `https://developers.binance.com/docs/margin_trading/trade/Query-Special-Key-List-of-Low-Latency-Trading`
+- Margin special-key query:
+  `https://developers.binance.com/docs/margin_trading/trade/Query-Special-Key-of-Low-Latency-Trading`
 - USD-M futures new order:
   `https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Order`
 - COIN-M futures new order:
@@ -128,6 +134,12 @@ Implemented Binance foundations:
 - Margin cross-account, isolated-account, isolated-account-limit, and
   trade-coefficient risk reads with catalog-backed paths, documented isolated
   symbol limits, and typed parsing.
+- Margin prevented-match history with catalog-backed path, documented
+  `isIsolated` handling, margin-specific pagination constraints, and shared
+  typed parsing.
+- Margin read-only special-key list/query support with catalog-backed paths and
+  typed parsing. State-changing special-key create/edit/delete/exit workflows
+  remain separate because they mutate account/API-key state.
 - Futures `workingType` and `priceProtect` command fields, validation, and
   request construction.
 - Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
@@ -191,10 +203,11 @@ Implemented Binance foundations:
 
 Binance parity gaps to close before claiming full connector support:
 
-- Margin: add prevented matches and special low-latency key workflows. Active
-  margin transfer placement and margin OPO/OPOCO placement are not exposed in
-  the current Binance margin docs; do not claim them until Binance documents
-  endpoints for them.
+- Margin: add guarded special-key create/edit/delete/exit workflows only after
+  explicit operational safety requirements are defined. Active margin transfer
+  placement and margin OPO/OPOCO placement are not exposed in the current
+  Binance margin docs; do not claim them until Binance documents endpoints for
+  them.
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
@@ -320,7 +333,7 @@ Deliver:
 
 - Spot order-list, prevented-match, and commission-rate clients where needed by
   execution/reconciliation.
-- Margin prevented-match and special low-latency key workflows.
+- Guarded margin special-key create/edit/delete/exit workflows.
 - Keep completed futures batch/modify endpoint support and portfolio-margin
   boundary checks covered while closing the remaining spot, margin, and
   all-product gaps.

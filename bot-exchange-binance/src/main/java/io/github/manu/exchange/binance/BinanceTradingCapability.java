@@ -261,7 +261,7 @@ record BinanceTradingCapability(
                 "/sapi/v1/margin/allOrders",
                 "/sapi/v1/margin/myTrades",
                 null,
-                null,
+                "/sapi/v1/margin/myPreventedMatches",
                 null,
                 null,
                 null,

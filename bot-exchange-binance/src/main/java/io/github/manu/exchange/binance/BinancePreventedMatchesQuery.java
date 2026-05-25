@@ -5,6 +5,7 @@ record BinancePreventedMatchesQuery(
         Long preventedMatchId,
         Long orderId,
         Long fromPreventedMatchId,
-        Integer limit
+        Integer limit,
+        Boolean isolatedMargin
 ) {
 }

@@ -156,6 +156,24 @@ class BinanceMarginAccountRequestFactoryTest {
     }
 
     @Test
+    void builds_margin_special_key_read_requests() {
+        BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
+                marginBinance("MARGIN_ISOLATED"),
+                FIXED_CLOCK,
+                0
+        );
+
+        BinanceSignedRequest list = factory.specialKeys("BTCUSDT", "test-secret");
+        BinanceSignedRequest single = factory.specialKey("special-key", "BTCUSDT", "test-secret");
+
+        assertThat(list.payload()).isEqualTo("symbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(list.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/api-key-list?");
+        assertThat(single.payload())
+                .isEqualTo("apiKey=special-key&symbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(single.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/apiKey?");
+    }
+
+    @Test
     void validates_transfer_queries_against_documented_limits() {
         BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
                 marginBinance("MARGIN_CROSS"),
@@ -196,6 +214,9 @@ class BinanceMarginAccountRequestFactoryTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("symbols is required");
+        assertThatThrownBy(() -> factory.specialKey(" ", null, "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("apiKey is required");
     }
 
     @Test
@@ -297,6 +318,8 @@ class BinanceMarginAccountRequestFactoryTest {
                 "/sapi/v1/margin/isolated/account",
                 "/sapi/v1/margin/isolated/accountLimit",
                 "/sapi/v1/margin/tradeCoeff",
+                "/sapi/v1/margin/api-key-list",
+                "/sapi/v1/margin/apiKey",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
                 30,

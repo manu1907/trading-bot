@@ -255,6 +255,8 @@
                       "isolated_account_path": "/sapi/v1/margin/isolated/account",
                       "isolated_account_limit_path": "/sapi/v1/margin/isolated/accountLimit",
                       "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
+                      "special_key_list_path": "/sapi/v1/margin/api-key-list",
+                      "special_key_path": "/sapi/v1/margin/apiKey",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -274,6 +276,7 @@
                       "open_orders_path": "/sapi/v1/margin/openOrders",
                       "all_orders_path": "/sapi/v1/margin/allOrders",
                       "account_trades_path": "/sapi/v1/margin/myTrades",
+                      "prevented_matches_path": "/sapi/v1/margin/myPreventedMatches",
                       "order_list_oco_path": "/sapi/v1/margin/order/oco",
                       "order_list_oto_path": "/sapi/v1/margin/order/oto",
                       "order_list_otoco_path": "/sapi/v1/margin/order/otoco",
@@ -423,6 +426,8 @@
                       "isolated_account_path": "/sapi/v1/margin/isolated/account",
                       "isolated_account_limit_path": "/sapi/v1/margin/isolated/accountLimit",
                       "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
+                      "special_key_list_path": "/sapi/v1/margin/api-key-list",
+                      "special_key_path": "/sapi/v1/margin/apiKey",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -442,6 +447,7 @@
                       "open_orders_path": "/sapi/v1/margin/openOrders",
                       "all_orders_path": "/sapi/v1/margin/allOrders",
                       "account_trades_path": "/sapi/v1/margin/myTrades",
+                      "prevented_matches_path": "/sapi/v1/margin/myPreventedMatches",
                       "order_list_oco_path": "/sapi/v1/margin/order/oco",
                       "order_list_oto_path": "/sapi/v1/margin/order/oto",
                       "order_list_otoco_path": "/sapi/v1/margin/order/otoco",
@@ -1269,6 +1275,8 @@
                       "isolated_account_path": "/sapi/v1/margin/isolated/account",
                       "isolated_account_limit_path": "/sapi/v1/margin/isolated/accountLimit",
                       "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
+                      "special_key_list_path": "/sapi/v1/margin/api-key-list",
+                      "special_key_path": "/sapi/v1/margin/apiKey",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -1288,6 +1296,7 @@
                       "open_orders_path": "/sapi/v1/margin/openOrders",
                       "all_orders_path": "/sapi/v1/margin/allOrders",
                       "account_trades_path": "/sapi/v1/margin/myTrades",
+                      "prevented_matches_path": "/sapi/v1/margin/myPreventedMatches",
                       "order_list_oco_path": "/sapi/v1/margin/order/oco",
                       "order_list_oto_path": "/sapi/v1/margin/order/oto",
                       "order_list_otoco_path": "/sapi/v1/margin/order/otoco",
@@ -1437,6 +1446,8 @@
                       "isolated_account_path": "/sapi/v1/margin/isolated/account",
                       "isolated_account_limit_path": "/sapi/v1/margin/isolated/accountLimit",
                       "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
+                      "special_key_list_path": "/sapi/v1/margin/api-key-list",
+                      "special_key_path": "/sapi/v1/margin/apiKey",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -1456,6 +1467,7 @@
                       "open_orders_path": "/sapi/v1/margin/openOrders",
                       "all_orders_path": "/sapi/v1/margin/allOrders",
                       "account_trades_path": "/sapi/v1/margin/myTrades",
+                      "prevented_matches_path": "/sapi/v1/margin/myPreventedMatches",
                       "order_list_oco_path": "/sapi/v1/margin/order/oco",
                       "order_list_oto_path": "/sapi/v1/margin/order/oto",
                       "order_list_otoco_path": "/sapi/v1/margin/order/otoco",

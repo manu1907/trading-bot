@@ -231,6 +231,51 @@ class BinanceMarginAccountClientTest {
     }
 
     @Test
+    void reads_margin_special_keys() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "apiName": "cross-special",
+                            "apiKey": "special-key-1",
+                            "ip": "192.168.0.1,192.168.0.2",
+                            "type": "RSA",
+                            "permissionMode": "TRADE"
+                          }
+                        ]
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "apiName": "isolated-special",
+                          "apiKey": "special-key-2",
+                          "ip": "0.0.0.0,192.168.0.1",
+                          "type": "Ed25519",
+                          "permissionMode": "READ"
+                        }
+                        """)
+        );
+        BinanceMarginAccountClient client = client(transport);
+
+        List<BinanceMarginSpecialKey> keys = client.specialKeys("BTCUSDT");
+        BinanceMarginSpecialKey key = client.specialKey("special-key-2", "BTCUSDT");
+
+        assertThat(keys).singleElement().satisfies(item -> {
+            assertThat(item.apiName()).isEqualTo("cross-special");
+            assertThat(item.apiKey()).isEqualTo("special-key-1");
+            assertThat(item.type()).isEqualTo("RSA");
+            assertThat(item.permissionMode()).isEqualTo("TRADE");
+        });
+        assertThat(key.apiName()).isEqualTo("isolated-special");
+        assertThat(key.apiKey()).isEqualTo("special-key-2");
+        assertThat(key.type()).isEqualTo("Ed25519");
+        assertThat(key.permissionMode()).isEqualTo("READ");
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "GET");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/api-key-list?symbol=BTCUSDT"))
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/apiKey?apiKey=special-key-2"));
+    }
+
+    @Test
     void converts_binance_error_response_to_api_exception() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {
@@ -342,6 +387,8 @@ class BinanceMarginAccountClientTest {
                 "/sapi/v1/margin/isolated/account",
                 "/sapi/v1/margin/isolated/accountLimit",
                 "/sapi/v1/margin/tradeCoeff",
+                "/sapi/v1/margin/api-key-list",
+                "/sapi/v1/margin/apiKey",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
                 30,

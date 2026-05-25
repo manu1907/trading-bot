@@ -364,7 +364,7 @@ class BinanceOrderClientTest {
         BinanceOrderClient client = spotClient(transport);
 
         List<BinancePreventedMatch> matches = client.preventedMatches(
-                new BinancePreventedMatchesQuery("BTCUSDT", null, 5L, 1L, 100)
+                new BinancePreventedMatchesQuery("BTCUSDT", null, 5L, 1L, 100, null)
         );
 
         assertThat(matches).singleElement().satisfies(match -> {
