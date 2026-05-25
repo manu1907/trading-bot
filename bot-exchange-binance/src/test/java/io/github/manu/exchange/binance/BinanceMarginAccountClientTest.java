@@ -276,6 +276,40 @@ class BinanceMarginAccountClientTest {
     }
 
     @Test
+    void sends_guarded_margin_special_key_mutations_when_enabled() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        {
+                          "apiKey": "special-key",
+                          "secretKey": "secret-key",
+                          "type": "HMAC_SHA256"
+                        }
+                        """),
+                new BinanceHttpResponse(200, "{}"),
+                new BinanceHttpResponse(200, "{}"),
+                new BinanceHttpResponse(200, "{}")
+        );
+        BinanceMarginAccountClient client = client(transport, true, true);
+
+        BinanceMarginSpecialKeyCreationResult created = client.createSpecialKey(
+                new BinanceMarginSpecialKeyCreateCommand("bot-key", "BTCUSDT", "192.168.0.1", null, "TRADE")
+        );
+        client.editSpecialKeyIp(new BinanceMarginSpecialKeyIpCommand("special-key", "BTCUSDT", "192.168.0.2"));
+        client.deleteSpecialKey(new BinanceMarginSpecialKeyDeleteCommand("special-key", null, "BTCUSDT"));
+        client.exitSpecialKeyMode();
+
+        assertThat(created.apiKey()).isEqualTo("special-key");
+        assertThat(created.secretKey()).isEqualTo("secret-key");
+        assertThat(created.type()).isEqualTo("HMAC_SHA256");
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("POST", "PUT", "DELETE", "POST");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/apiKey?apiName=bot-key"))
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/apiKey/ip?apiKey=special-key"))
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/apiKey?apiKey=special-key"))
+                .anySatisfy(uri -> assertThat(uri).contains("/sapi/v1/margin/exit-special-key-mode?"));
+    }
+
+    @Test
     void converts_binance_error_response_to_api_exception() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {
@@ -296,8 +330,14 @@ class BinanceMarginAccountClientTest {
     }
 
     private BinanceMarginAccountClient client(FakeTransport transport) {
+        return client(transport, false, false);
+    }
+
+    private BinanceMarginAccountClient client(FakeTransport transport,
+                                             boolean specialKeyMutationsEnabled,
+                                             boolean specialKeyExitEnabled) {
         return new BinanceMarginAccountClient(
-                marginBinance(),
+                marginBinance(specialKeyMutationsEnabled, specialKeyExitEnabled),
                 "api-key",
                 "test-secret",
                 FIXED_CLOCK,
@@ -308,7 +348,7 @@ class BinanceMarginAccountClientTest {
         );
     }
 
-    private BinanceProperties marginBinance() {
+    private BinanceProperties marginBinance(boolean specialKeyMutationsEnabled, boolean specialKeyExitEnabled) {
         return new BinanceProperties(
                 "MARGIN_CROSS",
                 credentials(),
@@ -316,7 +356,7 @@ class BinanceMarginAccountClientTest {
                 websocket(),
                 null,
                 null,
-                marginAccount(),
+                marginAccount(specialKeyMutationsEnabled, specialKeyExitEnabled),
                 null
         );
     }
@@ -378,7 +418,7 @@ class BinanceMarginAccountClientTest {
         );
     }
 
-    private BinanceProperties.MarginAccount marginAccount() {
+    private BinanceProperties.MarginAccount marginAccount(boolean specialKeyMutationsEnabled, boolean specialKeyExitEnabled) {
         return new BinanceProperties.MarginAccount(
                 "/sapi/v1/margin/borrow-repay",
                 "/sapi/v1/margin/transfer",
@@ -389,11 +429,17 @@ class BinanceMarginAccountClientTest {
                 "/sapi/v1/margin/tradeCoeff",
                 "/sapi/v1/margin/api-key-list",
                 "/sapi/v1/margin/apiKey",
+                "/sapi/v1/margin/apiKey/ip",
+                "/sapi/v1/margin/exit-special-key-mode",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
+                List.of("READ", "TRADE"),
                 30,
                 100,
-                5
+                5,
+                30,
+                specialKeyMutationsEnabled,
+                specialKeyExitEnabled
         );
     }
 

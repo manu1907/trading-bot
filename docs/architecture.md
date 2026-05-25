@@ -199,6 +199,10 @@ of truth. As of the current code, the connector covers these foundations:
 - Margin read-only special-key list/query support with catalog-backed paths and
   typed parsing. State-changing special-key create/edit/delete/exit workflows
   require separate guardrails because they mutate account/API-key state.
+- Margin special-key create, IP-edit, delete, and exit-special-key-mode signed
+  requests with catalog-backed paths, documented IP and permission-mode
+  validation, typed creation parsing, and explicit config guards. Catalog
+  defaults keep special-key mutations and exit disabled.
 - Futures `workingType` and `priceProtect` command fields, validation, and
   signed request parameters.
 - Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
@@ -262,6 +266,9 @@ of truth. As of the current code, the connector covers these foundations:
   trade-coefficient risk clients with catalog-backed paths and typed parsing.
 - Margin prevented-match and read-only special-key clients with catalog-backed
   paths and typed parsing.
+- Guarded margin special-key mutation clients for create, IP edit, delete, and
+  exit-special-key-mode. These operations are unavailable unless the active
+  profile explicitly enables the matching config guard.
 - Catalog-backed order feature enums and limits for price-match, futures
   trigger controls, pegged-order, and margin side-effect controls.
 - Public WebSocket stream endpoint planning and reconnect/rollover policy.
@@ -273,10 +280,9 @@ of truth. As of the current code, the connector covers these foundations:
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
 
-- State-changing margin special-key create/edit/delete/exit workflows are not
-  implemented. Active margin transfer placement and margin OPO/OPOCO placement
-  are not exposed in the current Binance margin docs; do not claim them until
-  Binance documents endpoints for them.
+- Active margin transfer placement and margin OPO/OPOCO placement are not
+  exposed in the current Binance margin docs; do not claim them until Binance
+  documents endpoints for them.
 - User-data and market-data WebSocket payloads are not yet mapped into the core
   Avro event model.
 - The exchange module lifecycle currently connects config/metadata primitives;

@@ -1885,11 +1885,17 @@ class BinanceOrderRequestFactoryTest {
                 "/sapi/v1/margin/tradeCoeff",
                 "/sapi/v1/margin/api-key-list",
                 "/sapi/v1/margin/apiKey",
+                "/sapi/v1/margin/apiKey/ip",
+                "/sapi/v1/margin/exit-special-key-mode",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
+                List.of("READ", "TRADE"),
                 30,
                 100,
-                5
+                5,
+                30,
+                false,
+                false
         );
     }
 

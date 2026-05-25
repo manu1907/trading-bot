@@ -188,15 +188,22 @@ public record BinanceProperties(
             @NotNull String tradeCoeffPath,
             @NotNull String specialKeyListPath,
             @NotNull String specialKeyPath,
+            @NotNull String specialKeyIpPath,
+            @NotNull String specialKeyExitModePath,
             @NotNull List<String> supportedBorrowRepayTypes,
             @NotNull List<String> supportedTransferHistoryTypes,
+            @NotNull List<String> supportedSpecialKeyPermissionModes,
             Integer maxTransferHistoryDays,
             Integer maxTransferHistorySize,
-            Integer maxIsolatedAccountSymbols
+            Integer maxIsolatedAccountSymbols,
+            Integer maxSpecialKeyIps,
+            boolean specialKeyMutationsEnabled,
+            boolean specialKeyExitEnabled
     ) {
         public MarginAccount {
             supportedBorrowRepayTypes = List.copyOf(supportedBorrowRepayTypes);
             supportedTransferHistoryTypes = List.copyOf(supportedTransferHistoryTypes);
+            supportedSpecialKeyPermissionModes = List.copyOf(supportedSpecialKeyPermissionModes);
         }
     }
 

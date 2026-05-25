@@ -95,6 +95,45 @@ final class BinanceMarginAccountRequestFactory {
         return restRequestFactory.signedUri(account.specialKeyPath(), parameters, privateCredential);
     }
 
+    BinanceSignedRequest createSpecialKey(BinanceMarginSpecialKeyCreateCommand command, String privateCredential) {
+        requireSpecialKeyMutationsEnabled();
+        validateCreateSpecialKey(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "apiName", command.apiName());
+        add(parameters, "symbol", command.symbol());
+        add(parameters, "ip", command.ip());
+        add(parameters, "publicKey", command.publicKey());
+        add(parameters, "permissionMode", command.permissionMode());
+        return restRequestFactory.signedUri(account.specialKeyPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest editSpecialKeyIp(BinanceMarginSpecialKeyIpCommand command, String privateCredential) {
+        requireSpecialKeyMutationsEnabled();
+        validateEditSpecialKeyIp(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "apiKey", command.apiKey());
+        add(parameters, "symbol", command.symbol());
+        add(parameters, "ip", command.ip());
+        return restRequestFactory.signedUri(account.specialKeyIpPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest deleteSpecialKey(BinanceMarginSpecialKeyDeleteCommand command, String privateCredential) {
+        requireSpecialKeyMutationsEnabled();
+        validateDeleteSpecialKey(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "apiKey", command.apiKey());
+        add(parameters, "apiName", command.apiName());
+        add(parameters, "symbol", command.symbol());
+        return restRequestFactory.signedUri(account.specialKeyPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest exitSpecialKeyMode(String privateCredential) {
+        if (!account.specialKeyExitEnabled()) {
+            throw new IllegalStateException("margin special-key exit is disabled by configuration");
+        }
+        return restRequestFactory.signedUri(account.specialKeyExitModePath(), List.of(), privateCredential);
+    }
+
     private void validateBorrowRepay(BinanceMarginBorrowRepayCommand command) {
         Objects.requireNonNull(command, "command");
         requireText("asset", command.asset());
@@ -128,6 +167,42 @@ final class BinanceMarginAccountRequestFactory {
         if (account.maxIsolatedAccountSymbols() != null
                 && query.symbols().size() > account.maxIsolatedAccountSymbols()) {
             throw new IllegalArgumentException("symbols size must be at most " + account.maxIsolatedAccountSymbols());
+        }
+    }
+
+    private void validateCreateSpecialKey(BinanceMarginSpecialKeyCreateCommand command) {
+        Objects.requireNonNull(command, "command");
+        requireText("apiName", command.apiName());
+        validateSpecialKeyIp(command.ip());
+        requireOneOfOptional("permissionMode", command.permissionMode(), account.supportedSpecialKeyPermissionModes());
+    }
+
+    private void validateEditSpecialKeyIp(BinanceMarginSpecialKeyIpCommand command) {
+        Objects.requireNonNull(command, "command");
+        requireText("apiKey", command.apiKey());
+        requireText("ip", command.ip());
+        validateSpecialKeyIp(command.ip());
+    }
+
+    private void validateDeleteSpecialKey(BinanceMarginSpecialKeyDeleteCommand command) {
+        Objects.requireNonNull(command, "command");
+        if (!hasText(command.apiKey()) && !hasText(command.apiName())) {
+            throw new IllegalArgumentException("apiKey or apiName is required");
+        }
+    }
+
+    private void validateSpecialKeyIp(String ip) {
+        if (!hasText(ip) || account.maxSpecialKeyIps() == null) {
+            return;
+        }
+        if (ip.split(",", -1).length > account.maxSpecialKeyIps()) {
+            throw new IllegalArgumentException("ip list size must be at most " + account.maxSpecialKeyIps());
+        }
+    }
+
+    private void requireSpecialKeyMutationsEnabled() {
+        if (!account.specialKeyMutationsEnabled()) {
+            throw new IllegalStateException("margin special-key mutations are disabled by configuration");
         }
     }
 

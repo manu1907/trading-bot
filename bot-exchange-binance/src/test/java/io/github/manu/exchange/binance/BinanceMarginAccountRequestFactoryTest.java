@@ -174,6 +174,66 @@ class BinanceMarginAccountRequestFactoryTest {
     }
 
     @Test
+    void builds_guarded_margin_special_key_mutation_requests_when_enabled() {
+        BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
+                marginBinance("MARGIN_CROSS", true, true),
+                FIXED_CLOCK,
+                0
+        );
+
+        BinanceSignedRequest create = factory.createSpecialKey(new BinanceMarginSpecialKeyCreateCommand(
+                "bot-cross-key",
+                null,
+                "192.168.0.1,192.168.0.2",
+                "public-key",
+                "READ"
+        ), "test-secret");
+        BinanceSignedRequest editIp = factory.editSpecialKeyIp(
+                new BinanceMarginSpecialKeyIpCommand("special-key", "BTCUSDT", "192.168.0.3"),
+                "test-secret"
+        );
+        BinanceSignedRequest delete = factory.deleteSpecialKey(
+                new BinanceMarginSpecialKeyDeleteCommand("special-key", null, "BTCUSDT"),
+                "test-secret"
+        );
+        BinanceSignedRequest exit = factory.exitSpecialKeyMode("test-secret");
+
+        assertThat(create.payload())
+                .isEqualTo("apiName=bot-cross-key&ip=192.168.0.1%2C192.168.0.2&publicKey=public-key"
+                        + "&permissionMode=READ&timestamp=1499827319559&recvWindow=5000");
+        assertThat(create.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/apiKey?");
+        assertThat(editIp.payload())
+                .isEqualTo("apiKey=special-key&symbol=BTCUSDT&ip=192.168.0.3"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(editIp.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/apiKey/ip?");
+        assertThat(delete.payload())
+                .isEqualTo("apiKey=special-key&symbol=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(delete.uri().toString()).startsWith("https://api.binance.com/sapi/v1/margin/apiKey?");
+        assertThat(exit.payload()).isEqualTo("timestamp=1499827319559&recvWindow=5000");
+        assertThat(exit.uri().toString())
+                .startsWith("https://api.binance.com/sapi/v1/margin/exit-special-key-mode?");
+    }
+
+    @Test
+    void rejects_margin_special_key_mutations_when_disabled_by_config() {
+        BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
+                marginBinance("MARGIN_CROSS"),
+                FIXED_CLOCK,
+                0
+        );
+
+        assertThatThrownBy(() -> factory.createSpecialKey(
+                new BinanceMarginSpecialKeyCreateCommand("bot-cross-key", null, null, null, "READ"),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("special-key mutations are disabled");
+        assertThatThrownBy(() -> factory.exitSpecialKeyMode("test-secret"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("special-key exit is disabled");
+    }
+
+    @Test
     void validates_transfer_queries_against_documented_limits() {
         BinanceMarginAccountRequestFactory factory = new BinanceMarginAccountRequestFactory(
                 marginBinance("MARGIN_CROSS"),
@@ -217,6 +277,30 @@ class BinanceMarginAccountRequestFactoryTest {
         assertThatThrownBy(() -> factory.specialKey(" ", null, "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("apiKey is required");
+        BinanceMarginAccountRequestFactory enabledFactory = new BinanceMarginAccountRequestFactory(
+                marginBinance("MARGIN_CROSS", true, true),
+                FIXED_CLOCK,
+                0
+        );
+        assertThatThrownBy(() -> enabledFactory.createSpecialKey(
+                new BinanceMarginSpecialKeyCreateCommand("bot-cross-key", null, null, null, "WRITE"),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("permissionMode must be one of");
+        assertThatThrownBy(() -> enabledFactory.editSpecialKeyIp(
+                new BinanceMarginSpecialKeyIpCommand("special-key", null, "1,2,3,4,5,6,7,8,9,10,11,"
+                        + "12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31"),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ip list size must be at most 30");
+        assertThatThrownBy(() -> enabledFactory.deleteSpecialKey(
+                new BinanceMarginSpecialKeyDeleteCommand(null, null, null),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("apiKey or apiName is required");
     }
 
     @Test
@@ -227,6 +311,10 @@ class BinanceMarginAccountRequestFactoryTest {
     }
 
     private BinanceProperties marginBinance(String marketType) {
+        return marginBinance(marketType, false, false);
+    }
+
+    private BinanceProperties marginBinance(String marketType, boolean specialKeyMutationsEnabled, boolean specialKeyExitEnabled) {
         return new BinanceProperties(
                 marketType,
                 credentials(),
@@ -234,7 +322,7 @@ class BinanceMarginAccountRequestFactoryTest {
                 websocket(),
                 null,
                 null,
-                marginAccount(),
+                marginAccount(specialKeyMutationsEnabled, specialKeyExitEnabled),
                 null
         );
     }
@@ -309,7 +397,7 @@ class BinanceMarginAccountRequestFactoryTest {
         );
     }
 
-    private BinanceProperties.MarginAccount marginAccount() {
+    private BinanceProperties.MarginAccount marginAccount(boolean specialKeyMutationsEnabled, boolean specialKeyExitEnabled) {
         return new BinanceProperties.MarginAccount(
                 "/sapi/v1/margin/borrow-repay",
                 "/sapi/v1/margin/transfer",
@@ -320,11 +408,17 @@ class BinanceMarginAccountRequestFactoryTest {
                 "/sapi/v1/margin/tradeCoeff",
                 "/sapi/v1/margin/api-key-list",
                 "/sapi/v1/margin/apiKey",
+                "/sapi/v1/margin/apiKey/ip",
+                "/sapi/v1/margin/exit-special-key-mode",
                 List.of("BORROW", "REPAY"),
                 List.of("ROLL_IN", "ROLL_OUT"),
+                List.of("READ", "TRADE"),
                 30,
                 100,
-                5
+                5,
+                30,
+                specialKeyMutationsEnabled,
+                specialKeyExitEnabled
         );
     }
 }

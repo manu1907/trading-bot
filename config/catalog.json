@@ -257,6 +257,8 @@
                       "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
                       "special_key_list_path": "/sapi/v1/margin/api-key-list",
                       "special_key_path": "/sapi/v1/margin/apiKey",
+                      "special_key_ip_path": "/sapi/v1/margin/apiKey/ip",
+                      "special_key_exit_mode_path": "/sapi/v1/margin/exit-special-key-mode",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -265,9 +267,16 @@
                         "ROLL_IN",
                         "ROLL_OUT"
                       ],
+                      "supported_special_key_permission_modes": [
+                        "READ",
+                        "TRADE"
+                      ],
                       "max_transfer_history_days": 30,
                       "max_transfer_history_size": 100,
-                      "max_isolated_account_symbols": 5
+                      "max_isolated_account_symbols": 5,
+                      "max_special_key_ips": 30,
+                      "special_key_mutations_enabled": false,
+                      "special_key_exit_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -428,6 +437,8 @@
                       "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
                       "special_key_list_path": "/sapi/v1/margin/api-key-list",
                       "special_key_path": "/sapi/v1/margin/apiKey",
+                      "special_key_ip_path": "/sapi/v1/margin/apiKey/ip",
+                      "special_key_exit_mode_path": "/sapi/v1/margin/exit-special-key-mode",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -436,9 +447,16 @@
                         "ROLL_IN",
                         "ROLL_OUT"
                       ],
+                      "supported_special_key_permission_modes": [
+                        "READ",
+                        "TRADE"
+                      ],
                       "max_transfer_history_days": 30,
                       "max_transfer_history_size": 100,
-                      "max_isolated_account_symbols": 5
+                      "max_isolated_account_symbols": 5,
+                      "max_special_key_ips": 30,
+                      "special_key_mutations_enabled": false,
+                      "special_key_exit_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -1277,6 +1295,8 @@
                       "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
                       "special_key_list_path": "/sapi/v1/margin/api-key-list",
                       "special_key_path": "/sapi/v1/margin/apiKey",
+                      "special_key_ip_path": "/sapi/v1/margin/apiKey/ip",
+                      "special_key_exit_mode_path": "/sapi/v1/margin/exit-special-key-mode",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -1285,9 +1305,16 @@
                         "ROLL_IN",
                         "ROLL_OUT"
                       ],
+                      "supported_special_key_permission_modes": [
+                        "READ",
+                        "TRADE"
+                      ],
                       "max_transfer_history_days": 30,
                       "max_transfer_history_size": 100,
-                      "max_isolated_account_symbols": 5
+                      "max_isolated_account_symbols": 5,
+                      "max_special_key_ips": 30,
+                      "special_key_mutations_enabled": false,
+                      "special_key_exit_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",
@@ -1448,6 +1475,8 @@
                       "trade_coeff_path": "/sapi/v1/margin/tradeCoeff",
                       "special_key_list_path": "/sapi/v1/margin/api-key-list",
                       "special_key_path": "/sapi/v1/margin/apiKey",
+                      "special_key_ip_path": "/sapi/v1/margin/apiKey/ip",
+                      "special_key_exit_mode_path": "/sapi/v1/margin/exit-special-key-mode",
                       "supported_borrow_repay_types": [
                         "BORROW",
                         "REPAY"
@@ -1456,9 +1485,16 @@
                         "ROLL_IN",
                         "ROLL_OUT"
                       ],
+                      "supported_special_key_permission_modes": [
+                        "READ",
+                        "TRADE"
+                      ],
                       "max_transfer_history_days": 30,
                       "max_transfer_history_size": 100,
-                      "max_isolated_account_symbols": 5
+                      "max_isolated_account_symbols": 5,
+                      "max_special_key_ips": 30,
+                      "special_key_mutations_enabled": false,
+                      "special_key_exit_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/sapi/v1/margin/order",

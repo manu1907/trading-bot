@@ -151,6 +151,27 @@ final class BinanceMarginAccountClient {
         return toSpecialKey(readJson(send(requestFactory.specialKey(apiKey, symbol, privateCredential), "GET")));
     }
 
+    BinanceMarginSpecialKeyCreationResult createSpecialKey(BinanceMarginSpecialKeyCreateCommand command) {
+        JsonNode root = readJson(send(requestFactory.createSpecialKey(command, privateCredential), "POST"));
+        return new BinanceMarginSpecialKeyCreationResult(
+                text(root, "apiKey"),
+                text(root, "secretKey"),
+                text(root, "type")
+        );
+    }
+
+    void editSpecialKeyIp(BinanceMarginSpecialKeyIpCommand command) {
+        send(requestFactory.editSpecialKeyIp(command, privateCredential), "PUT");
+    }
+
+    void deleteSpecialKey(BinanceMarginSpecialKeyDeleteCommand command) {
+        send(requestFactory.deleteSpecialKey(command, privateCredential), "DELETE");
+    }
+
+    void exitSpecialKeyMode() {
+        send(requestFactory.exitSpecialKeyMode(privateCredential), "POST");
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }

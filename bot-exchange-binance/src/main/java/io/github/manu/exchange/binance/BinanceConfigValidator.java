@@ -203,14 +203,21 @@ final class BinanceConfigValidator {
         requireMatching(path + ".special_key_list_path", account.specialKeyListPath(), "/sapi/v1/margin/api-key-list", errors);
         requirePath(path + ".special_key_path", account.specialKeyPath(), errors);
         requireMatching(path + ".special_key_path", account.specialKeyPath(), "/sapi/v1/margin/apiKey", errors);
+        requirePath(path + ".special_key_ip_path", account.specialKeyIpPath(), errors);
+        requireMatching(path + ".special_key_ip_path", account.specialKeyIpPath(), "/sapi/v1/margin/apiKey/ip", errors);
+        requirePath(path + ".special_key_exit_mode_path", account.specialKeyExitModePath(), errors);
+        requireMatching(path + ".special_key_exit_mode_path", account.specialKeyExitModePath(), "/sapi/v1/margin/exit-special-key-mode", errors);
         requireSameValues(path + ".supported_borrow_repay_types", account.supportedBorrowRepayTypes(), Set.of("BORROW", "REPAY"), errors);
         requireSameValues(path + ".supported_transfer_history_types", account.supportedTransferHistoryTypes(), Set.of("ROLL_IN", "ROLL_OUT"), errors);
+        requireSameValues(path + ".supported_special_key_permission_modes", account.supportedSpecialKeyPermissionModes(), Set.of("READ", "TRADE"), errors);
         requireAtLeast(path + ".max_transfer_history_days", account.maxTransferHistoryDays(), 1, errors);
         requireAtMost(path + ".max_transfer_history_days", account.maxTransferHistoryDays(), 30, errors);
         requireAtLeast(path + ".max_transfer_history_size", account.maxTransferHistorySize(), 1, errors);
         requireAtMost(path + ".max_transfer_history_size", account.maxTransferHistorySize(), 100, errors);
         requireAtLeast(path + ".max_isolated_account_symbols", account.maxIsolatedAccountSymbols(), 1, errors);
         requireAtMost(path + ".max_isolated_account_symbols", account.maxIsolatedAccountSymbols(), 5, errors);
+        requireAtLeast(path + ".max_special_key_ips", account.maxSpecialKeyIps(), 1, errors);
+        requireAtMost(path + ".max_special_key_ips", account.maxSpecialKeyIps(), 30, errors);
     }
 
     private static void validateTrading(String path,
