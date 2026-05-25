@@ -118,6 +118,44 @@ final class BinanceOptionsAccountClient {
         return toMmpConfig(readJson(send(requestFactory.resetMarketMakerProtection(underlying, privateCredential), "POST")));
     }
 
+    List<BinanceOptionsAutoCancelConfig> autoCancelAllOpenOrders(String underlying) {
+        JsonNode root = readJson(send(requestFactory.autoCancelAllOpenOrders(underlying, privateCredential), "GET"));
+        if (root.isArray()) {
+            List<BinanceOptionsAutoCancelConfig> configs = new ArrayList<>();
+            for (JsonNode item : root) {
+                configs.add(toAutoCancelConfig(item));
+            }
+            return List.copyOf(configs);
+        }
+        return List.of(toAutoCancelConfig(root));
+    }
+
+    BinanceOptionsAutoCancelConfig setAutoCancelAllOpenOrders(BinanceOptionsAutoCancelCommand command) {
+        return toAutoCancelConfig(readJson(send(
+                requestFactory.setAutoCancelAllOpenOrders(command, privateCredential),
+                "POST"
+        )));
+    }
+
+    BinanceOptionsAutoCancelHeartbeat autoCancelAllOpenOrdersHeartbeat(List<String> underlyings) {
+        JsonNode root = readJson(send(
+                requestFactory.autoCancelAllOpenOrdersHeartbeat(underlyings, privateCredential),
+                "POST"
+        ));
+        JsonNode underlyingsNode = root.get("underlyings");
+        if (underlyingsNode == null || !underlyingsNode.isArray()) {
+            throw new IllegalStateException("Expected Binance options auto-cancel heartbeat underlyings array response");
+        }
+        List<String> updated = new ArrayList<>();
+        for (JsonNode item : underlyingsNode) {
+            String value = item.asString();
+            if (!value.isBlank()) {
+                updated.add(value);
+            }
+        }
+        return new BinanceOptionsAutoCancelHeartbeat(updated);
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }
@@ -214,6 +252,13 @@ final class BinanceOptionsAccountClient {
                 decimal(node, "qtyLimit"),
                 decimal(node, "deltaLimit"),
                 longValue(node, "lastTriggerTime")
+        );
+    }
+
+    private BinanceOptionsAutoCancelConfig toAutoCancelConfig(JsonNode node) {
+        return new BinanceOptionsAutoCancelConfig(
+                text(node, "underlying"),
+                longValue(node, "countdownTime")
         );
     }
 

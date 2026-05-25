@@ -26,6 +26,7 @@ class BinanceOptionsAccountRequestFactoryTest {
         BinanceSignedRequest account = factory.marginAccount("test-secret");
         BinanceSignedRequest positions = factory.positions("BTC-240628-70000-C", "test-secret");
         BinanceSignedRequest mmp = factory.marketMakerProtection("BTCUSDT", "test-secret");
+        BinanceSignedRequest autoCancel = factory.autoCancelAllOpenOrders("BTCUSDT", "test-secret");
 
         assertThat(account.payload()).isEqualTo("timestamp=1499827319559&recvWindow=5000");
         assertThat(account.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/marginAccount?");
@@ -34,6 +35,8 @@ class BinanceOptionsAccountRequestFactoryTest {
         assertThat(positions.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/position?");
         assertThat(mmp.payload()).isEqualTo("underlying=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
         assertThat(mmp.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/mmp?");
+        assertThat(autoCancel.payload()).isEqualTo("underlying=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(autoCancel.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/countdownCancelAll?");
     }
 
     @Test
@@ -102,6 +105,62 @@ class BinanceOptionsAccountRequestFactoryTest {
     }
 
     @Test
+    void builds_auto_cancel_set_and_heartbeat_when_mutations_are_enabled() {
+        BinanceOptionsAccountRequestFactory factory = new BinanceOptionsAccountRequestFactory(
+                binance(true, true),
+                FIXED_CLOCK,
+                0
+        );
+
+        BinanceSignedRequest set = factory.setAutoCancelAllOpenOrders(
+                new BinanceOptionsAutoCancelCommand("BTCUSDT", 30000L),
+                "test-secret"
+        );
+        BinanceSignedRequest heartbeat = factory.autoCancelAllOpenOrdersHeartbeat(
+                List.of("BTCUSDT", "ETHUSDT"),
+                "test-secret"
+        );
+
+        assertThat(set.payload()).isEqualTo("underlying=BTCUSDT&countdownTime=30000"
+                + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(set.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/countdownCancelAll?");
+        assertThat(heartbeat.payload()).isEqualTo("underlyings=BTCUSDT%2CETHUSDT"
+                + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(heartbeat.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/countdownCancelAllHeartBeat?");
+    }
+
+    @Test
+    void rejects_auto_cancel_mutations_when_disabled_by_config() {
+        BinanceOptionsAccountRequestFactory factory = new BinanceOptionsAccountRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> factory.autoCancelAllOpenOrdersHeartbeat(List.of("BTCUSDT"), "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("auto-cancel mutations are disabled");
+    }
+
+    @Test
+    void validates_auto_cancel_set_parameters_against_binance_bounds() {
+        BinanceOptionsAccountRequestFactory factory = new BinanceOptionsAccountRequestFactory(
+                binance(true, true),
+                FIXED_CLOCK,
+                0
+        );
+
+        assertThatThrownBy(() -> factory.setAutoCancelAllOpenOrders(
+                new BinanceOptionsAutoCancelCommand("BTCUSDT", 4999L),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("countdownTime must be zero or greater than or equal to 5000");
+        assertThatThrownBy(() -> factory.setAutoCancelAllOpenOrders(
+                new BinanceOptionsAutoCancelCommand("BTCUSDT", -1L),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("countdownTime must be zero or positive");
+    }
+
+    @Test
     void validates_mmp_set_parameters_against_binance_bounds() {
         BinanceOptionsAccountRequestFactory factory = new BinanceOptionsAccountRequestFactory(
                 binance(true),
@@ -134,6 +193,10 @@ class BinanceOptionsAccountRequestFactoryTest {
     }
 
     private BinanceProperties binance(boolean mmpMutationsEnabled) {
+        return binance(mmpMutationsEnabled, false);
+    }
+
+    private BinanceProperties binance(boolean mmpMutationsEnabled, boolean autoCancelMutationsEnabled) {
         return new BinanceProperties(
                 "OPTIONS",
                 credentials(),
@@ -145,7 +208,7 @@ class BinanceOptionsAccountRequestFactoryTest {
                 null,
                 marketData(),
                 reconciliation(),
-                optionsAccount(mmpMutationsEnabled)
+                optionsAccount(mmpMutationsEnabled, autoCancelMutationsEnabled)
         );
     }
 
@@ -286,15 +349,19 @@ class BinanceOptionsAccountRequestFactoryTest {
         );
     }
 
-    private BinanceProperties.OptionsAccount optionsAccount(boolean mmpMutationsEnabled) {
+    private BinanceProperties.OptionsAccount optionsAccount(boolean mmpMutationsEnabled, boolean autoCancelMutationsEnabled) {
         return new BinanceProperties.OptionsAccount(
                 "/eapi/v1/marginAccount",
                 "/eapi/v1/position",
                 "/eapi/v1/mmp",
                 "/eapi/v1/mmpSet",
                 "/eapi/v1/mmpReset",
+                "/eapi/v1/countdownCancelAll",
+                "/eapi/v1/countdownCancelAllHeartBeat",
                 5000,
-                mmpMutationsEnabled
+                5000,
+                mmpMutationsEnabled,
+                autoCancelMutationsEnabled
         );
     }
 }

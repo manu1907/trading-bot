@@ -78,7 +78,19 @@ class BinanceCatalogComplianceTest {
             assertThat(markets.required("options").required("options_account").required("market_maker_protection_reset_path").asString())
                     .isEqualTo("/eapi/v1/mmpReset");
             assertThat(markets.required("options").required("options_account")
+                    .required("auto_cancel_all_open_orders_path").asString())
+                    .isEqualTo("/eapi/v1/countdownCancelAll");
+            assertThat(markets.required("options").required("options_account")
+                    .required("auto_cancel_all_open_orders_heartbeat_path").asString())
+                    .isEqualTo("/eapi/v1/countdownCancelAllHeartBeat");
+            assertThat(markets.required("options").required("options_account")
+                    .required("min_auto_cancel_all_open_orders_countdown_millis").asInt())
+                    .isEqualTo(5000);
+            assertThat(markets.required("options").required("options_account")
                     .required("market_maker_protection_mutations_enabled").asBoolean())
+                    .isFalse();
+            assertThat(markets.required("options").required("options_account")
+                    .required("auto_cancel_all_open_orders_mutations_enabled").asBoolean())
                     .isFalse();
         }
     }

@@ -59,6 +59,29 @@ final class BinanceOptionsAccountRequestFactory {
         ), privateCredential);
     }
 
+    BinanceSignedRequest autoCancelAllOpenOrders(String underlying, String privateCredential) {
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "underlying", underlying);
+        return restRequestFactory.signedUri(account.autoCancelAllOpenOrdersPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest setAutoCancelAllOpenOrders(BinanceOptionsAutoCancelCommand command, String privateCredential) {
+        requireAutoCancelMutationsEnabled();
+        validateAutoCancelAllOpenOrders(command);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "underlying", command.underlying());
+        add(parameters, "countdownTime", command.countdownTime());
+        return restRequestFactory.signedUri(account.autoCancelAllOpenOrdersPath(), parameters, privateCredential);
+    }
+
+    BinanceSignedRequest autoCancelAllOpenOrdersHeartbeat(List<String> underlyings, String privateCredential) {
+        requireAutoCancelMutationsEnabled();
+        requireNonEmptyText("underlyings", underlyings);
+        return restRequestFactory.signedUri(account.autoCancelAllOpenOrdersHeartbeatPath(), List.of(
+                BinanceRequestParameter.of("underlyings", String.join(",", underlyings))
+        ), privateCredential);
+    }
+
     private void validateMarketMakerProtection(BinanceOptionsMmpConfigCommand command) {
         if (command == null) {
             throw new IllegalArgumentException("Binance options MMP config command is required");
@@ -77,6 +100,38 @@ final class BinanceOptionsAccountRequestFactory {
     private void requireMmpMutationsEnabled() {
         if (!account.marketMakerProtectionMutationsEnabled()) {
             throw new IllegalArgumentException("Binance options MMP mutations are disabled by config");
+        }
+    }
+
+    private void validateAutoCancelAllOpenOrders(BinanceOptionsAutoCancelCommand command) {
+        if (command == null) {
+            throw new IllegalArgumentException("Binance options auto-cancel command is required");
+        }
+        requireText("underlying", command.underlying());
+        requireNonNegative("countdownTime", command.countdownTime());
+        if (command.countdownTime() > 0
+                && command.countdownTime() < account.minAutoCancelAllOpenOrdersCountdownMillis()) {
+            throw new IllegalArgumentException("countdownTime must be zero or greater than or equal to "
+                    + account.minAutoCancelAllOpenOrdersCountdownMillis());
+        }
+    }
+
+    private void requireAutoCancelMutationsEnabled() {
+        if (!account.autoCancelAllOpenOrdersMutationsEnabled()) {
+            throw new IllegalArgumentException("Binance options auto-cancel mutations are disabled by config");
+        }
+    }
+
+    private void requireNonEmptyText(String field, List<String> values) {
+        if (values == null || values.isEmpty()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        int index = 0;
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException(field + "[" + index + "] is required");
+            }
+            index++;
         }
     }
 

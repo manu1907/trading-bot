@@ -151,6 +151,54 @@ class BinanceOptionsAccountClientTest {
     }
 
     @Test
+    void reads_and_mutates_auto_cancel_config_when_enabled() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        {
+                          "underlying": "BTCUSDT",
+                          "countdownTime": 100000
+                        }
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "underlying": "ETHUSDT",
+                          "countdownTime": 30000
+                        }
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "underlyings": [
+                            "BTCUSDT",
+                            "ETHUSDT"
+                          ]
+                        }
+                        """)
+        );
+        BinanceOptionsAccountClient client = client(transport);
+
+        List<BinanceOptionsAutoCancelConfig> current = client.autoCancelAllOpenOrders("BTCUSDT");
+        BinanceOptionsAutoCancelConfig updated = client.setAutoCancelAllOpenOrders(
+                new BinanceOptionsAutoCancelCommand("ETHUSDT", 30000L)
+        );
+        BinanceOptionsAutoCancelHeartbeat heartbeat = client.autoCancelAllOpenOrdersHeartbeat(
+                List.of("BTCUSDT", "ETHUSDT")
+        );
+
+        assertThat(current).singleElement().satisfies(config -> {
+            assertThat(config.underlying()).isEqualTo("BTCUSDT");
+            assertThat(config.countdownTime()).isEqualTo(100000L);
+        });
+        assertThat(updated.underlying()).isEqualTo("ETHUSDT");
+        assertThat(updated.countdownTime()).isEqualTo(30000L);
+        assertThat(heartbeat.underlyings()).containsExactly("BTCUSDT", "ETHUSDT");
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "POST", "POST");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/countdownCancelAll?underlying=BTCUSDT"))
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/countdownCancelAll?underlying=ETHUSDT"))
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/countdownCancelAllHeartBeat?underlyings=BTCUSDT%2CETHUSDT"));
+    }
+
+    @Test
     void raises_api_exception_for_error_response() {
         BinanceOptionsAccountClient client = client(new FakeTransport(new BinanceHttpResponse(400, """
                 {
@@ -214,7 +262,11 @@ class BinanceOptionsAccountClientTest {
                         "/eapi/v1/mmp",
                         "/eapi/v1/mmpSet",
                         "/eapi/v1/mmpReset",
+                        "/eapi/v1/countdownCancelAll",
+                        "/eapi/v1/countdownCancelAllHeartBeat",
                         5000,
+                        5000,
+                        true,
                         true
                 )
         );

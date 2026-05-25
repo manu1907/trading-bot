@@ -31,6 +31,7 @@ final class BinanceConfigValidator {
     private static final Set<String> MARKET_DATA_CONNECTION_MODES = Set.of("raw", "combined");
     private static final Set<String> MARKET_DATA_ROUTES = Set.of("default", "public", "market");
     private static final int OPTIONS_MMP_MAX_WINDOW_MILLIS = 5_000;
+    private static final int OPTIONS_AUTO_CANCEL_MIN_COUNTDOWN_MILLIS = 5_000;
 
     private BinanceConfigValidator() {
     }
@@ -592,9 +593,27 @@ final class BinanceConfigValidator {
                 errors
         );
         requireMatching(
+                path + ".auto_cancel_all_open_orders_path",
+                account.autoCancelAllOpenOrdersPath(),
+                "/eapi/v1/countdownCancelAll",
+                errors
+        );
+        requireMatching(
+                path + ".auto_cancel_all_open_orders_heartbeat_path",
+                account.autoCancelAllOpenOrdersHeartbeatPath(),
+                "/eapi/v1/countdownCancelAllHeartBeat",
+                errors
+        );
+        requireMatching(
                 path + ".max_market_maker_protection_window_millis",
                 account.maxMarketMakerProtectionWindowMillis(),
                 OPTIONS_MMP_MAX_WINDOW_MILLIS,
+                errors
+        );
+        requireMatching(
+                path + ".min_auto_cancel_all_open_orders_countdown_millis",
+                account.minAutoCancelAllOpenOrdersCountdownMillis(),
+                OPTIONS_AUTO_CANCEL_MIN_COUNTDOWN_MILLIS,
                 errors
         );
     }

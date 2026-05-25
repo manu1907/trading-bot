@@ -244,6 +244,12 @@ of truth. As of the current code, the connector covers these foundations:
   `/eapi/v1/mmpSet`, and `/eapi/v1/mmpReset` clients. State-changing MMP
   config/reset operations are disabled by default and must be explicitly
   enabled in config.
+- Options auto-cancel kill-switch coverage includes catalog-backed
+  `/eapi/v1/countdownCancelAll` config get/set and
+  `/eapi/v1/countdownCancelAllHeartBeat` heartbeat clients. State-changing
+  config and heartbeat operations are disabled by default and must be
+  explicitly enabled in config because they affect live order cancellation and
+  post-timeout order acceptance.
 - Options trading reconciliation inputs include catalog-backed
   `/eapi/v1/historyOrders`, `/eapi/v1/openOrders`, `/eapi/v1/userTrades`,
   `/eapi/v1/commission`, and `/eapi/v1/exerciseRecord` request/client coverage

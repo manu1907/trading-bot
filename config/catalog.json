@@ -1107,8 +1107,12 @@
                       "market_maker_protection_path": "/eapi/v1/mmp",
                       "market_maker_protection_set_path": "/eapi/v1/mmpSet",
                       "market_maker_protection_reset_path": "/eapi/v1/mmpReset",
+                      "auto_cancel_all_open_orders_path": "/eapi/v1/countdownCancelAll",
+                      "auto_cancel_all_open_orders_heartbeat_path": "/eapi/v1/countdownCancelAllHeartBeat",
                       "max_market_maker_protection_window_millis": 5000,
-                      "market_maker_protection_mutations_enabled": false
+                      "min_auto_cancel_all_open_orders_countdown_millis": 5000,
+                      "market_maker_protection_mutations_enabled": false,
+                      "auto_cancel_all_open_orders_mutations_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",
@@ -2278,8 +2282,12 @@
                       "market_maker_protection_path": "/eapi/v1/mmp",
                       "market_maker_protection_set_path": "/eapi/v1/mmpSet",
                       "market_maker_protection_reset_path": "/eapi/v1/mmpReset",
+                      "auto_cancel_all_open_orders_path": "/eapi/v1/countdownCancelAll",
+                      "auto_cancel_all_open_orders_heartbeat_path": "/eapi/v1/countdownCancelAllHeartBeat",
                       "max_market_maker_protection_window_millis": 5000,
-                      "market_maker_protection_mutations_enabled": false
+                      "min_auto_cancel_all_open_orders_countdown_millis": 5000,
+                      "market_maker_protection_mutations_enabled": false,
+                      "auto_cancel_all_open_orders_mutations_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",

@@ -391,8 +391,12 @@ public record BinanceProperties(
             @NotNull String marketMakerProtectionPath,
             @NotNull String marketMakerProtectionSetPath,
             @NotNull String marketMakerProtectionResetPath,
+            @NotNull String autoCancelAllOpenOrdersPath,
+            @NotNull String autoCancelAllOpenOrdersHeartbeatPath,
             Integer maxMarketMakerProtectionWindowMillis,
-            boolean marketMakerProtectionMutationsEnabled
+            Integer minAutoCancelAllOpenOrdersCountdownMillis,
+            boolean marketMakerProtectionMutationsEnabled,
+            boolean autoCancelAllOpenOrdersMutationsEnabled
     ) {
     }
 }

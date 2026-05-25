@@ -149,6 +149,11 @@ Source-of-truth docs checked during this review:
   `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Commission`
 - Options exercise records:
   `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Exercise-Record`
+- Options auto-cancel kill-switch config and heartbeat:
+  `https://developers.binance.com/docs/derivatives/options-trading/market-maker-endpoints/Get-Auto-Cancel-All-Open-Orders-Config`,
+  `https://developers.binance.com/docs/derivatives/options-trading/market-maker-endpoints/Set-Auto-Cancel-All-Open-Orders-Config`,
+  and
+  `https://developers.binance.com/docs/derivatives/options-trading/market-maker-endpoints/Auto-Cancel-All-Open-Orders-Heartbeat`
 
 Implemented Binance foundations:
 
@@ -163,6 +168,11 @@ Implemented Binance foundations:
 - Options market-maker protection config clients for `/eapi/v1/mmp`,
   `/eapi/v1/mmpSet`, and `/eapi/v1/mmpReset`, with documented MMP window
   validation and catalog-disabled mutations by default.
+- Options auto-cancel kill-switch config and heartbeat clients for
+  `/eapi/v1/countdownCancelAll` and
+  `/eapi/v1/countdownCancelAllHeartBeat`, with documented countdown bounds,
+  comma-separated heartbeat underlyings, and catalog-disabled mutations by
+  default.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
