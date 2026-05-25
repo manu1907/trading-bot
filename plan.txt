@@ -249,6 +249,9 @@ Implemented Binance foundations:
   catalog-backed `user_data.runtime_enabled`. Defaults keep it disabled; when
   enabled, startup requires an available `TradingEventBus` so private
   account/order events cannot be silently dropped.
+- Binance market-data event mapper and publisher listener for documented public
+  trade, aggregate trade, book ticker, depth snapshot, depth delta, mark price,
+  and kline stream payloads into core Avro market-data envelopes.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -258,8 +261,8 @@ Binance parity gaps to close before claiming full connector support:
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
-- All products: map market-data streams into core Avro events and reconcile
-  user-data/market-data stream state against REST snapshots.
+- All products: wire public market-data stream subscription runtime and
+  reconcile user-data/market-data stream state against REST snapshots.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 
@@ -386,6 +389,7 @@ Deliver:
   boundary checks covered while closing the remaining spot, margin, and
   all-product gaps.
 - User-data and market-data WebSocket payload mappers to core Avro events.
+  Initial coverage exists; keep extending it when new stream families are wired.
 - REST snapshot reconciliation clients for account, balances, open orders,
   positions, and recent trades.
 

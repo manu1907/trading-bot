@@ -199,6 +199,13 @@ the configured live target.
 The WebSocket supervisor owns controlled reconnects: it rolls connections over
 before Binance's 24-hour expiry point and schedules retry reconnects after
 active connection errors or unexpected closes.
+The Binance market-data event mapper is the public-stream normalization
+boundary for documented trade, aggregate trade, book ticker, depth snapshot,
+depth delta, mark price, and kline payloads. It converts Binance payloads into
+core Avro market-data envelopes without strategy or execution decisions. The
+market-data event publisher attaches that mapper to a WebSocket listener and
+publishes through `TradingEventBus`; subscription orchestration and REST
+snapshot reconciliation remain separate runtime responsibilities.
 The checked-in Binance live smoke tests are opt-in. They load `active.json`,
 merge `application-{environment}.json`, and use the same connector code for
 demo and real. Credentials may come from process environment variables or local
@@ -323,6 +330,9 @@ of truth. As of the current code, the connector covers these foundations:
   REST lifecycle management to a managed private WebSocket supervisor.
 - Opt-in `BinanceExchangeModule` lifecycle wiring for user-data runtime, guarded
   by `user_data.runtime_enabled` and `TradingEventBus` availability.
+- Public market-data event mapping and publisher boundary for documented trade,
+  aggregate trade, book ticker, depth snapshot, depth delta, mark price, and
+  kline WebSocket payloads.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -332,8 +342,9 @@ adapter. Known gaps that must remain on the plan:
   documents endpoints for them.
 - User-data payload mapping, event-bus publishing, listen-key/listen-token
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
-  implemented, but market-data stream mapping and REST snapshot reconciliation
-  are not yet wired end to end.
+  implemented. Market-data payload mapping and publishing are implemented, but
+  public market-data subscription runtime and REST snapshot reconciliation are
+  not yet wired end to end.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 
