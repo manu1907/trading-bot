@@ -15,6 +15,7 @@ public record BinanceMarketProperties(
         @Valid @NotNull BinanceProperties.MarketDataStream marketData,
         @Valid @NotNull BinanceProperties.Reconciliation reconciliation,
         @Valid BinanceProperties.MarginAccount marginAccount,
-        @Valid BinanceProperties.FuturesAccount futuresAccount
+        @Valid BinanceProperties.FuturesAccount futuresAccount,
+        @Valid BinanceProperties.OptionsAccount optionsAccount
 ) {
 }

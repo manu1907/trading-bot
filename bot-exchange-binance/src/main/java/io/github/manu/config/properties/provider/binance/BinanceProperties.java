@@ -17,7 +17,8 @@ public record BinanceProperties(
         @Valid MarginAccount marginAccount,
         @Valid FuturesAccount futuresAccount,
         @Valid MarketDataStream marketData,
-        @Valid Reconciliation reconciliation
+        @Valid Reconciliation reconciliation,
+        @Valid OptionsAccount optionsAccount
 ) {
     public BinanceProperties(
             String marketType,
@@ -39,7 +40,8 @@ public record BinanceProperties(
                 marginAccount,
                 futuresAccount,
                 MarketDataStream.disabled(),
-                Reconciliation.disabled()
+                Reconciliation.disabled(),
+                null
         );
     }
 
@@ -64,7 +66,35 @@ public record BinanceProperties(
                 marginAccount,
                 futuresAccount,
                 marketData,
-                Reconciliation.disabled()
+                Reconciliation.disabled(),
+                null
+        );
+    }
+
+    public BinanceProperties(
+            String marketType,
+            Credentials credentials,
+            Rest rest,
+            Websocket websocket,
+            Trading trading,
+            UserDataStream userDataStream,
+            MarginAccount marginAccount,
+            FuturesAccount futuresAccount,
+            MarketDataStream marketData,
+            Reconciliation reconciliation
+    ) {
+        this(
+                marketType,
+                credentials,
+                rest,
+                websocket,
+                trading,
+                userDataStream,
+                marginAccount,
+                futuresAccount,
+                marketData,
+                reconciliation,
+                null
         );
     }
 
@@ -351,5 +381,12 @@ public record BinanceProperties(
             supportedPositionModes = List.copyOf(supportedPositionModes);
             supportedMarginTypes = List.copyOf(supportedMarginTypes);
         }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record OptionsAccount(
+            @NotNull String marginAccountPath,
+            @NotNull String positionPath
+    ) {
     }
 }

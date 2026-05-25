@@ -45,6 +45,7 @@ final class BinanceConfigValidator {
         validateMarketData(marketPath(active) + ".market_data", binance.marketData(), binance.websocket(), errors);
         validateReconciliation(marketPath(active) + ".reconciliation", binance.reconciliation(), marketType, errors);
         validateMarginAccount(marketPath(active) + ".margin_account", binance.marginAccount(), marketType, errors);
+        validateOptionsAccount(marketPath(active) + ".options_account", binance.optionsAccount(), marketType, errors);
         if (!marketType.futures()) {
             validateUserData(marketPath(active) + ".user_data", binance.userDataStream(), marketType, false, errors);
         }
@@ -554,6 +555,22 @@ final class BinanceConfigValidator {
         requireMatching(path + ".min_initial_leverage", account.minInitialLeverage(), 1, errors);
         requireMatching(path + ".max_initial_leverage", account.maxInitialLeverage(), 125, errors);
         requireMatching(path + ".portfolio_margin_expected", account.portfolioMarginExpected(), false, errors);
+    }
+
+    private static void validateOptionsAccount(String path,
+                                               BinanceProperties.OptionsAccount account,
+                                               BinanceMarketType marketType,
+                                               List<String> errors) {
+        if (marketType != BinanceMarketType.OPTIONS) {
+            return;
+        }
+        if (account == null) {
+            errors.add(path + " is required for Binance options markets");
+            return;
+        }
+
+        requireMatching(path + ".margin_account_path", account.marginAccountPath(), "/eapi/v1/marginAccount", errors);
+        requireMatching(path + ".position_path", account.positionPath(), "/eapi/v1/position", errors);
     }
 
     private static String futuresPathPrefix(BinanceMarketType marketType) {

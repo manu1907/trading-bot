@@ -39,7 +39,8 @@ public record BinanceAccountProperties(
                 market.marginAccount(),
                 market.futuresAccount(),
                 market.marketData(),
-                market.reconciliation()
+                market.reconciliation(),
+                market.optionsAccount()
         );
     }
 }

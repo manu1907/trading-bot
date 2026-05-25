@@ -237,6 +237,9 @@ of truth. As of the current code, the connector covers these foundations:
 - Options order request construction is product-aware for documented `/eapi`
   client-order and MMP field names: new orders use `clientOrderId` and `isMmp`,
   while Spot/Futures continue to use their own client-order parameter names.
+- Options read-only account coverage includes catalog-backed
+  `/eapi/v1/marginAccount` and `/eapi/v1/position` clients for account
+  balances, account Greeks, and option positions.
 - `exchangeInfo` loading and parsing for symbol filters, order enums,
   precision, rate limits, trigger protection, and lifecycle metadata.
 - Basic signed order create, query, open-orders, and cancel requests.
@@ -379,9 +382,8 @@ adapter. Known gaps that must remain on the plan:
   documents endpoints for them.
 - Options support is still deliberately incomplete. The connector must not
   enable real options trading until post-only order handling, MMP config/reset
-  endpoints, options account/position reads, options-specific reconciliation,
-  and options user-data stream semantics are implemented and tested against
-  current Binance documentation.
+  endpoints, options-specific reconciliation, and options user-data stream
+  semantics are implemented and tested against current Binance documentation.
 - User-data payload mapping, event-bus publishing, listen-key/listen-token
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
   implemented. Market-data payload mapping, publishing, subscription runtime,

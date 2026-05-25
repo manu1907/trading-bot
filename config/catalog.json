@@ -1101,6 +1101,10 @@
                       "isolated_margin_account_enabled": false,
                       "isolated_margin_symbols": []
                     },
+                    "options_account": {
+                      "margin_account_path": "/eapi/v1/marginAccount",
+                      "position_path": "/eapi/v1/position"
+                    },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",
                       "query_order_path": "/eapi/v1/order",
@@ -2258,6 +2262,10 @@
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
                       "isolated_margin_symbols": []
+                    },
+                    "options_account": {
+                      "margin_account_path": "/eapi/v1/marginAccount",
+                      "position_path": "/eapi/v1/position"
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",
