@@ -269,6 +269,66 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_options_order_request_with_options_parameter_names() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
+        BinanceOrderCommand command = new BinanceOrderCommand(
+                "BTC-240628-70000-C",
+                "BUY",
+                "LIMIT",
+                "GTC",
+                null,
+                "RESULT",
+                "EXPIRE_TAKER",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "option-client-1",
+                null,
+                new BigDecimal("1.000"),
+                null,
+                new BigDecimal("100.00"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                null,
+                null,
+                null,
+                null,
+                true
+        );
+
+        BinanceSignedRequest request = factory.newOrder(command, "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&side=BUY&type=LIMIT&timeInForce=GTC"
+                        + "&newOrderRespType=RESULT&selfTradePreventionMode=EXPIRE_TAKER"
+                        + "&clientOrderId=option-client-1&quantity=1&price=100"
+                        + "&reduceOnly=true&isMmp=true&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/order?");
+    }
+
+    @Test
+    void builds_options_cancel_and_query_with_client_order_id_parameter() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest cancel = factory.cancelOrder("BTC-240628-70000-C", "option-client-1", "test-secret");
+        BinanceSignedRequest query = factory.queryOrder("BTC-240628-70000-C", "option-client-1", "test-secret");
+
+        assertThat(cancel.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&clientOrderId=option-client-1"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(query.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&clientOrderId=option-client-1"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+    }
+
+    @Test
     void builds_open_orders_request_with_optional_symbol() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
 
@@ -1352,6 +1412,25 @@ class BinanceOrderRequestFactoryTest {
         );
     }
 
+    private BinanceProperties optionsBinance() {
+        return new BinanceProperties(
+                "OPTIONS",
+                new BinanceProperties.Credentials(
+                        "binance_real_options",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_DATA", "TRADE")
+                ),
+                optionsRest(),
+                websocket(),
+                optionsTrading(),
+                null,
+                null,
+                null
+        );
+    }
+
     private BinanceOrderCommand limitCommand(String symbol, String side, String clientOrderId, String price, String quantity) {
         return new BinanceOrderCommand(
                 symbol,
@@ -1947,6 +2026,30 @@ class BinanceOrderRequestFactoryTest {
         );
     }
 
+    private BinanceProperties.Rest optionsRest() {
+        return new BinanceProperties.Rest(
+                "https://eapi.binance.com",
+                "/eapi/v1/exchangeInfo",
+                "/eapi/v1/time",
+                "X-MBX-APIKEY",
+                "HMAC_SHA256",
+                "MILLISECONDS",
+                5000,
+                2000,
+                5000,
+                3,
+                200,
+                List.of(408, 429, 500, 502, 503, 504),
+                List.of("X-MBX-USED-WEIGHT"),
+                List.of("X-MBX-ORDER-COUNT"),
+                "RESULT",
+                new BinanceProperties.UnknownExecutionStatus(
+                        List.of("Unknown error, please check your request or try again later."),
+                        List.of(503)
+                )
+        );
+    }
+
     private BinanceProperties.Rest coinmRest() {
         return new BinanceProperties.Rest(
                 "https://demo-dapi.binance.com",
@@ -2223,6 +2326,64 @@ class BinanceOrderRequestFactoryTest {
                 false,
                 false,
                 false
+        );
+    }
+
+    private BinanceProperties.Trading optionsTrading() {
+        return new BinanceProperties.Trading(
+                "/eapi/v1/order",
+                null,
+                "/eapi/v1/order",
+                "/eapi/v1/order",
+                "/eapi/v1/openOrders",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("BUY", "SELL"),
+                List.of("LIMIT"),
+                List.of("GTC"),
+                List.of("ACK", "RESULT"),
+                List.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
+                List.of("NONE"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true
         );
     }
 

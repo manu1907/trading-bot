@@ -144,6 +144,9 @@ Implemented Binance foundations:
 
 - Product family modeling for Spot, Cross Margin, Isolated Margin, USD-M
   Futures, COIN-M Futures, and Options.
+- Options `/eapi/v1/order` request construction uses the documented
+  `clientOrderId` and `isMmp` parameter names for new/query/cancel order
+  workflows instead of Spot/Futures client-order parameter names.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
@@ -284,9 +287,12 @@ Binance parity gaps to close before claiming full connector support:
 - Margin: active margin transfer placement and margin OPO/OPOCO placement are
   not exposed in the current Binance margin docs; do not claim them until
   Binance documents endpoints for them.
-- Options: verify current `/eapi` coverage against current Binance options
-  documentation before enabling real options trading; keep it disabled unless
-  order, MMP, account, and stream semantics are fully tested.
+- Options: `/eapi` order request parameter naming is covered for
+  `clientOrderId` and MMP order flags, but options parity is not complete.
+  Keep real options trading disabled unless post-only order handling, MMP
+  config/reset endpoints, options account/position reads, options-specific
+  order history/open-order reconciliation, and user-data stream semantics are
+  fully implemented and tested against current Binance documentation.
 - All products: extend the reconciliation runtime to compare REST snapshots
   against stream/projection state and enforce durable replay-safe ordering and
   projection-backed idempotency around stream gaps and unknown execution

@@ -105,7 +105,7 @@ final class BinanceOrderRequestFactory {
         }
         return restRequestFactory.signedUri(binance.trading().cancelOrderPath(), List.of(
                 BinanceRequestParameter.of("symbol", symbol),
-                BinanceRequestParameter.of("origClientOrderId", originalClientOrderId)
+                BinanceRequestParameter.of(clientOrderIdParameterName(), originalClientOrderId)
         ), privateCredential);
     }
 
@@ -118,7 +118,7 @@ final class BinanceOrderRequestFactory {
         }
         return restRequestFactory.signedUri(binance.trading().queryOrderPath(), List.of(
                 BinanceRequestParameter.of("symbol", symbol),
-                BinanceRequestParameter.of("origClientOrderId", originalClientOrderId)
+                BinanceRequestParameter.of(clientOrderIdParameterName(), originalClientOrderId)
         ), privateCredential);
     }
 
@@ -451,7 +451,7 @@ final class BinanceOrderRequestFactory {
         add(parameters, "pegPriceType", command.pegPriceType());
         add(parameters, "pegOffsetType", command.pegOffsetType());
         add(parameters, "pegOffsetValue", command.pegOffsetValue());
-        add(parameters, "newClientOrderId", command.clientOrderId());
+        add(parameters, newOrderClientOrderIdParameterName(), command.clientOrderId());
         add(parameters, "goodTillDate", command.goodTillDate());
         add(parameters, "quantity", command.quantity());
         add(parameters, "quoteOrderQty", command.quoteOrderQty());
@@ -466,7 +466,7 @@ final class BinanceOrderRequestFactory {
         addWhenPresent(parameters, "priceProtect", command.priceProtect());
         addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());
         add(parameters, "isIsolated", command.isolatedMargin());
-        add(parameters, "marketMakerProtection", command.marketMakerProtection());
+        add(parameters, marketMakerProtectionParameterName(), command.marketMakerProtection());
         return parameters;
     }
 
@@ -1340,5 +1340,21 @@ final class BinanceOrderRequestFactory {
     private boolean isMarginMarket() {
         BinanceMarketType marketType = BinanceMarketType.fromConfigValue(binance.marketType());
         return marketType == BinanceMarketType.MARGIN_CROSS || marketType == BinanceMarketType.MARGIN_ISOLATED;
+    }
+
+    private boolean isOptionsMarket() {
+        return BinanceMarketType.fromConfigValue(binance.marketType()) == BinanceMarketType.OPTIONS;
+    }
+
+    private String newOrderClientOrderIdParameterName() {
+        return isOptionsMarket() ? "clientOrderId" : "newClientOrderId";
+    }
+
+    private String clientOrderIdParameterName() {
+        return isOptionsMarket() ? "clientOrderId" : "origClientOrderId";
+    }
+
+    private String marketMakerProtectionParameterName() {
+        return isOptionsMarket() ? "isMmp" : "marketMakerProtection";
     }
 }
