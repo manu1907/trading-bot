@@ -68,6 +68,25 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void rejects_missing_market_data_config() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market -> market.remove("market_data"));
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("market_data is required");
+    }
+
+    @Test
+    void rejects_enabled_market_data_runtime_without_streams() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
+                market.withObject("market_data").put("runtime_enabled", true));
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("market_data.streams must not be empty");
+    }
+
+    @Test
     void rejects_invalid_recv_window() throws IOException {
         ResolvedExchangeConfig config = checkedInResolvedConfig(market -> market.withObject("rest").put("recv_window_millis", 0));
 
@@ -128,6 +147,18 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void rejects_market_data_runtime_without_event_bus() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(this::enableMarketDataRuntime);
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule();
+
+        runtimeModule.configure(config);
+
+        assertThatThrownBy(runtimeModule::connect)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TradingEventBus");
+    }
+
+    @Test
     void starts_and_stops_user_data_runtime_when_enabled_and_event_bus_is_available() throws IOException {
         ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
                 market.withObject("user_data").put("runtime_enabled", true));
@@ -152,6 +183,30 @@ class BinanceExchangeModuleTest {
         assertThat(webSocketTransport.plans).singleElement().satisfies(plan -> {
             assertThat(plan.route()).isEqualTo(BinanceWebSocketRoute.PRIVATE);
             assertThat(plan.streams()).containsExactly("listen-key-1");
+        });
+        assertThat(webSocketTransport.closeCount).isEqualTo(1);
+    }
+
+    @Test
+    void starts_and_stops_market_data_runtime_when_enabled_and_event_bus_is_available() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(this::enableMarketDataRuntime);
+        FakeWebSocketTransport webSocketTransport = new FakeWebSocketTransport();
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                null,
+                webSocketTransport
+        );
+
+        runtimeModule.configure(config);
+        runtimeModule.connect().join();
+        runtimeModule.connect().join();
+        runtimeModule.disconnect().join();
+
+        assertThat(webSocketTransport.plans).singleElement().satisfies(plan -> {
+            assertThat(plan.route()).isEqualTo(BinanceWebSocketRoute.DEFAULT);
+            assertThat(plan.mode()).isEqualTo(BinanceWebSocketMode.COMBINED);
+            assertThat(plan.streams()).containsExactly("btcusdt@aggTrade");
         });
         assertThat(webSocketTransport.closeCount).isEqualTo(1);
     }
@@ -230,6 +285,12 @@ class BinanceExchangeModuleTest {
         }
 
         throw new IllegalStateException("Unable to locate repo config directory");
+    }
+
+    private void enableMarketDataRuntime(ObjectNode market) {
+        ObjectNode marketData = market.withObject("market_data");
+        marketData.put("runtime_enabled", true);
+        marketData.set("streams", jsonMapper.valueToTree(List.of("btcusdt@aggTrade")));
     }
 
     private interface ConfigMutation {

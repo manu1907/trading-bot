@@ -204,8 +204,15 @@ boundary for documented trade, aggregate trade, book ticker, depth snapshot,
 depth delta, mark price, and kline payloads. It converts Binance payloads into
 core Avro market-data envelopes without strategy or execution decisions. The
 market-data event publisher attaches that mapper to a WebSocket listener and
-publishes through `TradingEventBus`; subscription orchestration and REST
-snapshot reconciliation remain separate runtime responsibilities.
+publishes through `TradingEventBus`.
+The Binance market-data stream runtime opens configured public raw or combined
+streams through the endpoint planner and WebSocket supervisor, so rollover and
+reconnect behavior remains shared with the private-stream runtime.
+`market_data.runtime_enabled` is the catalog-backed switch for attaching this
+runtime to `BinanceExchangeModule`. The default is false with explicit
+`connection_mode`, `route`, and `streams` parameters. If it is enabled, the
+module requires configured streams and a `TradingEventBus` before connecting so
+market-data events cannot be consumed and then lost.
 The checked-in Binance live smoke tests are opt-in. They load `active.json`,
 merge `application-{environment}.json`, and use the same connector code for
 demo and real. Credentials may come from process environment variables or local
@@ -333,6 +340,9 @@ of truth. As of the current code, the connector covers these foundations:
 - Public market-data event mapping and publisher boundary for documented trade,
   aggregate trade, book ticker, depth snapshot, depth delta, mark price, and
   kline WebSocket payloads.
+- Opt-in public market-data stream runtime and `BinanceExchangeModule`
+  lifecycle wiring, guarded by `market_data.runtime_enabled`, configured
+  streams, and `TradingEventBus` availability.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -342,9 +352,9 @@ adapter. Known gaps that must remain on the plan:
   documents endpoints for them.
 - User-data payload mapping, event-bus publishing, listen-key/listen-token
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
-  implemented. Market-data payload mapping and publishing are implemented, but
-  public market-data subscription runtime and REST snapshot reconciliation are
-  not yet wired end to end.
+  implemented. Market-data payload mapping, publishing, subscription runtime,
+  and opt-in ExchangeModule lifecycle wiring are implemented. REST snapshot
+  reconciliation is not yet wired end to end.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

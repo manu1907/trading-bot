@@ -28,6 +28,8 @@ final class BinanceConfigValidator {
     private static final String LISTEN_TOKEN = "listen_token";
     private static final String WEBSOCKET_API = "websocket_api";
     private static final Set<String> USER_DATA_MODES = Set.of(LISTEN_KEY, LISTEN_TOKEN, WEBSOCKET_API);
+    private static final Set<String> MARKET_DATA_CONNECTION_MODES = Set.of("raw", "combined");
+    private static final Set<String> MARKET_DATA_ROUTES = Set.of("default", "public", "market");
 
     private BinanceConfigValidator() {
     }
@@ -40,6 +42,7 @@ final class BinanceConfigValidator {
         validateRest(marketPath(active) + ".rest", binance.rest(), marketType, errors);
         validateWebsocket(marketPath(active) + ".websocket", binance.websocket(), marketType, errors);
         validateTrading(marketPath(active) + ".trading", binance.trading(), marketType, errors);
+        validateMarketData(marketPath(active) + ".market_data", binance.marketData(), binance.websocket(), errors);
         validateMarginAccount(marketPath(active) + ".margin_account", binance.marginAccount(), marketType, errors);
         if (!marketType.futures()) {
             validateUserData(marketPath(active) + ".user_data", binance.userDataStream(), marketType, false, errors);
@@ -446,6 +449,36 @@ final class BinanceConfigValidator {
             requireOptionalPath(path + ".keepalive_path", userData.keepalivePath(), errors);
             requireOptionalPath(path + ".close_path", userData.closePath(), errors);
             requireOptionalPositive(path + ".renewal_interval_minutes", userData.renewalIntervalMinutes(), errors);
+        }
+    }
+
+    private static void validateMarketData(String path,
+                                           BinanceProperties.MarketDataStream marketData,
+                                           BinanceProperties.Websocket websocket,
+                                           List<String> errors) {
+        if (marketData == null) {
+            errors.add(path + " is required");
+            return;
+        }
+
+        requireNotNull(path + ".runtime_enabled", marketData.runtimeEnabled(), errors);
+        requireOneOf(path + ".connection_mode", marketData.connectionMode(), MARKET_DATA_CONNECTION_MODES, errors);
+        requireOneOf(path + ".route", marketData.route(), MARKET_DATA_ROUTES, errors);
+        requireNotNull(path + ".streams", marketData.streams(), errors);
+        if (marketData.streams() == null) {
+            return;
+        }
+        if (Boolean.TRUE.equals(marketData.runtimeEnabled())) {
+            requireNonEmpty(path + ".streams", marketData.streams(), errors);
+        }
+        if (websocket != null && websocket.maxStreamsPerConnection() != null
+                && marketData.streams().size() > websocket.maxStreamsPerConnection()) {
+            errors.add(path + ".streams exceeds websocket.max_streams_per_connection");
+        }
+        int index = 0;
+        for (String stream : marketData.streams()) {
+            requireText(path + ".streams[" + index + "]", stream, errors);
+            index++;
         }
     }
 

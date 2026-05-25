@@ -15,8 +15,32 @@ public record BinanceProperties(
         @Valid @NotNull Trading trading,
         @Valid UserDataStream userDataStream,
         @Valid MarginAccount marginAccount,
-        @Valid FuturesAccount futuresAccount
+        @Valid FuturesAccount futuresAccount,
+        @Valid MarketDataStream marketData
 ) {
+    public BinanceProperties(
+            String marketType,
+            Credentials credentials,
+            Rest rest,
+            Websocket websocket,
+            Trading trading,
+            UserDataStream userDataStream,
+            MarginAccount marginAccount,
+            FuturesAccount futuresAccount
+    ) {
+        this(
+                marketType,
+                credentials,
+                rest,
+                websocket,
+                trading,
+                userDataStream,
+                marginAccount,
+                futuresAccount,
+                MarketDataStream.disabled()
+        );
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Credentials(
             @NotNull String reference,
@@ -165,6 +189,22 @@ public record BinanceProperties(
             Integer renewalIntervalMinutes,
             Integer requestWeight
     ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record MarketDataStream(
+            Boolean runtimeEnabled,
+            String connectionMode,
+            String route,
+            @NotNull List<String> streams
+    ) {
+        public MarketDataStream {
+            streams = streams == null ? List.of() : List.copyOf(streams);
+        }
+
+        static MarketDataStream disabled() {
+            return new MarketDataStream(false, "combined", "default", List.of());
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

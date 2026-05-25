@@ -32,7 +32,9 @@ public class BinanceExchangeModule implements ExchangeModule {
     private volatile ResolvedExchangeConfig config;
     private volatile boolean connected;
     private BinanceUserDataStreamRuntime userDataRuntime;
+    private BinanceMarketDataStreamRuntime marketDataRuntime;
     private ScheduledExecutorService userDataSchedulerExecutor;
+    private ScheduledExecutorService marketDataSchedulerExecutor;
 
     public BinanceExchangeModule() {
         this(null, Clock.systemUTC(), null, null);
@@ -85,7 +87,14 @@ public class BinanceExchangeModule implements ExchangeModule {
             return CompletableFuture.completedFuture(null);
         }
         BinanceProperties binance = requireBinance(config);
-        startUserDataRuntimeIfEnabled(binance);
+        try {
+            startUserDataRuntimeIfEnabled(binance);
+            startMarketDataRuntimeIfEnabled(binance);
+        } catch (RuntimeException e) {
+            stopMarketDataRuntime();
+            stopUserDataRuntime();
+            throw e;
+        }
         connected = true;
         log.info("Binance exchange module connected for target {}", config.target());
         return CompletableFuture.completedFuture(null);
@@ -93,6 +102,7 @@ public class BinanceExchangeModule implements ExchangeModule {
 
     @Override
     public CompletableFuture<Void> disconnect() {
+        stopMarketDataRuntime();
         stopUserDataRuntime();
         connected = false;
         log.info("Binance exchange module disconnected");
@@ -103,13 +113,17 @@ public class BinanceExchangeModule implements ExchangeModule {
     public CompletableFuture<Void> applyMutableConfig(ResolvedExchangeConfig config) {
         boolean wasConnected = connected;
         if (wasConnected) {
+            stopMarketDataRuntime();
             stopUserDataRuntime();
         }
         configure(config);
         if (wasConnected) {
             try {
                 startUserDataRuntimeIfEnabled(requireBinance(config));
+                startMarketDataRuntimeIfEnabled(requireBinance(config));
             } catch (RuntimeException e) {
+                stopMarketDataRuntime();
+                stopUserDataRuntime();
                 connected = false;
                 throw e;
             }
@@ -177,6 +191,52 @@ public class BinanceExchangeModule implements ExchangeModule {
         log.info("Started Binance user-data stream runtime for target {}", config.target());
     }
 
+    private void startMarketDataRuntimeIfEnabled(BinanceProperties binance) {
+        BinanceProperties.MarketDataStream marketData = binance.marketData();
+        if (marketData == null || !Boolean.TRUE.equals(marketData.runtimeEnabled())) {
+            return;
+        }
+        TradingEventBus eventBus = eventBusProvider == null ? null : eventBusProvider.getIfAvailable();
+        if (eventBus == null) {
+            throw new IllegalStateException("Binance market_data.runtime_enabled requires a TradingEventBus");
+        }
+
+        marketDataSchedulerExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "binance-market-data-runtime");
+            thread.setDaemon(true);
+            return thread;
+        });
+        BinanceWebSocketTransport webSocketTransport = webSocketTransportOverride == null
+                ? new BinanceReactorNettyWebSocketTransport()
+                : webSocketTransportOverride;
+        BinanceMarketDataStreamRuntime runtime = new BinanceMarketDataStreamRuntime(
+                marketData,
+                new BinanceWebSocketClient(webSocketTransport),
+                new BinanceWebSocketEndpointPlanner(binance.websocket(), clock),
+                new BinanceExecutorWebSocketReconnectScheduler(marketDataSchedulerExecutor),
+                clock,
+                Duration.ofMillis(binance.rest().retryBackoffMillis()),
+                new BinanceMarketDataEventMapper(),
+                new BinanceMarketDataEventMapper.Context(
+                        provider(),
+                        config.target().environment(),
+                        config.target().account(),
+                        config.target().market()
+                ),
+                eventBus,
+                new LoggingMarketDataListener()
+        );
+        try {
+            runtime.start();
+            marketDataRuntime = runtime;
+        } catch (RuntimeException e) {
+            runtime.close();
+            stopMarketDataRuntime();
+            throw e;
+        }
+        log.info("Started Binance market-data stream runtime for target {}", config.target());
+    }
+
     private void stopUserDataRuntime() {
         if (userDataRuntime != null) {
             userDataRuntime.close();
@@ -185,6 +245,17 @@ public class BinanceExchangeModule implements ExchangeModule {
         if (userDataSchedulerExecutor != null) {
             userDataSchedulerExecutor.shutdownNow();
             userDataSchedulerExecutor = null;
+        }
+    }
+
+    private void stopMarketDataRuntime() {
+        if (marketDataRuntime != null) {
+            marketDataRuntime.close();
+            marketDataRuntime = null;
+        }
+        if (marketDataSchedulerExecutor != null) {
+            marketDataSchedulerExecutor.shutdownNow();
+            marketDataSchedulerExecutor = null;
         }
     }
 
@@ -216,6 +287,24 @@ public class BinanceExchangeModule implements ExchangeModule {
         @Override
         public void onClose() {
             log.info("Closed Binance user-data websocket for target {}", config.target());
+        }
+    }
+
+    private final class LoggingMarketDataListener implements BinanceWebSocketListener {
+
+        @Override
+        public void onOpen(BinanceWebSocketConnectionPlan plan) {
+            log.info("Opened Binance market-data websocket for target {}", config.target());
+        }
+
+        @Override
+        public void onError(Throwable error) {
+            log.warn("Binance market-data websocket reported an error for target {}", config.target(), error);
+        }
+
+        @Override
+        public void onClose() {
+            log.info("Closed Binance market-data websocket for target {}", config.target());
         }
     }
 }

@@ -90,6 +90,12 @@
                       "mode": "websocket_api",
                       "runtime_enabled": false
                     },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
+                    },
                     "trading": {
                       "new_order_path": "/api/v3/order",
                       "query_order_path": "/api/v3/order",
@@ -248,6 +254,12 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -429,6 +441,12 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -612,6 +630,12 @@
                       "validity_minutes": 60,
                       "renewal_interval_minutes": 30,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -798,6 +822,12 @@
                       "validity_minutes": 60,
                       "renewal_interval_minutes": 30,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -986,6 +1016,12 @@
                       "validity_minutes": 60,
                       "renewal_interval_minutes": 55,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",
@@ -1134,6 +1170,12 @@
                       "mode": "websocket_api",
                       "runtime_enabled": false
                     },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
+                    },
                     "trading": {
                       "new_order_path": "/api/v3/order",
                       "query_order_path": "/api/v3/order",
@@ -1292,6 +1334,12 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -1473,6 +1521,12 @@
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -1656,6 +1710,12 @@
                       "validity_minutes": 60,
                       "renewal_interval_minutes": 30,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -1842,6 +1902,12 @@
                       "validity_minutes": 60,
                       "renewal_interval_minutes": 30,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -2030,6 +2096,12 @@
                       "validity_minutes": 60,
                       "renewal_interval_minutes": 55,
                       "request_weight": 1
+                    },
+                    "market_data": {
+                      "runtime_enabled": false,
+                      "connection_mode": "combined",
+                      "route": "default",
+                      "streams": []
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",
