@@ -175,6 +175,11 @@ The Binance user-data event publisher is the private-stream listener boundary:
 it maps incoming provider payloads and publishes core envelopes through
 `TradingEventBus`, while leaving strategy intent and execution planning outside
 the provider module.
+The Binance user-data stream runtime composes the REST listen-key or
+listen-token lifecycle with the private WebSocket supervisor. It starts the
+stream id, opens the private socket through the endpoint planner, schedules
+renewal, restarts token-style streams that have no keepalive path, and only
+calls REST close when Binance exposes a close endpoint for that product.
 REST clients parse Binance rate-limit headers after every response and retain
 the latest observed request-weight, order-count, and retry-after values for
 later risk, throttling, and observability wiring.
@@ -310,6 +315,8 @@ of truth. As of the current code, the connector covers these foundations:
   into core Avro execution, balance, and position envelopes.
 - User-data event publisher listener that converts private WebSocket payloads
   into core events and hands them to the core event bus.
+- User-data stream runtime component that attaches listen-key or listen-token
+  REST lifecycle management to a managed private WebSocket supervisor.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -317,10 +324,10 @@ adapter. Known gaps that must remain on the plan:
 - Active margin transfer placement and margin OPO/OPOCO placement are not
   exposed in the current Binance margin docs; do not claim them until Binance
   documents endpoints for them.
-- User-data payload mapping and event-bus publishing are implemented as
-  standalone listener components, but managed listen-key/listen-token runtime
-  attachment, market-data stream mapping, and REST snapshot reconciliation are
-  not yet wired end to end.
+- User-data payload mapping, event-bus publishing, and listen-key/listen-token
+  runtime supervision are implemented as standalone components, but
+  ExchangeModule lifecycle auto-start, market-data stream mapping, and REST
+  snapshot reconciliation are not yet wired end to end.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

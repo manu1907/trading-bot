@@ -240,6 +240,11 @@ Implemented Binance foundations:
 - Binance user-data event publisher listener that maps private WebSocket text
   payloads and publishes the resulting core Avro envelopes through the core
   event bus, preserving provider parsing inside the Binance module.
+- Binance user-data stream runtime component that starts the REST listen-key or
+  listen-token lifecycle, opens a managed private WebSocket supervisor on the
+  returned stream id, schedules renewal, restarts token-style streams that have
+  no keepalive path, and closes REST lifecycle only when Binance exposes a
+  close path.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -249,9 +254,10 @@ Binance parity gaps to close before claiming full connector support:
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
-- All products: attach the mapped user-data publisher to managed listen-key or
-  listen-token runtime supervisors, map market-data streams into core Avro
-  events, and reconcile stream state against REST snapshots.
+- All products: wire the tested user-data stream runtime into the
+  `ExchangeModule` lifecycle behind explicit messaging/runtime readiness,
+  map market-data streams into core Avro events, and reconcile stream state
+  against REST snapshots.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 
