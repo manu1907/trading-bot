@@ -38,6 +38,25 @@ Provider modules and strategy modules are discovered as Spring beans through
 core contracts. Core should not import provider-specific config or implementation
 types.
 
+## Decision Boundary
+
+Strategies explain why and what to trade; they emit provider-agnostic intents
+with direction, confidence, horizon, urgency, risk budget, and execution
+preferences. They do not choose Binance endpoints, order-list shapes, listen-key
+flows, or product-specific flags.
+
+Provider modules explain what the exchange allows and execute concrete
+provider commands. Binance owns its documented market types, filters, fees,
+rate limits, order fields, user-data semantics, and request validation, but it
+must not embed strategy profitability logic.
+
+Core owns how to trade. A future execution planner/smart order router in core
+must combine strategy intents, provider capability catalogs, market/account
+state, risk limits, latency constraints, and reconciliation confidence into
+provider-specific execution plans. For multiple strategies, core must normalize
+signals, allocate risk, resolve conflicts, net exposure where configured, and
+reject commands that exceed the active runtime limits.
+
 ## Runtime Target
 
 A live runtime target is identified by:
@@ -152,6 +171,10 @@ account-update payloads into the core Avro execution, balance, and position
 event envelopes. Runtime WebSocket consumers must publish those envelopes
 through the normal event bus and reconcile them against REST snapshots before
 the connector can be treated as an execution adapter.
+The Binance user-data event publisher is the private-stream listener boundary:
+it maps incoming provider payloads and publishes core envelopes through
+`TradingEventBus`, while leaving strategy intent and execution planning outside
+the provider module.
 REST clients parse Binance rate-limit headers after every response and retain
 the latest observed request-weight, order-count, and retry-after values for
 later risk, throttling, and observability wiring.
@@ -285,6 +308,8 @@ of truth. As of the current code, the connector covers these foundations:
 - User-data event mapping for Spot/Margin execution reports and balance
   updates plus USD-M/COIN-M futures order-trade and account-update payloads
   into core Avro execution, balance, and position envelopes.
+- User-data event publisher listener that converts private WebSocket payloads
+  into core events and hands them to the core event bus.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -292,9 +317,10 @@ adapter. Known gaps that must remain on the plan:
 - Active margin transfer placement and margin OPO/OPOCO placement are not
   exposed in the current Binance margin docs; do not claim them until Binance
   documents endpoints for them.
-- User-data payload mapping is implemented as a standalone mapper, but runtime
-  WebSocket publishing, market-data stream mapping, and REST snapshot
-  reconciliation are not yet wired end to end.
+- User-data payload mapping and event-bus publishing are implemented as
+  standalone listener components, but managed listen-key/listen-token runtime
+  attachment, market-data stream mapping, and REST snapshot reconciliation are
+  not yet wired end to end.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

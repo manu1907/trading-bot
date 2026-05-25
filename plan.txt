@@ -14,6 +14,18 @@ green tests, corrected warnings, and a short review of what changed.
   strategy defaults belong in `config/catalog.json` as much as possible.
   Environment files and runtime overrides select or narrow those defaults; they
   must not create a second implementation path.
+- Strategy modules explain why to trade by emitting provider-agnostic intents.
+  Core decides how to trade by combining those intents with risk budgets,
+  portfolio allocation, market/account projections, latency constraints, and
+  provider capability catalogs. Provider modules declare and validate what an
+  exchange allows and execute concrete provider commands; they must not embed
+  strategy logic.
+- A future execution planner/smart order router in core must score available
+  provider features by expected utility: edge, fees, spread/slippage, funding
+  or borrow cost, fill probability, queue/latency risk, inventory and margin
+  risk, rate-limit cost, and reconciliation confidence. It must support one or
+  many strategies by normalizing signals, resolving conflicts, netting exposure
+  where appropriate, and rejecting commands that exceed configured risk.
 - Local `api.env` may provide smoke-test credentials, but it must stay ignored
   and must not be used as source-controlled configuration.
 - No dry-run or toy execution path should be introduced as a substitute for the
@@ -225,6 +237,9 @@ Implemented Binance foundations:
 - Binance user-data event mapper for Spot/Margin execution reports and balance
   updates plus USD-M/COIN-M futures order-trade and account-update payloads
   into core Avro execution, balance, and position envelopes.
+- Binance user-data event publisher listener that maps private WebSocket text
+  payloads and publishes the resulting core Avro envelopes through the core
+  event bus, preserving provider parsing inside the Binance module.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -234,9 +249,9 @@ Binance parity gaps to close before claiming full connector support:
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
-- All products: wire mapped user-data stream events into runtime publishing,
-  map market-data streams into core Avro events, and reconcile stream state
-  against REST snapshots.
+- All products: attach the mapped user-data publisher to managed listen-key or
+  listen-token runtime supervisors, map market-data streams into core Avro
+  events, and reconcile stream state against REST snapshots.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 
