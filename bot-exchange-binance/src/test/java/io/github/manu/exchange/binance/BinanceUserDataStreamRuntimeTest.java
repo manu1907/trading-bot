@@ -294,6 +294,7 @@ class BinanceUserDataStreamRuntimeTest {
     private BinanceProperties.UserDataStream userData(String mode, String startPath, String keepalivePath, String closePath) {
         return new BinanceProperties.UserDataStream(
                 mode,
+                false,
                 startPath,
                 keepalivePath,
                 closePath,

@@ -295,6 +295,6 @@ class BinanceWebSocketApiRequestFactoryTest {
     }
 
     private BinanceProperties.UserDataStream userData() {
-        return new BinanceProperties.UserDataStream("websocket_api", null, null, null, null, null, null);
+        return new BinanceProperties.UserDataStream("websocket_api", false, null, null, null, null, null, null);
     }
 }

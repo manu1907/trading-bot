@@ -365,6 +365,7 @@ class BinanceFuturesAccountRequestFactoryTest {
     private BinanceProperties.UserDataStream userData(String pathPrefix) {
         return new BinanceProperties.UserDataStream(
                 "listen_key",
+                false,
                 pathPrefix + "/listenKey",
                 pathPrefix + "/listenKey",
                 pathPrefix + "/listenKey",

@@ -87,7 +87,8 @@
                       "api_path": "/ws-api/v3"
                     },
                     "user_data": {
-                      "mode": "websocket_api"
+                      "mode": "websocket_api",
+                      "runtime_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/api/v3/order",
@@ -242,6 +243,7 @@
                     },
                     "user_data": {
                       "mode": "listen_token",
+                      "runtime_enabled": false,
                       "start_path": "/sapi/v1/userListenToken",
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
@@ -422,6 +424,7 @@
                     },
                     "user_data": {
                       "mode": "listen_token",
+                      "runtime_enabled": false,
                       "start_path": "/sapi/v1/userListenToken",
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
@@ -602,6 +605,7 @@
                     },
                     "user_data": {
                       "mode": "listen_key",
+                      "runtime_enabled": false,
                       "start_path": "/fapi/v1/listenKey",
                       "keepalive_path": "/fapi/v1/listenKey",
                       "close_path": "/fapi/v1/listenKey",
@@ -787,6 +791,7 @@
                     },
                     "user_data": {
                       "mode": "listen_key",
+                      "runtime_enabled": false,
                       "start_path": "/dapi/v1/listenKey",
                       "keepalive_path": "/dapi/v1/listenKey",
                       "close_path": "/dapi/v1/listenKey",
@@ -974,6 +979,7 @@
                     },
                     "user_data": {
                       "mode": "listen_key",
+                      "runtime_enabled": false,
                       "start_path": "/eapi/v1/listenKey",
                       "keepalive_path": "/eapi/v1/listenKey",
                       "close_path": "/eapi/v1/listenKey",
@@ -1125,7 +1131,8 @@
                       "api_path": "/ws-api/v3"
                     },
                     "user_data": {
-                      "mode": "websocket_api"
+                      "mode": "websocket_api",
+                      "runtime_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/api/v3/order",
@@ -1280,6 +1287,7 @@
                     },
                     "user_data": {
                       "mode": "listen_token",
+                      "runtime_enabled": false,
                       "start_path": "/sapi/v1/userListenToken",
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
@@ -1460,6 +1468,7 @@
                     },
                     "user_data": {
                       "mode": "listen_token",
+                      "runtime_enabled": false,
                       "start_path": "/sapi/v1/userListenToken",
                       "validity_minutes": 1440,
                       "renewal_interval_minutes": 1380,
@@ -1640,6 +1649,7 @@
                     },
                     "user_data": {
                       "mode": "listen_key",
+                      "runtime_enabled": false,
                       "start_path": "/fapi/v1/listenKey",
                       "keepalive_path": "/fapi/v1/listenKey",
                       "close_path": "/fapi/v1/listenKey",
@@ -1825,6 +1835,7 @@
                     },
                     "user_data": {
                       "mode": "listen_key",
+                      "runtime_enabled": false,
                       "start_path": "/dapi/v1/listenKey",
                       "keepalive_path": "/dapi/v1/listenKey",
                       "close_path": "/dapi/v1/listenKey",
@@ -2012,6 +2023,7 @@
                     },
                     "user_data": {
                       "mode": "listen_key",
+                      "runtime_enabled": false,
                       "start_path": "/eapi/v1/listenKey",
                       "keepalive_path": "/eapi/v1/listenKey",
                       "close_path": "/eapi/v1/listenKey",

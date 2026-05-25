@@ -157,6 +157,7 @@ public record BinanceProperties(
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record UserDataStream(
             String mode,
+            Boolean runtimeEnabled,
             String startPath,
             String keepalivePath,
             String closePath,

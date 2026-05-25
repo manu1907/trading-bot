@@ -245,6 +245,10 @@ Implemented Binance foundations:
   returned stream id, schedules renewal, restarts token-style streams that have
   no keepalive path, and closes REST lifecycle only when Binance exposes a
   close path.
+- Binance exchange module opt-in wiring for user-data runtime via
+  catalog-backed `user_data.runtime_enabled`. Defaults keep it disabled; when
+  enabled, startup requires an available `TradingEventBus` so private
+  account/order events cannot be silently dropped.
 
 Binance parity gaps to close before claiming full connector support:
 
@@ -254,10 +258,8 @@ Binance parity gaps to close before claiming full connector support:
 - Options: verify current `/eapi` coverage against current Binance options
   documentation before enabling real options trading; keep it disabled unless
   order, MMP, account, and stream semantics are fully tested.
-- All products: wire the tested user-data stream runtime into the
-  `ExchangeModule` lifecycle behind explicit messaging/runtime readiness,
-  map market-data streams into core Avro events, and reconcile stream state
-  against REST snapshots.
+- All products: map market-data streams into core Avro events and reconcile
+  user-data/market-data stream state against REST snapshots.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

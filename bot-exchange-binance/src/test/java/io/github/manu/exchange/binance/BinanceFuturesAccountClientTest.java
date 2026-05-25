@@ -435,6 +435,7 @@ class BinanceFuturesAccountClientTest {
     private BinanceProperties.UserDataStream userData() {
         return new BinanceProperties.UserDataStream(
                 "listen_key",
+                false,
                 "/fapi/v1/listenKey",
                 "/fapi/v1/listenKey",
                 "/fapi/v1/listenKey",

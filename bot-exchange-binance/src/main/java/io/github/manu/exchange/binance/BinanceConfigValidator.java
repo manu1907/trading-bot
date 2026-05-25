@@ -423,7 +423,11 @@ final class BinanceConfigValidator {
         }
 
         requireOneOf(path + ".mode", userData.mode(), USER_DATA_MODES, errors);
+        requireNotNull(path + ".runtime_enabled", userData.runtimeEnabled(), errors);
         if (WEBSOCKET_API.equals(userData.mode())) {
+            if (Boolean.TRUE.equals(userData.runtimeEnabled())) {
+                errors.add(path + ".runtime_enabled must be false for websocket_api until subscription runtime is implemented");
+            }
             return;
         }
 

@@ -3,18 +3,32 @@ package io.github.manu.exchange.binance;
 import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.config.properties.ExchangeProperties;
 import io.github.manu.config.properties.TradingBotProperties;
+import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.exchange.ResolvedExchangeConfig;
+import io.github.manu.messaging.DeadLetterTradingEvent;
+import io.github.manu.messaging.PublishedTradingEvent;
+import io.github.manu.messaging.TradingEventBus;
+import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class BinanceExchangeModuleTest {
 
@@ -90,6 +104,56 @@ class BinanceExchangeModuleTest {
         assertThatThrownBy(() -> module.validateConfig(config))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("futures_account.portfolio_margin_expected must be false");
+    }
+
+    @Test
+    void connects_without_user_data_runtime_when_runtime_flag_is_disabled() throws IOException {
+        module.configure(checkedInResolvedConfig());
+
+        module.connect().join();
+        module.disconnect().join();
+    }
+
+    @Test
+    void rejects_user_data_runtime_without_event_bus() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
+                market.withObject("user_data").put("runtime_enabled", true));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule();
+
+        runtimeModule.configure(config);
+
+        assertThatThrownBy(runtimeModule::connect)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TradingEventBus");
+    }
+
+    @Test
+    void starts_and_stops_user_data_runtime_when_enabled_and_event_bus_is_available() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
+                market.withObject("user_data").put("runtime_enabled", true));
+        FakeHttpTransport httpTransport = new FakeHttpTransport(
+                new BinanceHttpResponse(200, "{\"listenKey\":\"listen-key-1\"}"),
+                new BinanceHttpResponse(200, "{}")
+        );
+        FakeWebSocketTransport webSocketTransport = new FakeWebSocketTransport();
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                webSocketTransport
+        );
+
+        runtimeModule.configure(config);
+        runtimeModule.connect().join();
+        runtimeModule.connect().join();
+        runtimeModule.disconnect().join();
+
+        assertThat(httpTransport.calls()).extracting(FakeCall::method).containsExactly("POST", "DELETE");
+        assertThat(webSocketTransport.plans).singleElement().satisfies(plan -> {
+            assertThat(plan.route()).isEqualTo(BinanceWebSocketRoute.PRIVATE);
+            assertThat(plan.streams()).containsExactly("listen-key-1");
+        });
+        assertThat(webSocketTransport.closeCount).isEqualTo(1);
     }
 
     private ResolvedExchangeConfig checkedInResolvedConfig() throws IOException {
@@ -174,5 +238,103 @@ class BinanceExchangeModuleTest {
 
     private interface RootConfigMutation {
         void apply(ObjectNode root, ExchangeProperties active) throws IOException;
+    }
+
+    private ObjectProvider<TradingEventBus> provider(TradingEventBus eventBus) {
+        return new ObjectProvider<>() {
+            @Override
+            public TradingEventBus getObject(Object... args) {
+                return eventBus;
+            }
+
+            @Override
+            public TradingEventBus getIfAvailable() {
+                return eventBus;
+            }
+
+            @Override
+            public TradingEventBus getObject() {
+                return eventBus;
+            }
+        };
+    }
+
+    private record FakeCall(String method, String uri, String payload, String signature, String apiKey, String apiKeyHeader) {
+    }
+
+    private static final class FakeHttpTransport implements BinanceHttpTransport {
+        private final List<BinanceHttpResponse> responses;
+        private final List<FakeCall> calls = new ArrayList<>();
+
+        FakeHttpTransport(BinanceHttpResponse... responses) {
+            this.responses = new ArrayList<>(List.of(responses));
+        }
+
+        @Override
+        public BinanceHttpResponse sendPublic(URI uri, String method) {
+            throw new UnsupportedOperationException("public requests are not used by this test");
+        }
+
+        @Override
+        public BinanceHttpResponse send(BinanceSignedRequest request,
+                                        String method,
+                                        String apiKey,
+                                        String apiKeyHeader) {
+            calls.add(new FakeCall(
+                    method,
+                    request.uri().toString(),
+                    request.payload(),
+                    request.signature(),
+                    apiKey,
+                    apiKeyHeader
+            ));
+            return responses.removeFirst();
+        }
+
+        List<FakeCall> calls() {
+            return List.copyOf(calls);
+        }
+    }
+
+    private static final class FakeWebSocketTransport implements BinanceWebSocketTransport {
+        private final List<BinanceWebSocketConnectionPlan> plans = new ArrayList<>();
+        private int closeCount;
+
+        @Override
+        public BinanceWebSocketConnection connect(
+                BinanceWebSocketConnectionPlan plan,
+                BinanceWebSocketListener listener
+        ) {
+            plans.add(plan);
+            listener.onOpen(plan);
+            return new BinanceWebSocketConnection(
+                    plan,
+                    Instant.parse("2026-05-22T20:00:00Z"),
+                    () -> {
+                        closeCount++;
+                        listener.onClose();
+                    }
+            );
+        }
+    }
+
+    private static final class CapturingTradingEventBus implements TradingEventBus {
+
+        @Override
+        public CompletableFuture<PublishedTradingEvent> publish(
+                TradingEventEnvelope<? extends SpecificRecord> envelope
+        ) {
+            return CompletableFuture.completedFuture(new PublishedTradingEvent(
+                    envelope.eventType(),
+                    envelope.route().topic(),
+                    0,
+                    1
+            ));
+        }
+
+        @Override
+        public CompletableFuture<PublishedTradingEvent> publishDeadLetter(DeadLetterTradingEvent event) {
+            throw new UnsupportedOperationException("dead letters are not used by this test");
+        }
     }
 }
