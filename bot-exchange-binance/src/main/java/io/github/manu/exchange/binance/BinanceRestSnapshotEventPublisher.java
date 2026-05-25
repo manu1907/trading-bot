@@ -1,6 +1,9 @@
 package io.github.manu.exchange.binance;
 
 import io.github.manu.events.TradingEventEnvelope;
+import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.OrderResultEvent;
+import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 
@@ -30,36 +33,64 @@ final class BinanceRestSnapshotEventPublisher {
     }
 
     CompletableFuture<List<PublishedTradingEvent>> publishOpenOrders(List<BinanceOrderResult> orders) {
-        return publish(mapper.openOrders(orders, mapperContext()));
+        return publishEnvelopes(mapOpenOrders(orders));
     }
 
     CompletableFuture<List<PublishedTradingEvent>> publishFuturesBalances(List<BinanceFuturesBalance> balances) {
-        return publish(mapper.futuresBalances(balances, mapperContext()));
+        return publishEnvelopes(mapFuturesBalances(balances));
     }
 
     CompletableFuture<List<PublishedTradingEvent>> publishFuturesAccount(BinanceFuturesAccountSnapshot snapshot) {
-        return publish(mapper.futuresAccount(snapshot, mapperContext()));
+        return publishEnvelopes(mapFuturesAccount(snapshot));
     }
 
     CompletableFuture<List<PublishedTradingEvent>> publishFuturesPositions(
             List<BinanceFuturesPositionSnapshot> positions
     ) {
-        return publish(mapper.futuresPositions(positions, mapperContext()));
+        return publishEnvelopes(mapFuturesPositions(positions));
     }
 
     CompletableFuture<List<PublishedTradingEvent>> publishCrossMarginAccount(
             BinanceCrossMarginAccountSnapshot snapshot
     ) {
-        return publish(mapper.crossMarginAccount(snapshot, mapperContext()));
+        return publishEnvelopes(mapCrossMarginAccount(snapshot));
     }
 
     CompletableFuture<List<PublishedTradingEvent>> publishIsolatedMarginAccount(
             BinanceIsolatedMarginAccountSnapshot snapshot
     ) {
-        return publish(mapper.isolatedMarginAccount(snapshot, mapperContext()));
+        return publishEnvelopes(mapIsolatedMarginAccount(snapshot));
     }
 
-    private CompletableFuture<List<PublishedTradingEvent>> publish(
+    List<TradingEventEnvelope<OrderResultEvent>> mapOpenOrders(List<BinanceOrderResult> orders) {
+        return mapper.openOrders(orders, mapperContext());
+    }
+
+    List<TradingEventEnvelope<BalanceUpdateEvent>> mapFuturesBalances(List<BinanceFuturesBalance> balances) {
+        return mapper.futuresBalances(balances, mapperContext());
+    }
+
+    List<TradingEventEnvelope<?>> mapFuturesAccount(BinanceFuturesAccountSnapshot snapshot) {
+        return mapper.futuresAccount(snapshot, mapperContext());
+    }
+
+    List<TradingEventEnvelope<PositionUpdateEvent>> mapFuturesPositions(
+            List<BinanceFuturesPositionSnapshot> positions
+    ) {
+        return mapper.futuresPositions(positions, mapperContext());
+    }
+
+    List<TradingEventEnvelope<BalanceUpdateEvent>> mapCrossMarginAccount(BinanceCrossMarginAccountSnapshot snapshot) {
+        return mapper.crossMarginAccount(snapshot, mapperContext());
+    }
+
+    List<TradingEventEnvelope<BalanceUpdateEvent>> mapIsolatedMarginAccount(
+            BinanceIsolatedMarginAccountSnapshot snapshot
+    ) {
+        return mapper.isolatedMarginAccount(snapshot, mapperContext());
+    }
+
+    CompletableFuture<List<PublishedTradingEvent>> publishEnvelopes(
             List<? extends TradingEventEnvelope<?>> envelopes
     ) {
         List<CompletableFuture<PublishedTradingEvent>> futures = new ArrayList<>(envelopes.size());

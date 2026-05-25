@@ -1,14 +1,20 @@
 package io.github.manu.exchange.binance;
 
 import io.github.manu.config.properties.provider.binance.BinanceProperties;
+import io.github.manu.events.TradingEventEnvelope;
+import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.OrderResultEvent;
+import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -57,37 +63,37 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
     }
 
     List<PublishedTradingEvent> runOnce() {
-        List<PublishedTradingEvent> published = new ArrayList<>();
+        List<TradingEventEnvelope<?>> envelopes = new ArrayList<>();
         if (Boolean.TRUE.equals(reconciliation.openOrdersEnabled())) {
             List<String> symbols = reconciliation.openOrderSymbols();
             if (symbols.isEmpty()) {
-                published.addAll(publisher.publishOpenOrders(orderSnapshots.openOrders(null)).join());
+                envelopes.addAll(publisher.mapOpenOrders(orderSnapshots.openOrders(null)));
             } else {
                 for (String symbol : symbols) {
-                    published.addAll(publisher.publishOpenOrders(orderSnapshots.openOrders(symbol)).join());
+                    envelopes.addAll(publisher.mapOpenOrders(orderSnapshots.openOrders(symbol)));
                 }
             }
         }
         if (Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())) {
-            published.addAll(publisher.publishFuturesBalances(futuresSnapshots.balances()).join());
+            envelopes.addAll(publisher.mapFuturesBalances(futuresSnapshots.balances()));
         }
         if (Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())) {
-            published.addAll(publisher.publishFuturesAccount(futuresSnapshots.accountInfo()).join());
+            envelopes.addAll(publisher.mapFuturesAccount(futuresSnapshots.accountInfo()));
         }
         if (Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled())) {
-            published.addAll(publisher.publishFuturesPositions(futuresSnapshots.positionRisk(
+            envelopes.addAll(publisher.mapFuturesPositions(futuresSnapshots.positionRisk(
                     new BinanceFuturesPositionRiskQuery(null, null, null)
-            )).join());
+            )));
         }
         if (Boolean.TRUE.equals(reconciliation.crossMarginAccountEnabled())) {
-            published.addAll(publisher.publishCrossMarginAccount(marginSnapshots.crossAccount()).join());
+            envelopes.addAll(publisher.mapCrossMarginAccount(marginSnapshots.crossAccount()));
         }
         if (Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled())) {
-            published.addAll(publisher.publishIsolatedMarginAccount(marginSnapshots.isolatedAccount(
+            envelopes.addAll(publisher.mapIsolatedMarginAccount(marginSnapshots.isolatedAccount(
                     new BinanceIsolatedMarginAccountQuery(reconciliation.isolatedMarginSymbols())
-            )).join());
+            )));
         }
-        return List.copyOf(published);
+        return publisher.publishEnvelopes(unique(envelopes)).join();
     }
 
     @Override
@@ -143,6 +149,34 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
                 || Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled())) && marginSnapshots == null) {
             throw new IllegalArgumentException("margin reconciliation requires margin snapshots");
         }
+    }
+
+    private List<TradingEventEnvelope<?>> unique(List<TradingEventEnvelope<?>> envelopes) {
+        Set<String> eventIds = new LinkedHashSet<>();
+        List<TradingEventEnvelope<?>> unique = new ArrayList<>();
+        for (TradingEventEnvelope<?> envelope : envelopes) {
+            String eventId = eventId(envelope);
+            if (eventIds.add(eventId)) {
+                unique.add(envelope);
+            } else {
+                log.warn("Suppressing duplicate Binance reconciliation event: {}", eventId);
+            }
+        }
+        return List.copyOf(unique);
+    }
+
+    private String eventId(TradingEventEnvelope<?> envelope) {
+        Object value = envelope.value();
+        if (value instanceof OrderResultEvent event) {
+            return event.getEventId().toString();
+        }
+        if (value instanceof BalanceUpdateEvent event) {
+            return event.getEventId().toString();
+        }
+        if (value instanceof PositionUpdateEvent event) {
+            return event.getEventId().toString();
+        }
+        throw new IllegalArgumentException("Unsupported reconciliation event type: " + envelope.eventType());
     }
 
     interface OrderSnapshots {

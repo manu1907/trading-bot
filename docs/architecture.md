@@ -359,6 +359,8 @@ of truth. As of the current code, the connector covers these foundations:
   that can periodically call configured open-order, futures account/position,
   and margin account snapshot sources and publish normalized reconciliation
   events.
+- Reconciliation runs aggregate configured snapshot sources into one ordered
+  publish batch and suppress duplicate event IDs inside the run.
 
 The connector is not yet complete enough to be called a full Binance execution
 adapter. Known gaps that must remain on the plan:
@@ -372,7 +374,8 @@ adapter. Known gaps that must remain on the plan:
   and opt-in ExchangeModule lifecycle wiring are implemented. REST snapshot
   event mapping, publishing, and catalog-backed runtime scheduling are
   implemented. Reconciliation still does not compare stream/projection state or
-  enforce final ordering/idempotency around gaps and unknown execution status.
+  enforce durable cross-run ordering/idempotency around gaps and unknown
+  execution status.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

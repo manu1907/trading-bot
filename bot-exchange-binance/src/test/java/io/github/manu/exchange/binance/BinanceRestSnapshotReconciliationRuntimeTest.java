@@ -91,12 +91,10 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
         assertThat(futures.positionRiskCalls).isEqualTo(1);
         assertThat(margin.crossAccountCalls).isEqualTo(1);
         assertThat(margin.isolatedSymbols).containsExactly(List.of("BTCUSDT"));
-        assertThat(published).hasSize(7);
+        assertThat(published).hasSize(5);
         assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
                 .containsExactly(
                         TradingEventType.BALANCE_UPDATE,
-                        TradingEventType.BALANCE_UPDATE,
-                        TradingEventType.POSITION_UPDATE,
                         TradingEventType.POSITION_UPDATE,
                         TradingEventType.BALANCE_UPDATE,
                         TradingEventType.BALANCE_UPDATE,
