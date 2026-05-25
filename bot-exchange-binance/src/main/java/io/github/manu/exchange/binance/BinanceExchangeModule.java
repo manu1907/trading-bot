@@ -447,8 +447,14 @@ public class BinanceExchangeModule implements ExchangeModule {
         if (attributes == null) {
             return false;
         }
-        CharSequence source = attributes.get("source");
-        return source != null && "rest_snapshot".contentEquals(source);
+        for (Map.Entry<CharSequence, CharSequence> entry : attributes.entrySet()) {
+            if ("source".contentEquals(entry.getKey())
+                    && entry.getValue() != null
+                    && "rest_snapshot".contentEquals(entry.getValue())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasText(CharSequence value) {
