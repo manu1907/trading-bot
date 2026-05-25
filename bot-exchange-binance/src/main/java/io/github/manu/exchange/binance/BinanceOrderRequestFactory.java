@@ -159,10 +159,31 @@ final class BinanceOrderRequestFactory {
 
     BinanceSignedRequest commissionRates(String symbol, String privateCredential) {
         requireConfiguredPath("commissionRatesPath", binance.trading().commissionRatesPath());
+        if (isOptionsMarket()) {
+            throw new IllegalArgumentException("use optionsCommissionRates for Binance options commission queries");
+        }
         requireSymbol(symbol);
         return restRequestFactory.signedUri(binance.trading().commissionRatesPath(), List.of(
                 BinanceRequestParameter.of("symbol", symbol)
         ), privateCredential);
+    }
+
+    BinanceSignedRequest optionsCommissionRates(String privateCredential) {
+        requireOptionsMarket("optionsCommissionRates");
+        requireConfiguredPath("commissionRatesPath", binance.trading().commissionRatesPath());
+        return restRequestFactory.signedUri(binance.trading().commissionRatesPath(), List.of(), privateCredential);
+    }
+
+    BinanceSignedRequest optionsExerciseRecords(BinanceOptionsExerciseRecordQuery query, String privateCredential) {
+        requireOptionsMarket("optionsExerciseRecords");
+        requireConfiguredPath("exerciseRecordPath", binance.trading().exerciseRecordPath());
+        validateOptionsExerciseRecordQuery(query);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", query.symbol());
+        add(parameters, "startTime", query.startTime());
+        add(parameters, "endTime", query.endTime());
+        add(parameters, "limit", query.limit());
+        return restRequestFactory.signedUri(binance.trading().exerciseRecordPath(), parameters, privateCredential);
     }
 
     BinanceSignedRequest preventedMatches(BinancePreventedMatchesQuery query, String privateCredential) {
@@ -608,6 +629,14 @@ final class BinanceOrderRequestFactory {
         requirePositive("endTime", query.endTime());
         requirePositive("limit", query.limit());
         requireMarginFlagOnlyOnMargin(marketType, query.isolatedMargin());
+        if (marketType == BinanceMarketType.OPTIONS) {
+            requireSymbol(query.symbol());
+            requireNoPair(query.pair());
+            if (query.limit() != null && query.limit() > 1000) {
+                throw new IllegalArgumentException("limit must be less than or equal to 1000");
+            }
+            return;
+        }
         if (marketType == BinanceMarketType.FUTURES_COIN_M) {
             requireExactlyOneSymbolOrPair(query.symbol(), query.pair());
             if (hasText(query.pair()) && query.orderId() != null) {
@@ -628,6 +657,17 @@ final class BinanceOrderRequestFactory {
         requirePositive("fromId", query.fromId());
         requirePositive("limit", query.limit());
         requireMarginFlagOnlyOnMargin(marketType, query.isolatedMargin());
+        if (marketType == BinanceMarketType.OPTIONS) {
+            requireSymbol(query.symbol());
+            requireNoPair(query.pair());
+            if (query.orderId() != null) {
+                throw new IllegalArgumentException("orderId is not supported for options account-trade queries");
+            }
+            if (query.limit() != null && query.limit() > 1000) {
+                throw new IllegalArgumentException("limit must be less than or equal to 1000");
+            }
+            return;
+        }
         if (marketType == BinanceMarketType.FUTURES_COIN_M) {
             requireExactlyOneSymbolOrPair(query.symbol(), query.pair());
             if (hasText(query.pair()) && query.orderId() != null) {
@@ -1228,6 +1268,22 @@ final class BinanceOrderRequestFactory {
     private void requireConfiguredPath(String name, String path) {
         if (!hasText(path)) {
             throw new IllegalArgumentException("Binance trading " + name + " is not configured for this market");
+        }
+    }
+
+    private void validateOptionsExerciseRecordQuery(BinanceOptionsExerciseRecordQuery query) {
+        Objects.requireNonNull(query, "query");
+        requirePositive("startTime", query.startTime());
+        requirePositive("endTime", query.endTime());
+        requirePositive("limit", query.limit());
+        if (query.limit() != null && query.limit() > 1000) {
+            throw new IllegalArgumentException("limit must be less than or equal to 1000");
+        }
+    }
+
+    private void requireOptionsMarket(String operation) {
+        if (!isOptionsMarket()) {
+            throw new IllegalArgumentException(operation + " is only supported for Binance options markets");
         }
     }
 

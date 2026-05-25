@@ -142,6 +142,23 @@ final class BinanceOrderClient {
         return toCommissionRates(readJson(send(requestFactory.commissionRates(symbol, privateCredential), "GET")));
     }
 
+    BinanceOptionsCommissionRates optionsCommissionRates() {
+        return toOptionsCommissionRates(readJson(send(requestFactory.optionsCommissionRates(privateCredential), "GET")));
+    }
+
+    List<BinanceOptionsExerciseRecord> optionsExerciseRecords(BinanceOptionsExerciseRecordQuery query) {
+        JsonNode root = readJson(send(requestFactory.optionsExerciseRecords(query, privateCredential), "GET"));
+        if (!root.isArray()) {
+            throw new IllegalStateException("Expected Binance options exercise records array response");
+        }
+
+        List<BinanceOptionsExerciseRecord> records = new ArrayList<>();
+        for (JsonNode item : root) {
+            records.add(toOptionsExerciseRecord(item));
+        }
+        return List.copyOf(records);
+    }
+
     List<BinancePreventedMatch> preventedMatches(BinancePreventedMatchesQuery query) {
         JsonNode root = readJson(send(requestFactory.preventedMatches(query, privateCredential), "GET"));
         if (!root.isArray()) {
@@ -291,7 +308,7 @@ final class BinanceOrderClient {
                 text(node, "type"),
                 text(node, "positionSide"),
                 decimal(node, "price"),
-                decimal(node, "origQty"),
+                firstDecimal(node, "origQty", "quantity"),
                 decimal(node, "executedQty"),
                 decimal(node, "avgPrice"),
                 firstDecimal(node, "cumQuote", "cummulativeQuoteQty", "cumBase"),
@@ -322,23 +339,63 @@ final class BinanceOrderClient {
         return new BinanceAccountTrade(
                 text(node, "symbol"),
                 longValue(node, "id"),
+                longValue(node, "tradeId"),
                 longValue(node, "orderId"),
                 longValue(node, "orderListId"),
                 text(node, "pair"),
                 text(node, "side"),
                 text(node, "positionSide"),
+                text(node, "liquidity"),
                 decimal(node, "price"),
-                decimal(node, "qty"),
+                firstDecimal(node, "qty", "quantity"),
                 decimal(node, "quoteQty"),
                 decimal(node, "baseQty"),
-                decimal(node, "realizedPnl"),
-                decimal(node, "commission"),
+                firstDecimal(node, "realizedPnl", "realizedProfit"),
+                firstDecimal(node, "commission", "fee"),
                 text(node, "commissionAsset"),
                 text(node, "marginAsset"),
+                intValue(node, "priceScale"),
+                intValue(node, "quantityScale"),
+                text(node, "optionSide"),
+                text(node, "quoteAsset"),
                 firstBoolean(node, "buyer", "isBuyer").orElse(null),
                 firstBoolean(node, "maker", "isMaker").orElse(null),
                 firstBoolean(node, "isBestMatch").orElse(null),
                 longValue(node, "time")
+        );
+    }
+
+    private BinanceOptionsCommissionRates toOptionsCommissionRates(JsonNode node) {
+        JsonNode commissionsNode = node.hasNonNull("commissions") ? node.required("commissions") : jsonMapper.createArrayNode();
+        if (!commissionsNode.isArray()) {
+            throw new IllegalStateException("Expected Binance options commissions array response");
+        }
+        List<BinanceOptionsCommission> commissions = new ArrayList<>();
+        for (JsonNode commission : commissionsNode) {
+            commissions.add(new BinanceOptionsCommission(
+                    text(commission, "underlying"),
+                    decimal(commission, "makerFee"),
+                    decimal(commission, "takerFee")
+            ));
+        }
+        return new BinanceOptionsCommissionRates(List.copyOf(commissions));
+    }
+
+    private BinanceOptionsExerciseRecord toOptionsExerciseRecord(JsonNode node) {
+        return new BinanceOptionsExerciseRecord(
+                text(node, "id"),
+                text(node, "currency"),
+                text(node, "symbol"),
+                decimal(node, "exercisePrice"),
+                decimal(node, "quantity"),
+                decimal(node, "amount"),
+                decimal(node, "fee"),
+                longValue(node, "createDate"),
+                intValue(node, "priceScale"),
+                intValue(node, "quantityScale"),
+                text(node, "optionSide"),
+                text(node, "positionSide"),
+                text(node, "quoteAsset")
         );
     }
 
@@ -572,6 +629,10 @@ final class BinanceOrderClient {
 
     private Long longValue(JsonNode node, String field) {
         return node.hasNonNull(field) ? node.required(field).asLong() : null;
+    }
+
+    private Integer intValue(JsonNode node, String field) {
+        return node.hasNonNull(field) ? node.required(field).asInt() : null;
     }
 
     private Long firstLong(JsonNode node, String... fields) {

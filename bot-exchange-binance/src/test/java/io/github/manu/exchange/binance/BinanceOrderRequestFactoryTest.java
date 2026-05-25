@@ -700,6 +700,21 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_options_order_history_request_with_documented_parameters() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.allOrders(
+                new BinanceOrderHistoryQuery("BTC-240628-70000-C", null, 12_345L, 1_700_000_000_000L, 1_700_001_000_000L, 1000, null),
+                "test-secret"
+        );
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&orderId=12345&startTime=1700000000000&endTime=1700001000000"
+                        + "&limit=1000&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/historyOrders?");
+    }
+
+    @Test
     void builds_margin_account_trade_history_request_with_isolated_flag() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(marginBinance(), FIXED_CLOCK, 0);
 
@@ -715,6 +730,21 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_options_account_trade_history_request_with_documented_parameters() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.accountTrades(
+                new BinanceTradeHistoryQuery("BTC-240628-70000-C", null, null, null, null, 4611875134427365376L, 1000, null),
+                "test-secret"
+        );
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&fromId=4611875134427365376&limit=1000"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/userTrades?");
+    }
+
+    @Test
     void builds_spot_commission_rates_request() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
 
@@ -725,9 +755,28 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_options_commission_and_exercise_record_requests() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest commission = factory.optionsCommissionRates("test-secret");
+        BinanceSignedRequest exercise = factory.optionsExerciseRecords(
+                new BinanceOptionsExerciseRecordQuery("BTC-240628-70000-C", 1_700_000_000_000L, 1_700_001_000_000L, 1000),
+                "test-secret"
+        );
+
+        assertThat(commission.payload()).isEqualTo("timestamp=1499827319559&recvWindow=5000");
+        assertThat(commission.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/commission?");
+        assertThat(exercise.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&startTime=1700000000000&endTime=1700001000000&limit=1000"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(exercise.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/exerciseRecord?");
+    }
+
+    @Test
     void rejects_invalid_spot_commission_rates_requests() {
         BinanceOrderRequestFactory spotFactory = new BinanceOrderRequestFactory(spotBinance(), FIXED_CLOCK, 0);
         BinanceOrderRequestFactory futuresFactory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+        BinanceOrderRequestFactory optionsFactory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
 
         assertThatThrownBy(() -> spotFactory.commissionRates(" ", "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -735,6 +784,15 @@ class BinanceOrderRequestFactoryTest {
         assertThatThrownBy(() -> futuresFactory.commissionRates("BTCUSDT", "test-secret"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("commissionRatesPath is not configured");
+        assertThatThrownBy(() -> optionsFactory.commissionRates("BTC-240628-70000-C", "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("optionsCommissionRates");
+        assertThatThrownBy(() -> optionsFactory.optionsExerciseRecords(
+                new BinanceOptionsExerciseRecordQuery(null, null, null, 1001),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limit must be less than or equal to 1000");
     }
 
     @Test
@@ -2124,6 +2182,7 @@ class BinanceOrderRequestFactoryTest {
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
                 List.of("GTC", "IOC", "FOK", "GTX", "GTD"),
@@ -2182,6 +2241,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -2231,6 +2291,7 @@ class BinanceOrderRequestFactoryTest {
                 "/sapi/v1/margin/order/oco",
                 "/sapi/v1/margin/order/oto",
                 "/sapi/v1/margin/order/otoco",
+                null,
                 null,
                 null,
                 null,
@@ -2298,6 +2359,7 @@ class BinanceOrderRequestFactoryTest {
                 "/dapi/v1/batchOrders",
                 "/dapi/v1/allOpenOrders",
                 "/dapi/v1/countdownCancelAll",
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
                 List.of("GTC", "IOC", "FOK", "GTX", "GTD"),
@@ -2336,6 +2398,9 @@ class BinanceOrderRequestFactoryTest {
                 "/eapi/v1/order",
                 "/eapi/v1/order",
                 "/eapi/v1/openOrders",
+                "/eapi/v1/historyOrders",
+                "/eapi/v1/userTrades",
+                "/eapi/v1/commission",
                 null,
                 null,
                 null,
@@ -2353,9 +2418,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
-                null,
-                null,
-                null,
+                "/eapi/v1/exerciseRecord",
                 List.of("BUY", "SELL"),
                 List.of("LIMIT"),
                 List.of("GTC"),

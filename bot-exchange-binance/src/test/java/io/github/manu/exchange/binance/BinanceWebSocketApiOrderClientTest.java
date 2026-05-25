@@ -231,6 +231,7 @@ class BinanceWebSocketApiOrderClientTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),

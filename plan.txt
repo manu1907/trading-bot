@@ -139,6 +139,16 @@ Source-of-truth docs checked during this review:
   `https://developers.binance.com/docs/derivatives/coin-margined-futures/user-data-streams/Event-Order-Update`
   and
   `https://developers.binance.com/docs/derivatives/coin-margined-futures/user-data-streams/Event-Balance-and-Position-Update`
+- Options order history:
+  `https://developers.binance.com/docs/derivatives/options-trading/trade/Query-Option-Order-History`
+- Options open orders:
+  `https://developers.binance.com/docs/derivatives/options-trading/trade/Query-Current-Open-Option-Orders`
+- Options account trade list:
+  `https://developers.binance.com/docs/derivatives/options-trading/trade/Account-Trade-List`
+- Options user commission:
+  `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Commission`
+- Options exercise records:
+  `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Exercise-Record`
 
 Implemented Binance foundations:
 
@@ -294,10 +304,11 @@ Binance parity gaps to close before claiming full connector support:
   not exposed in the current Binance margin docs; do not claim them until
   Binance documents endpoints for them.
 - Options: `/eapi` order request parameter naming, read-only
-  margin-account/position snapshots, and MMP get/set/reset request coverage are
-  covered, but options parity is not complete. Keep real options trading
-  disabled unless post-only order handling, options-specific order
-  history/open-order reconciliation, auto-cancel/heartbeat safety, and
+  margin-account/position snapshots, MMP get/set/reset request coverage,
+  order-history/open-order/account-trade reconciliation inputs, commission
+  reads, and exercise-record reads are covered, but options parity is not
+  complete. Keep real options trading disabled unless post-only order handling,
+  auto-cancel/heartbeat safety, complete account/stream reconciliation, and
   user-data stream semantics are fully implemented and tested against current
   Binance documentation.
 - All products: extend the reconciliation runtime to compare REST snapshots

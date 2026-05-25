@@ -94,9 +94,9 @@ class BinanceTradingCapabilityTest {
         assertThat(coinm.modifyOrderPath()).isEqualTo("/dapi/v1/order");
         assertThat(coinm.modifyMultipleOrdersPath()).isEqualTo("/dapi/v1/batchOrders");
         assertThat(coinm.modifyOrderHistoryPath()).isEqualTo("/dapi/v1/orderAmendment");
-        assertThat(options.allOrdersPath()).isNull();
-        assertThat(options.accountTradesPath()).isNull();
-        assertThat(options.commissionRatesPath()).isNull();
+        assertThat(options.allOrdersPath()).isEqualTo("/eapi/v1/historyOrders");
+        assertThat(options.accountTradesPath()).isEqualTo("/eapi/v1/userTrades");
+        assertThat(options.commissionRatesPath()).isEqualTo("/eapi/v1/commission");
         assertThat(options.preventedMatchesPath()).isNull();
         assertThat(options.amendKeepPriorityPath()).isNull();
         assertThat(options.cancelReplacePath()).isNull();
@@ -111,6 +111,7 @@ class BinanceTradingCapabilityTest {
         assertThat(options.modifyOrderPath()).isNull();
         assertThat(options.modifyMultipleOrdersPath()).isNull();
         assertThat(options.modifyOrderHistoryPath()).isNull();
+        assertThat(options.exerciseRecordPath()).isEqualTo("/eapi/v1/exerciseRecord");
     }
 
     @Test

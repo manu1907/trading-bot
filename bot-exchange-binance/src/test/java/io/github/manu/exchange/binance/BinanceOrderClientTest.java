@@ -294,6 +294,122 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void queries_options_trade_reconciliation_inputs() {
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "symbol": "BTC-240628-70000-C",
+                            "orderId": 4611875134427365377,
+                            "clientOrderId": "option-order-1",
+                            "status": "FILLED",
+                            "side": "BUY",
+                            "type": "LIMIT",
+                            "price": "100",
+                            "quantity": "1",
+                            "executedQty": "1",
+                            "avgPrice": "100",
+                            "updateTime": 1592465880683
+                          }
+                        ]
+                        """),
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "id": 4611875134427365377,
+                            "tradeId": 239,
+                            "orderId": 4611875134427365377,
+                            "symbol": "BTC-240628-70000-C",
+                            "price": "100",
+                            "quantity": "1",
+                            "fee": "-0.01",
+                            "realizedProfit": "0.00000000",
+                            "side": "BUY",
+                            "type": "LIMIT",
+                            "liquidity": "TAKER",
+                            "time": 1592465880683,
+                            "priceScale": 2,
+                            "quantityScale": 2,
+                            "optionSide": "CALL",
+                            "quoteAsset": "USDT"
+                          }
+                        ]
+                        """),
+                new BinanceHttpResponse(200, """
+                        {
+                          "commissions": [
+                            {
+                              "underlying": "BTCUSDT",
+                              "makerFee": "0.000240",
+                              "takerFee": "0.000240"
+                            }
+                          ]
+                        }
+                        """),
+                new BinanceHttpResponse(200, """
+                        [
+                          {
+                            "id": "1125899906842624042",
+                            "currency": "USDT",
+                            "symbol": "BTC-240628-70000-C",
+                            "exercisePrice": "70000.00000000",
+                            "quantity": "1.00000000",
+                            "amount": "0.00000000",
+                            "fee": "0.00000000",
+                            "createDate": 1658361600000,
+                            "priceScale": 2,
+                            "quantityScale": 2,
+                            "optionSide": "CALL",
+                            "positionSide": "LONG",
+                            "quoteAsset": "USDT"
+                          }
+                        ]
+                        """)
+        );
+        BinanceOrderClient client = optionsClient(transport);
+
+        List<BinanceOrderResult> orders = client.allOrders(
+                new BinanceOrderHistoryQuery("BTC-240628-70000-C", null, null, 1L, 2L, 100, null)
+        );
+        List<BinanceAccountTrade> trades = client.accountTrades(
+                new BinanceTradeHistoryQuery("BTC-240628-70000-C", null, null, null, null, 239L, 100, null)
+        );
+        BinanceOptionsCommissionRates commissions = client.optionsCommissionRates();
+        List<BinanceOptionsExerciseRecord> exercises = client.optionsExerciseRecords(
+                new BinanceOptionsExerciseRecordQuery("BTC-240628-70000-C", 1L, 2L, 100)
+        );
+
+        assertThat(orders).singleElement().satisfies(order -> {
+            assertThat(order.symbol()).isEqualTo("BTC-240628-70000-C");
+            assertThat(order.originalQuantity()).isEqualByComparingTo("1");
+        });
+        assertThat(trades).singleElement().satisfies(trade -> {
+            assertThat(trade.tradeId()).isEqualTo(239L);
+            assertThat(trade.quantity()).isEqualByComparingTo("1");
+            assertThat(trade.commission()).isEqualByComparingTo("-0.01");
+            assertThat(trade.realizedPnl()).isEqualByComparingTo("0.00000000");
+            assertThat(trade.liquidity()).isEqualTo("TAKER");
+            assertThat(trade.optionSide()).isEqualTo("CALL");
+            assertThat(trade.quoteAsset()).isEqualTo("USDT");
+        });
+        assertThat(commissions.commissions()).singleElement().satisfies(commission -> {
+            assertThat(commission.underlying()).isEqualTo("BTCUSDT");
+            assertThat(commission.makerFee()).isEqualByComparingTo("0.000240");
+        });
+        assertThat(exercises).singleElement().satisfies(exercise -> {
+            assertThat(exercise.id()).isEqualTo("1125899906842624042");
+            assertThat(exercise.exercisePrice()).isEqualByComparingTo("70000.00000000");
+            assertThat(exercise.positionSide()).isEqualTo("LONG");
+        });
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "GET", "GET", "GET");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/historyOrders?symbol=BTC-240628-70000-C"))
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/userTrades?symbol=BTC-240628-70000-C"))
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/commission?timestamp="))
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/exerciseRecord?symbol=BTC-240628-70000-C"));
+    }
+
+    @Test
     void queries_spot_commission_rates() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
                 {
@@ -1176,6 +1292,18 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceOrderClient optionsClient(FakeTransport transport) {
+        return new BinanceOrderClient(
+                optionsBinance(),
+                "api-key",
+                "test-secret",
+                FIXED_CLOCK,
+                0,
+                transport,
+                JsonMapperFactory.create()
+        );
+    }
+
     private BinanceOrderCommand limitOrder() {
         return new BinanceOrderCommand(
                 "BTCUSDT",
@@ -1522,6 +1650,25 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceProperties optionsBinance() {
+        return new BinanceProperties(
+                "OPTIONS",
+                new BinanceProperties.Credentials(
+                        "binance_real_options",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_DATA", "TRADE")
+                ),
+                optionsRest(),
+                websocket(),
+                optionsTrading(),
+                userData(),
+                null,
+                null
+        );
+    }
+
     private BinanceProperties.FuturesAccount futuresAccount() {
         return new BinanceProperties.FuturesAccount(
                 "ONE_WAY",
@@ -1593,6 +1740,30 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceProperties.Rest optionsRest() {
+        return new BinanceProperties.Rest(
+                "https://eapi.binance.com",
+                "/eapi/v1/exchangeInfo",
+                "/eapi/v1/time",
+                "X-MBX-APIKEY",
+                "HMAC_SHA256",
+                "MILLISECONDS",
+                5000,
+                2000,
+                5000,
+                3,
+                200,
+                List.of(408, 429, 500, 502, 503, 504),
+                List.of("X-MBX-USED-WEIGHT"),
+                List.of("X-MBX-ORDER-COUNT"),
+                "ACK",
+                new BinanceProperties.UnknownExecutionStatus(
+                        List.of("Unknown error, please check your request or try again later."),
+                        List.of(503)
+                )
+        );
+    }
+
     private BinanceProperties.Websocket websocket() {
         return new BinanceProperties.Websocket(
                 "wss://fstream.binancefuture.com",
@@ -1643,6 +1814,7 @@ class BinanceOrderClientTest {
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
                 "/fapi/v1/countdownCancelAll",
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET"),
                 List.of("GTC", "IOC", "FOK", "GTX", "GTD"),
@@ -1701,6 +1873,7 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 null,
+                null,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT", "LIMIT_MAKER"),
                 List.of("GTC", "IOC", "FOK"),
@@ -1729,6 +1902,65 @@ class BinanceOrderClientTest {
                 false,
                 false,
                 false
+        );
+    }
+
+    private BinanceProperties.Trading optionsTrading() {
+        return new BinanceProperties.Trading(
+                "/eapi/v1/order",
+                null,
+                "/eapi/v1/order",
+                "/eapi/v1/order",
+                "/eapi/v1/openOrders",
+                "/eapi/v1/historyOrders",
+                "/eapi/v1/userTrades",
+                "/eapi/v1/commission",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "/eapi/v1/exerciseRecord",
+                List.of("BUY", "SELL"),
+                List.of("LIMIT"),
+                List.of("GTC"),
+                List.of("ACK", "RESULT"),
+                List.of("EXPIRE_TAKER", "EXPIRE_MAKER", "EXPIRE_BOTH"),
+                List.of("NONE"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true
         );
     }
 

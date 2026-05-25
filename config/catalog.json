@@ -1115,6 +1115,10 @@
                       "query_order_path": "/eapi/v1/order",
                       "cancel_order_path": "/eapi/v1/order",
                       "open_orders_path": "/eapi/v1/openOrders",
+                      "all_orders_path": "/eapi/v1/historyOrders",
+                      "account_trades_path": "/eapi/v1/userTrades",
+                      "commission_rates_path": "/eapi/v1/commission",
+                      "exercise_record_path": "/eapi/v1/exerciseRecord",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -2282,6 +2286,10 @@
                       "query_order_path": "/eapi/v1/order",
                       "cancel_order_path": "/eapi/v1/order",
                       "open_orders_path": "/eapi/v1/openOrders",
+                      "all_orders_path": "/eapi/v1/historyOrders",
+                      "account_trades_path": "/eapi/v1/userTrades",
+                      "commission_rates_path": "/eapi/v1/commission",
+                      "exercise_record_path": "/eapi/v1/exerciseRecord",
                       "supported_sides": [
                         "BUY",
                         "SELL"

@@ -345,6 +345,12 @@ final class BinanceConfigValidator {
                 expected.countdownCancelAllPath(),
                 errors
         );
+        requireConfiguredPath(
+                path + ".exercise_record_path",
+                trading.exerciseRecordPath(),
+                expected.exerciseRecordPath(),
+                errors
+        );
         requireSameValues(path + ".supported_sides", trading.supportedSides(), expected.supportedSides(), errors);
         requireSameValues(path + ".supported_order_types", trading.supportedOrderTypes(), expected.supportedOrderTypes(), errors);
         requireSameValues(path + ".supported_time_in_force", trading.supportedTimeInForce(), expected.supportedTimeInForce(), errors);

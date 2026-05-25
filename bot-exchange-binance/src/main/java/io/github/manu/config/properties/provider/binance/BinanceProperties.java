@@ -187,6 +187,7 @@ public record BinanceProperties(
             String cancelMultipleOrdersPath,
             String cancelAllOpenOrdersPath,
             String countdownCancelAllPath,
+            String exerciseRecordPath,
             @NotNull List<String> supportedSides,
             @NotNull List<String> supportedOrderTypes,
             @NotNull List<String> supportedTimeInForce,

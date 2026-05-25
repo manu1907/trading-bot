@@ -244,6 +244,11 @@ of truth. As of the current code, the connector covers these foundations:
   `/eapi/v1/mmpSet`, and `/eapi/v1/mmpReset` clients. State-changing MMP
   config/reset operations are disabled by default and must be explicitly
   enabled in config.
+- Options trading reconciliation inputs include catalog-backed
+  `/eapi/v1/historyOrders`, `/eapi/v1/openOrders`, `/eapi/v1/userTrades`,
+  `/eapi/v1/commission`, and `/eapi/v1/exerciseRecord` request/client coverage
+  with options-specific query-shape validation and typed parsing for commission
+  and exercise records.
 - `exchangeInfo` loading and parsing for symbol filters, order enums,
   precision, rate limits, trigger protection, and lifecycle metadata.
 - Basic signed order create, query, open-orders, and cancel requests.
@@ -385,10 +390,10 @@ adapter. Known gaps that must remain on the plan:
   exposed in the current Binance margin docs; do not claim them until Binance
   documents endpoints for them.
 - Options support is still deliberately incomplete. The connector must not
-  enable real options trading until post-only order handling, options-specific
-  reconciliation/history, auto-cancel/heartbeat safety, and options user-data
-  stream semantics are implemented and tested against current Binance
-  documentation.
+  enable real options trading until post-only order handling,
+  auto-cancel/heartbeat safety, complete account/stream reconciliation, and
+  options user-data stream semantics are implemented and tested against current
+  Binance documentation.
 - User-data payload mapping, event-bus publishing, listen-key/listen-token
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
   implemented. Market-data payload mapping, publishing, subscription runtime,
