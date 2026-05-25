@@ -1103,7 +1103,12 @@
                     },
                     "options_account": {
                       "margin_account_path": "/eapi/v1/marginAccount",
-                      "position_path": "/eapi/v1/position"
+                      "position_path": "/eapi/v1/position",
+                      "market_maker_protection_path": "/eapi/v1/mmp",
+                      "market_maker_protection_set_path": "/eapi/v1/mmpSet",
+                      "market_maker_protection_reset_path": "/eapi/v1/mmpReset",
+                      "max_market_maker_protection_window_millis": 5000,
+                      "market_maker_protection_mutations_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",
@@ -2265,7 +2270,12 @@
                     },
                     "options_account": {
                       "margin_account_path": "/eapi/v1/marginAccount",
-                      "position_path": "/eapi/v1/position"
+                      "position_path": "/eapi/v1/position",
+                      "market_maker_protection_path": "/eapi/v1/mmp",
+                      "market_maker_protection_set_path": "/eapi/v1/mmpSet",
+                      "market_maker_protection_reset_path": "/eapi/v1/mmpReset",
+                      "max_market_maker_protection_window_millis": 5000,
+                      "market_maker_protection_mutations_enabled": false
                     },
                     "trading": {
                       "new_order_path": "/eapi/v1/order",

@@ -106,6 +106,18 @@ final class BinanceOptionsAccountClient {
         return List.copyOf(positions);
     }
 
+    BinanceOptionsMmpConfig marketMakerProtection(String underlying) {
+        return toMmpConfig(readJson(send(requestFactory.marketMakerProtection(underlying, privateCredential), "GET")));
+    }
+
+    BinanceOptionsMmpConfig setMarketMakerProtection(BinanceOptionsMmpConfigCommand command) {
+        return toMmpConfig(readJson(send(requestFactory.setMarketMakerProtection(command, privateCredential), "POST")));
+    }
+
+    BinanceOptionsMmpConfig resetMarketMakerProtection(String underlying) {
+        return toMmpConfig(readJson(send(requestFactory.resetMarketMakerProtection(underlying, privateCredential), "POST")));
+    }
+
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
     }
@@ -190,6 +202,18 @@ final class BinanceOptionsAccountClient {
                 longValue(node, "time"),
                 decimal(node, "bidQuantity"),
                 decimal(node, "askQuantity")
+        );
+    }
+
+    private BinanceOptionsMmpConfig toMmpConfig(JsonNode node) {
+        return new BinanceOptionsMmpConfig(
+                longValue(node, "underlyingId"),
+                text(node, "underlying"),
+                longValue(node, "windowTimeInMilliseconds"),
+                longValue(node, "frozenTimeInMilliseconds"),
+                decimal(node, "qtyLimit"),
+                decimal(node, "deltaLimit"),
+                longValue(node, "lastTriggerTime")
         );
     }
 

@@ -3,6 +3,7 @@ package io.github.manu.exchange.binance;
 import io.github.manu.config.properties.provider.binance.BinanceProperties;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -24,12 +25,15 @@ class BinanceOptionsAccountRequestFactoryTest {
 
         BinanceSignedRequest account = factory.marginAccount("test-secret");
         BinanceSignedRequest positions = factory.positions("BTC-240628-70000-C", "test-secret");
+        BinanceSignedRequest mmp = factory.marketMakerProtection("BTCUSDT", "test-secret");
 
         assertThat(account.payload()).isEqualTo("timestamp=1499827319559&recvWindow=5000");
         assertThat(account.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/marginAccount?");
         assertThat(positions.payload())
                 .isEqualTo("symbol=BTC-240628-70000-C&timestamp=1499827319559&recvWindow=5000");
         assertThat(positions.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/position?");
+        assertThat(mmp.payload()).isEqualTo("underlying=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(mmp.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/mmp?");
     }
 
     @Test
@@ -59,7 +63,77 @@ class BinanceOptionsAccountRequestFactoryTest {
                 .hasMessageContaining("options account config is required");
     }
 
+    @Test
+    void builds_mmp_set_and_reset_when_mutations_are_enabled() {
+        BinanceOptionsAccountRequestFactory factory = new BinanceOptionsAccountRequestFactory(
+                binance(true),
+                FIXED_CLOCK,
+                0
+        );
+
+        BinanceSignedRequest set = factory.setMarketMakerProtection(
+                new BinanceOptionsMmpConfigCommand(
+                        "BTCUSDT",
+                        3000L,
+                        300000L,
+                        new BigDecimal("2.000"),
+                        new BigDecimal("2.300")
+                ),
+                "test-secret"
+        );
+        BinanceSignedRequest reset = factory.resetMarketMakerProtection("BTCUSDT", "test-secret");
+
+        assertThat(set.payload())
+                .isEqualTo("underlying=BTCUSDT&windowTimeInMilliseconds=3000"
+                        + "&frozenTimeInMilliseconds=300000&qtyLimit=2&deltaLimit=2.3"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(set.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/mmpSet?");
+        assertThat(reset.payload()).isEqualTo("underlying=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(reset.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/mmpReset?");
+    }
+
+    @Test
+    void rejects_mmp_mutations_when_disabled_by_config() {
+        BinanceOptionsAccountRequestFactory factory = new BinanceOptionsAccountRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        assertThatThrownBy(() -> factory.resetMarketMakerProtection("BTCUSDT", "test-secret"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("MMP mutations are disabled");
+    }
+
+    @Test
+    void validates_mmp_set_parameters_against_binance_bounds() {
+        BinanceOptionsAccountRequestFactory factory = new BinanceOptionsAccountRequestFactory(
+                binance(true),
+                FIXED_CLOCK,
+                0
+        );
+
+        assertThatThrownBy(() -> factory.setMarketMakerProtection(
+                new BinanceOptionsMmpConfigCommand(
+                        "BTCUSDT",
+                        5001L,
+                        300000L,
+                        new BigDecimal("2"),
+                        new BigDecimal("2.3")
+                ),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("windowTimeInMilliseconds must be less than or equal to 5000");
+        assertThatThrownBy(() -> factory.setMarketMakerProtection(
+                new BinanceOptionsMmpConfigCommand("BTCUSDT", 3000L, -1L, new BigDecimal("2"), new BigDecimal("2.3")),
+                "test-secret"
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("frozenTimeInMilliseconds must be zero or positive");
+    }
+
     private BinanceProperties binance() {
+        return binance(false);
+    }
+
+    private BinanceProperties binance(boolean mmpMutationsEnabled) {
         return new BinanceProperties(
                 "OPTIONS",
                 credentials(),
@@ -71,7 +145,7 @@ class BinanceOptionsAccountRequestFactoryTest {
                 null,
                 marketData(),
                 reconciliation(),
-                optionsAccount()
+                optionsAccount(mmpMutationsEnabled)
         );
     }
 
@@ -211,10 +285,15 @@ class BinanceOptionsAccountRequestFactoryTest {
         );
     }
 
-    private BinanceProperties.OptionsAccount optionsAccount() {
+    private BinanceProperties.OptionsAccount optionsAccount(boolean mmpMutationsEnabled) {
         return new BinanceProperties.OptionsAccount(
                 "/eapi/v1/marginAccount",
-                "/eapi/v1/position"
+                "/eapi/v1/position",
+                "/eapi/v1/mmp",
+                "/eapi/v1/mmpSet",
+                "/eapi/v1/mmpReset",
+                5000,
+                mmpMutationsEnabled
         );
     }
 }

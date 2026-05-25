@@ -150,6 +150,9 @@ Implemented Binance foundations:
 - Options margin-account and position snapshot clients with catalog-backed
   `/eapi/v1/marginAccount` and `/eapi/v1/position` paths and typed parsing for
   account balances, account Greeks, and option positions.
+- Options market-maker protection config clients for `/eapi/v1/mmp`,
+  `/eapi/v1/mmpSet`, and `/eapi/v1/mmpReset`, with documented MMP window
+  validation and catalog-disabled mutations by default.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
@@ -290,12 +293,13 @@ Binance parity gaps to close before claiming full connector support:
 - Margin: active margin transfer placement and margin OPO/OPOCO placement are
   not exposed in the current Binance margin docs; do not claim them until
   Binance documents endpoints for them.
-- Options: `/eapi` order request parameter naming and read-only
-  margin-account/position snapshots are covered, but options parity is not
-  complete. Keep real options trading disabled unless post-only order handling,
-  MMP config/reset endpoints, options-specific order history/open-order
-  reconciliation, and user-data stream semantics are fully implemented and
-  tested against current Binance documentation.
+- Options: `/eapi` order request parameter naming, read-only
+  margin-account/position snapshots, and MMP get/set/reset request coverage are
+  covered, but options parity is not complete. Keep real options trading
+  disabled unless post-only order handling, options-specific order
+  history/open-order reconciliation, auto-cancel/heartbeat safety, and
+  user-data stream semantics are fully implemented and tested against current
+  Binance documentation.
 - All products: extend the reconciliation runtime to compare REST snapshots
   against stream/projection state and enforce durable replay-safe ordering and
   projection-backed idempotency around stream gaps and unknown execution

@@ -386,7 +386,12 @@ public record BinanceProperties(
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record OptionsAccount(
             @NotNull String marginAccountPath,
-            @NotNull String positionPath
+            @NotNull String positionPath,
+            @NotNull String marketMakerProtectionPath,
+            @NotNull String marketMakerProtectionSetPath,
+            @NotNull String marketMakerProtectionResetPath,
+            Integer maxMarketMakerProtectionWindowMillis,
+            boolean marketMakerProtectionMutationsEnabled
     ) {
     }
 }

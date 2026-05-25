@@ -63,6 +63,15 @@ class BinanceCatalogComplianceTest {
                     .isEqualTo("/eapi/v1/marginAccount");
             assertThat(markets.required("options").required("options_account").required("position_path").asString())
                     .isEqualTo("/eapi/v1/position");
+            assertThat(markets.required("options").required("options_account").required("market_maker_protection_path").asString())
+                    .isEqualTo("/eapi/v1/mmp");
+            assertThat(markets.required("options").required("options_account").required("market_maker_protection_set_path").asString())
+                    .isEqualTo("/eapi/v1/mmpSet");
+            assertThat(markets.required("options").required("options_account").required("market_maker_protection_reset_path").asString())
+                    .isEqualTo("/eapi/v1/mmpReset");
+            assertThat(markets.required("options").required("options_account")
+                    .required("market_maker_protection_mutations_enabled").asBoolean())
+                    .isFalse();
         }
     }
 

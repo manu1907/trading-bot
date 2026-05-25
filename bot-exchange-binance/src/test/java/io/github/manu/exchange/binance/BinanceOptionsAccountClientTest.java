@@ -120,6 +120,37 @@ class BinanceOptionsAccountClientTest {
     }
 
     @Test
+    void reads_and_mutates_mmp_config_when_enabled() {
+        FakeTransport transport = new FakeTransport(
+                mmpConfig(),
+                mmpConfig(),
+                mmpConfig()
+        );
+        BinanceOptionsAccountClient client = client(transport);
+
+        BinanceOptionsMmpConfig current = client.marketMakerProtection("BTCUSDT");
+        BinanceOptionsMmpConfig updated = client.setMarketMakerProtection(
+                new BinanceOptionsMmpConfigCommand(
+                        "BTCUSDT",
+                        3000L,
+                        300000L,
+                        new java.math.BigDecimal("2"),
+                        new java.math.BigDecimal("2.3")
+                )
+        );
+        BinanceOptionsMmpConfig reset = client.resetMarketMakerProtection("BTCUSDT");
+
+        assertThat(current.underlying()).isEqualTo("BTCUSDT");
+        assertThat(updated.deltaLimit()).isEqualByComparingTo("2.3");
+        assertThat(reset.frozenTimeInMilliseconds()).isEqualTo(300000L);
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("GET", "POST", "POST");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/mmp?underlying=BTCUSDT"))
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/mmpSet?underlying=BTCUSDT"))
+                .anySatisfy(uri -> assertThat(uri).contains("/eapi/v1/mmpReset?underlying=BTCUSDT"));
+    }
+
+    @Test
     void raises_api_exception_for_error_response() {
         BinanceOptionsAccountClient client = client(new FakeTransport(new BinanceHttpResponse(400, """
                 {
@@ -131,6 +162,20 @@ class BinanceOptionsAccountClientTest {
         assertThatThrownBy(client::marginAccount)
                 .isInstanceOf(BinanceApiException.class)
                 .hasMessageContaining("Invalid API-key");
+    }
+
+    private BinanceHttpResponse mmpConfig() {
+        return new BinanceHttpResponse(200, """
+                {
+                  "underlyingId": 2,
+                  "underlying": "BTCUSDT",
+                  "windowTimeInMilliseconds": 3000,
+                  "frozenTimeInMilliseconds": 300000,
+                  "qtyLimit": "2",
+                  "deltaLimit": "2.3",
+                  "lastTriggerTime": 0
+                }
+                """);
     }
 
     private BinanceOptionsAccountClient client(FakeTransport transport) {
@@ -165,7 +210,12 @@ class BinanceOptionsAccountClientTest {
                 reconciliation(),
                 new BinanceProperties.OptionsAccount(
                         "/eapi/v1/marginAccount",
-                        "/eapi/v1/position"
+                        "/eapi/v1/position",
+                        "/eapi/v1/mmp",
+                        "/eapi/v1/mmpSet",
+                        "/eapi/v1/mmpReset",
+                        5000,
+                        true
                 )
         );
     }

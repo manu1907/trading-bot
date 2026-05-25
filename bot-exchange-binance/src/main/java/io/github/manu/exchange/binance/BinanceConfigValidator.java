@@ -30,6 +30,7 @@ final class BinanceConfigValidator {
     private static final Set<String> USER_DATA_MODES = Set.of(LISTEN_KEY, LISTEN_TOKEN, WEBSOCKET_API);
     private static final Set<String> MARKET_DATA_CONNECTION_MODES = Set.of("raw", "combined");
     private static final Set<String> MARKET_DATA_ROUTES = Set.of("default", "public", "market");
+    private static final int OPTIONS_MMP_MAX_WINDOW_MILLIS = 5_000;
 
     private BinanceConfigValidator() {
     }
@@ -571,6 +572,25 @@ final class BinanceConfigValidator {
 
         requireMatching(path + ".margin_account_path", account.marginAccountPath(), "/eapi/v1/marginAccount", errors);
         requireMatching(path + ".position_path", account.positionPath(), "/eapi/v1/position", errors);
+        requireMatching(path + ".market_maker_protection_path", account.marketMakerProtectionPath(), "/eapi/v1/mmp", errors);
+        requireMatching(
+                path + ".market_maker_protection_set_path",
+                account.marketMakerProtectionSetPath(),
+                "/eapi/v1/mmpSet",
+                errors
+        );
+        requireMatching(
+                path + ".market_maker_protection_reset_path",
+                account.marketMakerProtectionResetPath(),
+                "/eapi/v1/mmpReset",
+                errors
+        );
+        requireMatching(
+                path + ".max_market_maker_protection_window_millis",
+                account.maxMarketMakerProtectionWindowMillis(),
+                OPTIONS_MMP_MAX_WINDOW_MILLIS,
+                errors
+        );
     }
 
     private static String futuresPathPrefix(BinanceMarketType marketType) {
