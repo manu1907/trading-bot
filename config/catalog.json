@@ -10,6 +10,18 @@
     "target_id": "provider_environment_account_market",
     "timezone": "UTC"
   },
+  "trading": {
+    "execution": {
+      "risk_gate": {
+        "enabled": true,
+        "reconciliation": {
+          "required": true,
+          "reject_no_observations": true,
+          "reject_degraded": true
+        }
+      }
+    }
+  },
   "exchange": {
     "providers": {
       "binance": {

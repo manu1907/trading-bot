@@ -417,8 +417,11 @@ adapter. Known gaps that must remain on the plan:
   execution, balance, position, and risk-update events with event-ID dedupe and
   stale per-entity update rejection. Binance reconciliation can compare REST
   snapshots against projected state and record provider-agnostic reconciliation
-  confidence for matched, missing, and mismatched entities, but it still does
-  not enforce durable action gating around gaps and unknown execution status.
+  confidence for matched, missing, and mismatched entities. Core has a
+  configurable order risk gate that consumes that confidence and rejects order
+  commands when target state has no observations or is degraded by default, but
+  exchange submission is not yet wired into a complete durable execution
+  state machine.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

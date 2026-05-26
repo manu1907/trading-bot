@@ -41,6 +41,13 @@ trading:
       password: ${TRADING_PROJECTION_JDBC_PASSWORD:}
       table-prefix: trading_projection_
       initialize-schema: false
+  execution:
+    risk-gate:
+      enabled: true
+      reconciliation:
+        required: true
+        reject-no-observations: true
+        reject-degraded: true
   messaging:
     enabled: false
     bootstrap-servers: localhost:19092

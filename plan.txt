@@ -63,7 +63,11 @@ professional trading bot. The strong parts are:
 
 The bot is not professional-execution-ready until these gaps are closed:
 
-- No risk-gated execution state machine yet.
+- No complete risk-gated execution state machine yet. Core now has a
+  provider-agnostic order risk gate that rejects order commands when
+  reconciliation confidence is absent or degraded by default, but exchange
+  submission, retries, cancel/replace, unknown-status recovery, and final order
+  state transitions are not wired into a single pipeline yet.
 - No idempotent order-command lifecycle from strategy signal through exchange
   result, user-stream execution report, reconciliation, and final position
   state.
@@ -72,8 +76,9 @@ The bot is not professional-execution-ready until these gaps are closed:
   reconciliation can compare REST snapshots against that projection and record
   provider-agnostic reconciliation confidence for matched, missing, and
   mismatched state. The projection has opt-in durable file and
-  PostgreSQL-compatible JDBC snapshot stores for restart snapshots, but order
-  placement is not yet gated by reconciliation confidence.
+  PostgreSQL-compatible JDBC snapshot stores for restart snapshots. Core order
+  risk decisions can consume reconciliation confidence, but order placement is
+  not yet wired through a full execution pipeline.
 - No TimescaleDB hypertable tuning or production database migration runner.
 - No GCS uploader/archive worker; only the object layout exists.
 - User-data payload mapping, stream publishing, market-data mapping, REST
@@ -216,6 +221,9 @@ Implemented Binance foundations:
 - Provider-agnostic reconciliation confidence tracking for latest
   REST-vs-projection observations per provider/environment/account/market,
   event type, and entity key.
+- Configurable core order risk gate under `trading.execution.risk-gate`, with
+  conservative catalog defaults that reject order commands when reconciliation
+  confidence has no observations or is degraded.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
@@ -364,8 +372,8 @@ Binance parity gaps to close before claiming full connector support:
   Keep real options trading disabled unless REST snapshot comparison is backed
   by durable projection state and projection-backed ordering is fully
   implemented and tested against current Binance documentation.
-- All products: make risk-gated execution consume reconciliation confidence and
-  extend the reconciliation runtime with durable replay-safe ordering and
+- All products: wire the order risk gate into exchange submission and extend
+  the reconciliation runtime with durable replay-safe ordering and
   projection-backed idempotency around stream gaps and unknown execution
   status.
 - All products: enforce exchange filters in risk/execution before order
