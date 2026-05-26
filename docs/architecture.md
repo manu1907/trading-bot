@@ -418,10 +418,10 @@ adapter. Known gaps that must remain on the plan:
   stale per-entity update rejection. Binance reconciliation can compare REST
   snapshots against projected state and record provider-agnostic reconciliation
   confidence for matched, missing, and mismatched entities. Core has a
-  configurable order risk gate that consumes that confidence and rejects order
-  commands when target state has no observations or is degraded by default, but
-  exchange submission is not yet wired into a complete durable execution
-  state machine.
+  configurable order risk gate and order-command pipeline that consume that
+  confidence. The pipeline publishes a risk decision first and only submits via
+  an `OrderExecutionGateway` after approval. Provider gateways and the complete
+  durable execution state machine are not wired yet.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

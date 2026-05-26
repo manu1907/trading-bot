@@ -4,11 +4,30 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "trading.execution")
 public record ExecutionProperties(
+        Pipeline pipeline,
         RiskGate riskGate
 ) {
 
     public ExecutionProperties {
+        pipeline = pipeline == null ? Pipeline.disabled() : pipeline;
         riskGate = riskGate == null ? RiskGate.defaults() : riskGate;
+    }
+
+    public ExecutionProperties(RiskGate riskGate) {
+        this(null, riskGate);
+    }
+
+    public record Pipeline(
+            Boolean enabled
+    ) {
+
+        public Pipeline {
+            enabled = Boolean.TRUE.equals(enabled);
+        }
+
+        static Pipeline disabled() {
+            return new Pipeline(false);
+        }
     }
 
     public record RiskGate(

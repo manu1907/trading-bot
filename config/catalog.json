@@ -12,6 +12,9 @@
   },
   "trading": {
     "execution": {
+      "pipeline": {
+        "enabled": false
+      },
       "risk_gate": {
         "enabled": true,
         "reconciliation": {

@@ -42,6 +42,8 @@ trading:
       table-prefix: trading_projection_
       initialize-schema: false
   execution:
+    pipeline:
+      enabled: false
     risk-gate:
       enabled: true
       reconciliation:
