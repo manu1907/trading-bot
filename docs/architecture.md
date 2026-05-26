@@ -413,9 +413,11 @@ adapter. Known gaps that must remain on the plan:
   implemented. Market-data payload mapping, publishing, subscription runtime,
   and opt-in ExchangeModule lifecycle wiring are implemented. REST snapshot
   event mapping, publishing, and catalog-backed runtime scheduling are
-  implemented. Reconciliation still does not compare stream/projection state or
-  enforce projection-backed ordering/idempotency around gaps and unknown
-  execution status.
+  implemented. Core now has an in-memory trading-state projection for order,
+  execution, balance, position, and risk-update events with event-ID dedupe and
+  stale per-entity update rejection. Reconciliation still does not compare REST
+  snapshots against projected stream state or enforce durable action gating
+  around gaps and unknown execution status.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

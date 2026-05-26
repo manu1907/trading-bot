@@ -67,12 +67,16 @@ The bot is not professional-execution-ready until these gaps are closed:
 - No idempotent order-command lifecycle from strategy signal through exchange
   result, user-stream execution report, reconciliation, and final position
   state.
-- No account/position synchronization projection.
+- Core has an in-memory account/order/position/risk projection that can be
+  rebuilt from events and rejects stale per-entity updates, but it is not yet
+  persisted to PostgreSQL/TimescaleDB and Binance reconciliation does not yet
+  compare REST snapshots against it.
 - No PostgreSQL/TimescaleDB projection store.
 - No GCS uploader/archive worker; only the object layout exists.
-- User-data payload mapping has started, but stream publishing, market-data
-  mapping, REST snapshot reconciliation, and account/position projections are
-  not yet wired end to end.
+- User-data payload mapping, stream publishing, market-data mapping, REST
+  snapshot reconciliation, and core state projection are wired at foundation
+  level, but reconciliation comparison and risk-gated execution are not yet
+  complete.
 - No LFA strategy lifecycle, feature calculations, or signal tests.
 - No deterministic backtest runtime.
 - No production secrets integration, metrics, alerts, deployment manifests, or
@@ -194,6 +198,10 @@ Implemented Binance foundations:
   and `options_position_symbols` controls, mapped into core balance, position,
   and risk-update envelopes for account assets, option positions, and account
   Greeks.
+- Core trading-state projection for order, execution, balance, position, and
+  risk-update events with event-ID dedupe, stale per-entity update rejection,
+  journal-replay compatible event-handler registration, and target-scoped open
+  position checks.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
