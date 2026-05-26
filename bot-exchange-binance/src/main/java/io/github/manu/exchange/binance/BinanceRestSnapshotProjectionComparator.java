@@ -40,15 +40,17 @@ final class BinanceRestSnapshotProjectionComparator {
     }
 
     private BinanceRestSnapshotProjectionComparison compareBalance(BalanceUpdateEvent event) {
+        Target target = target(event);
         String entityKey = key(event.getProvider(), event.getEnvironment(), event.getAccount(), event.getMarket(), event.getAsset());
         return projection.balance(
-                        value(event.getProvider()),
-                        value(event.getEnvironment()),
-                        value(event.getAccount()),
-                        value(event.getMarket()),
+                        target.provider(),
+                        target.environment(),
+                        target.account(),
+                        target.market(),
                         value(event.getAsset())
                 )
                 .map(state -> comparison(
+                        target,
                         TradingEventType.BALANCE_UPDATE,
                         entityKey,
                         differences(
@@ -57,10 +59,11 @@ final class BinanceRestSnapshotProjectionComparator {
                                 difference("availableBalance", event.getAvailableBalance(), state.availableBalance())
                         )
                 ))
-                .orElseGet(() -> missing(TradingEventType.BALANCE_UPDATE, entityKey));
+                .orElseGet(() -> missing(target, TradingEventType.BALANCE_UPDATE, entityKey));
     }
 
     private BinanceRestSnapshotProjectionComparison comparePosition(PositionUpdateEvent event) {
+        Target target = target(event);
         String entityKey = key(
                 event.getProvider(),
                 event.getEnvironment(),
@@ -70,14 +73,15 @@ final class BinanceRestSnapshotProjectionComparator {
                 event.getPositionSide()
         );
         return projection.position(
-                        value(event.getProvider()),
-                        value(event.getEnvironment()),
-                        value(event.getAccount()),
-                        value(event.getMarket()),
+                        target.provider(),
+                        target.environment(),
+                        target.account(),
+                        target.market(),
                         value(event.getSymbol()),
                         value(event.getPositionSide())
                 )
                 .map(state -> comparison(
+                        target,
                         TradingEventType.POSITION_UPDATE,
                         entityKey,
                         differences(
@@ -87,10 +91,11 @@ final class BinanceRestSnapshotProjectionComparator {
                                 difference("unrealizedPnl", event.getUnrealizedPnl(), state.unrealizedPnl())
                         )
                 ))
-                .orElseGet(() -> missing(TradingEventType.POSITION_UPDATE, entityKey));
+                .orElseGet(() -> missing(target, TradingEventType.POSITION_UPDATE, entityKey));
     }
 
     private BinanceRestSnapshotProjectionComparison compareOrder(OrderResultEvent event) {
+        Target target = target(event);
         String entityKey = key(
                 event.getProvider(),
                 event.getEnvironment(),
@@ -100,14 +105,15 @@ final class BinanceRestSnapshotProjectionComparator {
                 event.getClientOrderId()
         );
         return projection.order(
-                        value(event.getProvider()),
-                        value(event.getEnvironment()),
-                        value(event.getAccount()),
-                        value(event.getMarket()),
+                        target.provider(),
+                        target.environment(),
+                        target.account(),
+                        target.market(),
                         value(event.getSymbol()),
                         value(event.getClientOrderId())
                 )
                 .map(state -> comparison(
+                        target,
                         TradingEventType.ORDER_RESULT,
                         entityKey,
                         differences(
@@ -118,10 +124,11 @@ final class BinanceRestSnapshotProjectionComparator {
                                 difference("cumulativeQuote", event.getCumulativeQuote(), state.cumulativeQuote())
                         )
                 ))
-                .orElseGet(() -> missing(TradingEventType.ORDER_RESULT, entityKey));
+                .orElseGet(() -> missing(target, TradingEventType.ORDER_RESULT, entityKey));
     }
 
     private BinanceRestSnapshotProjectionComparison compareRisk(RiskUpdateEvent event) {
+        Target target = target(event);
         String entityId = value(event.getSymbol());
         if (entityId == null) {
             entityId = value(event.getUnderlying());
@@ -138,14 +145,15 @@ final class BinanceRestSnapshotProjectionComparator {
                 entityId
         );
         return projection.risk(
-                        value(event.getProvider()),
-                        value(event.getEnvironment()),
-                        value(event.getAccount()),
-                        value(event.getMarket()),
+                        target.provider(),
+                        target.environment(),
+                        target.account(),
+                        target.market(),
                         value(event.getRiskScope()),
                         entityId
                 )
                 .map(state -> comparison(
+                        target,
                         TradingEventType.RISK_UPDATE,
                         entityKey,
                         differences(
@@ -157,16 +165,21 @@ final class BinanceRestSnapshotProjectionComparator {
                                 difference("maintenanceMargin", event.getMaintenanceMargin(), state.maintenanceMargin())
                         )
                 ))
-                .orElseGet(() -> missing(TradingEventType.RISK_UPDATE, entityKey));
+                .orElseGet(() -> missing(target, TradingEventType.RISK_UPDATE, entityKey));
     }
 
     private BinanceRestSnapshotProjectionComparison comparison(
+            Target target,
             TradingEventType eventType,
             String entityKey,
             List<BinanceRestSnapshotProjectionComparison.Difference> differences
     ) {
         if (differences.isEmpty()) {
             return new BinanceRestSnapshotProjectionComparison(
+                    target.provider(),
+                    target.environment(),
+                    target.account(),
+                    target.market(),
                     eventType,
                     entityKey,
                     BinanceRestSnapshotProjectionComparison.Status.MATCHED,
@@ -174,6 +187,10 @@ final class BinanceRestSnapshotProjectionComparator {
             );
         }
         return new BinanceRestSnapshotProjectionComparison(
+                target.provider(),
+                target.environment(),
+                target.account(),
+                target.market(),
                 eventType,
                 entityKey,
                 BinanceRestSnapshotProjectionComparison.Status.MISMATCH,
@@ -182,14 +199,55 @@ final class BinanceRestSnapshotProjectionComparator {
     }
 
     private BinanceRestSnapshotProjectionComparison missing(
+            Target target,
             TradingEventType eventType,
             String entityKey
     ) {
         return new BinanceRestSnapshotProjectionComparison(
+                target.provider(),
+                target.environment(),
+                target.account(),
+                target.market(),
                 eventType,
                 entityKey,
                 BinanceRestSnapshotProjectionComparison.Status.MISSING_PROJECTION,
                 List.of()
+        );
+    }
+
+    private Target target(BalanceUpdateEvent event) {
+        return new Target(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket())
+        );
+    }
+
+    private Target target(PositionUpdateEvent event) {
+        return new Target(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket())
+        );
+    }
+
+    private Target target(OrderResultEvent event) {
+        return new Target(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket())
+        );
+    }
+
+    private Target target(RiskUpdateEvent event) {
+        return new Target(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket())
         );
     }
 
@@ -252,5 +310,13 @@ final class BinanceRestSnapshotProjectionComparator {
             return null;
         }
         return value.toString().trim();
+    }
+
+    private record Target(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
     }
 }

@@ -7,6 +7,7 @@ import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
     private final OptionsSnapshots optionsSnapshots;
     private final BinanceRestSnapshotEventPublisher publisher;
     private final BinanceRestSnapshotProjectionComparator projectionComparator;
+    private final ReconciliationConfidenceTracker confidenceTracker;
     private final ScheduledExecutorService executor;
     private final Object lock = new Object();
     private final LinkedHashSet<String> recentEventIds = new LinkedHashSet<>();
@@ -55,6 +57,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
                 optionsSnapshots,
                 publisher,
                 null,
+                null,
                 executor,
                 List.of()
         );
@@ -71,6 +74,32 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
             ScheduledExecutorService executor,
             List<String> initialRecentEventIds
     ) {
+        this(
+                reconciliation,
+                orderSnapshots,
+                futuresSnapshots,
+                marginSnapshots,
+                optionsSnapshots,
+                publisher,
+                projectionComparator,
+                null,
+                executor,
+                initialRecentEventIds
+        );
+    }
+
+    BinanceRestSnapshotReconciliationRuntime(
+            BinanceProperties.Reconciliation reconciliation,
+            OrderSnapshots orderSnapshots,
+            FuturesSnapshots futuresSnapshots,
+            MarginSnapshots marginSnapshots,
+            OptionsSnapshots optionsSnapshots,
+            BinanceRestSnapshotEventPublisher publisher,
+            BinanceRestSnapshotProjectionComparator projectionComparator,
+            ReconciliationConfidenceTracker confidenceTracker,
+            ScheduledExecutorService executor,
+            List<String> initialRecentEventIds
+    ) {
         this.reconciliation = Objects.requireNonNull(reconciliation, "reconciliation");
         this.orderSnapshots = orderSnapshots;
         this.futuresSnapshots = futuresSnapshots;
@@ -78,6 +107,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         this.optionsSnapshots = optionsSnapshots;
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.projectionComparator = projectionComparator;
+        this.confidenceTracker = confidenceTracker;
         this.executor = Objects.requireNonNull(executor, "executor");
         requirePositiveInterval();
         requirePositiveDedupeWindow();
@@ -174,6 +204,11 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
             return;
         }
         List<BinanceRestSnapshotProjectionComparison> comparisons = projectionComparator.compare(envelopes);
+        if (confidenceTracker != null) {
+            confidenceTracker.recordAll(comparisons.stream()
+                    .map(BinanceRestSnapshotProjectionComparison::toObservation)
+                    .toList());
+        }
         List<BinanceRestSnapshotProjectionComparison> unaligned = comparisons.stream()
                 .filter(comparison -> !comparison.aligned())
                 .toList();

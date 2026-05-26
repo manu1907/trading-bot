@@ -8,6 +8,9 @@ import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -277,6 +280,61 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
     }
 
     @Test
+    void records_projection_comparison_confidence_for_runtime_target() {
+        FakeFuturesSnapshots futures = new FakeFuturesSnapshots();
+        ReconciliationConfidenceTracker confidenceTracker = new ReconciliationConfidenceTracker(
+                Clock.fixed(Instant.parse("2026-05-26T08:00:00Z"), ZoneOffset.UTC)
+        );
+        BinanceRestSnapshotReconciliationRuntime runtime = runtime(
+                new BinanceProperties.Reconciliation(
+                        false,
+                        60,
+                        10_000,
+                        true,
+                        false,
+                        false,
+                        List.of(),
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        List.of(),
+                        false,
+                        false,
+                        List.of()
+                ),
+                null,
+                futures,
+                null,
+                null,
+                "usd_m_futures",
+                List.of(),
+                new BinanceRestSnapshotProjectionComparator(new TradingStateProjection()),
+                confidenceTracker
+        );
+
+        runtime.runOnce();
+
+        ReconciliationTargetConfidence confidence = confidenceTracker.targetConfidence(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures"
+        );
+        assertThat(confidence.status()).isEqualTo(ReconciliationTargetConfidence.Status.DEGRADED);
+        assertThat(confidence.degradedStates()).isEqualTo(1);
+        assertThat(confidence.observedAt()).isEqualTo(Instant.parse("2026-05-26T08:00:00Z"));
+        assertThat(confidenceTracker.degradedStates("binance", "demo", "main", "usd_m_futures"))
+                .singleElement()
+                .satisfies(state -> {
+                    assertThat(state.status()).isEqualTo(ReconciliationConfidenceStatus.MISSING_PROJECTION);
+                    assertThat(state.eventType()).isEqualTo(TradingEventType.BALANCE_UPDATE);
+                    assertThat(state.entityKey()).isEqualTo("binance|demo|main|usd_m_futures|USDT");
+                });
+    }
+
+    @Test
     void rejects_missing_snapshot_source_for_enabled_family() {
         BinanceProperties.Reconciliation reconciliation = new BinanceProperties.Reconciliation(
                 false,
@@ -384,6 +442,30 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
             List<String> initialRecentEventIds,
             BinanceRestSnapshotProjectionComparator projectionComparator
     ) {
+        return runtime(
+                reconciliation,
+                orderSnapshots,
+                futuresSnapshots,
+                marginSnapshots,
+                optionsSnapshots,
+                market,
+                initialRecentEventIds,
+                projectionComparator,
+                null
+        );
+    }
+
+    private BinanceRestSnapshotReconciliationRuntime runtime(
+            BinanceProperties.Reconciliation reconciliation,
+            BinanceRestSnapshotReconciliationRuntime.OrderSnapshots orderSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.OptionsSnapshots optionsSnapshots,
+            String market,
+            List<String> initialRecentEventIds,
+            BinanceRestSnapshotProjectionComparator projectionComparator,
+            ReconciliationConfidenceTracker confidenceTracker
+    ) {
         return new BinanceRestSnapshotReconciliationRuntime(
                 reconciliation,
                 orderSnapshots,
@@ -397,6 +479,7 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
                         Clock.fixed(Instant.parse("2026-05-25T14:00:00Z"), ZoneOffset.UTC)
                 ),
                 projectionComparator,
+                confidenceTracker,
                 executor,
                 initialRecentEventIds
         );

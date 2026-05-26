@@ -416,9 +416,9 @@ adapter. Known gaps that must remain on the plan:
   implemented. Core now has an in-memory trading-state projection for order,
   execution, balance, position, and risk-update events with event-ID dedupe and
   stale per-entity update rejection. Binance reconciliation can compare REST
-  snapshots against projected state and report missing/mismatched entities, but
-  it still does not enforce durable action gating around gaps and unknown
-  execution status.
+  snapshots against projected state and record provider-agnostic reconciliation
+  confidence for matched, missing, and mismatched entities, but it still does
+  not enforce durable action gating around gaps and unknown execution status.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

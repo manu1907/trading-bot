@@ -16,6 +16,7 @@ import io.github.manu.journal.JournaledTradingEvent;
 import io.github.manu.journal.TradingEventJournal;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import org.apache.avro.specific.SpecificRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,7 @@ public class BinanceExchangeModule implements ExchangeModule {
     private final ObjectProvider<TradingEventBus> eventBusProvider;
     private final ObjectProvider<TradingEventJournal> journalProvider;
     private final ObjectProvider<TradingStateProjection> projectionProvider;
+    private final ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTrackerProvider;
     private final Clock clock;
     private final BinanceHttpTransport httpTransportOverride;
     private final BinanceWebSocketTransport webSocketTransportOverride;
@@ -55,34 +57,45 @@ public class BinanceExchangeModule implements ExchangeModule {
     private ScheduledExecutorService reconciliationSchedulerExecutor;
 
     public BinanceExchangeModule() {
-        this(null, null, null, Clock.systemUTC(), null, null);
+        this(null, null, null, null, Clock.systemUTC(), null, null);
     }
 
     @Autowired
     BinanceExchangeModule(
             ObjectProvider<TradingEventBus> eventBusProvider,
             ObjectProvider<TradingEventJournal> journalProvider,
-            ObjectProvider<TradingStateProjection> projectionProvider
+            ObjectProvider<TradingStateProjection> projectionProvider,
+            ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTrackerProvider
     ) {
-        this(eventBusProvider, journalProvider, projectionProvider, Clock.systemUTC(), null, null);
+        this(
+                eventBusProvider,
+                journalProvider,
+                projectionProvider,
+                reconciliationConfidenceTrackerProvider,
+                Clock.systemUTC(),
+                null,
+                null
+        );
     }
 
     BinanceExchangeModule(ObjectProvider<TradingEventBus> eventBusProvider,
                           Clock clock,
                           BinanceHttpTransport httpTransportOverride,
                           BinanceWebSocketTransport webSocketTransportOverride) {
-        this(eventBusProvider, null, null, clock, httpTransportOverride, webSocketTransportOverride);
+        this(eventBusProvider, null, null, null, clock, httpTransportOverride, webSocketTransportOverride);
     }
 
     BinanceExchangeModule(ObjectProvider<TradingEventBus> eventBusProvider,
                           ObjectProvider<TradingEventJournal> journalProvider,
                           ObjectProvider<TradingStateProjection> projectionProvider,
+                          ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTrackerProvider,
                           Clock clock,
                           BinanceHttpTransport httpTransportOverride,
                           BinanceWebSocketTransport webSocketTransportOverride) {
         this.eventBusProvider = eventBusProvider;
         this.journalProvider = journalProvider;
         this.projectionProvider = projectionProvider;
+        this.reconciliationConfidenceTrackerProvider = reconciliationConfidenceTrackerProvider;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.httpTransportOverride = httpTransportOverride;
         this.webSocketTransportOverride = webSocketTransportOverride;
@@ -93,7 +106,7 @@ public class BinanceExchangeModule implements ExchangeModule {
                           Clock clock,
                           BinanceHttpTransport httpTransportOverride,
                           BinanceWebSocketTransport webSocketTransportOverride) {
-        this(eventBusProvider, journalProvider, null, clock, httpTransportOverride, webSocketTransportOverride);
+        this(eventBusProvider, journalProvider, null, null, clock, httpTransportOverride, webSocketTransportOverride);
     }
 
     @Override
@@ -411,6 +424,7 @@ public class BinanceExchangeModule implements ExchangeModule {
                         clock
                 ),
                 projectionComparator(reconciliation),
+                reconciliationConfidenceTracker(reconciliation),
                 reconciliationSchedulerExecutor,
                 recentReconciliationEventIds(reconciliation)
         );
@@ -476,6 +490,16 @@ public class BinanceExchangeModule implements ExchangeModule {
             return null;
         }
         return new BinanceRestSnapshotProjectionComparator(projection);
+    }
+
+    private ReconciliationConfidenceTracker reconciliationConfidenceTracker(
+            BinanceProperties.Reconciliation reconciliation
+    ) {
+        if (!Boolean.TRUE.equals(reconciliation.projectionComparisonEnabled())
+                || reconciliationConfidenceTrackerProvider == null) {
+            return null;
+        }
+        return reconciliationConfidenceTrackerProvider.getIfAvailable();
     }
 
     private String reconciliationEventId(SerializedTradingEvent serialized) {
