@@ -1,12 +1,36 @@
 package io.github.manu.projection;
 
+import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.SmartLifecycle;
 
 @Configuration
+@EnableConfigurationProperties(ProjectionProperties.class)
 public class ProjectionConfiguration {
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.projection.snapshot-store", name = "enabled", havingValue = "true")
+    TradingStateProjectionStore fileTradingStateProjectionStore(ProjectionProperties properties) {
+        return new FileTradingStateProjectionStore(
+                properties.snapshotStore().path(),
+                JsonMapperFactory.create()
+        );
+    }
+
+    @Bean
+    @ConditionalOnBean(TradingStateProjectionStore.class)
+    SmartLifecycle projectionSnapshotLifecycle(
+            TradingStateProjection projection,
+            TradingStateProjectionStore store
+    ) {
+        return new ProjectionSnapshotLifecycle(projection, store);
+    }
 
     @Bean
     TradingEventHandlerRegistration balanceProjectionHandler(TradingStateProjection projection) {

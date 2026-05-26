@@ -52,6 +52,6 @@ public final class JournalRecoveryLifecycle implements SmartLifecycle {
 
     @Override
     public int getPhase() {
-        return Integer.MIN_VALUE;
+        return Integer.MIN_VALUE + 100;
     }
 }

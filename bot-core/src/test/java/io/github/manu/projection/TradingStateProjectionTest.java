@@ -103,6 +103,33 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void snapshots_and_restores_projection_state() {
+        projection.apply(balance("evt-balance", "1000", "950", timestamp(10)));
+        projection.apply(position("evt-position", "-0.10", timestamp(11)));
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(12)));
+        projection.apply(risk("evt-risk", "-0.01304097", timestamp(13)));
+
+        TradingStateSnapshot snapshot = projection.snapshot();
+        TradingStateProjection restored = new TradingStateProjection();
+        restored.restore(snapshot);
+
+        assertThat(restored.balance(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "USDT"))
+                .get()
+                .satisfies(balance -> assertThat(balance.walletBalance()).isEqualTo("1000"));
+        assertThat(restored.position(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "SHORT"))
+                .get()
+                .satisfies(position -> assertThat(position.positionAmount()).isEqualTo("-0.10"));
+        assertThat(restored.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> assertThat(order.exchangeStatus()).isEqualTo("NEW"));
+        assertThat(restored.risk(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "UNDERLYING", "BTCUSDT"))
+                .get()
+                .satisfies(risk -> assertThat(risk.delta()).isEqualTo("-0.01304097"));
+        assertThat(restored.apply(balance("evt-balance", "1001", "951", timestamp(14))).status())
+                .isEqualTo(ProjectionUpdateStatus.DUPLICATE);
+    }
+
+    @Test
     void bounds_event_id_deduplication_window() {
         TradingStateProjection bounded = new TradingStateProjection(1);
 

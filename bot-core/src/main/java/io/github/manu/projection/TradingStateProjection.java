@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashSet;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -105,6 +107,69 @@ public final class TradingStateProjection implements TradingEventHandler {
                 .filter(entry -> entry.getKey().startsWith(prefix + "|"))
                 .map(Map.Entry::getValue)
                 .anyMatch(PositionState::open);
+    }
+
+    public TradingStateSnapshot snapshot() {
+        synchronized (lock) {
+            return new TradingStateSnapshot(
+                    valuesByKey(balances),
+                    valuesByKey(positions),
+                    valuesByKey(orders),
+                    valuesByKey(risks),
+                    List.copyOf(appliedEventIds)
+            );
+        }
+    }
+
+    public void restore(TradingStateSnapshot snapshot) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        synchronized (lock) {
+            balances.clear();
+            positions.clear();
+            orders.clear();
+            risks.clear();
+            appliedEventIds.clear();
+            for (BalanceState state : snapshot.balances()) {
+                balances.put(key(state.provider(), state.environment(), state.account(), state.market(), state.asset()), state);
+            }
+            for (PositionState state : snapshot.positions()) {
+                positions.put(key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.symbol(),
+                        state.positionSide()
+                ), state);
+            }
+            for (OrderState state : snapshot.orders()) {
+                orders.put(key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.symbol(),
+                        state.clientOrderId()
+                ), state);
+            }
+            for (RiskState state : snapshot.risks()) {
+                String entityId = state.symbol() == null ? state.underlying() : state.symbol();
+                if (entityId == null) {
+                    entityId = state.account();
+                }
+                risks.put(key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.riskScope(),
+                        entityId
+                ), state);
+            }
+            for (String eventId : snapshot.appliedEventIds()) {
+                rememberEventId(eventId);
+            }
+        }
     }
 
     private ProjectionUpdate applyBalance(TradingEventEnvelope<?> envelope, BalanceUpdateEvent event) {
@@ -284,6 +349,13 @@ public final class TradingStateProjection implements TradingEventHandler {
             appliedEventIds.remove(appliedEventIds.getFirst());
         }
         return added;
+    }
+
+    private <T> List<T> valuesByKey(Map<String, T> states) {
+        return states.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .toList();
     }
 
     private <T extends SpecificRecord> T cast(Object value, Class<T> expectedType) {

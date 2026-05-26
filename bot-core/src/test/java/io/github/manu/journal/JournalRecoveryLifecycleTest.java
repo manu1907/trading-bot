@@ -27,7 +27,7 @@ class JournalRecoveryLifecycleTest {
     }
 
     @Test
-    void starts_before_default_lifecycle_beans() {
+    void starts_after_projection_snapshot_and_before_default_lifecycle_beans() {
         JournalRecoveryService recoveryService = new JournalRecoveryService(
                 new CountingTradingEventJournal(),
                 new TradingEventHandlerRegistry(List.of())
@@ -35,7 +35,8 @@ class JournalRecoveryLifecycleTest {
         JournalRecoveryLifecycle lifecycle = new JournalRecoveryLifecycle(recoveryService);
 
         assertThat(lifecycle.isAutoStartup()).isTrue();
-        assertThat(lifecycle.getPhase()).isEqualTo(Integer.MIN_VALUE);
+        assertThat(lifecycle.getPhase()).isEqualTo(Integer.MIN_VALUE + 100);
+        assertThat(lifecycle.getPhase()).isLessThan(0);
     }
 
     @Test

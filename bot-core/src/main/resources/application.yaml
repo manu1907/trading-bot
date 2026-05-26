@@ -30,6 +30,10 @@ trading:
     directory: data/journal/trading-events
     recovery:
       enabled: false
+  projection:
+    snapshot-store:
+      enabled: false
+      path: data/projection/trading-state-snapshot.json
   messaging:
     enabled: false
     bootstrap-servers: localhost:19092
