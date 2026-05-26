@@ -151,7 +151,9 @@ Source-of-truth docs checked during this review:
   `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Exercise-Record`
 - Options new order:
   `https://developers.binance.com/docs/derivatives/options-trading/trade/New-Order`
-- Options user-data stream order, account, balance/position, and greek events:
+- Options user-data stream risk-level, order, account, balance/position, and
+  greek events:
+  `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Risk-level-change`,
   `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Order-update`,
   `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Account-data`,
   `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Balance-and-Position-Update`,
@@ -183,9 +185,10 @@ Implemented Binance foundations:
   comma-separated heartbeat underlyings, and catalog-disabled mutations by
   default.
 - Options user-data mapping for documented `ORDER_TRADE_UPDATE`,
-  `ACCOUNT_UPDATE`, and `BALANCE_POSITION_UPDATE` payloads into core
-  execution, balance, and position envelopes, including the `/private` stream
-  `data` wrapper used by options account-data examples.
+  `ACCOUNT_UPDATE`, `BALANCE_POSITION_UPDATE`, `GREEK_UPDATE`, and
+  `RISK_LEVEL_CHANGE` payloads into core execution, balance, position, and
+  risk-update envelopes, including the `/private` stream `data` wrapper used by
+  options account-data examples.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
@@ -329,12 +332,11 @@ Binance parity gaps to close before claiming full connector support:
 - Options: `/eapi` order request parameter naming, post-only handling, read-only
   margin-account/position snapshots, MMP get/set/reset request coverage,
   order-history/open-order/account-trade reconciliation inputs, commission
-  reads, exercise-record reads, and the core execution/balance/position
+  reads, exercise-record reads, and core execution/balance/position/risk
   user-data stream mappings are covered, but options parity is not complete.
-  Keep real options trading disabled unless options Greek/risk-level stream
-  semantics, complete account/stream reconciliation, and projection-backed
-  ordering are fully implemented and tested against current Binance
-  documentation.
+  Keep real options trading disabled unless complete account/stream
+  reconciliation and projection-backed ordering are fully implemented and
+  tested against current Binance documentation.
 - All products: extend the reconciliation runtime to compare REST snapshots
   against stream/projection state and enforce durable replay-safe ordering and
   projection-backed idempotency around stream gaps and unknown execution

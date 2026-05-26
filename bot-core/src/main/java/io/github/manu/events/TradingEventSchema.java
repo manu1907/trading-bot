@@ -9,6 +9,7 @@ public enum TradingEventSchema {
     EXECUTION_REPORT("ExecutionReportEvent.avsc"),
     BALANCE_UPDATE("BalanceUpdateEvent.avsc"),
     POSITION_UPDATE("PositionUpdateEvent.avsc"),
+    RISK_UPDATE("RiskUpdateEvent.avsc"),
     RISK_DECISION("RiskDecisionEvent.avsc"),
     STRATEGY_SIGNAL("StrategySignalEvent.avsc"),
     CONFIG_CHANGE("ConfigChangeEvent.avsc");

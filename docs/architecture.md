@@ -257,10 +257,9 @@ of truth. As of the current code, the connector covers these foundations:
   with options-specific query-shape validation and typed parsing for commission
   and exercise records.
 - Options user-data stream mapping covers documented `ORDER_TRADE_UPDATE`,
-  direct `/private` `ACCOUNT_UPDATE`, and `BALANCE_POSITION_UPDATE` payloads
-  into core execution, balance, and position envelopes. Options `GREEK_UPDATE`
-  and risk-level events remain tracked gaps until the core event model has a
-  provider-agnostic risk/greeks envelope.
+  direct `/private` `ACCOUNT_UPDATE`, `BALANCE_POSITION_UPDATE`,
+  `GREEK_UPDATE`, and `RISK_LEVEL_CHANGE` payloads into core execution,
+  balance, position, and risk-update envelopes.
 - `exchangeInfo` loading and parsing for symbol filters, order enums,
   precision, rate limits, trigger protection, and lifecycle metadata.
 - Basic signed order create, query, open-orders, and cancel requests.

@@ -7,6 +7,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RiskUpdateEvent;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -48,6 +49,8 @@ final class BinanceUserDataEventMapper {
             case "externalLockUpdate" -> List.of(spotBalanceDelta(event, normalized, "externalLockUpdate"));
             case "ACCOUNT_UPDATE" -> accountUpdate(event, normalized);
             case "BALANCE_POSITION_UPDATE" -> optionsBalancePositionUpdate(event, normalized);
+            case "GREEK_UPDATE" -> optionsGreekUpdate(event, normalized);
+            case "RISK_LEVEL_CHANGE" -> List.of(optionsRiskLevelChange(event, normalized));
             default -> List.of();
         };
     }
@@ -434,6 +437,67 @@ final class BinanceUserDataEventMapper {
         return envelopes;
     }
 
+    private List<TradingEventEnvelope<?>> optionsGreekUpdate(JsonNode event, Context context) {
+        List<TradingEventEnvelope<?>> envelopes = new ArrayList<>();
+        int greekIndex = 0;
+        for (JsonNode greek : array(event, "G")) {
+            String underlying = requiredText(greek, "u");
+            RiskUpdateEvent value = RiskUpdateEvent.newBuilder()
+                    .setEventId(eventId(context, "GREEK_UPDATE", underlying, String.valueOf(greekIndex), text(event, "E")))
+                    .setSchemaVersion(1)
+                    .setProvider(context.provider())
+                    .setEnvironment(context.environment())
+                    .setAccount(context.account())
+                    .setMarket(context.market())
+                    .setRiskScope("UNDERLYING")
+                    .setSymbol(underlying)
+                    .setUnderlying(underlying)
+                    .setRiskLevel(null)
+                    .setDelta(text(greek, "d"))
+                    .setGamma(text(greek, "g"))
+                    .setTheta(text(greek, "t"))
+                    .setVega(text(greek, "v"))
+                    .setMarginBalance(null)
+                    .setMaintenanceMargin(null)
+                    .setEventTimeMicros(requiredInstant(event, "E"))
+                    .setTransactionTimeMicros(instant(event, "T"))
+                    .setAttributes(attributes(greek, Map.of(
+                            "rawEventType", "e"
+                    ), event))
+                    .build();
+            envelopes.add(riskEnvelope(context, underlying, value));
+            greekIndex++;
+        }
+        return envelopes;
+    }
+
+    private TradingEventEnvelope<RiskUpdateEvent> optionsRiskLevelChange(JsonNode event, Context context) {
+        RiskUpdateEvent value = RiskUpdateEvent.newBuilder()
+                .setEventId(eventId(context, "RISK_LEVEL_CHANGE", text(event, "s"), text(event, "E")))
+                .setSchemaVersion(1)
+                .setProvider(context.provider())
+                .setEnvironment(context.environment())
+                .setAccount(context.account())
+                .setMarket(context.market())
+                .setRiskScope("ACCOUNT")
+                .setSymbol(null)
+                .setUnderlying(null)
+                .setRiskLevel(requiredText(event, "s"))
+                .setDelta(null)
+                .setGamma(null)
+                .setTheta(null)
+                .setVega(null)
+                .setMarginBalance(text(event, "mb"))
+                .setMaintenanceMargin(text(event, "mm"))
+                .setEventTimeMicros(requiredInstant(event, "E"))
+                .setTransactionTimeMicros(null)
+                .setAttributes(attributes(event, Map.of(
+                        "rawEventType", "e"
+                )))
+                .build();
+        return riskEnvelope(context, null, value);
+    }
+
     private TradingEventEnvelope<BalanceUpdateEvent> balanceEnvelope(Context context, BalanceUpdateEvent value) {
         return TradingEventEnvelope.of(
                 TradingEventType.BALANCE_UPDATE,
@@ -443,6 +507,38 @@ final class BinanceUserDataEventMapper {
                         context.environment(),
                         context.account(),
                         context.market()
+                ),
+                value
+        );
+    }
+
+    private TradingEventEnvelope<RiskUpdateEvent> riskEnvelope(
+            Context context,
+            String symbol,
+            RiskUpdateEvent value
+    ) {
+        if (symbol == null) {
+            return TradingEventEnvelope.of(
+                    TradingEventType.RISK_UPDATE,
+                    TradingEventKeys.account(
+                            TradingEventType.RISK_UPDATE,
+                            context.provider(),
+                            context.environment(),
+                            context.account(),
+                            context.market()
+                    ),
+                    value
+            );
+        }
+        return TradingEventEnvelope.of(
+                TradingEventType.RISK_UPDATE,
+                TradingEventKeys.symbol(
+                        TradingEventType.RISK_UPDATE,
+                        context.provider(),
+                        context.environment(),
+                        context.account(),
+                        context.market(),
+                        symbol
                 ),
                 value
         );

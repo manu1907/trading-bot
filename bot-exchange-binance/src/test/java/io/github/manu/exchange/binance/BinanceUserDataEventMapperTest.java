@@ -5,6 +5,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.events.v1.TradingEventKeyEntityType;
 import org.junit.jupiter.api.Test;
 
@@ -424,6 +425,76 @@ class BinanceUserDataEventMapperTest {
     }
 
     @Test
+    void maps_options_greek_update() {
+        List<TradingEventEnvelope<?>> envelopes = mapper.map("""
+                {
+                  "e": "GREEK_UPDATE",
+                  "E": 1762917544216,
+                  "T": 1762917544216,
+                  "G": [
+                    {
+                      "u": "BTCUSDT",
+                      "d": "-0.01304097",
+                      "g": "-0.00000124",
+                      "t": "16.11648100",
+                      "v": "-3.83444011"
+                    }
+                  ]
+                }
+                """, OPTIONS_CONTEXT);
+
+        assertThat(envelopes).hasSize(1);
+        TradingEventEnvelope<?> envelope = envelopes.getFirst();
+        assertThat(envelope.eventType()).isEqualTo(TradingEventType.RISK_UPDATE);
+        assertThat(envelope.key().getEntityType()).isEqualTo(TradingEventKeyEntityType.SYMBOL);
+        assertThat(envelope.key().getPartitionKey()).hasToString(
+                "risk_update|symbol|binance|demo|main|options|btcusdt|btcusdt"
+        );
+        RiskUpdateEvent risk = risk(envelope);
+        assertThat(risk.getRiskScope()).hasToString("UNDERLYING");
+        assertThat(risk.getSymbol()).hasToString("BTCUSDT");
+        assertThat(risk.getUnderlying()).hasToString("BTCUSDT");
+        assertThat(risk.getDelta()).hasToString("-0.01304097");
+        assertThat(risk.getGamma()).hasToString("-0.00000124");
+        assertThat(risk.getTheta()).hasToString("16.11648100");
+        assertThat(risk.getVega()).hasToString("-3.83444011");
+        assertThat(risk.getEventTimeMicros()).isEqualTo(Instant.ofEpochMilli(1_762_917_544_216L));
+        assertThat(risk.getTransactionTimeMicros()).isEqualTo(Instant.ofEpochMilli(1_762_917_544_216L));
+        assertThat(attributes(risk.getAttributes())).containsEntry("rawEventType", "GREEK_UPDATE");
+    }
+
+    @Test
+    void maps_options_risk_level_change() {
+        List<TradingEventEnvelope<?>> envelopes = mapper.map("""
+                {
+                  "e": "RISK_LEVEL_CHANGE",
+                  "E": 1587727187525,
+                  "s": "REDUCE_ONLY",
+                  "mb": "1534.11708371",
+                  "mm": "254789.11708371"
+                }
+                """, OPTIONS_CONTEXT);
+
+        assertThat(envelopes).hasSize(1);
+        TradingEventEnvelope<?> envelope = envelopes.getFirst();
+        assertThat(envelope.eventType()).isEqualTo(TradingEventType.RISK_UPDATE);
+        assertThat(envelope.key().getEntityType()).isEqualTo(TradingEventKeyEntityType.ACCOUNT);
+        assertThat(envelope.key().getPartitionKey()).hasToString(
+                "risk_update|account|binance|demo|main|options|-|main"
+        );
+        RiskUpdateEvent risk = risk(envelope);
+        assertThat(risk.getRiskScope()).hasToString("ACCOUNT");
+        assertThat(risk.getSymbol()).isNull();
+        assertThat(risk.getUnderlying()).isNull();
+        assertThat(risk.getRiskLevel()).hasToString("REDUCE_ONLY");
+        assertThat(risk.getMarginBalance()).hasToString("1534.11708371");
+        assertThat(risk.getMaintenanceMargin()).hasToString("254789.11708371");
+        assertThat(risk.getEventTimeMicros()).isEqualTo(Instant.ofEpochMilli(1_587_727_187_525L));
+        assertThat(risk.getTransactionTimeMicros()).isNull();
+        assertThat(attributes(risk.getAttributes())).containsEntry("rawEventType", "RISK_LEVEL_CHANGE");
+    }
+
+    @Test
     void ignores_unknown_user_data_events() {
         List<TradingEventEnvelope<?>> envelopes = mapper.map("""
                 {
@@ -448,6 +519,11 @@ class BinanceUserDataEventMapperTest {
     private PositionUpdateEvent position(TradingEventEnvelope<?> envelope) {
         assertThat(envelope.value()).isInstanceOf(PositionUpdateEvent.class);
         return (PositionUpdateEvent) envelope.value();
+    }
+
+    private RiskUpdateEvent risk(TradingEventEnvelope<?> envelope) {
+        assertThat(envelope.value()).isInstanceOf(RiskUpdateEvent.class);
+        return (RiskUpdateEvent) envelope.value();
     }
 
     private Map<String, String> attributes(Map<CharSequence, CharSequence> attributes) {

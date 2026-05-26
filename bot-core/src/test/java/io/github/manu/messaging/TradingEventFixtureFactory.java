@@ -17,6 +17,7 @@ import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.events.v1.StrategySignalEvent;
 import io.github.manu.events.v1.StrategySignalType;
 import io.github.manu.events.v1.TradingEventKey;
@@ -49,6 +50,7 @@ final class TradingEventFixtureFactory {
         envelopes.put(TradingEventType.EXECUTION_REPORT, executionReport());
         envelopes.put(TradingEventType.BALANCE_UPDATE, balanceUpdate());
         envelopes.put(TradingEventType.POSITION_UPDATE, positionUpdate());
+        envelopes.put(TradingEventType.RISK_UPDATE, riskUpdate());
         envelopes.put(TradingEventType.RISK_DECISION, riskDecision());
         envelopes.put(TradingEventType.STRATEGY_SIGNAL, strategySignal());
         envelopes.put(TradingEventType.CONFIG_CHANGE, configChange());
@@ -278,6 +280,39 @@ final class TradingEventFixtureFactory {
                 .setAttributes(Map.of())
                 .build();
         return TradingEventEnvelope.of(TradingEventType.RISK_DECISION, key, event);
+    }
+
+    private static TradingEventEnvelope<RiskUpdateEvent> riskUpdate() {
+        TradingEventKey key = TradingEventKeys.symbol(
+                TradingEventType.RISK_UPDATE,
+                PROVIDER,
+                ENVIRONMENT,
+                ACCOUNT,
+                MARKET,
+                SYMBOL
+        );
+        RiskUpdateEvent event = RiskUpdateEvent.newBuilder()
+                .setEventId("evt-risk-update")
+                .setSchemaVersion(1)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setRiskScope("UNDERLYING")
+                .setSymbol(SYMBOL)
+                .setUnderlying(SYMBOL)
+                .setRiskLevel(null)
+                .setDelta("-0.01304097")
+                .setGamma("-0.00000124")
+                .setTheta("16.11648100")
+                .setVega("-3.83444011")
+                .setMarginBalance(null)
+                .setMaintenanceMargin(null)
+                .setEventTimeMicros(TIMESTAMP)
+                .setTransactionTimeMicros(TIMESTAMP)
+                .setAttributes(Map.of())
+                .build();
+        return TradingEventEnvelope.of(TradingEventType.RISK_UPDATE, key, event);
     }
 
     private static TradingEventEnvelope<StrategySignalEvent> strategySignal() {

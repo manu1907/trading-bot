@@ -8,6 +8,7 @@ import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.events.v1.StrategySignalEvent;
 import org.apache.avro.Schema;
 import org.apache.avro.specific.SpecificRecord;
@@ -22,6 +23,7 @@ public enum TradingEventType {
     EXECUTION_REPORT(TradingEventSchema.EXECUTION_REPORT, ExecutionReportEvent.class, "execution-report"),
     BALANCE_UPDATE(TradingEventSchema.BALANCE_UPDATE, BalanceUpdateEvent.class, "balance-update"),
     POSITION_UPDATE(TradingEventSchema.POSITION_UPDATE, PositionUpdateEvent.class, "position-update"),
+    RISK_UPDATE(TradingEventSchema.RISK_UPDATE, RiskUpdateEvent.class, "risk-update"),
     RISK_DECISION(TradingEventSchema.RISK_DECISION, RiskDecisionEvent.class, "risk-decision"),
     STRATEGY_SIGNAL(TradingEventSchema.STRATEGY_SIGNAL, StrategySignalEvent.class, "strategy-signal"),
     CONFIG_CHANGE(TradingEventSchema.CONFIG_CHANGE, ConfigChangeEvent.class, "config-change");
