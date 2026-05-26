@@ -4,6 +4,7 @@ import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -16,11 +17,28 @@ public class ProjectionConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "trading.projection.snapshot-store", name = "enabled", havingValue = "true")
+    @ConditionalOnMissingBean(TradingStateProjectionStore.class)
     TradingStateProjectionStore fileTradingStateProjectionStore(ProjectionProperties properties) {
         return new FileTradingStateProjectionStore(
                 properties.snapshotStore().path(),
                 JsonMapperFactory.create()
         );
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.projection.jdbc-store", name = "enabled", havingValue = "true")
+    TradingStateProjectionStore jdbcTradingStateProjectionStore(ProjectionProperties properties) {
+        ProjectionProperties.JdbcStore jdbcStore = properties.jdbcStore();
+        JdbcTradingStateProjectionStore store = new JdbcTradingStateProjectionStore(
+                jdbcStore.url(),
+                jdbcStore.username(),
+                jdbcStore.password(),
+                jdbcStore.tablePrefix()
+        );
+        if (jdbcStore.initializeSchema()) {
+            store.initializeSchema();
+        }
+        return store;
     }
 
     @Bean

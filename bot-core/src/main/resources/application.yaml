@@ -34,6 +34,13 @@ trading:
     snapshot-store:
       enabled: false
       path: data/projection/trading-state-snapshot.json
+    jdbc-store:
+      enabled: false
+      url: ${TRADING_PROJECTION_JDBC_URL:}
+      username: ${TRADING_PROJECTION_JDBC_USERNAME:}
+      password: ${TRADING_PROJECTION_JDBC_PASSWORD:}
+      table-prefix: trading_projection_
+      initialize-schema: false
   messaging:
     enabled: false
     bootstrap-servers: localhost:19092

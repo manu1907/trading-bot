@@ -46,4 +46,25 @@ class ProjectionConfigurationTest {
                     assertThat(properties.snapshotStore().path()).isEqualTo(snapshotPath);
                 });
     }
+
+    @Test
+    void creates_jdbc_snapshot_store_when_enabled() {
+        contextRunner
+                .withBean(TradingStateProjection.class, TradingStateProjection::new)
+                .withPropertyValues(
+                        "trading.projection.jdbc-store.enabled=true",
+                        "trading.projection.jdbc-store.url=jdbc:h2:mem:projection-config;MODE=PostgreSQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1",
+                        "trading.projection.jdbc-store.table-prefix=trading_projection_",
+                        "trading.projection.jdbc-store.initialize-schema=true"
+                )
+                .run(context -> {
+                    assertThat(context).hasSingleBean(TradingStateProjectionStore.class);
+                    assertThat(context).hasSingleBean(JdbcTradingStateProjectionStore.class);
+                    assertThat(context).hasSingleBean(SmartLifecycle.class);
+
+                    ProjectionProperties properties = context.getBean(ProjectionProperties.class);
+                    assertThat(properties.jdbcStore().enabled()).isTrue();
+                    assertThat(properties.jdbcStore().tablePrefix()).isEqualTo("trading_projection_");
+                });
+    }
 }

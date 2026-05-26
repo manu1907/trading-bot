@@ -70,11 +70,10 @@ The bot is not professional-execution-ready until these gaps are closed:
 - Core has an in-memory account/order/position/risk projection that can be
   rebuilt from events and rejects stale per-entity updates. Binance
   reconciliation can compare REST snapshots against that projection and report
-  missing/mismatched state. The projection has an opt-in durable file snapshot
-  store for restart snapshots, but it is not yet persisted to
-  PostgreSQL/TimescaleDB and order placement is not yet gated by durable
-  reconciliation confidence.
-- No PostgreSQL/TimescaleDB projection store.
+  missing/mismatched state. The projection has opt-in durable file and
+  PostgreSQL-compatible JDBC snapshot stores for restart snapshots, but order
+  placement is not yet gated by durable reconciliation confidence.
+- No TimescaleDB hypertable tuning or production database migration runner.
 - No GCS uploader/archive worker; only the object layout exists.
 - User-data payload mapping, stream publishing, market-data mapping, REST
   snapshot reconciliation, core state projection, and REST-vs-projection
@@ -207,6 +206,9 @@ Implemented Binance foundations:
   position checks.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
+- Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL
+  schema, configurable JDBC URL/credentials/table prefix, and H2 coverage in
+  PostgreSQL mode.
 - Binance REST snapshot projection comparison for balances, positions, orders,
   and risk state, with catalog-backed `projection_comparison_enabled` and
   `fail_on_projection_mismatch` controls.
@@ -565,9 +567,8 @@ feat(journal): add durable trading event journal
 Deliver:
 
 - Chronicle Queue journal for critical events.
-- PostgreSQL/TimescaleDB projection store. A file-backed projection snapshot
-  exists as an interim restart aid and persistence boundary, but it is not the
-  final query store.
+- PostgreSQL-compatible JDBC projection store. TimescaleDB hypertable tuning
+  and a production migration runner remain open.
 - GCS archive layout.
 - Recovery process from journal and Redpanda.
 - Archive uploader worker that reads journaled events and writes outside the

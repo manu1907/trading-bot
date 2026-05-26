@@ -534,12 +534,15 @@ When `trading.journal.recovery.enabled=true`, an early startup lifecycle runs
 journal recovery before auto-starting messaging loops; any replay failure fails
 the process.
 
-The core trading-state projection also supports an opt-in file snapshot store
-under `trading.projection.snapshot-store`. The snapshot is loaded before journal
-recovery and saved at lifecycle stop. It is an interim restart aid and a tested
-persistence boundary; the final professional query store is still
-PostgreSQL/TimescaleDB, with the journal remaining the authoritative crash
-recovery source.
+The core trading-state projection also supports opt-in snapshot stores. A file
+store is configured under `trading.projection.snapshot-store`; a
+PostgreSQL-compatible JDBC store is configured under
+`trading.projection.jdbc-store` with explicit URL, credentials, table prefix,
+and schema initialization controls. Snapshots are loaded before journal recovery
+and saved at lifecycle stop. The schema contract lives at
+`db/projection/postgresql-schema.sql`. TimescaleDB hypertable tuning and a
+production migration runner remain open; the journal remains the authoritative
+crash recovery source.
 
 Archive object names for journal exports are defined by
 `TradingEventArchiveLayout`. The layout is deterministic and GCS-friendly:
