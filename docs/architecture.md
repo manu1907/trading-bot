@@ -256,6 +256,11 @@ of truth. As of the current code, the connector covers these foundations:
   `/eapi/v1/commission`, and `/eapi/v1/exerciseRecord` request/client coverage
   with options-specific query-shape validation and typed parsing for commission
   and exercise records.
+- Options user-data stream mapping covers documented `ORDER_TRADE_UPDATE`,
+  direct `/private` `ACCOUNT_UPDATE`, and `BALANCE_POSITION_UPDATE` payloads
+  into core execution, balance, and position envelopes. Options `GREEK_UPDATE`
+  and risk-level events remain tracked gaps until the core event model has a
+  provider-agnostic risk/greeks envelope.
 - `exchangeInfo` loading and parsing for symbol filters, order enums,
   precision, rate limits, trigger protection, and lifecycle metadata.
 - Basic signed order create, query, open-orders, and cancel requests.

@@ -10,6 +10,7 @@ import io.github.manu.events.v1.PositionUpdateEvent;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,7 +36,7 @@ final class BinanceUserDataEventMapper {
         requireText(payload, "payload");
         Context normalized = Objects.requireNonNull(context, "context").normalize();
         JsonNode root = jsonMapper.readTree(payload);
-        JsonNode event = root.hasNonNull("event") ? root.required("event") : root;
+        JsonNode event = eventNode(root);
         if (!event.hasNonNull("e")) {
             throw new IllegalArgumentException("Binance user-data payload missing e");
         }
@@ -46,8 +47,19 @@ final class BinanceUserDataEventMapper {
             case "balanceUpdate" -> List.of(spotBalanceDelta(event, normalized, "balanceUpdate"));
             case "externalLockUpdate" -> List.of(spotBalanceDelta(event, normalized, "externalLockUpdate"));
             case "ACCOUNT_UPDATE" -> accountUpdate(event, normalized);
+            case "BALANCE_POSITION_UPDATE" -> optionsBalancePositionUpdate(event, normalized);
             default -> List.of();
         };
+    }
+
+    private JsonNode eventNode(JsonNode root) {
+        if (root.hasNonNull("event")) {
+            return root.required("event");
+        }
+        if (root.hasNonNull("data")) {
+            return root.required("data");
+        }
+        return root;
     }
 
     private TradingEventEnvelope<ExecutionReportEvent> spotExecutionReport(JsonNode event, Context context) {
@@ -95,6 +107,8 @@ final class BinanceUserDataEventMapper {
                         Map.entry("preventedMatchId", "v"),
                         Map.entry("preventedQuantity", "A"),
                         Map.entry("lastPreventedQuantity", "B"),
+                        Map.entry("bidQuantity", "b"),
+                        Map.entry("askQuantity", "a"),
                         Map.entry("tradeGroupId", "u"),
                         Map.entry("counterOrderId", "U"),
                         Map.entry("counterSymbol", "Cs"),
@@ -159,6 +173,8 @@ final class BinanceUserDataEventMapper {
                         Map.entry("averagePrice", "ap"),
                         Map.entry("stopPrice", "sp"),
                         Map.entry("realizedProfit", "rp"),
+                        Map.entry("bidQuantity", "b"),
+                        Map.entry("askQuantity", "a"),
                         Map.entry("positionSide", "ps"),
                         Map.entry("reduceOnly", "R"),
                         Map.entry("workingType", "wt"),
@@ -243,6 +259,12 @@ final class BinanceUserDataEventMapper {
     }
 
     private List<TradingEventEnvelope<?>> accountUpdate(JsonNode event, Context context) {
+        if (!event.hasNonNull("a")) {
+            if (!"options".equals(context.market())) {
+                throw new IllegalArgumentException("Binance user-data ACCOUNT_UPDATE payload missing a");
+            }
+            return List.of(optionsAccountUpdate(event, context));
+        }
         JsonNode accountUpdate = event.required("a");
         String reason = text(accountUpdate, "m");
         List<TradingEventEnvelope<?>> envelopes = new ArrayList<>();
@@ -320,6 +342,98 @@ final class BinanceUserDataEventMapper {
         return envelopes;
     }
 
+    private TradingEventEnvelope<BalanceUpdateEvent> optionsAccountUpdate(JsonNode event, Context context) {
+        BalanceUpdateEvent value = BalanceUpdateEvent.newBuilder()
+                .setEventId(eventId(context, "OPTIONS_ACCOUNT_UPDATE", "USDT", text(event, "E")))
+                .setSchemaVersion(1)
+                .setProvider(context.provider())
+                .setEnvironment(context.environment())
+                .setAccount(context.account())
+                .setMarket(context.market())
+                .setAsset("USDT")
+                .setWalletBalance(text(event, "b"))
+                .setCrossWalletBalance(null)
+                .setAvailableBalance(null)
+                .setBalanceDelta(null)
+                .setUpdateReason("ACCOUNT_UPDATE")
+                .setEventTimeMicros(requiredInstant(event, "E"))
+                .setAttributes(attributes(event, Map.of(
+                        "rawEventType", "e",
+                        "transactionTime", "T",
+                        "equity", "eq",
+                        "adjustedEquity", "aeq",
+                        "positionValue", "m",
+                        "unrealizedPnl", "u",
+                        "initialMargin", "i",
+                        "maintenanceMargin", "M"
+                )))
+                .build();
+        return balanceEnvelope(context, value);
+    }
+
+    private List<TradingEventEnvelope<?>> optionsBalancePositionUpdate(JsonNode event, Context context) {
+        String reason = text(event, "m");
+        List<TradingEventEnvelope<?>> envelopes = new ArrayList<>();
+        int balanceIndex = 0;
+        for (JsonNode balance : array(event, "B")) {
+            String asset = requiredText(balance, "a");
+            BalanceUpdateEvent value = BalanceUpdateEvent.newBuilder()
+                    .setEventId(eventId(context, "BALANCE_POSITION_UPDATE_BALANCE", asset, String.valueOf(balanceIndex), text(event, "E")))
+                    .setSchemaVersion(1)
+                    .setProvider(context.provider())
+                    .setEnvironment(context.environment())
+                    .setAccount(context.account())
+                    .setMarket(context.market())
+                    .setAsset(asset)
+                    .setWalletBalance(text(balance, "b"))
+                    .setCrossWalletBalance(null)
+                    .setAvailableBalance(null)
+                    .setBalanceDelta(text(balance, "bc"))
+                    .setUpdateReason(reason)
+                    .setEventTimeMicros(requiredInstant(event, "E"))
+                    .setAttributes(attributes(balance, Map.of(
+                            "rawEventType", "e",
+                            "transactionTime", "T"
+                    ), event))
+                    .build();
+            envelopes.add(balanceEnvelope(context, value));
+            balanceIndex++;
+        }
+        int positionIndex = 0;
+        for (JsonNode position : array(event, "P")) {
+            String symbol = requiredText(position, "s");
+            String positionAmount = requiredText(position, "c");
+            PositionUpdateEvent value = PositionUpdateEvent.newBuilder()
+                    .setEventId(eventId(context, "BALANCE_POSITION_UPDATE_POSITION", symbol, String.valueOf(positionIndex), text(event, "E")))
+                    .setSchemaVersion(1)
+                    .setProvider(context.provider())
+                    .setEnvironment(context.environment())
+                    .setAccount(context.account())
+                    .setMarket(context.market())
+                    .setSymbol(symbol)
+                    .setPositionSide(positionSide(positionAmount))
+                    .setPositionAmount(positionAmount)
+                    .setEntryPrice(text(position, "a"))
+                    .setMarkPrice(null)
+                    .setLiquidationPrice(null)
+                    .setUnrealizedPnl(null)
+                    .setLeverage(null)
+                    .setMarginType(null)
+                    .setIsolatedMargin(null)
+                    .setEventTimeMicros(requiredInstant(event, "E"))
+                    .setAttributes(attributes(position, Map.of(
+                            "rawEventType", "e",
+                            "updateReason", "m",
+                            "transactionTime", "T",
+                            "positionValue", "p"
+                    ), event))
+                    .build();
+            envelopes.add(positionEnvelope(context, symbol, value));
+            positionIndex++;
+        }
+        return envelopes;
+    }
+
     private TradingEventEnvelope<BalanceUpdateEvent> balanceEnvelope(Context context, BalanceUpdateEvent value) {
         return TradingEventEnvelope.of(
                 TradingEventType.BALANCE_UPDATE,
@@ -329,6 +443,25 @@ final class BinanceUserDataEventMapper {
                         context.environment(),
                         context.account(),
                         context.market()
+                ),
+                value
+        );
+    }
+
+    private TradingEventEnvelope<PositionUpdateEvent> positionEnvelope(
+            Context context,
+            String symbol,
+            PositionUpdateEvent value
+    ) {
+        return TradingEventEnvelope.of(
+                TradingEventType.POSITION_UPDATE,
+                TradingEventKeys.symbol(
+                        TradingEventType.POSITION_UPDATE,
+                        context.provider(),
+                        context.environment(),
+                        context.account(),
+                        context.market(),
+                        symbol
                 ),
                 value
         );
@@ -412,6 +545,17 @@ final class BinanceUserDataEventMapper {
 
     private Optional<Boolean> booleanValue(JsonNode node, String field) {
         return node.hasNonNull(field) ? Optional.of(node.required(field).asBoolean()) : Optional.empty();
+    }
+
+    private String positionSide(String positionAmount) {
+        int sign = new BigDecimal(positionAmount).signum();
+        if (sign > 0) {
+            return "LONG";
+        }
+        if (sign < 0) {
+            return "SHORT";
+        }
+        return "FLAT";
     }
 
     private String eventId(Context context, String eventType, String... parts) {

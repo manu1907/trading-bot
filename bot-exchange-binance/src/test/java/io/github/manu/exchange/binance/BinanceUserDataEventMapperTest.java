@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BinanceUserDataEventMapperTest {
 
@@ -21,6 +22,8 @@ class BinanceUserDataEventMapperTest {
             new BinanceUserDataEventMapper.Context("binance", "demo", "main", "spot");
     private static final BinanceUserDataEventMapper.Context FUTURES_CONTEXT =
             new BinanceUserDataEventMapper.Context("binance", "demo", "main", "usd_m_futures");
+    private static final BinanceUserDataEventMapper.Context OPTIONS_CONTEXT =
+            new BinanceUserDataEventMapper.Context("binance", "demo", "main", "options");
 
     private final BinanceUserDataEventMapper mapper = new BinanceUserDataEventMapper();
 
@@ -160,6 +163,64 @@ class BinanceUserDataEventMapperTest {
     }
 
     @Test
+    void maps_options_order_trade_update() {
+        List<TradingEventEnvelope<?>> envelopes = mapper.map("""
+                {
+                  "e": "ORDER_TRADE_UPDATE",
+                  "E": 1568879465651,
+                  "T": 1568879465650,
+                  "o": {
+                    "s": "BTC-240628-70000-C",
+                    "c": "TEST",
+                    "S": "SELL",
+                    "o": "LIMIT",
+                    "f": "GTC",
+                    "q": "0.001",
+                    "p": "100",
+                    "ap": "0",
+                    "x": "NEW",
+                    "X": "NEW",
+                    "i": 8886774,
+                    "l": "0",
+                    "z": "0",
+                    "L": "0",
+                    "N": "USDT",
+                    "n": "0",
+                    "T": 1568879465650,
+                    "t": 0,
+                    "b": "0",
+                    "a": "9.91",
+                    "m": false,
+                    "R": false,
+                    "ot": "LIMIT",
+                    "rp": "0",
+                    "V": "EXPIRE_TAKER"
+                  }
+                }
+                """, OPTIONS_CONTEXT);
+
+        assertThat(envelopes).hasSize(1);
+        TradingEventEnvelope<?> envelope = envelopes.getFirst();
+        assertThat(envelope.eventType()).isEqualTo(TradingEventType.EXECUTION_REPORT);
+        assertThat(envelope.key().getPartitionKey()).hasToString(
+                "execution_report|order|binance|demo|main|options|btc-240628-70000-c|test"
+        );
+        ExecutionReportEvent value = execution(envelope);
+        assertThat(value.getMarket()).hasToString("options");
+        assertThat(value.getSymbol()).hasToString("BTC-240628-70000-C");
+        assertThat(value.getClientOrderId()).hasToString("TEST");
+        assertThat(value.getExchangeOrderId()).hasToString("8886774");
+        assertThat(value.getOrderType()).hasToString("LIMIT");
+        assertThat(value.getTradeId()).isNull();
+        assertThat(attributes(value.getAttributes()))
+                .containsEntry("rawEventType", "ORDER_TRADE_UPDATE")
+                .containsEntry("bidQuantity", "0")
+                .containsEntry("askQuantity", "9.91")
+                .containsEntry("originalOrderType", "LIMIT")
+                .containsEntry("selfTradePreventionMode", "EXPIRE_TAKER");
+    }
+
+    @Test
     void maps_spot_balance_updates() {
         List<TradingEventEnvelope<?>> accountPosition = mapper.map("""
                 {
@@ -259,6 +320,107 @@ class BinanceUserDataEventMapperTest {
                 .containsEntry("updateReason", "ORDER")
                 .containsEntry("breakEvenPrice", "6563.60000")
                 .containsEntry("accumulatedRealized", "0");
+    }
+
+    @Test
+    void maps_options_account_data_wrapped_by_stream_payload() {
+        List<TradingEventEnvelope<?>> envelopes = mapper.map("""
+                {
+                  "stream": "89ljxuL6jFTN3Ej85aYOqH2BYXQ7eeuNYcGm7ktV",
+                  "data": {
+                    "e": "ACCOUNT_UPDATE",
+                    "E": 1762914568643,
+                    "T": 1762914568619,
+                    "eq": "10000371.61462086",
+                    "aeq": "10000475.51032086",
+                    "b": "10000475.51032086",
+                    "m": "-103.89570000",
+                    "u": "16.10430000",
+                    "i": "32354.38562539",
+                    "M": "6089.28766956"
+                  }
+                }
+                """, OPTIONS_CONTEXT);
+
+        assertThat(envelopes).hasSize(1);
+        BalanceUpdateEvent balance = balance(envelopes.getFirst());
+        assertThat(balance.getAsset()).hasToString("USDT");
+        assertThat(balance.getWalletBalance()).hasToString("10000475.51032086");
+        assertThat(balance.getUpdateReason()).hasToString("ACCOUNT_UPDATE");
+        assertThat(balance.getEventTimeMicros()).isEqualTo(Instant.ofEpochMilli(1_762_914_568_643L));
+        assertThat(attributes(balance.getAttributes()))
+                .containsEntry("rawEventType", "ACCOUNT_UPDATE")
+                .containsEntry("equity", "10000371.61462086")
+                .containsEntry("adjustedEquity", "10000475.51032086")
+                .containsEntry("positionValue", "-103.89570000")
+                .containsEntry("unrealizedPnl", "16.10430000")
+                .containsEntry("initialMargin", "32354.38562539")
+                .containsEntry("maintenanceMargin", "6089.28766956");
+    }
+
+    @Test
+    void rejects_account_update_without_futures_account_payload_outside_options_market() {
+        assertThatThrownBy(() -> mapper.map("""
+                {
+                  "e": "ACCOUNT_UPDATE",
+                  "E": 1762914568643,
+                  "T": 1762914568619,
+                  "eq": "10000371.61462086",
+                  "b": "10000475.51032086"
+                }
+                """, FUTURES_CONTEXT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ACCOUNT_UPDATE payload missing a");
+    }
+
+    @Test
+    void maps_options_balance_position_update() {
+        List<TradingEventEnvelope<?>> envelopes = mapper.map("""
+                {
+                  "e": "BALANCE_POSITION_UPDATE",
+                  "E": 1762917544216,
+                  "T": 1762917544206,
+                  "m": "ORDER",
+                  "B": [
+                    {
+                      "a": "USDT",
+                      "b": "10000471.37940900",
+                      "bc": "0"
+                    }
+                  ],
+                  "P": [
+                    {
+                      "s": "BTC-251123-126000-C",
+                      "c": "-0.1000",
+                      "p": "-120.00000000",
+                      "a": "1200.00000000"
+                    }
+                  ]
+                }
+                """, OPTIONS_CONTEXT);
+
+        assertThat(envelopes).hasSize(2);
+        BalanceUpdateEvent balance = balance(envelopes.getFirst());
+        assertThat(balance.getAsset()).hasToString("USDT");
+        assertThat(balance.getWalletBalance()).hasToString("10000471.37940900");
+        assertThat(balance.getBalanceDelta()).hasToString("0");
+        assertThat(balance.getUpdateReason()).hasToString("ORDER");
+
+        TradingEventEnvelope<?> positionEnvelope = envelopes.get(1);
+        assertThat(positionEnvelope.eventType()).isEqualTo(TradingEventType.POSITION_UPDATE);
+        assertThat(positionEnvelope.key().getPartitionKey()).hasToString(
+                "position_update|symbol|binance|demo|main|options|btc-251123-126000-c|btc-251123-126000-c"
+        );
+        PositionUpdateEvent position = position(positionEnvelope);
+        assertThat(position.getSymbol()).hasToString("BTC-251123-126000-C");
+        assertThat(position.getPositionSide()).hasToString("SHORT");
+        assertThat(position.getPositionAmount()).hasToString("-0.1000");
+        assertThat(position.getEntryPrice()).hasToString("1200.00000000");
+        assertThat(position.getEventTimeMicros()).isEqualTo(Instant.ofEpochMilli(1_762_917_544_216L));
+        assertThat(attributes(position.getAttributes()))
+                .containsEntry("updateReason", "ORDER")
+                .containsEntry("positionValue", "-120.00000000")
+                .containsEntry("transactionTime", "1762917544206");
     }
 
     @Test
