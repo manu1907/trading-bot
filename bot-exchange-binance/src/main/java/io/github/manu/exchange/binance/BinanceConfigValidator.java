@@ -132,6 +132,7 @@ final class BinanceConfigValidator {
         requirePositive(path + ".dedupe_window_event_ids", reconciliation.dedupeWindowEventIds(), errors);
         requireNotNull(path + ".open_order_symbols", reconciliation.openOrderSymbols(), errors);
         requireNotNull(path + ".isolated_margin_symbols", reconciliation.isolatedMarginSymbols(), errors);
+        requireNotNull(path + ".options_position_symbols", reconciliation.optionsPositionSymbols(), errors);
         if (!Boolean.TRUE.equals(reconciliation.runtimeEnabled())) {
             return;
         }
@@ -141,7 +142,9 @@ final class BinanceConfigValidator {
                 && !Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())
                 && !Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled())
                 && !Boolean.TRUE.equals(reconciliation.crossMarginAccountEnabled())
-                && !Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled())) {
+                && !Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled())
+                && !Boolean.TRUE.equals(reconciliation.optionsAccountEnabled())
+                && !Boolean.TRUE.equals(reconciliation.optionsPositionsEnabled())) {
             errors.add(path + " must enable at least one snapshot source when runtime_enabled is true");
         }
         if (!marketType.futures()
@@ -155,6 +158,11 @@ final class BinanceConfigValidator {
                 && (Boolean.TRUE.equals(reconciliation.crossMarginAccountEnabled())
                 || Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled()))) {
             errors.add(path + " margin snapshot sources require a Binance margin market");
+        }
+        if (marketType != BinanceMarketType.OPTIONS
+                && (Boolean.TRUE.equals(reconciliation.optionsAccountEnabled())
+                || Boolean.TRUE.equals(reconciliation.optionsPositionsEnabled()))) {
+            errors.add(path + " options snapshot sources require a Binance options market");
         }
     }
 

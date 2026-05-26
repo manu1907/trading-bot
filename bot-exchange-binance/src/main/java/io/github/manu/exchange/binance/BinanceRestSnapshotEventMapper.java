@@ -7,6 +7,7 @@ import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RiskUpdateEvent;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -127,6 +128,54 @@ final class BinanceRestSnapshotEventMapper {
         for (BinanceIsolatedMarginPairSnapshot pair : checked.assets()) {
             envelopes.add(isolatedMarginAsset(pair.baseAsset(), pair, normalized));
             envelopes.add(isolatedMarginAsset(pair.quoteAsset(), pair, normalized));
+        }
+        return List.copyOf(envelopes);
+    }
+
+    List<TradingEventEnvelope<?>> optionsMarginAccount(
+            BinanceOptionsMarginAccountSnapshot snapshot,
+            Context context
+    ) {
+        Context normalized = Objects.requireNonNull(context, "context").normalize();
+        BinanceOptionsMarginAccountSnapshot checked = Objects.requireNonNull(snapshot, "snapshot");
+        List<TradingEventEnvelope<?>> envelopes = new ArrayList<>();
+        for (BinanceOptionsAccountAsset asset : checked.assets()) {
+            envelopes.add(balance(
+                    normalized,
+                    requireText(asset.asset(), "asset"),
+                    decimal(asset.marginBalance()),
+                    null,
+                    decimal(asset.available()),
+                    null,
+                    instant(checked.time(), normalized),
+                    attributes("options_margin_account",
+                            "equity", decimal(asset.equity()),
+                            "initialMargin", decimal(asset.initialMargin()),
+                            "maintenanceMargin", decimal(asset.maintenanceMargin()),
+                            "unrealizedPnl", decimal(asset.unrealizedPnl()),
+                            "adjustedEquity", decimal(asset.adjustedEquity()),
+                            "canTrade", string(checked.canTrade()),
+                            "canDeposit", string(checked.canDeposit()),
+                            "canWithdraw", string(checked.canWithdraw()),
+                            "reduceOnly", string(checked.reduceOnly()),
+                            "tradeGroupId", string(checked.tradeGroupId())
+                    )
+            ));
+        }
+        for (BinanceOptionsGreek greek : checked.greeks()) {
+            envelopes.add(optionsGreek(greek, normalized, checked));
+        }
+        return List.copyOf(envelopes);
+    }
+
+    List<TradingEventEnvelope<PositionUpdateEvent>> optionsPositions(
+            List<BinanceOptionsPositionSnapshot> positions,
+            Context context
+    ) {
+        Context normalized = Objects.requireNonNull(context, "context").normalize();
+        List<TradingEventEnvelope<PositionUpdateEvent>> envelopes = new ArrayList<>();
+        for (BinanceOptionsPositionSnapshot position : Objects.requireNonNull(positions, "positions")) {
+            envelopes.add(optionsPosition(position, normalized));
         }
         return List.copyOf(envelopes);
     }
@@ -314,6 +363,103 @@ final class BinanceRestSnapshotEventMapper {
                         "adl", string(position.adl()),
                         "bidNotional", decimal(position.bidNotional()),
                         "askNotional", decimal(position.askNotional())
+                ))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.POSITION_UPDATE,
+                TradingEventKeys.symbol(
+                        TradingEventType.POSITION_UPDATE,
+                        context.provider(),
+                        context.environment(),
+                        context.account(),
+                        context.market(),
+                        symbol
+                ),
+                value
+        );
+    }
+
+    private TradingEventEnvelope<RiskUpdateEvent> optionsGreek(
+            BinanceOptionsGreek greek,
+            Context context,
+            BinanceOptionsMarginAccountSnapshot account
+    ) {
+        String underlying = requireText(greek.underlying(), "underlying");
+        Instant eventTime = instant(account.time(), context);
+        RiskUpdateEvent value = RiskUpdateEvent.newBuilder()
+                .setEventId(eventId(context, "RISK_RECONCILIATION", underlying, eventTime.toString()))
+                .setSchemaVersion(1)
+                .setProvider(context.provider())
+                .setEnvironment(context.environment())
+                .setAccount(context.account())
+                .setMarket(context.market())
+                .setRiskScope("UNDERLYING")
+                .setSymbol(underlying)
+                .setUnderlying(underlying)
+                .setRiskLevel(null)
+                .setDelta(decimal(greek.delta()))
+                .setGamma(decimal(greek.gamma()))
+                .setTheta(decimal(greek.theta()))
+                .setVega(decimal(greek.vega()))
+                .setMarginBalance(null)
+                .setMaintenanceMargin(null)
+                .setEventTimeMicros(eventTime)
+                .setTransactionTimeMicros(null)
+                .setAttributes(attributes("options_margin_account_greek",
+                        "canTrade", string(account.canTrade()),
+                        "reduceOnly", string(account.reduceOnly()),
+                        "tradeGroupId", string(account.tradeGroupId())
+                ))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.RISK_UPDATE,
+                TradingEventKeys.symbol(
+                        TradingEventType.RISK_UPDATE,
+                        context.provider(),
+                        context.environment(),
+                        context.account(),
+                        context.market(),
+                        underlying
+                ),
+                value
+        );
+    }
+
+    private TradingEventEnvelope<PositionUpdateEvent> optionsPosition(
+            BinanceOptionsPositionSnapshot position,
+            Context context
+    ) {
+        String symbol = requireText(position.symbol(), "symbol");
+        String positionSide = hasText(position.side()) ? position.side() : "BOTH";
+        Instant eventTime = instant(position.time(), context);
+        PositionUpdateEvent value = PositionUpdateEvent.newBuilder()
+                .setEventId(eventId(context, "POSITION_RECONCILIATION", symbol, positionSide, eventTime.toString()))
+                .setSchemaVersion(1)
+                .setProvider(context.provider())
+                .setEnvironment(context.environment())
+                .setAccount(context.account())
+                .setMarket(context.market())
+                .setSymbol(symbol)
+                .setPositionSide(positionSide)
+                .setPositionAmount(decimal(position.quantity()))
+                .setEntryPrice(decimal(position.entryPrice()))
+                .setMarkPrice(decimal(position.markPrice()))
+                .setLiquidationPrice(null)
+                .setUnrealizedPnl(decimal(position.unrealizedPnl()))
+                .setLeverage(null)
+                .setMarginType(null)
+                .setIsolatedMargin(null)
+                .setEventTimeMicros(eventTime)
+                .setAttributes(attributes("options_position",
+                        "markValue", decimal(position.markValue()),
+                        "strikePrice", decimal(position.strikePrice()),
+                        "expiryDate", string(position.expiryDate()),
+                        "priceScale", string(position.priceScale()),
+                        "quantityScale", string(position.quantityScale()),
+                        "optionSide", position.optionSide(),
+                        "quoteAsset", position.quoteAsset(),
+                        "bidQuantity", decimal(position.bidQuantity()),
+                        "askQuantity", decimal(position.askQuantity())
                 ))
                 .build();
         return TradingEventEnvelope.of(

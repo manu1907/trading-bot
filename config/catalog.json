@@ -107,7 +107,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "trading": {
                       "new_order_path": "/api/v3/order",
@@ -286,7 +289,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -487,7 +493,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -690,7 +699,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -896,7 +908,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -1104,7 +1119,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "options_account": {
                       "margin_account_path": "/eapi/v1/marginAccount",
@@ -1288,7 +1306,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "trading": {
                       "new_order_path": "/api/v3/order",
@@ -1467,7 +1488,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -1668,7 +1692,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "margin_account": {
                       "borrow_repay_path": "/sapi/v1/margin/borrow-repay",
@@ -1871,7 +1898,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -2077,7 +2107,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "futures_account": {
                       "position_mode": "ONE_WAY",
@@ -2285,7 +2318,10 @@
                       "futures_positions_enabled": false,
                       "cross_margin_account_enabled": false,
                       "isolated_margin_account_enabled": false,
-                      "isolated_margin_symbols": []
+                      "isolated_margin_symbols": [],
+                      "options_account_enabled": false,
+                      "options_positions_enabled": false,
+                      "options_position_symbols": []
                     },
                     "options_account": {
                       "margin_account_path": "/eapi/v1/marginAccount",

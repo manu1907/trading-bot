@@ -62,6 +62,18 @@ final class BinanceRestSnapshotEventPublisher {
         return publishEnvelopes(mapIsolatedMarginAccount(snapshot));
     }
 
+    CompletableFuture<List<PublishedTradingEvent>> publishOptionsMarginAccount(
+            BinanceOptionsMarginAccountSnapshot snapshot
+    ) {
+        return publishEnvelopes(mapOptionsMarginAccount(snapshot));
+    }
+
+    CompletableFuture<List<PublishedTradingEvent>> publishOptionsPositions(
+            List<BinanceOptionsPositionSnapshot> positions
+    ) {
+        return publishEnvelopes(mapOptionsPositions(positions));
+    }
+
     List<TradingEventEnvelope<OrderResultEvent>> mapOpenOrders(List<BinanceOrderResult> orders) {
         return mapper.openOrders(orders, mapperContext());
     }
@@ -88,6 +100,16 @@ final class BinanceRestSnapshotEventPublisher {
             BinanceIsolatedMarginAccountSnapshot snapshot
     ) {
         return mapper.isolatedMarginAccount(snapshot, mapperContext());
+    }
+
+    List<TradingEventEnvelope<?>> mapOptionsMarginAccount(BinanceOptionsMarginAccountSnapshot snapshot) {
+        return mapper.optionsMarginAccount(snapshot, mapperContext());
+    }
+
+    List<TradingEventEnvelope<PositionUpdateEvent>> mapOptionsPositions(
+            List<BinanceOptionsPositionSnapshot> positions
+    ) {
+        return mapper.optionsPositions(positions, mapperContext());
     }
 
     CompletableFuture<List<PublishedTradingEvent>> publishEnvelopes(

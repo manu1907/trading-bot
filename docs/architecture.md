@@ -256,6 +256,10 @@ of truth. As of the current code, the connector covers these foundations:
   `/eapi/v1/commission`, and `/eapi/v1/exerciseRecord` request/client coverage
   with options-specific query-shape validation and typed parsing for commission
   and exercise records.
+- Options REST snapshot reconciliation includes catalog-backed margin-account
+  and position snapshot sources, disabled by default, mapped into core balance,
+  position, and risk-update envelopes for account assets, option positions, and
+  account Greeks.
 - Options user-data stream mapping covers documented `ORDER_TRADE_UPDATE`,
   direct `/private` `ACCOUNT_UPDATE`, `BALANCE_POSITION_UPDATE`,
   `GREEK_UPDATE`, and `RISK_LEVEL_CHANGE` payloads into core execution,
@@ -401,10 +405,9 @@ adapter. Known gaps that must remain on the plan:
   exposed in the current Binance margin docs; do not claim them until Binance
   documents endpoints for them.
 - Options support is still deliberately incomplete. The connector must not
-  enable real options trading until post-only order handling,
-  auto-cancel/heartbeat safety, complete account/stream reconciliation, and
-  options user-data stream semantics are implemented and tested against current
-  Binance documentation.
+  enable real options trading until REST snapshot state is compared against
+  user-data stream/projection state and projection-backed ordering/idempotency
+  is implemented and tested against current Binance documentation.
 - User-data payload mapping, event-bus publishing, listen-key/listen-token
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
   implemented. Market-data payload mapping, publishing, subscription runtime,

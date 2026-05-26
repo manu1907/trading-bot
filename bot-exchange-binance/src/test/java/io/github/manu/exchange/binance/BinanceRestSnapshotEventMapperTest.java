@@ -6,6 +6,7 @@ import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.events.v1.TradingEventKeyEntityType;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,8 @@ class BinanceRestSnapshotEventMapperTest {
     private static final Instant OBSERVED_AT = Instant.parse("2026-05-25T12:00:00Z");
     private static final BinanceRestSnapshotEventMapper.Context CONTEXT =
             new BinanceRestSnapshotEventMapper.Context("binance", "demo", "main", "usd_m_futures", OBSERVED_AT);
+    private static final BinanceRestSnapshotEventMapper.Context OPTIONS_CONTEXT =
+            new BinanceRestSnapshotEventMapper.Context("binance", "demo", "main", "options", OBSERVED_AT);
 
     private final BinanceRestSnapshotEventMapper mapper = new BinanceRestSnapshotEventMapper();
 
@@ -234,6 +237,93 @@ class BinanceRestSnapshotEventMapperTest {
                 .containsEntry("marginLevelStatus", "NORMAL");
     }
 
+    @Test
+    void maps_options_account_and_position_snapshots() {
+        BinanceOptionsMarginAccountSnapshot account = new BinanceOptionsMarginAccountSnapshot(
+                List.of(new BinanceOptionsAccountAsset(
+                        "USDT",
+                        decimal("10000475.51032086"),
+                        decimal("10000371.61462086"),
+                        decimal("9998120.00000000"),
+                        decimal("32354.38562539"),
+                        decimal("6089.28766956"),
+                        decimal("16.10430000"),
+                        decimal("10000475.51032086")
+                )),
+                List.of(new BinanceOptionsGreek(
+                        "BTCUSDT",
+                        decimal("-0.01304097"),
+                        decimal("16.11648100"),
+                        decimal("-0.00000124"),
+                        decimal("-3.83444011")
+                )),
+                1_772_000_000_004L,
+                true,
+                true,
+                true,
+                false,
+                0L
+        );
+        BinanceOptionsPositionSnapshot position = new BinanceOptionsPositionSnapshot(
+                "BTC-251123-126000-C",
+                "SHORT",
+                decimal("-0.1000"),
+                decimal("1200.00000000"),
+                decimal("-120.00000000"),
+                decimal("16.10430000"),
+                decimal("1210.00000000"),
+                decimal("126000"),
+                1_764_000_000_000L,
+                2,
+                4,
+                "CALL",
+                "USDT",
+                1_772_000_000_005L,
+                decimal("0"),
+                decimal("9.91")
+        );
+
+        List<TradingEventEnvelope<?>> accountEvents = mapper.optionsMarginAccount(account, OPTIONS_CONTEXT);
+        List<TradingEventEnvelope<PositionUpdateEvent>> positionEvents = mapper.optionsPositions(List.of(position), OPTIONS_CONTEXT);
+
+        assertThat(accountEvents).hasSize(2);
+        BalanceUpdateEvent balance = balance(accountEvents.getFirst());
+        assertThat(balance.getMarket()).hasToString("options");
+        assertThat(balance.getAsset()).hasToString("USDT");
+        assertThat(balance.getWalletBalance()).hasToString("10000475.51032086");
+        assertThat(balance.getAvailableBalance()).hasToString("9998120");
+        assertThat(attributes(balance.getAttributes()))
+                .containsEntry("snapshotType", "options_margin_account")
+                .containsEntry("equity", "10000371.61462086")
+                .containsEntry("maintenanceMargin", "6089.28766956")
+                .containsEntry("reduceOnly", "false");
+
+        RiskUpdateEvent risk = risk(accountEvents.get(1));
+        assertThat(risk.getRiskScope()).hasToString("UNDERLYING");
+        assertThat(risk.getUnderlying()).hasToString("BTCUSDT");
+        assertThat(risk.getDelta()).hasToString("-0.01304097");
+        assertThat(risk.getGamma()).hasToString("-0.00000124");
+        assertThat(risk.getTheta()).hasToString("16.116481");
+        assertThat(risk.getVega()).hasToString("-3.83444011");
+        assertThat(attributes(risk.getAttributes()))
+                .containsEntry("source", "rest_snapshot")
+                .containsEntry("snapshotType", "options_margin_account_greek");
+
+        assertThat(positionEvents).hasSize(1);
+        PositionUpdateEvent optionPosition = position(positionEvents.getFirst());
+        assertThat(optionPosition.getMarket()).hasToString("options");
+        assertThat(optionPosition.getSymbol()).hasToString("BTC-251123-126000-C");
+        assertThat(optionPosition.getPositionSide()).hasToString("SHORT");
+        assertThat(optionPosition.getPositionAmount()).hasToString("-0.1");
+        assertThat(optionPosition.getEntryPrice()).hasToString("1200");
+        assertThat(optionPosition.getMarkPrice()).hasToString("1210");
+        assertThat(attributes(optionPosition.getAttributes()))
+                .containsEntry("snapshotType", "options_position")
+                .containsEntry("markValue", "-120")
+                .containsEntry("optionSide", "CALL")
+                .containsEntry("askQuantity", "9.91");
+    }
+
     private BinanceFuturesPositionSnapshot position() {
         return new BinanceFuturesPositionSnapshot(
                 "BTCUSDT",
@@ -274,6 +364,12 @@ class BinanceRestSnapshotEventMapperTest {
         assertThat(envelope.eventType()).isEqualTo(TradingEventType.POSITION_UPDATE);
         assertThat(envelope.value()).isInstanceOf(PositionUpdateEvent.class);
         return (PositionUpdateEvent) envelope.value();
+    }
+
+    private RiskUpdateEvent risk(TradingEventEnvelope<?> envelope) {
+        assertThat(envelope.eventType()).isEqualTo(TradingEventType.RISK_UPDATE);
+        assertThat(envelope.value()).isInstanceOf(RiskUpdateEvent.class);
+        return (RiskUpdateEvent) envelope.value();
     }
 
     private BigDecimal decimal(String value) {

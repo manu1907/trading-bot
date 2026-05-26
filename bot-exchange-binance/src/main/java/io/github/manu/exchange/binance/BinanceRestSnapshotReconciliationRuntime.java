@@ -5,6 +5,7 @@ import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
     private final OrderSnapshots orderSnapshots;
     private final FuturesSnapshots futuresSnapshots;
     private final MarginSnapshots marginSnapshots;
+    private final OptionsSnapshots optionsSnapshots;
     private final BinanceRestSnapshotEventPublisher publisher;
     private final ScheduledExecutorService executor;
     private final Object lock = new Object();
@@ -40,10 +42,11 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
             OrderSnapshots orderSnapshots,
             FuturesSnapshots futuresSnapshots,
             MarginSnapshots marginSnapshots,
+            OptionsSnapshots optionsSnapshots,
             BinanceRestSnapshotEventPublisher publisher,
             ScheduledExecutorService executor
     ) {
-        this(reconciliation, orderSnapshots, futuresSnapshots, marginSnapshots, publisher, executor, List.of());
+        this(reconciliation, orderSnapshots, futuresSnapshots, marginSnapshots, optionsSnapshots, publisher, executor, List.of());
     }
 
     BinanceRestSnapshotReconciliationRuntime(
@@ -51,6 +54,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
             OrderSnapshots orderSnapshots,
             FuturesSnapshots futuresSnapshots,
             MarginSnapshots marginSnapshots,
+            OptionsSnapshots optionsSnapshots,
             BinanceRestSnapshotEventPublisher publisher,
             ScheduledExecutorService executor,
             List<String> initialRecentEventIds
@@ -59,6 +63,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         this.orderSnapshots = orderSnapshots;
         this.futuresSnapshots = futuresSnapshots;
         this.marginSnapshots = marginSnapshots;
+        this.optionsSnapshots = optionsSnapshots;
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.executor = Objects.requireNonNull(executor, "executor");
         requirePositiveInterval();
@@ -107,6 +112,19 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
             envelopes.addAll(publisher.mapIsolatedMarginAccount(marginSnapshots.isolatedAccount(
                     new BinanceIsolatedMarginAccountQuery(reconciliation.isolatedMarginSymbols())
             )));
+        }
+        if (Boolean.TRUE.equals(reconciliation.optionsAccountEnabled())) {
+            envelopes.addAll(publisher.mapOptionsMarginAccount(optionsSnapshots.marginAccount()));
+        }
+        if (Boolean.TRUE.equals(reconciliation.optionsPositionsEnabled())) {
+            List<String> symbols = reconciliation.optionsPositionSymbols();
+            if (symbols.isEmpty()) {
+                envelopes.addAll(publisher.mapOptionsPositions(optionsSnapshots.positions(null)));
+            } else {
+                for (String symbol : symbols) {
+                    envelopes.addAll(publisher.mapOptionsPositions(optionsSnapshots.positions(symbol)));
+                }
+            }
         }
         List<TradingEventEnvelope<?>> publishable = uniqueAndNotRecentlyPublished(envelopes);
         List<PublishedTradingEvent> published = publisher.publishEnvelopes(publishable).join();
@@ -174,6 +192,10 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
                 || Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled())) && marginSnapshots == null) {
             throw new IllegalArgumentException("margin reconciliation requires margin snapshots");
         }
+        if ((Boolean.TRUE.equals(reconciliation.optionsAccountEnabled())
+                || Boolean.TRUE.equals(reconciliation.optionsPositionsEnabled())) && optionsSnapshots == null) {
+            throw new IllegalArgumentException("options reconciliation requires options snapshots");
+        }
     }
 
     private List<TradingEventEnvelope<?>> uniqueAndNotRecentlyPublished(List<TradingEventEnvelope<?>> envelopes) {
@@ -231,6 +253,9 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         if (value instanceof PositionUpdateEvent event) {
             return event.getEventId().toString();
         }
+        if (value instanceof RiskUpdateEvent event) {
+            return event.getEventId().toString();
+        }
         throw new IllegalArgumentException("Unsupported reconciliation event type: " + envelope.eventType());
     }
 
@@ -253,5 +278,12 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         BinanceCrossMarginAccountSnapshot crossAccount();
 
         BinanceIsolatedMarginAccountSnapshot isolatedAccount(BinanceIsolatedMarginAccountQuery query);
+    }
+
+    interface OptionsSnapshots {
+
+        BinanceOptionsMarginAccountSnapshot marginAccount();
+
+        List<BinanceOptionsPositionSnapshot> positions(String symbol);
     }
 }

@@ -103,6 +103,46 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
     }
 
     @Test
+    void runs_configured_options_account_and_position_snapshots() {
+        FakeOptionsSnapshots options = new FakeOptionsSnapshots();
+        BinanceRestSnapshotReconciliationRuntime runtime = runtime(
+                new BinanceProperties.Reconciliation(
+                        false,
+                        60,
+                        10_000,
+                        false,
+                        List.of(),
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        List.of(),
+                        true,
+                        true,
+                        List.of("BTC-251123-126000-C")
+                ),
+                null,
+                null,
+                null,
+                options,
+                "options"
+        );
+
+        List<PublishedTradingEvent> published = runtime.runOnce();
+
+        assertThat(options.marginAccountCalls).isEqualTo(1);
+        assertThat(options.positionSymbols).containsExactly("BTC-251123-126000-C");
+        assertThat(published).hasSize(3);
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(
+                        TradingEventType.BALANCE_UPDATE,
+                        TradingEventType.RISK_UPDATE,
+                        TradingEventType.POSITION_UPDATE
+                );
+    }
+
+    @Test
     void suppresses_recently_published_event_ids_across_runs() {
         FakeOrderSnapshots orders = new FakeOrderSnapshots();
         BinanceRestSnapshotReconciliationRuntime runtime = runtime(
@@ -189,7 +229,7 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
             BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots,
             BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots
     ) {
-        return runtime(reconciliation, orderSnapshots, futuresSnapshots, marginSnapshots, List.of());
+        return runtime(reconciliation, orderSnapshots, futuresSnapshots, marginSnapshots, null, List.of());
     }
 
     private BinanceRestSnapshotReconciliationRuntime runtime(
@@ -199,14 +239,65 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
             BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots,
             List<String> initialRecentEventIds
     ) {
+        return runtime(reconciliation, orderSnapshots, futuresSnapshots, marginSnapshots, null, initialRecentEventIds);
+    }
+
+    private BinanceRestSnapshotReconciliationRuntime runtime(
+            BinanceProperties.Reconciliation reconciliation,
+            BinanceRestSnapshotReconciliationRuntime.OrderSnapshots orderSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.OptionsSnapshots optionsSnapshots,
+            String market
+    ) {
+        return runtime(
+                reconciliation,
+                orderSnapshots,
+                futuresSnapshots,
+                marginSnapshots,
+                optionsSnapshots,
+                market,
+                List.of()
+        );
+    }
+
+    private BinanceRestSnapshotReconciliationRuntime runtime(
+            BinanceProperties.Reconciliation reconciliation,
+            BinanceRestSnapshotReconciliationRuntime.OrderSnapshots orderSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.OptionsSnapshots optionsSnapshots,
+            List<String> initialRecentEventIds
+    ) {
+        return runtime(
+                reconciliation,
+                orderSnapshots,
+                futuresSnapshots,
+                marginSnapshots,
+                optionsSnapshots,
+                "usd_m_futures",
+                initialRecentEventIds
+        );
+    }
+
+    private BinanceRestSnapshotReconciliationRuntime runtime(
+            BinanceProperties.Reconciliation reconciliation,
+            BinanceRestSnapshotReconciliationRuntime.OrderSnapshots orderSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.OptionsSnapshots optionsSnapshots,
+            String market,
+            List<String> initialRecentEventIds
+    ) {
         return new BinanceRestSnapshotReconciliationRuntime(
                 reconciliation,
                 orderSnapshots,
                 futuresSnapshots,
                 marginSnapshots,
+                optionsSnapshots,
                 new BinanceRestSnapshotEventPublisher(
                         new BinanceRestSnapshotEventMapper(),
-                        new BinanceRestSnapshotEventPublisher.Context("binance", "demo", "main", "usd_m_futures"),
+                        new BinanceRestSnapshotEventPublisher.Context("binance", "demo", "main", market),
                         eventBus,
                         Clock.fixed(Instant.parse("2026-05-25T14:00:00Z"), ZoneOffset.UTC)
                 ),
@@ -382,6 +473,55 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
         ), decimal("0.03"), decimal("0.01"), decimal("0.02"));
     }
 
+    private BinanceOptionsMarginAccountSnapshot optionsMarginAccount() {
+        return new BinanceOptionsMarginAccountSnapshot(
+                List.of(new BinanceOptionsAccountAsset(
+                        "USDT",
+                        decimal("10000475.51032086"),
+                        decimal("10000371.61462086"),
+                        decimal("9998120.00000000"),
+                        decimal("32354.38562539"),
+                        decimal("6089.28766956"),
+                        decimal("16.10430000"),
+                        decimal("10000475.51032086")
+                )),
+                List.of(new BinanceOptionsGreek(
+                        "BTCUSDT",
+                        decimal("-0.01304097"),
+                        decimal("16.11648100"),
+                        decimal("-0.00000124"),
+                        decimal("-3.83444011")
+                )),
+                1_772_000_000_004L,
+                true,
+                true,
+                true,
+                false,
+                0L
+        );
+    }
+
+    private BinanceOptionsPositionSnapshot optionsPosition(String symbol) {
+        return new BinanceOptionsPositionSnapshot(
+                symbol,
+                "SHORT",
+                decimal("-0.1000"),
+                decimal("1200.00000000"),
+                decimal("-120.00000000"),
+                decimal("16.10430000"),
+                decimal("1210.00000000"),
+                decimal("126000"),
+                1_764_000_000_000L,
+                2,
+                4,
+                "CALL",
+                "USDT",
+                1_772_000_000_005L,
+                decimal("0"),
+                decimal("9.91")
+        );
+    }
+
     private BigDecimal decimal(String value) {
         return new BigDecimal(value);
     }
@@ -437,6 +577,24 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
         public BinanceIsolatedMarginAccountSnapshot isolatedAccount(BinanceIsolatedMarginAccountQuery query) {
             isolatedSymbols.add(query.symbols());
             return isolatedMarginAccount();
+        }
+    }
+
+    private final class FakeOptionsSnapshots implements BinanceRestSnapshotReconciliationRuntime.OptionsSnapshots {
+
+        private final List<String> positionSymbols = new ArrayList<>();
+        private int marginAccountCalls;
+
+        @Override
+        public BinanceOptionsMarginAccountSnapshot marginAccount() {
+            marginAccountCalls++;
+            return optionsMarginAccount();
+        }
+
+        @Override
+        public List<BinanceOptionsPositionSnapshot> positions(String symbol) {
+            positionSymbols.add(symbol);
+            return List.of(optionsPosition(symbol));
         }
     }
 

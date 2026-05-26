@@ -9,6 +9,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.exchange.ExchangeModule;
 import io.github.manu.exchange.ResolvedExchangeConfig;
 import io.github.manu.journal.JournaledTradingEvent;
@@ -356,11 +357,35 @@ public class BinanceExchangeModule implements ExchangeModule {
                 }
             };
         }
+        BinanceRestSnapshotReconciliationRuntime.OptionsSnapshots optionsSnapshots = null;
+        if (requiresOptionsSnapshots(reconciliation)) {
+            BinanceOptionsAccountClient optionsAccountClient = new BinanceOptionsAccountClient(
+                    binance,
+                    binance.credentials().apiKey(),
+                    binance.credentials().apiSecret(),
+                    clock,
+                    0L,
+                    httpTransport,
+                    JsonMapperFactory.create()
+            );
+            optionsSnapshots = new BinanceRestSnapshotReconciliationRuntime.OptionsSnapshots() {
+                @Override
+                public BinanceOptionsMarginAccountSnapshot marginAccount() {
+                    return optionsAccountClient.marginAccount();
+                }
+
+                @Override
+                public List<BinanceOptionsPositionSnapshot> positions(String symbol) {
+                    return optionsAccountClient.positions(symbol);
+                }
+            };
+        }
         BinanceRestSnapshotReconciliationRuntime runtime = new BinanceRestSnapshotReconciliationRuntime(
                 reconciliation,
                 orderSnapshots,
                 futuresSnapshots,
                 marginSnapshots,
+                optionsSnapshots,
                 new BinanceRestSnapshotEventPublisher(
                         new BinanceRestSnapshotEventMapper(),
                         new BinanceRestSnapshotEventPublisher.Context(
@@ -397,6 +422,11 @@ public class BinanceExchangeModule implements ExchangeModule {
                 || Boolean.TRUE.equals(reconciliation.isolatedMarginAccountEnabled());
     }
 
+    private boolean requiresOptionsSnapshots(BinanceProperties.Reconciliation reconciliation) {
+        return Boolean.TRUE.equals(reconciliation.optionsAccountEnabled())
+                || Boolean.TRUE.equals(reconciliation.optionsPositionsEnabled());
+    }
+
     private List<String> recentReconciliationEventIds(BinanceProperties.Reconciliation reconciliation) {
         if (journalProvider == null) {
             return List.of();
@@ -424,7 +454,8 @@ public class BinanceExchangeModule implements ExchangeModule {
         TradingEventType eventType = serialized.eventType();
         if (eventType != TradingEventType.ORDER_RESULT
                 && eventType != TradingEventType.BALANCE_UPDATE
-                && eventType != TradingEventType.POSITION_UPDATE) {
+                && eventType != TradingEventType.POSITION_UPDATE
+                && eventType != TradingEventType.RISK_UPDATE) {
             return null;
         }
         SpecificRecord value = TradingEventCodec.<SpecificRecord>of(eventType.avroSchema())
@@ -438,6 +469,9 @@ public class BinanceExchangeModule implements ExchangeModule {
             return event.getEventId().toString();
         }
         if (value instanceof PositionUpdateEvent event && restSnapshot(event.getAttributes())) {
+            return event.getEventId().toString();
+        }
+        if (value instanceof RiskUpdateEvent event && restSnapshot(event.getAttributes())) {
             return event.getEventId().toString();
         }
         return null;
