@@ -483,6 +483,7 @@ final class BinanceOrderRequestFactory {
         add(parameters, "activationPrice", command.activationPrice());
         add(parameters, "icebergQty", command.icebergQty());
         add(parameters, "reduceOnly", command.reduceOnly());
+        add(parameters, "postOnly", command.postOnly());
         add(parameters, "closePosition", command.closePosition());
         addWhenPresent(parameters, "priceProtect", command.priceProtect());
         addWhenPresent(parameters, "autoRepayAtCancel", command.autoRepayAtCancel());

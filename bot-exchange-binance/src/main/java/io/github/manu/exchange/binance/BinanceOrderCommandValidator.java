@@ -99,6 +99,9 @@ final class BinanceOrderCommandValidator {
         if (Boolean.TRUE.equals(command.marketMakerProtection()) && !capability.supportsMarketMakerProtection()) {
             errors.add("marketMakerProtection is not supported for this Binance market");
         }
+        if (command.postOnly() != null && !capability.supportsPostOnly()) {
+            errors.add("postOnly is not supported for this Binance market");
+        }
     }
 
     private static void validatePositiveNumbers(BinanceOrderCommand command,
@@ -173,6 +176,9 @@ final class BinanceOrderCommandValidator {
             if (hasText(command.type()) && !FUTURES_MARKET_STOP_TYPES.contains(command.type())) {
                 errors.add("closePosition is only supported for STOP_MARKET and TAKE_PROFIT_MARKET orders");
             }
+        }
+        if (command.postOnly() != null && hasText(command.type()) && !"LIMIT".equals(command.type())) {
+            errors.add("postOnly is only supported for LIMIT orders");
         }
     }
 

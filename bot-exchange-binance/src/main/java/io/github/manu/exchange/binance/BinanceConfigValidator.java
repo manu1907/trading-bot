@@ -460,6 +460,7 @@ final class BinanceConfigValidator {
                 expected.supportsMarketMakerProtection(),
                 errors
         );
+        requireMatching(path + ".supports_post_only", trading.supportsPostOnly(), expected.supportsPostOnly(), errors);
     }
 
     private static void validateUserData(String path,

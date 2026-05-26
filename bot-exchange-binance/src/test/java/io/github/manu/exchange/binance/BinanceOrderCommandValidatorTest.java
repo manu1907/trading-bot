@@ -29,6 +29,31 @@ class BinanceOrderCommandValidatorTest {
     }
 
     @Test
+    void accepts_options_limit_post_only_order() {
+        BinanceOrderCommandValidator.validate(commandBuilder()
+                .symbol("BTC-240628-70000-C")
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("1")
+                .price("100")
+                .postOnly(true)
+                .build(), BinanceMarketType.OPTIONS);
+    }
+
+    @Test
+    void rejects_post_only_when_market_does_not_support_it() {
+        assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
+                .type("LIMIT")
+                .timeInForce("GTC")
+                .quantity("0.001")
+                .price("50000")
+                .postOnly(true)
+                .build(), BinanceMarketType.SPOT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("postOnly is not supported");
+    }
+
+    @Test
     void rejects_futures_market_order_with_quote_quantity() {
         assertThatThrownBy(() -> BinanceOrderCommandValidator.validate(commandBuilder()
                 .type("MARKET")
@@ -392,6 +417,12 @@ class BinanceOrderCommandValidatorTest {
         private Boolean autoRepayAtCancel;
         private Boolean isolatedMargin;
         private Boolean marketMakerProtection;
+        private Boolean postOnly;
+
+        CommandBuilder symbol(String value) {
+            symbol = value;
+            return this;
+        }
 
         CommandBuilder type(String value) {
             type = value;
@@ -503,6 +534,11 @@ class BinanceOrderCommandValidatorTest {
             return this;
         }
 
+        CommandBuilder postOnly(boolean value) {
+            postOnly = value;
+            return this;
+        }
+
         BinanceOrderCommand build() {
             return new BinanceOrderCommand(
                     symbol,
@@ -533,7 +569,8 @@ class BinanceOrderCommandValidatorTest {
                     priceProtect,
                     autoRepayAtCancel,
                     isolatedMargin,
-                    marketMakerProtection
+                    marketMakerProtection,
+                    postOnly
             );
         }
     }

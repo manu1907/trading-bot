@@ -58,7 +58,8 @@ record BinanceTradingCapability(
         boolean supportsTrailingDelta,
         boolean supportsMarginSideEffectControls,
         boolean supportsIsolatedMarginFlag,
-        boolean supportsMarketMakerProtection
+        boolean supportsMarketMakerProtection,
+        boolean supportsPostOnly
 ) {
 
     private static final Set<String> BUY_SELL = Set.of("BUY", "SELL");
@@ -191,7 +192,8 @@ record BinanceTradingCapability(
                 trading.supportsTrailingDelta(),
                 trading.supportsMarginSideEffectControls(),
                 trading.supportsIsolatedMarginFlag(),
-                trading.supportsMarketMakerProtection()
+                trading.supportsMarketMakerProtection(),
+                trading.supportsPostOnly()
         );
     }
 
@@ -248,6 +250,7 @@ record BinanceTradingCapability(
                 true,
                 true,
                 true,
+                false,
                 false,
                 false,
                 false
@@ -309,6 +312,7 @@ record BinanceTradingCapability(
                 true,
                 true,
                 isolated,
+                false,
                 false
         );
     }
@@ -363,6 +367,7 @@ record BinanceTradingCapability(
                 true,
                 true,
                 true,
+                false,
                 false,
                 false,
                 false,
@@ -427,6 +432,7 @@ record BinanceTradingCapability(
                 false,
                 false,
                 false,
+                true,
                 true
         );
     }

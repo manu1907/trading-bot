@@ -149,6 +149,8 @@ Source-of-truth docs checked during this review:
   `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Commission`
 - Options exercise records:
   `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Exercise-Record`
+- Options new order:
+  `https://developers.binance.com/docs/derivatives/options-trading/trade/New-Order`
 - Options auto-cancel kill-switch config and heartbeat:
   `https://developers.binance.com/docs/derivatives/options-trading/market-maker-endpoints/Get-Auto-Cancel-All-Open-Orders-Config`,
   `https://developers.binance.com/docs/derivatives/options-trading/market-maker-endpoints/Set-Auto-Cancel-All-Open-Orders-Config`,
@@ -160,8 +162,9 @@ Implemented Binance foundations:
 - Product family modeling for Spot, Cross Margin, Isolated Margin, USD-M
   Futures, COIN-M Futures, and Options.
 - Options `/eapi/v1/order` request construction uses the documented
-  `clientOrderId` and `isMmp` parameter names for new/query/cancel order
-  workflows instead of Spot/Futures client-order parameter names.
+  `clientOrderId`, `isMmp`, and `postOnly` parameter names for new/query/cancel
+  order workflows instead of Spot/Futures client-order and post-only
+  conventions.
 - Options margin-account and position snapshot clients with catalog-backed
   `/eapi/v1/marginAccount` and `/eapi/v1/position` paths and typed parsing for
   account balances, account Greeks, and option positions.
@@ -313,14 +316,13 @@ Binance parity gaps to close before claiming full connector support:
 - Margin: active margin transfer placement and margin OPO/OPOCO placement are
   not exposed in the current Binance margin docs; do not claim them until
   Binance documents endpoints for them.
-- Options: `/eapi` order request parameter naming, read-only
+- Options: `/eapi` order request parameter naming, post-only handling, read-only
   margin-account/position snapshots, MMP get/set/reset request coverage,
   order-history/open-order/account-trade reconciliation inputs, commission
   reads, and exercise-record reads are covered, but options parity is not
-  complete. Keep real options trading disabled unless post-only order handling,
-  auto-cancel/heartbeat safety, complete account/stream reconciliation, and
-  user-data stream semantics are fully implemented and tested against current
-  Binance documentation.
+  complete. Keep real options trading disabled unless complete account/stream
+  reconciliation and user-data stream semantics are fully implemented and
+  tested against current Binance documentation.
 - All products: extend the reconciliation runtime to compare REST snapshots
   against stream/projection state and enforce durable replay-safe ordering and
   projection-backed idempotency around stream gaps and unknown execution

@@ -300,6 +300,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
+                true,
                 true
         );
 
@@ -309,7 +310,7 @@ class BinanceOrderRequestFactoryTest {
                 .isEqualTo("symbol=BTC-240628-70000-C&side=BUY&type=LIMIT&timeInForce=GTC"
                         + "&newOrderRespType=RESULT&selfTradePreventionMode=EXPIRE_TAKER"
                         + "&clientOrderId=option-client-1&quantity=1&price=100"
-                        + "&reduceOnly=true&isMmp=true&timestamp=1499827319559&recvWindow=5000");
+                        + "&reduceOnly=true&postOnly=true&isMmp=true&timestamp=1499827319559&recvWindow=5000");
         assertThat(request.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/order?");
     }
 
@@ -2446,6 +2447,7 @@ class BinanceOrderRequestFactoryTest {
                 false,
                 false,
                 false,
+                true,
                 true
         );
     }

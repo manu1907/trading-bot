@@ -235,8 +235,9 @@ of truth. As of the current code, the connector covers these foundations:
 - Product-family config for Spot, Cross Margin, Isolated Margin, USD-M Futures,
   COIN-M Futures, and Options.
 - Options order request construction is product-aware for documented `/eapi`
-  client-order and MMP field names: new orders use `clientOrderId` and `isMmp`,
-  while Spot/Futures continue to use their own client-order parameter names.
+  client-order, MMP, and post-only field names: new orders use
+  `clientOrderId`, `isMmp`, and `postOnly`, while Spot/Futures continue to use
+  their own client-order and post-only conventions.
 - Options read-only account coverage includes catalog-backed
   `/eapi/v1/marginAccount` and `/eapi/v1/position` clients for account
   balances, account Greeks, and option positions.
