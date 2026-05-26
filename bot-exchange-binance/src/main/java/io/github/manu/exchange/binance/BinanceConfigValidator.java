@@ -130,6 +130,8 @@ final class BinanceConfigValidator {
 
         requirePositive(path + ".interval_seconds", reconciliation.intervalSeconds(), errors);
         requirePositive(path + ".dedupe_window_event_ids", reconciliation.dedupeWindowEventIds(), errors);
+        requireNotNull(path + ".projection_comparison_enabled", reconciliation.projectionComparisonEnabled(), errors);
+        requireNotNull(path + ".fail_on_projection_mismatch", reconciliation.failOnProjectionMismatch(), errors);
         requireNotNull(path + ".open_order_symbols", reconciliation.openOrderSymbols(), errors);
         requireNotNull(path + ".isolated_margin_symbols", reconciliation.isolatedMarginSymbols(), errors);
         requireNotNull(path + ".options_position_symbols", reconciliation.optionsPositionSymbols(), errors);

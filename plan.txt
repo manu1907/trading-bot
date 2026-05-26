@@ -68,15 +68,17 @@ The bot is not professional-execution-ready until these gaps are closed:
   result, user-stream execution report, reconciliation, and final position
   state.
 - Core has an in-memory account/order/position/risk projection that can be
-  rebuilt from events and rejects stale per-entity updates, but it is not yet
-  persisted to PostgreSQL/TimescaleDB and Binance reconciliation does not yet
-  compare REST snapshots against it.
+  rebuilt from events and rejects stale per-entity updates. Binance
+  reconciliation can compare REST snapshots against that projection and report
+  missing/mismatched state, but the projection is not yet persisted to
+  PostgreSQL/TimescaleDB and order placement is not yet gated by durable
+  reconciliation confidence.
 - No PostgreSQL/TimescaleDB projection store.
 - No GCS uploader/archive worker; only the object layout exists.
 - User-data payload mapping, stream publishing, market-data mapping, REST
-  snapshot reconciliation, and core state projection are wired at foundation
-  level, but reconciliation comparison and risk-gated execution are not yet
-  complete.
+  snapshot reconciliation, core state projection, and REST-vs-projection
+  comparison are wired at foundation level, but durable reconciliation-backed
+  action gating and risk-gated execution are not yet complete.
 - No LFA strategy lifecycle, feature calculations, or signal tests.
 - No deterministic backtest runtime.
 - No production secrets integration, metrics, alerts, deployment manifests, or
@@ -202,6 +204,9 @@ Implemented Binance foundations:
   risk-update events with event-ID dedupe, stale per-entity update rejection,
   journal-replay compatible event-handler registration, and target-scoped open
   position checks.
+- Binance REST snapshot projection comparison for balances, positions, orders,
+  and risk state, with catalog-backed `projection_comparison_enabled` and
+  `fail_on_projection_mismatch` controls.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
@@ -347,11 +352,11 @@ Binance parity gaps to close before claiming full connector support:
   order-history/open-order/account-trade reconciliation inputs, commission
   reads, exercise-record reads, and core execution/balance/position/risk
   user-data stream mappings are covered, but options parity is not complete.
-  Keep real options trading disabled unless REST snapshot state is compared
-  against user-data stream/projection state and projection-backed ordering are
-  fully implemented and tested against current Binance documentation.
-- All products: extend the reconciliation runtime to compare REST snapshots
-  against stream/projection state and enforce durable replay-safe ordering and
+  Keep real options trading disabled unless REST snapshot comparison is backed
+  by durable projection state and projection-backed ordering is fully
+  implemented and tested against current Binance documentation.
+- All products: extend the reconciliation runtime from in-memory
+  REST-vs-projection comparison to durable replay-safe ordering and
   projection-backed idempotency around stream gaps and unknown execution
   status.
 - All products: enforce exchange filters in risk/execution before order

@@ -30,6 +30,7 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
     private final MarginSnapshots marginSnapshots;
     private final OptionsSnapshots optionsSnapshots;
     private final BinanceRestSnapshotEventPublisher publisher;
+    private final BinanceRestSnapshotProjectionComparator projectionComparator;
     private final ScheduledExecutorService executor;
     private final Object lock = new Object();
     private final LinkedHashSet<String> recentEventIds = new LinkedHashSet<>();
@@ -46,7 +47,42 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
             BinanceRestSnapshotEventPublisher publisher,
             ScheduledExecutorService executor
     ) {
-        this(reconciliation, orderSnapshots, futuresSnapshots, marginSnapshots, optionsSnapshots, publisher, executor, List.of());
+        this(
+                reconciliation,
+                orderSnapshots,
+                futuresSnapshots,
+                marginSnapshots,
+                optionsSnapshots,
+                publisher,
+                null,
+                executor,
+                List.of()
+        );
+    }
+
+    BinanceRestSnapshotReconciliationRuntime(
+            BinanceProperties.Reconciliation reconciliation,
+            OrderSnapshots orderSnapshots,
+            FuturesSnapshots futuresSnapshots,
+            MarginSnapshots marginSnapshots,
+            OptionsSnapshots optionsSnapshots,
+            BinanceRestSnapshotEventPublisher publisher,
+            BinanceRestSnapshotProjectionComparator projectionComparator,
+            ScheduledExecutorService executor,
+            List<String> initialRecentEventIds
+    ) {
+        this.reconciliation = Objects.requireNonNull(reconciliation, "reconciliation");
+        this.orderSnapshots = orderSnapshots;
+        this.futuresSnapshots = futuresSnapshots;
+        this.marginSnapshots = marginSnapshots;
+        this.optionsSnapshots = optionsSnapshots;
+        this.publisher = Objects.requireNonNull(publisher, "publisher");
+        this.projectionComparator = projectionComparator;
+        this.executor = Objects.requireNonNull(executor, "executor");
+        requirePositiveInterval();
+        requirePositiveDedupeWindow();
+        requireConfiguredSources();
+        rememberEventIds(Objects.requireNonNull(initialRecentEventIds, "initialRecentEventIds"));
     }
 
     BinanceRestSnapshotReconciliationRuntime(
@@ -59,17 +95,17 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
             ScheduledExecutorService executor,
             List<String> initialRecentEventIds
     ) {
-        this.reconciliation = Objects.requireNonNull(reconciliation, "reconciliation");
-        this.orderSnapshots = orderSnapshots;
-        this.futuresSnapshots = futuresSnapshots;
-        this.marginSnapshots = marginSnapshots;
-        this.optionsSnapshots = optionsSnapshots;
-        this.publisher = Objects.requireNonNull(publisher, "publisher");
-        this.executor = Objects.requireNonNull(executor, "executor");
-        requirePositiveInterval();
-        requirePositiveDedupeWindow();
-        requireConfiguredSources();
-        rememberEventIds(Objects.requireNonNull(initialRecentEventIds, "initialRecentEventIds"));
+        this(
+                reconciliation,
+                orderSnapshots,
+                futuresSnapshots,
+                marginSnapshots,
+                optionsSnapshots,
+                publisher,
+                null,
+                executor,
+                initialRecentEventIds
+        );
     }
 
     void start() {
@@ -126,10 +162,33 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
                 }
             }
         }
+        compareProjection(envelopes);
         List<TradingEventEnvelope<?>> publishable = uniqueAndNotRecentlyPublished(envelopes);
         List<PublishedTradingEvent> published = publisher.publishEnvelopes(publishable).join();
         remember(publishable);
         return published;
+    }
+
+    private void compareProjection(List<TradingEventEnvelope<?>> envelopes) {
+        if (!Boolean.TRUE.equals(reconciliation.projectionComparisonEnabled()) || projectionComparator == null) {
+            return;
+        }
+        List<BinanceRestSnapshotProjectionComparison> comparisons = projectionComparator.compare(envelopes);
+        List<BinanceRestSnapshotProjectionComparison> unaligned = comparisons.stream()
+                .filter(comparison -> !comparison.aligned())
+                .toList();
+        for (BinanceRestSnapshotProjectionComparison comparison : unaligned) {
+            log.warn(
+                    "Binance REST snapshot does not match projected state: eventType={}, entityKey={}, status={}, differences={}",
+                    comparison.eventType(),
+                    comparison.entityKey(),
+                    comparison.status(),
+                    comparison.differences()
+            );
+        }
+        if (!unaligned.isEmpty() && Boolean.TRUE.equals(reconciliation.failOnProjectionMismatch())) {
+            throw new IllegalStateException("Binance REST snapshot/projection mismatch: " + unaligned);
+        }
     }
 
     @Override

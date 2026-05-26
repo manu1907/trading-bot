@@ -3,9 +3,11 @@ package io.github.manu.exchange.binance;
 import io.github.manu.config.properties.provider.binance.BinanceProperties;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.projection.TradingStateProjection;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -110,6 +112,8 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
                         false,
                         60,
                         10_000,
+                        true,
+                        false,
                         false,
                         List.of(),
                         false,
@@ -204,6 +208,75 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
     }
 
     @Test
+    void compares_rest_snapshots_against_projection_state() {
+        BinanceRestSnapshotEventMapper mapper = new BinanceRestSnapshotEventMapper();
+        List<TradingEventEnvelope<BalanceUpdateEvent>> projected = mapper.futuresBalances(
+                List.of(futuresBalance()),
+                mapperContext()
+        );
+        TradingStateProjection projection = new TradingStateProjection();
+        projected.forEach(projection::apply);
+        BinanceRestSnapshotProjectionComparator comparator = new BinanceRestSnapshotProjectionComparator(projection);
+
+        List<BinanceRestSnapshotProjectionComparison> matched = comparator.compare(projected);
+        List<BinanceRestSnapshotProjectionComparison> mismatched = comparator.compare(mapper.futuresBalances(
+                List.of(futuresBalance("USDT", "1000", "900", "600", 1_772_000_000_002L)),
+                mapperContext()
+        ));
+
+        assertThat(matched).singleElement().satisfies(comparison -> {
+            assertThat(comparison.status()).isEqualTo(BinanceRestSnapshotProjectionComparison.Status.MATCHED);
+            assertThat(comparison.differences()).isEmpty();
+        });
+        assertThat(mismatched).singleElement().satisfies(comparison -> {
+            assertThat(comparison.status()).isEqualTo(BinanceRestSnapshotProjectionComparison.Status.MISMATCH);
+            assertThat(comparison.entityKey()).isEqualTo("binance|demo|main|usd_m_futures|USDT");
+            assertThat(comparison.differences()).singleElement().satisfies(difference -> {
+                assertThat(difference.field()).isEqualTo("availableBalance");
+                assertThat(difference.snapshotValue()).isEqualTo("600");
+                assertThat(difference.projectionValue()).isEqualTo("700");
+            });
+        });
+    }
+
+    @Test
+    void can_fail_runtime_when_projection_comparison_is_strict() {
+        FakeFuturesSnapshots futures = new FakeFuturesSnapshots();
+        BinanceRestSnapshotReconciliationRuntime runtime = runtime(
+                new BinanceProperties.Reconciliation(
+                        false,
+                        60,
+                        10_000,
+                        true,
+                        true,
+                        false,
+                        List.of(),
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        List.of(),
+                        false,
+                        false,
+                        List.of()
+                ),
+                null,
+                futures,
+                null,
+                null,
+                "usd_m_futures",
+                List.of(),
+                new BinanceRestSnapshotProjectionComparator(new TradingStateProjection())
+        );
+
+        assertThatThrownBy(runtime::runOnce)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("snapshot/projection mismatch");
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void rejects_missing_snapshot_source_for_enabled_family() {
         BinanceProperties.Reconciliation reconciliation = new BinanceProperties.Reconciliation(
                 false,
@@ -289,6 +362,28 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
             String market,
             List<String> initialRecentEventIds
     ) {
+        return runtime(
+                reconciliation,
+                orderSnapshots,
+                futuresSnapshots,
+                marginSnapshots,
+                optionsSnapshots,
+                market,
+                initialRecentEventIds,
+                null
+        );
+    }
+
+    private BinanceRestSnapshotReconciliationRuntime runtime(
+            BinanceProperties.Reconciliation reconciliation,
+            BinanceRestSnapshotReconciliationRuntime.OrderSnapshots orderSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.MarginSnapshots marginSnapshots,
+            BinanceRestSnapshotReconciliationRuntime.OptionsSnapshots optionsSnapshots,
+            String market,
+            List<String> initialRecentEventIds,
+            BinanceRestSnapshotProjectionComparator projectionComparator
+    ) {
         return new BinanceRestSnapshotReconciliationRuntime(
                 reconciliation,
                 orderSnapshots,
@@ -301,8 +396,19 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
                         eventBus,
                         Clock.fixed(Instant.parse("2026-05-25T14:00:00Z"), ZoneOffset.UTC)
                 ),
+                projectionComparator,
                 executor,
                 initialRecentEventIds
+        );
+    }
+
+    private BinanceRestSnapshotEventMapper.Context mapperContext() {
+        return new BinanceRestSnapshotEventMapper.Context(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                Instant.parse("2026-05-25T14:00:00Z")
         );
     }
 
@@ -325,17 +431,27 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
     }
 
     private BinanceFuturesBalance futuresBalance() {
+        return futuresBalance("USDT", "1000", "900", "700", 1_772_000_000_002L);
+    }
+
+    private BinanceFuturesBalance futuresBalance(
+            String asset,
+            String balance,
+            String crossWalletBalance,
+            String availableBalance,
+            long updateTime
+    ) {
         return new BinanceFuturesBalance(
                 "SgsR",
-                "USDT",
-                decimal("1000"),
-                decimal("900"),
+                asset,
+                decimal(balance),
+                decimal(crossWalletBalance),
                 decimal("12.5"),
-                decimal("700"),
+                decimal(availableBalance),
                 decimal("650"),
                 decimal("640"),
                 true,
-                1_772_000_000_002L
+                updateTime
         );
     }
 

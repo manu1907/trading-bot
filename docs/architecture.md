@@ -405,9 +405,9 @@ adapter. Known gaps that must remain on the plan:
   exposed in the current Binance margin docs; do not claim them until Binance
   documents endpoints for them.
 - Options support is still deliberately incomplete. The connector must not
-  enable real options trading until REST snapshot state is compared against
-  user-data stream/projection state and projection-backed ordering/idempotency
-  is implemented and tested against current Binance documentation.
+  enable real options trading until REST snapshot comparison is backed by
+  durable projection state and projection-backed ordering/idempotency is
+  implemented and tested against current Binance documentation.
 - User-data payload mapping, event-bus publishing, listen-key/listen-token
   runtime supervision, and opt-in ExchangeModule lifecycle wiring are
   implemented. Market-data payload mapping, publishing, subscription runtime,
@@ -415,9 +415,10 @@ adapter. Known gaps that must remain on the plan:
   event mapping, publishing, and catalog-backed runtime scheduling are
   implemented. Core now has an in-memory trading-state projection for order,
   execution, balance, position, and risk-update events with event-ID dedupe and
-  stale per-entity update rejection. Reconciliation still does not compare REST
-  snapshots against projected stream state or enforce durable action gating
-  around gaps and unknown execution status.
+  stale per-entity update rejection. Binance reconciliation can compare REST
+  snapshots against projected state and report missing/mismatched entities, but
+  it still does not enforce durable action gating around gaps and unknown
+  execution status.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 
