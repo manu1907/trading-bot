@@ -34,16 +34,22 @@ public record ExecutionProperties(
 
     public record RiskGate(
             Boolean enabled,
-            Reconciliation reconciliation
+            Reconciliation reconciliation,
+            ManualIntervention manualIntervention
     ) {
 
         public RiskGate {
             enabled = enabled == null || enabled;
             reconciliation = reconciliation == null ? Reconciliation.defaults() : reconciliation;
+            manualIntervention = manualIntervention == null ? ManualIntervention.defaults() : manualIntervention;
+        }
+
+        public RiskGate(Boolean enabled, Reconciliation reconciliation) {
+            this(enabled, reconciliation, null);
         }
 
         static RiskGate defaults() {
-            return new RiskGate(true, Reconciliation.defaults());
+            return new RiskGate(true, Reconciliation.defaults(), ManualIntervention.defaults());
         }
     }
 
@@ -61,6 +67,20 @@ public record ExecutionProperties(
 
         static Reconciliation defaults() {
             return new Reconciliation(true, true, true);
+        }
+    }
+
+    public record ManualIntervention(
+            Boolean rejectExternalOrderInterventions
+    ) {
+
+        public ManualIntervention {
+            rejectExternalOrderInterventions = rejectExternalOrderInterventions == null
+                    || rejectExternalOrderInterventions;
+        }
+
+        static ManualIntervention defaults() {
+            return new ManualIntervention(true);
         }
     }
 

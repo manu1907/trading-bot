@@ -25,6 +25,9 @@
           "required": true,
           "reject_no_observations": true,
           "reject_degraded": true
+        },
+        "manual_intervention": {
+          "reject_external_order_interventions": true
         }
       }
     }

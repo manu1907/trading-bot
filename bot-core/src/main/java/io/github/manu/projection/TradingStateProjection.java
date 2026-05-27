@@ -109,6 +109,19 @@ public final class TradingStateProjection implements TradingEventHandler {
                 .anyMatch(PositionState::open);
     }
 
+    public long externalOrderInterventions(String provider, String environment, String account, String market) {
+        String prefix = key(provider, environment, account, market);
+        return orders.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .map(Map.Entry::getValue)
+                .filter(OrderState::externalIntervention)
+                .count();
+    }
+
+    public boolean hasExternalOrderInterventions(String provider, String environment, String account, String market) {
+        return externalOrderInterventions(provider, environment, account, market) > 0;
+    }
+
     public TradingStateSnapshot snapshot() {
         synchronized (lock) {
             return new TradingStateSnapshot(

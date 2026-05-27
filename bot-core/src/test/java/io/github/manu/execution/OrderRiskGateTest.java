@@ -6,8 +6,11 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandSide;
 import io.github.manu.events.v1.OrderCommandType;
+import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.projection.TradingStateSnapshot;
 import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationObservation;
@@ -42,6 +45,7 @@ class OrderRiskGateTest {
         assertThat(decision.getMaxQuantity()).isNull();
         assertThat(decision.getAttributes()).containsEntry("reconciliation_status", "NO_OBSERVATIONS");
         assertThat(decision.getAttributes()).containsEntry("reconciliation_observed_states", "0");
+        assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "0");
         assertThat(decision.getDecidedAtMicros()).isEqualTo(NOW);
     }
 
@@ -74,6 +78,33 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void rejects_order_when_target_has_external_order_intervention() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithExternalIntervention()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("intervention:external_order");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "1");
+    }
+
+    @Test
+    void can_be_configured_to_allow_external_order_intervention() {
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                new ExecutionProperties.ManualIntervention(false)
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithExternalIntervention()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "1");
+    }
+
+    @Test
     void can_be_configured_to_allow_when_gate_is_disabled() {
         ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
                 false,
@@ -102,6 +133,10 @@ class OrderRiskGateTest {
 
     private OrderRiskGate gate(ExecutionProperties properties) {
         return new OrderRiskGate(properties, reconciliationTracker, clock);
+    }
+
+    private OrderRiskGate gate(ExecutionProperties properties, TradingStateProjection projection) {
+        return new OrderRiskGate(properties, reconciliationTracker, projection, clock);
     }
 
     private ExecutionProperties defaultProperties() {
@@ -136,6 +171,41 @@ class OrderRiskGateTest {
                 ),
                 command
         );
+    }
+
+    private TradingStateProjection projectionWithExternalIntervention() {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        null,
+                        "manual-client-1",
+                        "12345",
+                        OrderResultStatus.ACCEPTED.name(),
+                        "NEW",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "USER_DATA",
+                        "NEW",
+                        false,
+                        true,
+                        "external_order_observed",
+                        NOW,
+                        "evt-external-order"
+                )),
+                List.of(),
+                List.of()
+        ));
+        return projection;
     }
 
     private OrderCommandEvent command() {

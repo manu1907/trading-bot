@@ -53,6 +53,8 @@ trading:
         required: true
         reject-no-observations: true
         reject-degraded: true
+      manual-intervention:
+        reject-external-order-interventions: true
   messaging:
     enabled: false
     bootstrap-servers: localhost:19092

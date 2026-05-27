@@ -74,6 +74,11 @@ The bot is not professional-execution-ready until these gaps are closed:
   and whether user-data exposed an external or unplanned order change. Retries,
   cancel/replace, durable unknown-status recovery, manual-intervention policy,
   and final order state transitions are not complete.
+- The risk gate now conservatively rejects new order commands when the target
+  projection has unresolved external or unplanned order intervention, unless
+  `trading.execution.risk-gate.manual-intervention.reject-external-order-interventions`
+  is explicitly disabled. This is a stop-the-line guard, not a full remediation
+  policy.
 - No durable idempotent order-command lifecycle from strategy signal through
   exchange result, user-stream execution report, reconciliation, restart, and
   final position state.
@@ -237,7 +242,8 @@ Implemented Binance foundations:
   event type, and entity key.
 - Configurable core order risk gate under `trading.execution.risk-gate`, with
   conservative catalog defaults that reject order commands when reconciliation
-  confidence has no observations or is degraded.
+  confidence has no observations or is degraded, or when projected order state
+  has unresolved external/unplanned order intervention.
 - Configurable core order execution pipeline under
   `trading.execution.pipeline`; disabled by default until the runtime profile
   explicitly enables order-command handling.
@@ -405,9 +411,11 @@ Binance parity gaps to close before claiming full connector support:
   unknown execution status.
 - All products: add policy handling for manual/external order and position
   intervention. Unknown external orders, unplanned managed-order cancel/modify,
-  and manual position closes or size changes must stop blind automation until
-  the configured policy decides to stand down, re-plan, hedge, or request
-  operator review.
+  and manual position closes or size changes now stop blind new-order
+  automation at the order-risk-gate level for order interventions. The missing
+  part is the configured remediation policy that decides to stand down,
+  re-plan, hedge, or request operator review; position intervention detection is
+  also still pending.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

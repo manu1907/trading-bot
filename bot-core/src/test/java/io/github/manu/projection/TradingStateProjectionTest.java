@@ -112,6 +112,8 @@ class TradingStateProjectionTest {
                     assertThat(order.updateSource()).isEqualTo("USER_DATA");
                     assertThat(order.executionType()).isEqualTo("TRADE");
                 });
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+        assertThat(projection.externalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEqualTo(1);
     }
 
     @Test

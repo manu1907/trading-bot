@@ -495,11 +495,15 @@ Manual or external exchange-side changes are safety-relevant state changes. The
 order projection records whether an order is bot-managed, whether the latest
 update came from submit result or user-data, and whether user-data exposed an
 external order or an unplanned cancel/modify of a managed order. That metadata
-is detection only. A later execution policy must decide whether to stand down,
-replace, re-plan, hedge, or require operator review. Position projection already
-absorbs user-data and REST state, but manual position closes or size changes
-still need equivalent classification and policy before live automation can be
-called complete.
+feeds the order risk gate: by default, new order commands for that runtime
+target are rejected while unresolved external/unplanned order intervention is
+present. This is controlled by
+`trading.execution.risk-gate.manual-intervention.reject-external-order-interventions`
+and defaults to true. A later execution policy must decide whether to stand
+down, replace, re-plan, hedge, or require operator review. Position projection
+already absorbs user-data and REST state, but manual position closes or size
+changes still need equivalent classification and policy before live automation
+can be called complete.
 
 ## Redpanda Messaging
 

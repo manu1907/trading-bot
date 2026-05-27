@@ -6,6 +6,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,17 +27,20 @@ public final class OrderRiskGate {
     private static final String DISABLED_REASON = "risk_gate:disabled";
     private static final String NO_OBSERVATIONS_REASON = "reconciliation:no_observations";
     private static final String DEGRADED_REASON = "reconciliation:degraded";
+    private static final String EXTERNAL_ORDER_INTERVENTION_REASON = "intervention:external_order";
 
     private final ExecutionProperties properties;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
+    private final TradingStateProjection tradingStateProjection;
     private final Clock clock;
 
     @Autowired
     public OrderRiskGate(
             ExecutionProperties properties,
-            ReconciliationConfidenceTracker reconciliationConfidenceTracker
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            TradingStateProjection tradingStateProjection
     ) {
-        this(properties, reconciliationConfidenceTracker, Clock.systemUTC());
+        this(properties, reconciliationConfidenceTracker, tradingStateProjection, Clock.systemUTC());
     }
 
     OrderRiskGate(
@@ -44,11 +48,21 @@ public final class OrderRiskGate {
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             Clock clock
     ) {
+        this(properties, reconciliationConfidenceTracker, new TradingStateProjection(), clock);
+    }
+
+    OrderRiskGate(
+            ExecutionProperties properties,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            TradingStateProjection tradingStateProjection,
+            Clock clock
+    ) {
         this.properties = Objects.requireNonNull(properties, "properties");
         this.reconciliationConfidenceTracker = Objects.requireNonNull(
                 reconciliationConfidenceTracker,
                 "reconciliationConfidenceTracker"
         );
+        this.tradingStateProjection = Objects.requireNonNull(tradingStateProjection, "tradingStateProjection");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -82,6 +96,7 @@ public final class OrderRiskGate {
             reasons.add(DISABLED_REASON);
         } else {
             reasons.addAll(reconciliationReasons(properties.riskGate().reconciliation(), reconciliationConfidence));
+            reasons.addAll(manualInterventionReasons(properties.riskGate().manualIntervention(), command));
             if (!reasons.isEmpty()) {
                 decision = RiskDecision.REJECTED;
             } else {
@@ -105,7 +120,7 @@ public final class OrderRiskGate {
                 .setMaxQuantity(decision == RiskDecision.APPROVED ? value(command.getQuantity()) : null)
                 .setMaxNotional(null)
                 .setDecidedAtMicros(Instant.now(clock))
-                .setAttributes(attributes(reconciliationConfidence))
+                .setAttributes(attributes(command, reconciliationConfidence))
                 .build();
     }
 
@@ -128,6 +143,24 @@ public final class OrderRiskGate {
         return List.copyOf(reasons);
     }
 
+    private List<String> manualInterventionReasons(
+            ExecutionProperties.ManualIntervention manualIntervention,
+            OrderCommandEvent command
+    ) {
+        if (!manualIntervention.rejectExternalOrderInterventions()) {
+            return List.of();
+        }
+        if (!tradingStateProjection.hasExternalOrderInterventions(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        )) {
+            return List.of();
+        }
+        return List.of(EXTERNAL_ORDER_INTERVENTION_REASON);
+    }
+
     private ReconciliationTargetConfidence reconciliationConfidence(OrderCommandEvent command) {
         return reconciliationConfidenceTracker.targetConfidence(
                 value(command.getProvider()),
@@ -137,7 +170,10 @@ public final class OrderRiskGate {
         );
     }
 
-    private Map<CharSequence, CharSequence> attributes(ReconciliationTargetConfidence confidence) {
+    private Map<CharSequence, CharSequence> attributes(
+            OrderCommandEvent command,
+            ReconciliationTargetConfidence confidence
+    ) {
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         attributes.put("reconciliation_status", confidence.status().name());
         attributes.put("reconciliation_observed_states", Integer.toString(confidence.observedStates()));
@@ -145,6 +181,13 @@ public final class OrderRiskGate {
         if (confidence.observedAt() != null) {
             attributes.put("reconciliation_observed_at", confidence.observedAt().toString());
         }
+        long interventions = tradingStateProjection.externalOrderInterventions(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        );
+        attributes.put("external_order_interventions", Long.toString(interventions));
         return Map.copyOf(attributes);
     }
 
