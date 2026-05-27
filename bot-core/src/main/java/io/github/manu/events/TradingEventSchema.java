@@ -11,6 +11,7 @@ public enum TradingEventSchema {
     POSITION_UPDATE("PositionUpdateEvent.avsc"),
     RISK_UPDATE("RiskUpdateEvent.avsc"),
     RISK_DECISION("RiskDecisionEvent.avsc"),
+    INTERVENTION_ACKNOWLEDGEMENT("InterventionAcknowledgementEvent.avsc"),
     STRATEGY_SIGNAL("StrategySignalEvent.avsc"),
     CONFIG_CHANGE("ConfigChangeEvent.avsc");
 

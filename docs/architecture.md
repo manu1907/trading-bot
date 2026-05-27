@@ -440,10 +440,11 @@ on the runtime classpath, and generate Java SpecificRecord classes during
 `compileJava`.
 
 Version 1 covers market data, order commands, order results, execution reports,
-balance updates, position updates, risk decisions, strategy signals, and config
-changes. Decimal exchange values are represented as exact strings so connector
-code does not lose precision before symbol filters and risk logic interpret
-tick size, step size, notional, and product-specific scale.
+balance updates, position updates, risk decisions, intervention
+acknowledgements, strategy signals, and config changes. Decimal exchange values
+are represented as exact strings so connector code does not lose precision
+before symbol filters and risk logic interpret tick size, step size, notional,
+and product-specific scale.
 
 The first compatibility rule is conservative: nullable extension fields need
 explicit `null` defaults, and the checked-in tests verify schema availability,
@@ -499,11 +500,13 @@ feeds the order risk gate: by default, new order commands for that runtime
 target are rejected while unresolved external/unplanned order intervention is
 present. This is controlled by
 `trading.execution.risk-gate.manual-intervention.reject-external-order-interventions`
-and defaults to true. A later execution policy must decide whether to stand
-down, replace, re-plan, hedge, or require operator review. Position projection
-already absorbs user-data and REST state, but manual position closes or size
-changes still need equivalent classification and policy before live automation
-can be called complete.
+and defaults to true. Clearing an order intervention is explicit and auditable:
+an `InterventionAcknowledgementEvent` is journal/replay compatible and clears a
+matching order intervention in the projection. A later execution policy must
+decide whether to stand down, replace, re-plan, hedge, or require operator
+review. Position projection already absorbs user-data and REST state, but manual
+position closes or size changes still need equivalent classification and policy
+before live automation can be called complete.
 
 ## Redpanda Messaging
 

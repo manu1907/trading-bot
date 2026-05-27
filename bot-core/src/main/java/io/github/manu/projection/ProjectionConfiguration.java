@@ -74,4 +74,9 @@ public class ProjectionConfiguration {
     TradingEventHandlerRegistration riskUpdateProjectionHandler(TradingStateProjection projection) {
         return new TradingEventHandlerRegistration(TradingEventType.RISK_UPDATE, projection);
     }
+
+    @Bean
+    TradingEventHandlerRegistration interventionAcknowledgementProjectionHandler(TradingStateProjection projection) {
+        return new TradingEventHandlerRegistration(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT, projection);
+    }
 }

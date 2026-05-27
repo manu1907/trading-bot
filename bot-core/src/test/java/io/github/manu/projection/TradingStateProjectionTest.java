@@ -5,6 +5,7 @@ import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
+import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
@@ -138,6 +139,42 @@ class TradingStateProjectionTest {
                     assertThat(order.interventionReason()).isEqualTo("unplanned_managed_order_change");
                     assertThat(order.commandId()).isEqualTo("cmd-1");
                 });
+    }
+
+    @Test
+    void acknowledgement_clears_matching_order_intervention() {
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
+
+        ProjectionUpdate acknowledgementUpdate = projection.apply(interventionAcknowledgement(
+                "evt-ack",
+                "external_order_observed",
+                timestamp(41)
+        ));
+
+        assertThat(acknowledgementUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.externalIntervention()).isFalse();
+                    assertThat(order.interventionReason()).isNull();
+                    assertThat(order.updateSource()).isEqualTo("INTERVENTION_ACKNOWLEDGEMENT");
+                    assertThat(order.eventId()).isEqualTo("evt-ack");
+                });
+    }
+
+    @Test
+    void acknowledgement_with_wrong_reason_does_not_clear_intervention() {
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
+
+        ProjectionUpdate acknowledgementUpdate = projection.apply(interventionAcknowledgement(
+                "evt-ack",
+                "unplanned_managed_order_change",
+                timestamp(41)
+        ));
+
+        assertThat(acknowledgementUpdate.status()).isEqualTo(ProjectionUpdateStatus.IGNORED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
     }
 
     @Test
@@ -340,6 +377,42 @@ class TradingStateProjectionTest {
                 TradingEventType.EXECUTION_REPORT,
                 TradingEventKeys.order(
                         TradingEventType.EXECUTION_REPORT,
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        "client-1"
+                ),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<InterventionAcknowledgementEvent> interventionAcknowledgement(
+            String eventId,
+            String interventionReason,
+            Instant acknowledgedAt
+    ) {
+        InterventionAcknowledgementEvent event = InterventionAcknowledgementEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setAcknowledgementId("ack-" + eventId)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setClientOrderId("client-1")
+                .setInterventionReason(interventionReason)
+                .setAcknowledgedBy("operator")
+                .setAcknowledgementReason("reviewed")
+                .setAcknowledgedAtMicros(acknowledgedAt)
+                .setAttributes(Map.of())
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                TradingEventKeys.order(
+                        TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
                         PROVIDER,
                         ENVIRONMENT,
                         ACCOUNT,

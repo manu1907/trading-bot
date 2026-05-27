@@ -4,6 +4,7 @@ import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
+import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
@@ -60,6 +61,10 @@ public final class TradingStateProjection implements TradingEventHandler {
             case ORDER_RESULT -> applyOrderResult(envelope, cast(envelope.value(), OrderResultEvent.class));
             case EXECUTION_REPORT -> applyExecutionReport(envelope, cast(envelope.value(), ExecutionReportEvent.class));
             case RISK_UPDATE -> applyRisk(envelope, cast(envelope.value(), RiskUpdateEvent.class));
+            case INTERVENTION_ACKNOWLEDGEMENT -> applyInterventionAcknowledgement(
+                    envelope,
+                    cast(envelope.value(), InterventionAcknowledgementEvent.class)
+            );
             default -> ProjectionUpdate.ignored(envelope.eventType(), null);
         };
     }
@@ -372,6 +377,67 @@ public final class TradingStateProjection implements TradingEventHandler {
                 eventId
         );
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), risks, state);
+    }
+
+    private ProjectionUpdate applyInterventionAcknowledgement(
+            TradingEventEnvelope<?> envelope,
+            InterventionAcknowledgementEvent event
+    ) {
+        String eventId = value(event.getEventId());
+        String entityKey = key(
+                event.getProvider(),
+                event.getEnvironment(),
+                event.getAccount(),
+                event.getMarket(),
+                event.getSymbol(),
+                event.getClientOrderId()
+        );
+        synchronized (lock) {
+            if (!rememberEventId(eventId)) {
+                return ProjectionUpdate.duplicate(envelope.eventType(), entityKey, eventId);
+            }
+            OrderState current = orders.get(entityKey);
+            if (current == null) {
+                return ProjectionUpdate.ignored(envelope.eventType(), eventId);
+            }
+            if (!interventionReasonMatches(current, event)) {
+                return ProjectionUpdate.ignored(envelope.eventType(), eventId);
+            }
+            if (event.getAcknowledgedAtMicros().isBefore(current.updatedAt())) {
+                return ProjectionUpdate.stale(envelope.eventType(), entityKey, eventId);
+            }
+            OrderState acknowledged = new OrderState(
+                    current.provider(),
+                    current.environment(),
+                    current.account(),
+                    current.market(),
+                    current.symbol(),
+                    current.commandId(),
+                    current.clientOrderId(),
+                    current.exchangeOrderId(),
+                    current.status(),
+                    current.exchangeStatus(),
+                    current.price(),
+                    current.originalQuantity(),
+                    current.executedQuantity(),
+                    current.averagePrice(),
+                    current.cumulativeQuote(),
+                    "INTERVENTION_ACKNOWLEDGEMENT",
+                    current.executionType(),
+                    current.managedByBot(),
+                    false,
+                    null,
+                    event.getAcknowledgedAtMicros(),
+                    eventId
+            );
+            orders.put(entityKey, acknowledged);
+            return ProjectionUpdate.applied(envelope.eventType(), entityKey, eventId);
+        }
+    }
+
+    private boolean interventionReasonMatches(OrderState current, InterventionAcknowledgementEvent event) {
+        String expectedReason = value(event.getInterventionReason());
+        return expectedReason == null || expectedReason.equals(current.interventionReason());
     }
 
     private <T extends TimedState> ProjectionUpdate applyState(

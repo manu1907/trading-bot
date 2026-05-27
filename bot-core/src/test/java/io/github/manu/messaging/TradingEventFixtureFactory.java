@@ -7,6 +7,7 @@ import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ConfigChangeEvent;
 import io.github.manu.events.v1.ConfigChangeSource;
 import io.github.manu.events.v1.ExecutionReportEvent;
+import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.events.v1.MarketDataEvent;
 import io.github.manu.events.v1.MarketDataEventType;
 import io.github.manu.events.v1.OrderCommandEvent;
@@ -52,6 +53,7 @@ final class TradingEventFixtureFactory {
         envelopes.put(TradingEventType.POSITION_UPDATE, positionUpdate());
         envelopes.put(TradingEventType.RISK_UPDATE, riskUpdate());
         envelopes.put(TradingEventType.RISK_DECISION, riskDecision());
+        envelopes.put(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT, interventionAcknowledgement());
         envelopes.put(TradingEventType.STRATEGY_SIGNAL, strategySignal());
         envelopes.put(TradingEventType.CONFIG_CHANGE, configChange());
         return Map.copyOf(envelopes);
@@ -203,6 +205,27 @@ final class TradingEventFixtureFactory {
                 .setAttributes(Map.of())
                 .build();
         return TradingEventEnvelope.of(TradingEventType.EXECUTION_REPORT, key, event);
+    }
+
+    private static TradingEventEnvelope<InterventionAcknowledgementEvent> interventionAcknowledgement() {
+        TradingEventKey key = orderKey(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT);
+        InterventionAcknowledgementEvent event = InterventionAcknowledgementEvent.newBuilder()
+                .setEventId("evt-intervention-ack")
+                .setSchemaVersion(1)
+                .setAcknowledgementId("ack-001")
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setClientOrderId(CLIENT_ORDER_ID)
+                .setInterventionReason("external_order_observed")
+                .setAcknowledgedBy("operator")
+                .setAcknowledgementReason("manual review accepted")
+                .setAcknowledgedAtMicros(TIMESTAMP)
+                .setAttributes(Map.of())
+                .build();
+        return TradingEventEnvelope.of(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT, key, event);
     }
 
     private static TradingEventEnvelope<BalanceUpdateEvent> balanceUpdate() {

@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "InterventionAcknowledgementEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Operator acknowledgement for an externally detected trading intervention.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "acknowledgementId", "type": "string" },
+    { "name": "provider", "type": "string" },
+    { "name": "environment", "type": "string" },
+    { "name": "account", "type": "string" },
+    { "name": "market", "type": "string" },
+    { "name": "symbol", "type": ["null", "string"], "default": null },
+    { "name": "clientOrderId", "type": ["null", "string"], "default": null },
+    { "name": "interventionReason", "type": ["null", "string"], "default": null },
+    { "name": "acknowledgedBy", "type": "string" },
+    { "name": "acknowledgementReason", "type": "string" },
+    { "name": "acknowledgedAtMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

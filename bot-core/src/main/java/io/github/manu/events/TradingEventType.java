@@ -3,6 +3,7 @@ package io.github.manu.events;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ConfigChangeEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
+import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.events.v1.MarketDataEvent;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
@@ -25,6 +26,11 @@ public enum TradingEventType {
     POSITION_UPDATE(TradingEventSchema.POSITION_UPDATE, PositionUpdateEvent.class, "position-update"),
     RISK_UPDATE(TradingEventSchema.RISK_UPDATE, RiskUpdateEvent.class, "risk-update"),
     RISK_DECISION(TradingEventSchema.RISK_DECISION, RiskDecisionEvent.class, "risk-decision"),
+    INTERVENTION_ACKNOWLEDGEMENT(
+            TradingEventSchema.INTERVENTION_ACKNOWLEDGEMENT,
+            InterventionAcknowledgementEvent.class,
+            "intervention-acknowledgement"
+    ),
     STRATEGY_SIGNAL(TradingEventSchema.STRATEGY_SIGNAL, StrategySignalEvent.class, "strategy-signal"),
     CONFIG_CHANGE(TradingEventSchema.CONFIG_CHANGE, ConfigChangeEvent.class, "config-change");
 
