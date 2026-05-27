@@ -419,8 +419,9 @@ adapter. Known gaps that must remain on the plan:
   snapshots against projected state and record provider-agnostic reconciliation
   confidence for matched, missing, and mismatched entities. Core has a
   configurable order risk gate and order-command pipeline that consume that
-  confidence. The pipeline publishes a risk decision first and only submits via
-  an `OrderExecutionGateway` after approval. Binance implements the first
+  confidence. The pipeline has configurable in-memory command/idempotency-key
+  dedupe, publishes a risk decision first, and only submits via an
+  `OrderExecutionGateway` after approval. Binance implements the first
   new-order gateway and maps Binance responses into normalized order-result
   events, including configured unknown execution status. The complete durable
   execution state machine is not wired yet.
@@ -464,6 +465,30 @@ the handoff boundary that later Redpanda producers should consume.
 The schema manifest exposes each event route with its key/value schema names and
 Avro parsing fingerprints. Tests assert uniqueness and self-compatibility so
 schema drift is visible before messaging infrastructure is wired in.
+
+## Execution Pipeline
+
+Core owns the provider-agnostic order-command pipeline. It is disabled by
+default under `trading.execution.pipeline.enabled` and must be explicitly
+enabled by the active runtime profile. When enabled, an order command first
+passes through configurable in-runtime idempotency under
+`trading.execution.idempotency`. The default is enabled with a bounded
+`max_tracked_keys` catalog value. The tracker scopes command IDs and
+idempotency keys by provider/environment/account/market and rejects duplicates
+before risk evaluation or provider submission can happen.
+
+After idempotency admission, the core risk gate evaluates reconciliation
+confidence and publishes a `RiskDecisionEvent`. Only approved commands can be
+submitted through an `OrderExecutionGateway`. Provider modules implement that
+gateway for their concrete exchange APIs and return normalized
+`OrderResultEvent` values; strategies never call provider gateways directly.
+
+This in-memory idempotency prevents blind duplicate submits inside one running
+process. It is not the final professional lifecycle. Durable restart-safe
+idempotency still has to bind strategy signal, command, risk decision, exchange
+acknowledgement, user-data execution report, REST reconciliation, unknown
+status recovery, and final position/account projection into one ordered state
+machine.
 
 ## Redpanda Messaging
 

@@ -20,15 +20,21 @@ public class ExecutionConfiguration {
     OrderExecutionPipeline orderExecutionPipeline(
             OrderRiskGate riskGate,
             TradingEventBus eventBus,
-            ObjectProvider<OrderExecutionGateway> gateways
+            ObjectProvider<OrderExecutionGateway> gateways,
+            OrderExecutionIdempotencyTracker idempotencyTracker
     ) {
         List<OrderExecutionGateway> availableGateways = gateways.orderedStream().toList();
-        return new OrderExecutionPipeline(riskGate, eventBus, availableGateways);
+        return new OrderExecutionPipeline(riskGate, eventBus, availableGateways, idempotencyTracker);
     }
 
     @Bean
     @ConditionalOnProperty(prefix = "trading.execution.pipeline", name = "enabled", havingValue = "true")
     TradingEventHandlerRegistration orderExecutionPipelineHandler(OrderExecutionPipeline pipeline) {
         return new TradingEventHandlerRegistration(TradingEventType.ORDER_COMMAND, pipeline);
+    }
+
+    @Bean
+    OrderExecutionIdempotencyTracker orderExecutionIdempotencyTracker(ExecutionProperties properties) {
+        return new OrderExecutionIdempotencyTracker(properties);
     }
 }

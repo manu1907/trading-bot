@@ -66,12 +66,14 @@ The bot is not professional-execution-ready until these gaps are closed:
 - No complete risk-gated execution state machine yet. Core now has a
   provider-agnostic order risk gate and order-command pipeline. The pipeline
   publishes a risk decision first and can only submit through an
-  `OrderExecutionGateway` after approval, and Binance has a first order
-  gateway for new-order submission. Retries, cancel/replace, durable
-  unknown-status recovery, and final order state transitions are not complete.
-- No idempotent order-command lifecycle from strategy signal through exchange
-  result, user-stream execution report, reconciliation, and final position
-  state.
+  `OrderExecutionGateway` after approval. It also has configurable in-runtime
+  idempotency for command IDs and idempotency keys so duplicate commands cannot
+  blindly submit twice in one process. Binance has a first order gateway for
+  new-order submission. Retries, cancel/replace, durable unknown-status
+  recovery, and final order state transitions are not complete.
+- No durable idempotent order-command lifecycle from strategy signal through
+  exchange result, user-stream execution report, reconciliation, restart, and
+  final position state.
 - Core has an in-memory account/order/position/risk projection that can be
   rebuilt from events and rejects stale per-entity updates. Binance
   reconciliation can compare REST snapshots against that projection and record
@@ -228,6 +230,11 @@ Implemented Binance foundations:
 - Configurable core order execution pipeline under
   `trading.execution.pipeline`; disabled by default until the runtime profile
   explicitly enables order-command handling.
+- Configurable core in-memory order idempotency under
+  `trading.execution.idempotency`; enabled by default and bounded by
+  `max_tracked_keys` in the catalog. It rejects duplicate command IDs or
+  idempotency keys for the same provider/environment/account/market before a
+  gateway submit can happen. Durable restart-safe idempotency remains a gap.
 - Binance `OrderExecutionGateway` adapter for new-order submission, including
   core-to-Binance command mapping, Binance-specific command attributes,
   normalized `OrderResultEvent` output, validation rejection mapping, and
@@ -383,8 +390,8 @@ Binance parity gaps to close before claiming full connector support:
 - All products: extend provider `OrderExecutionGateway` adapters beyond
   new-order submission and extend the reconciliation runtime with durable
   replay-safe ordering and
-  projection-backed idempotency around stream gaps and unknown execution
-  status.
+  projection-backed idempotency around stream gaps, process restart, and
+  unknown execution status.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 
@@ -620,7 +627,8 @@ Deliver:
 
 - Order command pipeline.
 - Risk checks before exchange submission.
-- Idempotent client order IDs.
+- Idempotent client order IDs and configurable in-memory command/idempotency
+  key dedupe, followed by durable projection-backed idempotency.
 - Unknown-status reconciliation.
 - Cancel/replace handling.
 - Reduce-only emergency path.

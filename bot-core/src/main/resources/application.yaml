@@ -44,6 +44,9 @@ trading:
   execution:
     pipeline:
       enabled: false
+    idempotency:
+      enabled: true
+      max-tracked-keys: 100000
     risk-gate:
       enabled: true
       reconciliation:

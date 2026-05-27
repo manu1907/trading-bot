@@ -90,9 +90,53 @@ class OrderExecutionPipelineTest {
         });
     }
 
+    @Test
+    void rejects_duplicate_command_id_before_submitting_again() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        FakeGateway gateway = new FakeGateway(eventBus);
+        OrderExecutionPipeline pipeline = pipeline(List.of(gateway));
+
+        pipeline.handleOrderCommand(command()).join();
+        pipeline.handleOrderCommand(command("cmd-001", "idem-002")).join();
+
+        assertThat(gateway.submissions).isEqualTo(1);
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(
+                        TradingEventType.RISK_DECISION,
+                        TradingEventType.ORDER_RESULT,
+                        TradingEventType.RISK_DECISION
+                );
+        RiskDecisionEvent duplicateDecision = (RiskDecisionEvent) eventBus.envelopes.get(2).value();
+        assertThat(duplicateDecision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(duplicateDecision.getReasons()).containsExactly("execution:duplicate_command_id");
+        assertThat(duplicateDecision.getAttributes()).containsEntry("duplicate_command_id", "cmd-001");
+    }
+
+    @Test
+    void rejects_duplicate_idempotency_key_before_submitting_again() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        FakeGateway gateway = new FakeGateway(eventBus);
+        OrderExecutionPipeline pipeline = pipeline(List.of(gateway));
+
+        pipeline.handleOrderCommand(command()).join();
+        pipeline.handleOrderCommand(command("cmd-002", "idem-001")).join();
+
+        assertThat(gateway.submissions).isEqualTo(1);
+        RiskDecisionEvent duplicateDecision = (RiskDecisionEvent) eventBus.envelopes.get(2).value();
+        assertThat(duplicateDecision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(duplicateDecision.getReasons()).containsExactly("execution:duplicate_idempotency_key");
+        assertThat(duplicateDecision.getAttributes()).containsEntry("duplicate_idempotency_key", "idem-001");
+    }
+
     private OrderExecutionPipeline pipeline(List<OrderExecutionGateway> gateways) {
         OrderRiskGate riskGate = new OrderRiskGate(new ExecutionProperties(null), reconciliationTracker, clock);
-        return new OrderExecutionPipeline(riskGate, eventBus, gateways, clock);
+        return new OrderExecutionPipeline(
+                riskGate,
+                eventBus,
+                gateways,
+                new OrderExecutionIdempotencyTracker(new ExecutionProperties(null)),
+                clock
+        );
     }
 
     private void recordReconciliation(ReconciliationConfidenceStatus status) {
@@ -109,10 +153,14 @@ class OrderExecutionPipelineTest {
     }
 
     private OrderCommandEvent command() {
+        return command("cmd-001", "idem-001");
+    }
+
+    private OrderCommandEvent command(String commandId, String idempotencyKey) {
         return OrderCommandEvent.newBuilder()
-                .setEventId("evt-command-001")
+                .setEventId("evt-" + commandId)
                 .setSchemaVersion(1)
-                .setCommandId("cmd-001")
+                .setCommandId(commandId)
                 .setStrategyId("lfa")
                 .setProvider(PROVIDER)
                 .setEnvironment(ENVIRONMENT)
@@ -125,8 +173,8 @@ class OrderExecutionPipelineTest {
                 .setPrice("50000.00")
                 .setReduceOnly(false)
                 .setClosePosition(false)
-                .setClientOrderId("tb-lfa-001")
-                .setIdempotencyKey("idem-001")
+                .setClientOrderId("tb-lfa-" + commandId)
+                .setIdempotencyKey(idempotencyKey)
                 .setRequestedAtMicros(NOW)
                 .setAttributes(Map.of("signal_id", "sig-001"))
                 .build();

@@ -15,6 +15,10 @@
       "pipeline": {
         "enabled": false
       },
+      "idempotency": {
+        "enabled": true,
+        "max_tracked_keys": 100000
+      },
       "risk_gate": {
         "enabled": true,
         "reconciliation": {

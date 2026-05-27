@@ -28,6 +28,7 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
     private final OrderRiskGate riskGate;
     private final TradingEventBus eventBus;
     private final List<OrderExecutionGateway> gateways;
+    private final OrderExecutionIdempotencyTracker idempotencyTracker;
     private final Clock clock;
 
     public OrderExecutionPipeline(
@@ -35,7 +36,21 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
             TradingEventBus eventBus,
             List<OrderExecutionGateway> gateways
     ) {
-        this(riskGate, eventBus, gateways, Clock.systemUTC());
+        this(
+                riskGate,
+                eventBus,
+                gateways,
+                new OrderExecutionIdempotencyTracker(new ExecutionProperties(null))
+        );
+    }
+
+    public OrderExecutionPipeline(
+            OrderRiskGate riskGate,
+            TradingEventBus eventBus,
+            List<OrderExecutionGateway> gateways,
+            OrderExecutionIdempotencyTracker idempotencyTracker
+    ) {
+        this(riskGate, eventBus, gateways, idempotencyTracker, Clock.systemUTC());
     }
 
     OrderExecutionPipeline(
@@ -44,9 +59,26 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
             List<OrderExecutionGateway> gateways,
             Clock clock
     ) {
+        this(
+                riskGate,
+                eventBus,
+                gateways,
+                new OrderExecutionIdempotencyTracker(new ExecutionProperties(null)),
+                clock
+        );
+    }
+
+    OrderExecutionPipeline(
+            OrderRiskGate riskGate,
+            TradingEventBus eventBus,
+            List<OrderExecutionGateway> gateways,
+            OrderExecutionIdempotencyTracker idempotencyTracker,
+            Clock clock
+    ) {
         this.riskGate = Objects.requireNonNull(riskGate, "riskGate");
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.gateways = List.copyOf(Objects.requireNonNull(gateways, "gateways"));
+        this.idempotencyTracker = Objects.requireNonNull(idempotencyTracker, "idempotencyTracker");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -61,12 +93,17 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
 
     public CompletableFuture<Void> handleOrderCommand(OrderCommandEvent command) {
         Objects.requireNonNull(command, "command");
+        OrderExecutionIdempotencyTracker.Admission admission = idempotencyTracker.admit(command);
+        if (admission.status() != OrderExecutionIdempotencyTracker.Status.ADMITTED) {
+            return publish(executionRejectedDecision(command, admission.reason(), admission.attributes()))
+                    .thenApply(ignored -> null);
+        }
         RiskDecisionEvent riskDecision = riskGate.evaluate(command);
         Optional<OrderExecutionGateway> gateway = Optional.empty();
         if (riskDecision.getDecision() == RiskDecision.APPROVED) {
             gateway = gatewayFor(command);
             if (gateway.isEmpty()) {
-                riskDecision = noGatewayDecision(command);
+                riskDecision = executionRejectedDecision(command, NO_GATEWAY_REASON, noGatewayAttributes(command));
             }
         }
 
@@ -100,7 +137,10 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
     }
 
     @SuppressWarnings("unchecked")
-    private <T extends SpecificRecord> TradingEventEnvelope<T> envelope(TradingEventType eventType, SpecificRecord value) {
+    private <T extends SpecificRecord> TradingEventEnvelope<T> envelope(
+            TradingEventType eventType,
+            SpecificRecord value
+    ) {
         if (value instanceof RiskDecisionEvent event) {
             return (TradingEventEnvelope<T>) TradingEventEnvelope.of(
                     eventType,
@@ -133,18 +173,30 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
         throw new IllegalArgumentException("Unsupported event class: " + value.getClass());
     }
 
-    private RiskDecisionEvent noGatewayDecision(OrderCommandEvent command) {
-        List<String> reasons = new ArrayList<>();
-        reasons.add(NO_GATEWAY_REASON);
+    private Map<CharSequence, CharSequence> noGatewayAttributes(OrderCommandEvent command) {
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         attributes.put("execution_provider", value(command.getProvider()));
         attributes.put("execution_environment", value(command.getEnvironment()));
         attributes.put("execution_account", value(command.getAccount()));
         attributes.put("execution_market", value(command.getMarket()));
+        return Map.copyOf(attributes);
+    }
+
+    private RiskDecisionEvent executionRejectedDecision(
+            OrderCommandEvent command,
+            String reason,
+            Map<CharSequence, CharSequence> attributes
+    ) {
+        List<String> reasons = new ArrayList<>();
+        reasons.add(reason);
+        String decisionId = "risk-decision:"
+                + value(command.getCommandId())
+                + ":"
+                + reason.substring(reason.indexOf(':') + 1);
         return RiskDecisionEvent.newBuilder()
-                .setEventId("risk-decision:" + value(command.getCommandId()))
+                .setEventId(decisionId)
                 .setSchemaVersion(1)
-                .setDecisionId("risk-decision:" + value(command.getCommandId()))
+                .setDecisionId(decisionId)
                 .setCommandId(value(command.getCommandId()))
                 .setSignalId(signalId(command))
                 .setStrategyId(value(command.getStrategyId()))
