@@ -420,8 +420,10 @@ adapter. Known gaps that must remain on the plan:
   confidence for matched, missing, and mismatched entities. Core has a
   configurable order risk gate and order-command pipeline that consume that
   confidence. The pipeline publishes a risk decision first and only submits via
-  an `OrderExecutionGateway` after approval. Provider gateways and the complete
-  durable execution state machine are not wired yet.
+  an `OrderExecutionGateway` after approval. Binance implements the first
+  new-order gateway and maps Binance responses into normalized order-result
+  events, including configured unknown execution status. The complete durable
+  execution state machine is not wired yet.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 

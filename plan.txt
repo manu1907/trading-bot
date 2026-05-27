@@ -66,9 +66,9 @@ The bot is not professional-execution-ready until these gaps are closed:
 - No complete risk-gated execution state machine yet. Core now has a
   provider-agnostic order risk gate and order-command pipeline. The pipeline
   publishes a risk decision first and can only submit through an
-  `OrderExecutionGateway` after approval, but no provider gateway is wired yet
-  and retries, cancel/replace, unknown-status recovery, and final order state
-  transitions are not complete.
+  `OrderExecutionGateway` after approval, and Binance has a first order
+  gateway for new-order submission. Retries, cancel/replace, durable
+  unknown-status recovery, and final order state transitions are not complete.
 - No idempotent order-command lifecycle from strategy signal through exchange
   result, user-stream execution report, reconciliation, and final position
   state.
@@ -79,7 +79,7 @@ The bot is not professional-execution-ready until these gaps are closed:
   mismatched state. The projection has opt-in durable file and
   PostgreSQL-compatible JDBC snapshot stores for restart snapshots. Core order
   risk decisions and the order-command pipeline consume reconciliation
-  confidence, but provider execution gateways still need to be wired.
+  confidence; Binance order submission now uses that gateway boundary.
 - No TimescaleDB hypertable tuning or production database migration runner.
 - No GCS uploader/archive worker; only the object layout exists.
 - User-data payload mapping, stream publishing, market-data mapping, REST
@@ -226,8 +226,12 @@ Implemented Binance foundations:
   conservative catalog defaults that reject order commands when reconciliation
   confidence has no observations or is degraded.
 - Configurable core order execution pipeline under
-  `trading.execution.pipeline`; disabled by default until a provider
-  `OrderExecutionGateway` is explicitly wired.
+  `trading.execution.pipeline`; disabled by default until the runtime profile
+  explicitly enables order-command handling.
+- Binance `OrderExecutionGateway` adapter for new-order submission, including
+  core-to-Binance command mapping, Binance-specific command attributes,
+  normalized `OrderResultEvent` output, validation rejection mapping, and
+  configured unknown-execution-status mapping.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
@@ -376,8 +380,9 @@ Binance parity gaps to close before claiming full connector support:
   Keep real options trading disabled unless REST snapshot comparison is backed
   by durable projection state and projection-backed ordering is fully
   implemented and tested against current Binance documentation.
-- All products: implement provider `OrderExecutionGateway` adapters and extend
-  the reconciliation runtime with durable replay-safe ordering and
+- All products: extend provider `OrderExecutionGateway` adapters beyond
+  new-order submission and extend the reconciliation runtime with durable
+  replay-safe ordering and
   projection-backed idempotency around stream gaps and unknown execution
   status.
 - All products: enforce exchange filters in risk/execution before order

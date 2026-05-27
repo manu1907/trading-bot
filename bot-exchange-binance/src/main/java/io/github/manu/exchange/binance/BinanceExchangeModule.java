@@ -7,11 +7,16 @@ import io.github.manu.events.SerializedTradingEvent;
 import io.github.manu.events.TradingEventCodec;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
+import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
+import io.github.manu.events.TradingEventEnvelope;
+import io.github.manu.events.TradingEventKeys;
 import io.github.manu.exchange.ExchangeModule;
 import io.github.manu.exchange.ResolvedExchangeConfig;
+import io.github.manu.execution.OrderExecutionGateway;
 import io.github.manu.journal.JournaledTradingEvent;
 import io.github.manu.journal.TradingEventJournal;
 import io.github.manu.messaging.TradingEventBus;
@@ -26,7 +31,10 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,7 +43,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 @Component
-public class BinanceExchangeModule implements ExchangeModule {
+public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGateway {
 
     private static final Logger log = LoggerFactory.getLogger(BinanceExchangeModule.class);
 
@@ -164,6 +172,65 @@ public class BinanceExchangeModule implements ExchangeModule {
         connected = false;
         log.info("Binance exchange module disconnected");
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public boolean supports(String provider, String environment, String account, String market) {
+        if (!provider().equalsIgnoreCase(value(provider)) || config == null) {
+            return false;
+        }
+        return same(config.target().environment(), environment)
+                && same(config.target().account(), account)
+                && same(config.target().market(), market);
+    }
+
+    @Override
+    public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+        Objects.requireNonNull(command, "command");
+        ensureConfigured();
+        if (!supports(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        )) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException(
+                    "Binance module is not configured for order target: "
+                            + command.getProvider() + "/" + command.getEnvironment() + "/"
+                            + command.getAccount() + "/" + command.getMarket()
+            ));
+        }
+        BinanceProperties binance = requireBinance(config);
+        BinanceHttpTransport httpTransport = httpTransportOverride == null
+                ? new BinanceJdkHttpTransport(
+                Duration.ofMillis(binance.rest().connectTimeoutMillis()),
+                Duration.ofMillis(binance.rest().responseTimeoutMillis())
+        )
+                : httpTransportOverride;
+        BinanceOrderClient orderClient = new BinanceOrderClient(
+                binance,
+                binance.credentials().apiKey(),
+                binance.credentials().apiSecret(),
+                clock,
+                0L,
+                httpTransport,
+                JsonMapperFactory.create()
+        );
+        BinanceOrderResult result;
+        try {
+            result = orderClient.placeOrder(toBinanceOrderCommand(command, binance));
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.completedFuture(toEnvelope(command, null, "VALIDATION", e.getMessage(), OrderResultStatus.REJECTED));
+        } catch (BinanceApiException e) {
+            OrderResultStatus status = new BinanceRetryPolicy(binance.rest())
+                    .decide(e.httpStatusCode(), e.exchangeMessage())
+                    .reconcileBeforeRetry()
+                    ? OrderResultStatus.UNKNOWN
+                    : OrderResultStatus.REJECTED;
+            String rejectCode = e.exchangeCode() == null ? "HTTP_" + e.httpStatusCode() : e.exchangeCode().toString();
+            return CompletableFuture.completedFuture(toEnvelope(command, null, rejectCode, e.exchangeMessage(), status));
+        }
+        return CompletableFuture.completedFuture(toEnvelope(command, result, null, null, null));
     }
 
     @Override
@@ -502,6 +569,162 @@ public class BinanceExchangeModule implements ExchangeModule {
         return reconciliationConfidenceTrackerProvider.getIfAvailable();
     }
 
+    private BinanceOrderCommand toBinanceOrderCommand(OrderCommandEvent command, BinanceProperties binance) {
+        Map<CharSequence, CharSequence> attributes = command.getAttributes() == null ? Map.of() : command.getAttributes();
+        return new BinanceOrderCommand(
+                value(command.getSymbol()),
+                command.getSide() == null ? null : command.getSide().name(),
+                command.getOrderType() == null ? null : command.getOrderType().name(),
+                command.getTimeInForce() == null ? null : command.getTimeInForce().name(),
+                command.getPositionSide() == null ? null : command.getPositionSide().name(),
+                attribute(attributes, "order_response_type", binance.rest().orderResponseTypeDefault()),
+                attribute(attributes, "self_trade_prevention_mode"),
+                attribute(attributes, "side_effect_type"),
+                attribute(attributes, "price_match"),
+                attribute(attributes, "working_type"),
+                attribute(attributes, "peg_price_type"),
+                attribute(attributes, "peg_offset_type"),
+                integerAttribute(attributes, "peg_offset_value"),
+                value(command.getClientOrderId()),
+                longAttribute(attributes, "good_till_date"),
+                decimal(command.getQuantity()),
+                decimal(command.getQuoteOrderQuantity()),
+                decimal(command.getPrice()),
+                decimal(command.getStopPrice()),
+                decimalAttribute(attributes, "trailing_delta"),
+                decimal(command.getCallbackRate()),
+                decimal(command.getActivationPrice()),
+                decimalAttribute(attributes, "iceberg_qty"),
+                command.getReduceOnly(),
+                command.getClosePosition(),
+                booleanAttribute(attributes, "price_protect"),
+                booleanAttribute(attributes, "auto_repay_at_cancel"),
+                booleanAttribute(attributes, "isolated_margin"),
+                booleanAttribute(attributes, "market_maker_protection"),
+                booleanAttribute(attributes, "post_only")
+        );
+    }
+
+    private TradingEventEnvelope<OrderResultEvent> toEnvelope(
+            OrderCommandEvent command,
+            BinanceOrderResult result,
+            String rejectCode,
+            String rejectMessage,
+            OrderResultStatus fallbackStatus
+    ) {
+        OrderResultEvent event = orderResultEvent(command, result, rejectCode, rejectMessage, fallbackStatus);
+        return TradingEventEnvelope.of(
+                TradingEventType.ORDER_RESULT,
+                TradingEventKeys.order(
+                        TradingEventType.ORDER_RESULT,
+                        value(command.getProvider()),
+                        value(command.getEnvironment()),
+                        value(command.getAccount()),
+                        value(command.getMarket()),
+                        value(command.getSymbol()),
+                        value(command.getClientOrderId())
+                ),
+                event
+        );
+    }
+
+    private OrderResultEvent orderResultEvent(
+            OrderCommandEvent command,
+            BinanceOrderResult result,
+            String rejectCode,
+            String rejectMessage,
+            OrderResultStatus fallbackStatus
+    ) {
+        boolean rejected = result == null;
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.put("source", "binance_order_gateway");
+        if (rejected) {
+            attributes.put("http_reject", "true");
+        }
+        String exchangeStatus = rejected ? null : result.status();
+        return OrderResultEvent.newBuilder()
+                .setEventId("order-result:" + value(command.getCommandId()) + ":" + value(command.getClientOrderId()))
+                .setSchemaVersion(1)
+                .setCommandId(value(command.getCommandId()))
+                .setProvider(value(command.getProvider()))
+                .setEnvironment(value(command.getEnvironment()))
+                .setAccount(value(command.getAccount()))
+                .setMarket(value(command.getMarket()))
+                .setSymbol(result == null || !hasText(result.symbol()) ? value(command.getSymbol()) : result.symbol())
+                .setClientOrderId(result == null || !hasText(result.clientOrderId()) ? value(command.getClientOrderId()) : result.clientOrderId())
+                .setExchangeOrderId(result == null || result.orderId() == null ? null : result.orderId().toString())
+                .setStatus(result == null ? fallbackStatus : status(exchangeStatus))
+                .setExchangeStatus(exchangeStatus)
+                .setPrice(decimalString(result == null ? decimal(command.getPrice()) : result.price()))
+                .setOriginalQuantity(decimalString(result == null ? decimal(command.getQuantity()) : result.originalQuantity()))
+                .setExecutedQuantity(decimalString(result == null ? null : result.executedQuantity()))
+                .setAveragePrice(decimalString(result == null ? null : result.averagePrice()))
+                .setCumulativeQuote(decimalString(result == null ? null : result.cumulativeQuote()))
+                .setExchangeTransactTimeMicros(result == null || result.updateTime() == null ? null : Instant.ofEpochMilli(result.updateTime()))
+                .setObservedAtMicros(clock.instant())
+                .setRejectCode(rejectCode)
+                .setRejectMessage(rejectMessage)
+                .setAttributes(Map.copyOf(attributes))
+                .build();
+    }
+
+    private OrderResultStatus status(String value) {
+        if (!hasText(value)) {
+            return OrderResultStatus.UNKNOWN;
+        }
+        return switch (value) {
+            case "NEW" -> OrderResultStatus.ACCEPTED;
+            case "PARTIALLY_FILLED" -> OrderResultStatus.PARTIALLY_FILLED;
+            case "FILLED" -> OrderResultStatus.FILLED;
+            case "CANCELED" -> OrderResultStatus.CANCELED;
+            case "EXPIRED" -> OrderResultStatus.EXPIRED;
+            case "REJECTED" -> OrderResultStatus.REJECTED;
+            default -> OrderResultStatus.UNKNOWN;
+        };
+    }
+
+    private BigDecimal decimal(CharSequence value) {
+        String text = value(value);
+        return text == null ? null : new BigDecimal(text);
+    }
+
+    private BigDecimal decimalAttribute(Map<CharSequence, CharSequence> attributes, String name) {
+        return decimal(attribute(attributes, name));
+    }
+
+    private Integer integerAttribute(Map<CharSequence, CharSequence> attributes, String name) {
+        String value = attribute(attributes, name);
+        return value == null ? null : Integer.valueOf(value);
+    }
+
+    private Long longAttribute(Map<CharSequence, CharSequence> attributes, String name) {
+        String value = attribute(attributes, name);
+        return value == null ? null : Long.valueOf(value);
+    }
+
+    private Boolean booleanAttribute(Map<CharSequence, CharSequence> attributes, String name) {
+        String value = attribute(attributes, name);
+        return value == null ? null : Boolean.valueOf(value);
+    }
+
+    private String attribute(Map<CharSequence, CharSequence> attributes, String name) {
+        return attribute(attributes, name, null);
+    }
+
+    private String attribute(Map<CharSequence, CharSequence> attributes, String name, String defaultValue) {
+        for (Map.Entry<CharSequence, CharSequence> entry : attributes.entrySet()) {
+            if (name.contentEquals(entry.getKey())) {
+                String value = value(entry.getValue());
+                return value == null ? defaultValue : value;
+            }
+        }
+        return defaultValue;
+    }
+
+    private String decimalString(BigDecimal value) {
+        return value == null ? null : value.stripTrailingZeros().toPlainString();
+    }
+
     private String reconciliationEventId(SerializedTradingEvent serialized) {
         TradingEventType eventType = serialized.eventType();
         if (eventType != TradingEventType.ORDER_RESULT
@@ -545,6 +768,17 @@ public class BinanceExchangeModule implements ExchangeModule {
 
     private boolean hasText(CharSequence value) {
         return value != null && !value.toString().isBlank();
+    }
+
+    private String value(CharSequence value) {
+        if (!hasText(value)) {
+            return null;
+        }
+        return value.toString().trim();
+    }
+
+    private boolean same(String expected, String actual) {
+        return expected != null && expected.equals(value(actual));
     }
 
     private void stopUserDataRuntime() {

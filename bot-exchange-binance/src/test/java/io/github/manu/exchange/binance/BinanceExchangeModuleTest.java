@@ -8,6 +8,12 @@ import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventMessageCodec;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.OrderCommandEvent;
+import io.github.manu.events.v1.OrderCommandSide;
+import io.github.manu.events.v1.OrderCommandTimeInForce;
+import io.github.manu.events.v1.OrderCommandType;
+import io.github.manu.events.v1.OrderResultEvent;
+import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.exchange.ResolvedExchangeConfig;
 import io.github.manu.journal.JournaledTradingEvent;
 import io.github.manu.journal.TradingEventJournal;
@@ -337,6 +343,80 @@ class BinanceExchangeModuleTest {
         assertThat(eventBus.envelopes).isEmpty();
     }
 
+    @Test
+    void submits_order_commands_through_order_execution_gateway() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, """
+                {
+                  "symbol": "BTCUSDT",
+                  "orderId": 123456,
+                  "clientOrderId": "tb-lfa-001",
+                  "status": "NEW",
+                  "side": "BUY",
+                  "type": "LIMIT",
+                  "positionSide": "BOTH",
+                  "price": "50000.00",
+                  "origQty": "0.001",
+                  "executedQty": "0",
+                  "avgPrice": "0",
+                  "cumQuote": "0",
+                  "updateTime": 1772000000002
+                }
+                """));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+
+        runtimeModule.configure(config);
+        TradingEventEnvelope<?> result = runtimeModule.submit(orderCommand()).join();
+
+        assertThat(runtimeModule.supports("binance", "demo", "main", "usdm_futures")).isTrue();
+        assertThat(httpTransport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("POST");
+            assertThat(call.uri()).contains("/fapi/v1/order");
+            assertThat(call.uri()).contains("symbol=BTCUSDT");
+            assertThat(call.uri()).contains("newClientOrderId=tb-lfa-001");
+            assertThat(call.uri()).contains("newOrderRespType=RESULT");
+        });
+        assertThat(result.eventType()).isEqualTo(TradingEventType.ORDER_RESULT);
+        assertThat((OrderResultEvent) result.value()).satisfies(value -> {
+            assertThat(value.getCommandId()).isEqualTo("cmd-001");
+            assertThat(value.getStatus()).isEqualTo(OrderResultStatus.ACCEPTED);
+            assertThat(value.getExchangeOrderId()).isEqualTo("123456");
+            assertThat(value.getExchangeStatus()).isEqualTo("NEW");
+        });
+    }
+
+    @Test
+    void maps_unknown_binance_order_execution_status_to_unknown_result() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(503, """
+                {
+                  "code": -1000,
+                  "msg": "Unknown error, please check your request or try again later."
+                }
+                """));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+
+        runtimeModule.configure(config);
+        TradingEventEnvelope<?> result = runtimeModule.submit(orderCommand()).join();
+
+        assertThat(result.eventType()).isEqualTo(TradingEventType.ORDER_RESULT);
+        assertThat((OrderResultEvent) result.value()).satisfies(value -> {
+            assertThat(value.getStatus()).isEqualTo(OrderResultStatus.UNKNOWN);
+            assertThat(value.getRejectCode()).isEqualTo("-1000");
+            assertThat(value.getRejectMessage()).contains("Unknown error");
+        });
+    }
+
     private ResolvedExchangeConfig checkedInResolvedConfig() throws IOException {
         return checkedInResolvedConfig(market -> {
         });
@@ -449,6 +529,36 @@ class BinanceExchangeModuleTest {
                 )
         ).getFirst();
         return new TradingEventMessageCodec().serialize(envelope);
+    }
+
+    private OrderCommandEvent orderCommand() {
+        return OrderCommandEvent.newBuilder()
+                .setEventId("evt-command-001")
+                .setSchemaVersion(1)
+                .setCommandId("cmd-001")
+                .setStrategyId("lfa")
+                .setProvider("binance")
+                .setEnvironment("demo")
+                .setAccount("main")
+                .setMarket("usdm_futures")
+                .setSymbol("BTCUSDT")
+                .setSide(OrderCommandSide.BUY)
+                .setOrderType(OrderCommandType.LIMIT)
+                .setPositionSide(null)
+                .setTimeInForce(OrderCommandTimeInForce.GTC)
+                .setQuantity("0.001")
+                .setQuoteOrderQuantity(null)
+                .setPrice("50000.00")
+                .setStopPrice(null)
+                .setActivationPrice(null)
+                .setCallbackRate(null)
+                .setReduceOnly(false)
+                .setClosePosition(false)
+                .setClientOrderId("tb-lfa-001")
+                .setIdempotencyKey("idem-001")
+                .setRequestedAtMicros(Instant.parse("2026-05-22T20:00:00Z"))
+                .setAttributes(Map.of())
+                .build();
     }
 
     private BigDecimal decimal(String value) {
