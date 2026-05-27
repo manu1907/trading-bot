@@ -415,16 +415,17 @@ adapter. Known gaps that must remain on the plan:
   event mapping, publishing, and catalog-backed runtime scheduling are
   implemented. Core now has an in-memory trading-state projection for order,
   execution, balance, position, and risk-update events with event-ID dedupe and
-  stale per-entity update rejection. Binance reconciliation can compare REST
-  snapshots against projected state and record provider-agnostic reconciliation
-  confidence for matched, missing, and mismatched entities. Core has a
-  configurable order risk gate and order-command pipeline that consume that
-  confidence. The pipeline has configurable in-memory command/idempotency-key
-  dedupe, publishes a risk decision first, and only submits via an
-  `OrderExecutionGateway` after approval. Binance implements the first
-  new-order gateway and maps Binance responses into normalized order-result
-  events, including configured unknown execution status. The complete durable
-  execution state machine is not wired yet.
+  stale per-entity update rejection. Order state records bot-managed identity,
+  update source, execution type, and external/unplanned intervention detection.
+  Binance reconciliation can compare REST snapshots against projected state and
+  record provider-agnostic reconciliation confidence for matched, missing, and
+  mismatched entities. Core has a configurable order risk gate and order-command
+  pipeline that consume that confidence. The pipeline has configurable
+  in-memory command/idempotency-key dedupe, publishes a risk decision first,
+  and only submits via an `OrderExecutionGateway` after approval. Binance
+  implements the first new-order gateway and maps Binance responses into
+  normalized order-result events, including configured unknown execution status.
+  The complete durable execution state machine is not wired yet.
 - The exchange module lifecycle currently connects config/metadata primitives;
   it is not yet the risk-gated execution engine.
 
@@ -489,6 +490,16 @@ idempotency still has to bind strategy signal, command, risk decision, exchange
 acknowledgement, user-data execution report, REST reconciliation, unknown
 status recovery, and final position/account projection into one ordered state
 machine.
+
+Manual or external exchange-side changes are safety-relevant state changes. The
+order projection records whether an order is bot-managed, whether the latest
+update came from submit result or user-data, and whether user-data exposed an
+external order or an unplanned cancel/modify of a managed order. That metadata
+is detection only. A later execution policy must decide whether to stand down,
+replace, re-plan, hedge, or require operator review. Position projection already
+absorbs user-data and REST state, but manual position closes or size changes
+still need equivalent classification and policy before live automation can be
+called complete.
 
 ## Redpanda Messaging
 

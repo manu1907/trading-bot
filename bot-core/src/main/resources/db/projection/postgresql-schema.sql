@@ -37,6 +37,7 @@ create table if not exists trading_projection_orders (
     account varchar(128) not null,
     market varchar(128) not null,
     symbol varchar(128) not null,
+    command_id varchar(512),
     client_order_id varchar(256) not null,
     exchange_order_id varchar(256),
     status varchar(64),
@@ -46,6 +47,11 @@ create table if not exists trading_projection_orders (
     executed_quantity varchar(128),
     average_price varchar(128),
     cumulative_quote varchar(128),
+    update_source varchar(64),
+    execution_type varchar(64),
+    managed_by_bot boolean not null default false,
+    external_intervention boolean not null default false,
+    intervention_reason varchar(256),
     updated_at varchar(64) not null,
     event_id varchar(512)
 );

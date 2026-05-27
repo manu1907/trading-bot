@@ -69,11 +69,18 @@ The bot is not professional-execution-ready until these gaps are closed:
   `OrderExecutionGateway` after approval. It also has configurable in-runtime
   idempotency for command IDs and idempotency keys so duplicate commands cannot
   blindly submit twice in one process. Binance has a first order gateway for
-  new-order submission. Retries, cancel/replace, durable unknown-status
-  recovery, and final order state transitions are not complete.
+  new-order submission. The core order projection tracks whether an order is
+  bot-managed, whether the latest update came from submit result or user-data,
+  and whether user-data exposed an external or unplanned order change. Retries,
+  cancel/replace, durable unknown-status recovery, manual-intervention policy,
+  and final order state transitions are not complete.
 - No durable idempotent order-command lifecycle from strategy signal through
   exchange result, user-stream execution report, reconciliation, restart, and
   final position state.
+- Manual position changes are not yet policy-complete. Position projection can
+  absorb user-data and REST updates, but later position work must classify
+  external/manual closes or size changes and decide whether to stand down,
+  re-hedge, re-open, or require operator review.
 - Core has an in-memory account/order/position/risk projection that can be
   rebuilt from events and rejects stale per-entity updates. Binance
   reconciliation can compare REST snapshots against that projection and record
@@ -213,6 +220,10 @@ Implemented Binance foundations:
   risk-update events with event-ID dedupe, stale per-entity update rejection,
   journal-replay compatible event-handler registration, and target-scoped open
   position checks.
+- Core order projection metadata for bot-managed order identity, submit-result
+  versus user-data update source, execution type, and external/unplanned order
+  intervention detection. Policy actions for those interventions remain a
+  future execution-state-machine gap.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
 - Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL
@@ -392,6 +403,11 @@ Binance parity gaps to close before claiming full connector support:
   replay-safe ordering and
   projection-backed idempotency around stream gaps, process restart, and
   unknown execution status.
+- All products: add policy handling for manual/external order and position
+  intervention. Unknown external orders, unplanned managed-order cancel/modify,
+  and manual position closes or size changes must stop blind automation until
+  the configured policy decides to stand down, re-plan, hedge, or request
+  operator review.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

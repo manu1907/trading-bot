@@ -235,6 +235,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getAccount()),
                 value(event.getMarket()),
                 value(event.getSymbol()),
+                value(event.getCommandId()),
                 value(event.getClientOrderId()),
                 value(event.getExchangeOrderId()),
                 event.getStatus() == null ? null : event.getStatus().name(),
@@ -244,6 +245,11 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getExecutedQuantity()),
                 value(event.getAveragePrice()),
                 value(event.getCumulativeQuote()),
+                "ORDER_RESULT",
+                null,
+                true,
+                false,
+                null,
                 firstInstant(event.getExchangeTransactTimeMicros(), event.getObservedAtMicros()),
                 eventId
         );
@@ -260,25 +266,61 @@ public final class TradingStateProjection implements TradingEventHandler {
                 event.getSymbol(),
                 event.getClientOrderId()
         );
+        OrderState current = orders.get(entityKey);
+        OrderIntervention intervention = orderIntervention(current, event);
         OrderState state = new OrderState(
                 value(event.getProvider()),
                 value(event.getEnvironment()),
                 value(event.getAccount()),
                 value(event.getMarket()),
                 value(event.getSymbol()),
+                current == null ? null : current.commandId(),
                 value(event.getClientOrderId()),
                 value(event.getExchangeOrderId()),
                 value(event.getOrderStatus()),
                 value(event.getOrderStatus()),
-                value(event.getLastExecutedPrice()),
-                null,
+                firstText(attribute(event, "orderPrice"), event.getLastExecutedPrice()),
+                attribute(event, "orderQuantity"),
                 value(event.getCumulativeFilledQuantity()),
-                null,
+                attribute(event, "averagePrice"),
                 value(event.getCumulativeQuoteQuantity()),
+                "USER_DATA",
+                value(event.getExecutionType()),
+                intervention.managedByBot(),
+                intervention.externalIntervention(),
+                intervention.reason(),
                 firstInstant(event.getTransactionTimeMicros(), event.getEventTimeMicros()),
                 eventId
         );
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), orders, state);
+    }
+
+    private OrderIntervention orderIntervention(OrderState current, ExecutionReportEvent event) {
+        if (current == null) {
+            return new OrderIntervention(false, true, "external_order_observed");
+        }
+        if (Boolean.TRUE.equals(current.externalIntervention())) {
+            return new OrderIntervention(
+                    Boolean.TRUE.equals(current.managedByBot()),
+                    true,
+                    current.interventionReason()
+            );
+        }
+        if (Boolean.TRUE.equals(current.managedByBot()) && unplannedManagedOrderChange(event)) {
+            return new OrderIntervention(true, true, "unplanned_managed_order_change");
+        }
+        return new OrderIntervention(Boolean.TRUE.equals(current.managedByBot()), false, null);
+    }
+
+    private boolean unplannedManagedOrderChange(ExecutionReportEvent event) {
+        String executionType = value(event.getExecutionType());
+        if (executionType == null) {
+            return false;
+        }
+        return switch (executionType) {
+            case "CANCELED", "REPLACED", "AMENDMENT" -> true;
+            default -> false;
+        };
     }
 
     private ProjectionUpdate applyRisk(TradingEventEnvelope<?> envelope, RiskUpdateEvent event) {
@@ -394,6 +436,18 @@ public final class TradingStateProjection implements TradingEventHandler {
         return value.toString().trim();
     }
 
+    private String attribute(ExecutionReportEvent event, String key) {
+        if (event.getAttributes() == null) {
+            return null;
+        }
+        return value(event.getAttributes().get(key));
+    }
+
+    private String firstText(CharSequence preferred, CharSequence fallback) {
+        String value = value(preferred);
+        return value == null ? value(fallback) : value;
+    }
+
     public interface TimedState {
         Instant updatedAt();
     }
@@ -439,6 +493,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             String account,
             String market,
             String symbol,
+            String commandId,
             String clientOrderId,
             String exchangeOrderId,
             String status,
@@ -448,9 +503,25 @@ public final class TradingStateProjection implements TradingEventHandler {
             String executedQuantity,
             String averagePrice,
             String cumulativeQuote,
+            String updateSource,
+            String executionType,
+            Boolean managedByBot,
+            Boolean externalIntervention,
+            String interventionReason,
             Instant updatedAt,
             String eventId
     ) implements TimedState {
+        public OrderState {
+            managedByBot = Boolean.TRUE.equals(managedByBot);
+            externalIntervention = Boolean.TRUE.equals(externalIntervention);
+        }
+    }
+
+    private record OrderIntervention(
+            boolean managedByBot,
+            boolean externalIntervention,
+            String reason
+    ) {
     }
 
     public record RiskState(

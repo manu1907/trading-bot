@@ -88,10 +88,53 @@ class TradingStateProjectionTest {
         assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
                 .get()
                 .satisfies(order -> {
+                    assertThat(order.managedByBot()).isTrue();
+                    assertThat(order.externalIntervention()).isFalse();
+                    assertThat(order.updateSource()).isEqualTo("USER_DATA");
                     assertThat(order.status()).isEqualTo("PARTIALLY_FILLED");
                     assertThat(order.executedQuantity()).isEqualTo("0.05");
                     assertThat(order.eventId()).isEqualTo("evt-exec");
                     assertThat(order.updatedAt()).isEqualTo(timestamp(31));
+                });
+    }
+
+    @Test
+    void marks_user_data_order_without_known_bot_command_as_external_intervention() {
+        ProjectionUpdate update = projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.managedByBot()).isFalse();
+                    assertThat(order.externalIntervention()).isTrue();
+                    assertThat(order.interventionReason()).isEqualTo("external_order_observed");
+                    assertThat(order.updateSource()).isEqualTo("USER_DATA");
+                    assertThat(order.executionType()).isEqualTo("TRADE");
+                });
+    }
+
+    @Test
+    void marks_unplanned_cancel_or_modify_of_managed_order_for_review() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(50)));
+
+        ProjectionUpdate update = projection.apply(executionReport(
+                "evt-cancel",
+                "CANCELED",
+                "CANCELED",
+                "0",
+                timestamp(51),
+                Map.of()
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.managedByBot()).isTrue();
+                    assertThat(order.externalIntervention()).isTrue();
+                    assertThat(order.interventionReason()).isEqualTo("unplanned_managed_order_change");
+                    assertThat(order.commandId()).isEqualTo("cmd-1");
                 });
     }
 
@@ -260,6 +303,17 @@ class TradingStateProjectionTest {
             String cumulativeFilled,
             Instant eventTime
     ) {
+        return executionReport(eventId, orderStatus, "TRADE", cumulativeFilled, eventTime, Map.of());
+    }
+
+    private TradingEventEnvelope<ExecutionReportEvent> executionReport(
+            String eventId,
+            String orderStatus,
+            String executionType,
+            String cumulativeFilled,
+            Instant eventTime,
+            Map<CharSequence, CharSequence> attributes
+    ) {
         ExecutionReportEvent event = ExecutionReportEvent.newBuilder()
                 .setEventId(eventId)
                 .setSchemaVersion(1)
@@ -273,12 +327,12 @@ class TradingStateProjectionTest {
                 .setSide("BUY")
                 .setOrderType("LIMIT")
                 .setOrderStatus(orderStatus)
-                .setExecutionType("TRADE")
+                .setExecutionType(executionType)
                 .setLastExecutedQuantity("0.05")
                 .setLastExecutedPrice("100")
                 .setCumulativeFilledQuantity(cumulativeFilled)
                 .setEventTimeMicros(eventTime)
-                .setAttributes(Map.of())
+                .setAttributes(attributes)
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.EXECUTION_REPORT,
