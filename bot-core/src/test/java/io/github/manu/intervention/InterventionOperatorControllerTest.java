@@ -127,6 +127,56 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
+    void lists_unresolved_position_interventions_when_token_matches() {
+        restorePositionIntervention("external_position_change", true);
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/positions")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.count")
+                .isEqualTo(1)
+                .jsonPath("$.interventions[0].symbol")
+                .isEqualTo("BTCUSDT")
+                .jsonPath("$.interventions[0].positionSide")
+                .isEqualTo("BOTH")
+                .jsonPath("$.interventions[0].positionAmount")
+                .isEqualTo("0")
+                .jsonPath("$.interventions[0].interventionReason")
+                .isEqualTo("external_position_change");
+    }
+
+    @Test
+    void rejects_position_intervention_listing_when_token_is_invalid() {
+        restorePositionIntervention("external_position_change", true);
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/positions")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+    }
+
+    @Test
     void maps_projection_rejection_to_conflict() {
         client.post()
                 .uri("/internal/interventions/orders/acknowledgements")
@@ -187,6 +237,32 @@ class InterventionOperatorControllerTest {
                         NOW.minusSeconds(1),
                         "evt-order-intervention"
                 )),
+                List.of(),
+                List.of()
+        ));
+    }
+
+    private void restorePositionIntervention(String interventionReason, boolean externalIntervention) {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(new TradingStateProjection.PositionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "BOTH",
+                        "0",
+                        "50000.00",
+                        "50010.00",
+                        "0",
+                        "USER_DATA",
+                        externalIntervention,
+                        interventionReason,
+                        NOW.minusSeconds(1),
+                        "evt-position-intervention"
+                )),
+                List.of(),
                 List.of(),
                 List.of()
         ));

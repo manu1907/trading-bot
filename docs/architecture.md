@@ -510,8 +510,8 @@ or mismatched acknowledgements. The optional operator HTTP API is disabled by
 default and controlled by `trading.intervention.operator-api.enabled`; when
 enabled it requires `X-Operator-Token` to match
 `trading.intervention.operator-api.operator-token` before listing unresolved
-order interventions for a target or accepting an acknowledgement. A later
-execution policy must decide whether to
+order or position interventions for a target or accepting an order
+acknowledgement. A later execution policy must decide whether to
 stand down, replace, re-plan, hedge, or require operator review. Position
 projection records update source and conservatively flags user-data or REST
 position-size changes as external interventions when no managed bot order exists
