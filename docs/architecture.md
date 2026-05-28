@@ -503,9 +503,10 @@ present. This is controlled by
 and defaults to true. Clearing an order intervention is explicit and auditable:
 an `InterventionAcknowledgementEvent` is journal/replay compatible and clears a
 matching order intervention in the projection. Core exposes an acknowledgement
-service that validates order-level operator review requests and publishes the
-event through `TradingEventBus`, allowing journal decoration and normal routing
-to capture the audit trail. A later execution policy must decide whether to
+service that validates order-level operator review requests against the current
+projection before publishing the event through `TradingEventBus`, allowing
+journal decoration and normal routing to capture the audit trail without blind
+or mismatched acknowledgements. A later execution policy must decide whether to
 stand down, replace, re-plan, hedge, or require operator review. Position
 projection already absorbs user-data and REST state, but manual position closes
 or size changes still need equivalent classification and policy before live

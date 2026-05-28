@@ -6,6 +6,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.projection.TradingStateProjection;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -18,15 +19,22 @@ import java.util.function.Supplier;
 public final class InterventionAcknowledgementService {
 
     private final TradingEventBus eventBus;
+    private final TradingStateProjection projection;
     private final Clock clock;
     private final Supplier<String> idSupplier;
 
-    public InterventionAcknowledgementService(TradingEventBus eventBus) {
-        this(eventBus, Clock.systemUTC(), () -> UUID.randomUUID().toString());
+    public InterventionAcknowledgementService(TradingEventBus eventBus, TradingStateProjection projection) {
+        this(eventBus, projection, Clock.systemUTC(), () -> UUID.randomUUID().toString());
     }
 
-    InterventionAcknowledgementService(TradingEventBus eventBus, Clock clock, Supplier<String> idSupplier) {
+    InterventionAcknowledgementService(
+            TradingEventBus eventBus,
+            TradingStateProjection projection,
+            Clock clock,
+            Supplier<String> idSupplier
+    ) {
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+        this.projection = Objects.requireNonNull(projection, "projection");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.idSupplier = Objects.requireNonNull(idSupplier, "idSupplier");
     }
@@ -35,24 +43,59 @@ public final class InterventionAcknowledgementService {
             OrderInterventionAcknowledgementRequest request
     ) {
         Objects.requireNonNull(request, "request");
+        String provider = requireText(request.provider(), "provider");
+        String environment = requireText(request.environment(), "environment");
+        String account = requireText(request.account(), "account");
+        String market = requireText(request.market(), "market");
+        String symbol = requireText(request.symbol(), "symbol");
+        String clientOrderId = requireText(request.clientOrderId(), "clientOrderId");
+        String interventionReason = requireText(request.interventionReason(), "interventionReason");
+        requireMatchingProjectedIntervention(provider, environment, account, market, symbol, clientOrderId, interventionReason);
+
         String acknowledgementId = "intervention-ack:" + requireText(idSupplier.get(), "generated acknowledgement id");
         InterventionAcknowledgementEvent event = InterventionAcknowledgementEvent.newBuilder()
                 .setEventId("evt:" + acknowledgementId)
                 .setSchemaVersion(1)
                 .setAcknowledgementId(acknowledgementId)
-                .setProvider(requireText(request.provider(), "provider"))
-                .setEnvironment(requireText(request.environment(), "environment"))
-                .setAccount(requireText(request.account(), "account"))
-                .setMarket(requireText(request.market(), "market"))
-                .setSymbol(requireText(request.symbol(), "symbol"))
-                .setClientOrderId(requireText(request.clientOrderId(), "clientOrderId"))
-                .setInterventionReason(text(request.interventionReason()))
+                .setProvider(provider)
+                .setEnvironment(environment)
+                .setAccount(account)
+                .setMarket(market)
+                .setSymbol(symbol)
+                .setClientOrderId(clientOrderId)
+                .setInterventionReason(interventionReason)
                 .setAcknowledgedBy(requireText(request.acknowledgedBy(), "acknowledgedBy"))
                 .setAcknowledgementReason(requireText(request.acknowledgementReason(), "acknowledgementReason"))
                 .setAcknowledgedAtMicros(Instant.now(clock))
                 .setAttributes(request.attributes())
                 .build();
         return eventBus.publish(envelope(event));
+    }
+
+    private void requireMatchingProjectedIntervention(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String clientOrderId,
+            String interventionReason
+    ) {
+        TradingStateProjection.OrderState order = projection.order(
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        clientOrderId
+                )
+                .orElseThrow(() -> new IllegalStateException("No projected order exists for acknowledgement"));
+        if (!order.externalIntervention()) {
+            throw new IllegalStateException("Projected order has no unresolved intervention");
+        }
+        if (!interventionReason.equals(order.interventionReason())) {
+            throw new IllegalStateException("Projected order intervention reason does not match acknowledgement");
+        }
     }
 
     private TradingEventEnvelope<InterventionAcknowledgementEvent> envelope(

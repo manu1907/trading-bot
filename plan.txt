@@ -234,8 +234,9 @@ Implemented Binance foundations:
   review. The projection clears matching order interventions only through this
   replayable event path.
 - Core acknowledgement service that validates an order-level operator review
-  request and publishes the acknowledgement through `TradingEventBus`, so
-  journal decoration and normal event routing can capture the audit trail.
+  request against the current projection before publishing through
+  `TradingEventBus`, so blind or mismatched acknowledgements cannot clear the
+  wrong intervention and normal event routing captures the audit trail.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
 - Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL
