@@ -502,11 +502,14 @@ present. This is controlled by
 `trading.execution.risk-gate.manual-intervention.reject-external-order-interventions`
 and defaults to true. Clearing an order intervention is explicit and auditable:
 an `InterventionAcknowledgementEvent` is journal/replay compatible and clears a
-matching order intervention in the projection. A later execution policy must
-decide whether to stand down, replace, re-plan, hedge, or require operator
-review. Position projection already absorbs user-data and REST state, but manual
-position closes or size changes still need equivalent classification and policy
-before live automation can be called complete.
+matching order intervention in the projection. Core exposes an acknowledgement
+service that validates order-level operator review requests and publishes the
+event through `TradingEventBus`, allowing journal decoration and normal routing
+to capture the audit trail. A later execution policy must decide whether to
+stand down, replace, re-plan, hedge, or require operator review. Position
+projection already absorbs user-data and REST state, but manual position closes
+or size changes still need equivalent classification and policy before live
+automation can be called complete.
 
 ## Redpanda Messaging
 

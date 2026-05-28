@@ -233,6 +233,9 @@ Implemented Binance foundations:
 - Core intervention acknowledgement event for auditable order-level operator
   review. The projection clears matching order interventions only through this
   replayable event path.
+- Core acknowledgement service that validates an order-level operator review
+  request and publishes the acknowledgement through `TradingEventBus`, so
+  journal decoration and normal event routing can capture the audit trail.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
 - Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL
@@ -419,8 +422,8 @@ Binance parity gaps to close before claiming full connector support:
   automation at the order-risk-gate level for order interventions. The missing
   part is the configured remediation policy that decides to stand down,
   re-plan, hedge, or request operator review; position intervention detection is
-  also still pending. Order acknowledgement exists, but no operator UI/API or
-  multi-order/position acknowledgement workflow exists yet.
+  also still pending. Order acknowledgement event and service exist, but no
+  operator UI/API or multi-order/position acknowledgement workflow exists yet.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 
