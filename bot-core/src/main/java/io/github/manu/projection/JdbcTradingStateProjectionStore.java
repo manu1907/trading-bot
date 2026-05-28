@@ -133,7 +133,8 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
 
     private List<TradingStateProjection.PositionState> loadPositions(Connection connection) throws SQLException {
         String sql = "select provider, environment, account, market, symbol, position_side, position_amount,"
-                + " entry_price, mark_price, unrealized_pnl, updated_at, event_id from "
+                + " entry_price, mark_price, unrealized_pnl, update_source, external_intervention,"
+                + " intervention_reason, updated_at, event_id from "
                 + table("positions")
                 + " order by state_key";
         List<TradingStateProjection.PositionState> states = new ArrayList<>();
@@ -150,6 +151,9 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         rows.getString("entry_price"),
                         rows.getString("mark_price"),
                         rows.getString("unrealized_pnl"),
+                        rows.getString("update_source"),
+                        rows.getBoolean("external_intervention"),
+                        rows.getString("intervention_reason"),
                         instant(rows.getString("updated_at")),
                         rows.getString("event_id")
                 ));
@@ -271,8 +275,9 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
         String sql = "insert into "
                 + table("positions")
                 + " (state_key, provider, environment, account, market, symbol, position_side, position_amount,"
-                + " entry_price, mark_price, unrealized_pnl, updated_at, event_id)"
-                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + " entry_price, mark_price, unrealized_pnl, update_source, external_intervention,"
+                + " intervention_reason, updated_at, event_id)"
+                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (TradingStateProjection.PositionState state : states) {
                 int index = 1;
@@ -294,6 +299,9 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                 statement.setString(index++, state.entryPrice());
                 statement.setString(index++, state.markPrice());
                 statement.setString(index++, state.unrealizedPnl());
+                statement.setString(index++, state.updateSource());
+                statement.setBoolean(index++, state.externalIntervention());
+                statement.setString(index++, state.interventionReason());
                 statement.setString(index++, string(state.updatedAt()));
                 statement.setString(index, state.eventId());
                 statement.addBatch();
@@ -414,7 +422,9 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         + "environment varchar(64) not null, account varchar(128) not null,"
                         + "market varchar(128) not null, symbol varchar(128) not null,"
                         + "position_side varchar(64) not null, position_amount varchar(128), entry_price varchar(128),"
-                        + "mark_price varchar(128), unrealized_pnl varchar(128), updated_at varchar(64) not null,"
+                        + "mark_price varchar(128), unrealized_pnl varchar(128), update_source varchar(64),"
+                        + "external_intervention boolean not null default false, intervention_reason varchar(256),"
+                        + "updated_at varchar(64) not null,"
                         + "event_id varchar(512))",
                 "create table if not exists " + table("orders") + " ("
                         + "state_key varchar(512) primary key, provider varchar(64) not null,"

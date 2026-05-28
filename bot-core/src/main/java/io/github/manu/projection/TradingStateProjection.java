@@ -137,6 +137,29 @@ public final class TradingStateProjection implements TradingEventHandler {
         return externalOrderInterventions(provider, environment, account, market) > 0;
     }
 
+    public long externalPositionInterventions(String provider, String environment, String account, String market) {
+        return externalPositionInterventionStates(provider, environment, account, market).size();
+    }
+
+    public List<PositionState> externalPositionInterventionStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        String prefix = key(provider, environment, account, market);
+        return positions.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .filter(PositionState::externalIntervention)
+                .toList();
+    }
+
+    public boolean hasExternalPositionInterventions(String provider, String environment, String account, String market) {
+        return externalPositionInterventions(provider, environment, account, market) > 0;
+    }
+
     public TradingStateSnapshot snapshot() {
         synchronized (lock) {
             return new TradingStateSnapshot(
@@ -230,6 +253,13 @@ public final class TradingStateProjection implements TradingEventHandler {
                 event.getSymbol(),
                 event.getPositionSide()
         );
+        PositionState current = positions.get(entityKey);
+        PositionIntervention intervention = positionIntervention(
+                current,
+                event,
+                value(event.getPositionAmount()),
+                positionUpdateSource(event)
+        );
         PositionState state = new PositionState(
                 value(event.getProvider()),
                 value(event.getEnvironment()),
@@ -241,6 +271,9 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getEntryPrice()),
                 value(event.getMarkPrice()),
                 value(event.getUnrealizedPnl()),
+                positionUpdateSource(event),
+                intervention.externalIntervention(),
+                intervention.reason(),
                 event.getEventTimeMicros(),
                 eventId
         );
@@ -537,6 +570,79 @@ public final class TradingStateProjection implements TradingEventHandler {
         return value == null ? value(fallback) : value;
     }
 
+    private PositionIntervention positionIntervention(
+            PositionState current,
+            PositionUpdateEvent event,
+            String positionAmount,
+            String updateSource
+    ) {
+        if (current == null) {
+            return PositionIntervention.none();
+        }
+        if (current.externalIntervention()) {
+            return new PositionIntervention(true, current.interventionReason());
+        }
+        if (!positionAmountChanged(current.positionAmount(), positionAmount)) {
+            return PositionIntervention.none();
+        }
+        if (!("USER_DATA".equals(updateSource) || "REST_SNAPSHOT".equals(updateSource))) {
+            return PositionIntervention.none();
+        }
+        if (hasManagedOrderForSymbol(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                value(event.getSymbol())
+        )) {
+            return PositionIntervention.none();
+        }
+        return new PositionIntervention(true, "external_position_change");
+    }
+
+    private String positionUpdateSource(PositionUpdateEvent event) {
+        String source = attribute(event, "source");
+        if ("rest_snapshot".equals(source)) {
+            return "REST_SNAPSHOT";
+        }
+        if (attribute(event, "rawEventType") != null) {
+            return "USER_DATA";
+        }
+        return "POSITION_UPDATE";
+    }
+
+    private boolean hasManagedOrderForSymbol(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        String prefix = key(provider, environment, account, market, symbol);
+        return orders.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .map(Map.Entry::getValue)
+                .anyMatch(OrderState::managedByBot);
+    }
+
+    private boolean positionAmountChanged(String first, String second) {
+        if (first == null || second == null) {
+            return !Objects.equals(first, second);
+        }
+        try {
+            return new BigDecimal(first).compareTo(new BigDecimal(second)) != 0;
+        } catch (NumberFormatException ignored) {
+            return !first.equals(second);
+        }
+    }
+
+    private String attribute(PositionUpdateEvent event, String key) {
+        if (event.getAttributes() == null) {
+            return null;
+        }
+        return value(event.getAttributes().get(key));
+    }
+
     public interface TimedState {
         Instant updatedAt();
     }
@@ -568,11 +674,27 @@ public final class TradingStateProjection implements TradingEventHandler {
             String entryPrice,
             String markPrice,
             String unrealizedPnl,
+            String updateSource,
+            Boolean externalIntervention,
+            String interventionReason,
             Instant updatedAt,
             String eventId
     ) implements TimedState {
+        public PositionState {
+            externalIntervention = Boolean.TRUE.equals(externalIntervention);
+        }
+
         public boolean open() {
             return positionAmount != null && new BigDecimal(positionAmount).compareTo(BigDecimal.ZERO) != 0;
+        }
+    }
+
+    private record PositionIntervention(
+            boolean externalIntervention,
+            String reason
+    ) {
+        private static PositionIntervention none() {
+            return new PositionIntervention(false, null);
         }
     }
 

@@ -46,6 +46,7 @@ class OrderRiskGateTest {
         assertThat(decision.getAttributes()).containsEntry("reconciliation_status", "NO_OBSERVATIONS");
         assertThat(decision.getAttributes()).containsEntry("reconciliation_observed_states", "0");
         assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "0");
+        assertThat(decision.getAttributes()).containsEntry("external_position_interventions", "0");
         assertThat(decision.getDecidedAtMicros()).isEqualTo(NOW);
     }
 
@@ -87,6 +88,33 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("intervention:external_order");
         assertThat(decision.getMaxQuantity()).isNull();
         assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "1");
+    }
+
+    @Test
+    void rejects_order_when_target_has_external_position_intervention() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithExternalPositionIntervention()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("intervention:external_position");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes()).containsEntry("external_position_interventions", "1");
+    }
+
+    @Test
+    void can_be_configured_to_allow_external_position_intervention() {
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                new ExecutionProperties.ManualIntervention(true, false)
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithExternalPositionIntervention()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes()).containsEntry("external_position_interventions", "1");
     }
 
     @Test
@@ -202,6 +230,34 @@ class OrderRiskGateTest {
                         NOW,
                         "evt-external-order"
                 )),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection projectionWithExternalPositionIntervention() {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(new TradingStateProjection.PositionState(
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        "BOTH",
+                        "0",
+                        "50000.00",
+                        "50010.00",
+                        "0",
+                        "USER_DATA",
+                        true,
+                        "external_position_change",
+                        NOW,
+                        "evt-external-position"
+                )),
+                List.of(),
                 List.of(),
                 List.of()
         ));

@@ -513,8 +513,13 @@ enabled it requires `X-Operator-Token` to match
 order interventions for a target or accepting an acknowledgement. A later
 execution policy must decide whether to
 stand down, replace, re-plan, hedge, or require operator review. Position
-projection already absorbs user-data and REST state, but manual position closes
-or size changes still need equivalent classification and policy before live
+projection records update source and conservatively flags user-data or REST
+position-size changes as external interventions when no managed bot order exists
+for the same target/symbol. The order risk gate rejects new commands while such
+position interventions are unresolved by default through
+`trading.execution.risk-gate.manual-intervention.reject-external-position-interventions`.
+Position fill-to-delta causality and remediation policy still need to decide
+whether to stand down, re-hedge, re-open, or require operator review before live
 automation can be called complete.
 
 ## Redpanda Messaging

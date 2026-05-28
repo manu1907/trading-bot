@@ -28,6 +28,7 @@ public final class OrderRiskGate {
     private static final String NO_OBSERVATIONS_REASON = "reconciliation:no_observations";
     private static final String DEGRADED_REASON = "reconciliation:degraded";
     private static final String EXTERNAL_ORDER_INTERVENTION_REASON = "intervention:external_order";
+    private static final String EXTERNAL_POSITION_INTERVENTION_REASON = "intervention:external_position";
 
     private final ExecutionProperties properties;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
@@ -147,18 +148,26 @@ public final class OrderRiskGate {
             ExecutionProperties.ManualIntervention manualIntervention,
             OrderCommandEvent command
     ) {
-        if (!manualIntervention.rejectExternalOrderInterventions()) {
-            return List.of();
+        List<String> reasons = new ArrayList<>();
+        if (manualIntervention.rejectExternalOrderInterventions()
+                && tradingStateProjection.hasExternalOrderInterventions(
+                        value(command.getProvider()),
+                        value(command.getEnvironment()),
+                        value(command.getAccount()),
+                        value(command.getMarket())
+                )) {
+            reasons.add(EXTERNAL_ORDER_INTERVENTION_REASON);
         }
-        if (!tradingStateProjection.hasExternalOrderInterventions(
-                value(command.getProvider()),
-                value(command.getEnvironment()),
-                value(command.getAccount()),
-                value(command.getMarket())
-        )) {
-            return List.of();
+        if (manualIntervention.rejectExternalPositionInterventions()
+                && tradingStateProjection.hasExternalPositionInterventions(
+                        value(command.getProvider()),
+                        value(command.getEnvironment()),
+                        value(command.getAccount()),
+                        value(command.getMarket())
+                )) {
+            reasons.add(EXTERNAL_POSITION_INTERVENTION_REASON);
         }
-        return List.of(EXTERNAL_ORDER_INTERVENTION_REASON);
+        return List.copyOf(reasons);
     }
 
     private ReconciliationTargetConfidence reconciliationConfidence(OrderCommandEvent command) {
@@ -188,6 +197,13 @@ public final class OrderRiskGate {
                 value(command.getMarket())
         );
         attributes.put("external_order_interventions", Long.toString(interventions));
+        long positionInterventions = tradingStateProjection.externalPositionInterventions(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        );
+        attributes.put("external_position_interventions", Long.toString(positionInterventions));
         return Map.copyOf(attributes);
     }
 

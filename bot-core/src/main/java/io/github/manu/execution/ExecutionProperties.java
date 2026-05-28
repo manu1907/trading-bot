@@ -71,16 +71,23 @@ public record ExecutionProperties(
     }
 
     public record ManualIntervention(
-            Boolean rejectExternalOrderInterventions
+            Boolean rejectExternalOrderInterventions,
+            Boolean rejectExternalPositionInterventions
     ) {
 
         public ManualIntervention {
             rejectExternalOrderInterventions = rejectExternalOrderInterventions == null
                     || rejectExternalOrderInterventions;
+            rejectExternalPositionInterventions = rejectExternalPositionInterventions == null
+                    || rejectExternalPositionInterventions;
+        }
+
+        public ManualIntervention(Boolean rejectExternalOrderInterventions) {
+            this(rejectExternalOrderInterventions, null);
         }
 
         static ManualIntervention defaults() {
-            return new ManualIntervention(true);
+            return new ManualIntervention(true, true);
         }
     }
 

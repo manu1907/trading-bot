@@ -48,6 +48,9 @@ class TradingStateProjectionTest {
                 .satisfies(position -> {
                     assertThat(position.positionAmount()).isEqualTo("-0.10");
                     assertThat(position.open()).isTrue();
+                    assertThat(position.updateSource()).isEqualTo("POSITION_UPDATE");
+                    assertThat(position.externalIntervention()).isFalse();
+                    assertThat(position.interventionReason()).isNull();
                     assertThat(position.updatedAt()).isEqualTo(timestamp(11));
                 });
         assertThat(projection.risk(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "UNDERLYING", "BTCUSDT"))
@@ -75,6 +78,60 @@ class TradingStateProjectionTest {
                     assertThat(position.eventId()).isEqualTo("evt-position-new");
                     assertThat(position.updatedAt()).isEqualTo(timestamp(20));
                 });
+    }
+
+    @Test
+    void marks_position_amount_change_without_managed_order_for_review() {
+        projection.apply(position("evt-position-open", "-0.10", timestamp(20), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+
+        ProjectionUpdate update = projection.apply(position(
+                "evt-position-change",
+                "0",
+                timestamp(21),
+                Map.of("rawEventType", "ACCOUNT_UPDATE")
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.position(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "SHORT"))
+                .get()
+                .satisfies(position -> {
+                    assertThat(position.positionAmount()).isEqualTo("0");
+                    assertThat(position.updateSource()).isEqualTo("USER_DATA");
+                    assertThat(position.externalIntervention()).isTrue();
+                    assertThat(position.interventionReason()).isEqualTo("external_position_change");
+                });
+        assertThat(projection.hasExternalPositionInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+        assertThat(projection.externalPositionInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEqualTo(1);
+        assertThat(projection.externalPositionInterventionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(position -> {
+                    assertThat(position.symbol()).isEqualTo(SYMBOL);
+                    assertThat(position.positionSide()).isEqualTo("SHORT");
+                    assertThat(position.interventionReason()).isEqualTo("external_position_change");
+                });
+    }
+
+    @Test
+    void does_not_mark_position_amount_change_when_symbol_has_managed_order() {
+        projection.apply(position("evt-position-open", "-0.10", timestamp(20), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(21)));
+
+        ProjectionUpdate update = projection.apply(position(
+                "evt-position-fill",
+                "-0.15",
+                timestamp(22),
+                Map.of("rawEventType", "ACCOUNT_UPDATE")
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.position(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "SHORT"))
+                .get()
+                .satisfies(position -> {
+                    assertThat(position.positionAmount()).isEqualTo("-0.15");
+                    assertThat(position.externalIntervention()).isFalse();
+                    assertThat(position.interventionReason()).isNull();
+                });
+        assertThat(projection.hasExternalPositionInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
     }
 
     @Test
@@ -263,6 +320,15 @@ class TradingStateProjectionTest {
     }
 
     private TradingEventEnvelope<PositionUpdateEvent> position(String eventId, String quantity, Instant eventTime) {
+        return position(eventId, quantity, eventTime, Map.of());
+    }
+
+    private TradingEventEnvelope<PositionUpdateEvent> position(
+            String eventId,
+            String quantity,
+            Instant eventTime,
+            Map<CharSequence, CharSequence> attributes
+    ) {
         PositionUpdateEvent event = PositionUpdateEvent.newBuilder()
                 .setEventId(eventId)
                 .setSchemaVersion(1)
@@ -277,7 +343,7 @@ class TradingStateProjectionTest {
                 .setMarkPrice("1210")
                 .setUnrealizedPnl("16.10")
                 .setEventTimeMicros(eventTime)
-                .setAttributes(Map.of())
+                .setAttributes(attributes)
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.POSITION_UPDATE,

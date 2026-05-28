@@ -94,6 +94,9 @@ class JdbcTradingStateProjectionStoreTest {
                         "1200",
                         "1210",
                         "16.10",
+                        "REST_SNAPSHOT",
+                        false,
+                        null,
                         now.plusSeconds(1),
                         "evt-position"
                 )),

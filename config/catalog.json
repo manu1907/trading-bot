@@ -27,7 +27,8 @@
           "reject_degraded": true
         },
         "manual_intervention": {
-          "reject_external_order_interventions": true
+          "reject_external_order_interventions": true,
+          "reject_external_position_interventions": true
         }
       }
     },

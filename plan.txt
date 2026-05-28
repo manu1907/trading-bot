@@ -83,10 +83,13 @@ The bot is not professional-execution-ready until these gaps are closed:
 - No durable idempotent order-command lifecycle from strategy signal through
   exchange result, user-stream execution report, reconciliation, restart, and
   final position state.
-- Manual position changes are not yet policy-complete. Position projection can
-  absorb user-data and REST updates, but later position work must classify
-  external/manual closes or size changes and decide whether to stand down,
-  re-hedge, re-open, or require operator review.
+- Manual position changes are not yet policy-complete. Position projection now
+  records update source and conservatively flags user-data or REST position-size
+  changes as external interventions when no managed bot order exists for the
+  same target/symbol. The risk gate rejects new order commands while such
+  position interventions are unresolved by default. Later position work must
+  bind fills to position deltas and decide whether to stand down, re-hedge,
+  re-open, or require operator review.
 - Core has an in-memory account/order/position/risk projection that can be
   rebuilt from events and rejects stale per-entity updates. Binance
   reconciliation can compare REST snapshots against that projection and record
@@ -230,6 +233,9 @@ Implemented Binance foundations:
   versus user-data update source, execution type, and external/unplanned order
   intervention detection. Policy actions for those interventions remain a
   future execution-state-machine gap.
+- Core position projection metadata for update source and conservative
+  external/manual position-size change detection when no managed bot order is
+  present for the target/symbol.
 - Core intervention acknowledgement event for auditable order-level operator
   review. The projection clears matching order interventions only through this
   replayable event path.
@@ -424,9 +430,10 @@ Binance parity gaps to close before claiming full connector support:
 - All products: add policy handling for manual/external order and position
   intervention. Unknown external orders, unplanned managed-order cancel/modify,
   and manual position closes or size changes now stop blind new-order
-  automation at the order-risk-gate level for order interventions. The missing
-  part is the configured remediation policy that decides to stand down,
-  re-plan, hedge, or request operator review; position intervention detection is
+  automation at the order-risk-gate level for order interventions and
+  conservative no-managed-order position interventions. The missing part is the
+  configured remediation policy that decides to stand down, re-plan, hedge, or
+  request operator review; fill-to-position causality for managed orders is
   also still pending. Order acknowledgement event, service, and token-gated
   operator API exist, but no operator UI or multi-order/position
   acknowledgement workflow exists yet.
