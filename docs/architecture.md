@@ -500,17 +500,20 @@ feeds the order risk gate: by default, new order commands for that runtime
 target are rejected while unresolved external/unplanned order intervention is
 present. This is controlled by
 `trading.execution.risk-gate.manual-intervention.reject-external-order-interventions`
-and defaults to true. Clearing an order intervention is explicit and auditable:
-an `InterventionAcknowledgementEvent` is journal/replay compatible and clears a
-matching order intervention in the projection. Core exposes an acknowledgement
-service that validates order-level operator review requests against the current
-projection before publishing the event through `TradingEventBus`, allowing
-journal decoration and normal routing to capture the audit trail without blind
-or mismatched acknowledgements. The optional operator HTTP API is disabled by
-default and controlled by `trading.intervention.operator-api.enabled`; when
-enabled it requires `X-Operator-Token` to match
+and defaults to true. Clearing an order or position intervention is explicit
+and auditable: an `InterventionAcknowledgementEvent` is journal/replay
+compatible and clears a matching intervention in the projection. Order
+acknowledgements are keyed by client order id. Position acknowledgements are
+keyed by symbol and carry `position_side` in event attributes. Core exposes an
+acknowledgement service that validates order-level and position-level operator
+review requests against the current projection before publishing the event
+through `TradingEventBus`, allowing journal decoration and normal routing to
+capture the audit trail without blind or mismatched acknowledgements. The
+optional operator HTTP API is disabled by default and controlled by
+`trading.intervention.operator-api.enabled`; when enabled it requires
+`X-Operator-Token` to match
 `trading.intervention.operator-api.operator-token` before listing unresolved
-order or position interventions for a target or accepting an order
+order or position interventions for a target or accepting an order or position
 acknowledgement. A later execution policy must decide whether to
 stand down, replace, re-plan, hedge, or require operator review. Position
 projection records update source and conservatively flags user-data or REST

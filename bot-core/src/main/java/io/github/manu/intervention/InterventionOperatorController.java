@@ -113,8 +113,28 @@ public final class InterventionOperatorController {
                 .onErrorResume(IllegalStateException.class, this::conflict);
     }
 
+    @PostMapping("/positions/acknowledgements")
+    public Mono<ResponseEntity<?>> acknowledgePosition(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestBody Mono<PositionAcknowledgementHttpRequest> request
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        Mono<ResponseEntity<?>> response = request
+                .flatMap(this::acknowledge)
+                .map(published -> accepted(published));
+        return response
+                .onErrorResume(IllegalArgumentException.class, this::badRequest)
+                .onErrorResume(IllegalStateException.class, this::conflict);
+    }
+
     private Mono<PublishedTradingEvent> acknowledge(OrderAcknowledgementHttpRequest request) {
         return Mono.fromFuture(acknowledgementService.acknowledgeOrder(request.toServiceRequest()));
+    }
+
+    private Mono<PublishedTradingEvent> acknowledge(PositionAcknowledgementHttpRequest request) {
+        return Mono.fromFuture(acknowledgementService.acknowledgePosition(request.toServiceRequest()));
     }
 
     private ResponseEntity<AcknowledgementAcceptedResponse> accepted(PublishedTradingEvent published) {
@@ -193,6 +213,39 @@ public final class InterventionOperatorController {
     }
 
     record OrderInterventionsResponse(int count, List<OrderInterventionResponse> interventions) {
+    }
+
+    record PositionAcknowledgementHttpRequest(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String positionSide,
+            String interventionReason,
+            String acknowledgedBy,
+            String acknowledgementReason,
+            Map<CharSequence, CharSequence> attributes
+    ) {
+
+        PositionAcknowledgementHttpRequest {
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+
+        InterventionAcknowledgementService.PositionInterventionAcknowledgementRequest toServiceRequest() {
+            return new InterventionAcknowledgementService.PositionInterventionAcknowledgementRequest(
+                    provider,
+                    environment,
+                    account,
+                    market,
+                    symbol,
+                    positionSide,
+                    interventionReason,
+                    acknowledgedBy,
+                    acknowledgementReason,
+                    attributes
+            );
+        }
     }
 
     record OrderInterventionResponse(

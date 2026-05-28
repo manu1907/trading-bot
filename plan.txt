@@ -78,8 +78,8 @@ The bot is not professional-execution-ready until these gaps are closed:
   projection has unresolved external or unplanned order intervention, unless
   `trading.execution.risk-gate.manual-intervention.reject-external-order-interventions`
   is explicitly disabled. This is a stop-the-line guard, not a full remediation
-  policy. Order-level operator acknowledgement is now an Avro event that clears
-  a matching intervention through the replayable projection path.
+  policy. Operator acknowledgement is now an Avro event that clears a matching
+  order or position intervention through the replayable projection path.
 - No durable idempotent order-command lifecycle from strategy signal through
   exchange result, user-stream execution report, reconciliation, restart, and
   final position state.
@@ -87,9 +87,10 @@ The bot is not professional-execution-ready until these gaps are closed:
   records update source and conservatively flags user-data or REST position-size
   changes as external interventions when no managed bot order exists for the
   same target/symbol. The risk gate rejects new order commands while such
-  position interventions are unresolved by default. Later position work must
-  bind fills to position deltas and decide whether to stand down, re-hedge,
-  re-open, or require operator review.
+  position interventions are unresolved by default. Operator acknowledgement can
+  clear a matching projected position intervention through replay, but later
+  position work must bind fills to position deltas and decide whether to stand
+  down, re-hedge, re-open, or require operator review.
 - Core has an in-memory account/order/position/risk projection that can be
   rebuilt from events and rejects stale per-entity updates. Binance
   reconciliation can compare REST snapshots against that projection and record
@@ -236,15 +237,17 @@ Implemented Binance foundations:
 - Core position projection metadata for update source and conservative
   external/manual position-size change detection when no managed bot order is
   present for the target/symbol.
-- Core intervention acknowledgement event for auditable order-level operator
-  review. The projection clears matching order interventions only through this
+- Core intervention acknowledgement event for auditable operator review. The
+  projection clears matching order and position interventions only through this
   replayable event path.
-- Core acknowledgement service that validates an order-level operator review
-  request against the current projection before publishing through
-  `TradingEventBus`, so blind or mismatched acknowledgements cannot clear the
-  wrong intervention and normal event routing captures the audit trail.
+- Core acknowledgement service that validates order-level and position-level
+  operator review requests against the current projection before publishing
+  through `TradingEventBus`, so blind or mismatched acknowledgements cannot
+  clear the wrong intervention and normal event routing captures the audit
+  trail.
 - Disabled-by-default operator HTTP API for listing unresolved order and
-  position interventions and publishing order intervention acknowledgements,
+  position interventions and publishing order or position intervention
+  acknowledgements,
   guarded by `trading.intervention.operator-api.enabled` and
   `trading.intervention.operator-api.operator-token`.
 - Opt-in durable file snapshot store for the core trading-state projection,
@@ -434,9 +437,10 @@ Binance parity gaps to close before claiming full connector support:
   conservative no-managed-order position interventions. The missing part is the
   configured remediation policy that decides to stand down, re-plan, hedge, or
   request operator review; fill-to-position causality for managed orders is
-  also still pending. Order acknowledgement event, service, and token-gated
-  operator API exist; the API can list order and position interventions, but no
-  operator UI or multi-order/position acknowledgement workflow exists yet.
+  also still pending. Order and position acknowledgement event handling,
+  service validation, and token-gated operator API exist; the API can list order
+  and position interventions, but no operator UI or multi-order/position
+  acknowledgement workflow exists yet.
 - All products: enforce exchange filters in risk/execution before order
   submission; do not rely on Binance rejections as validation.
 

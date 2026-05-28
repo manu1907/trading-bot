@@ -56,6 +56,28 @@ class InterventionAcknowledgementServiceTest {
     }
 
     @Test
+    void publishes_position_intervention_acknowledgement_event() {
+        restorePositionIntervention("external_position_change", true);
+
+        PublishedTradingEvent published = service.acknowledgePosition(positionRequest()).join();
+
+        assertThat(published.eventType()).isEqualTo(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT);
+        assertThat(eventBus.envelope).isNotNull();
+        assertThat(eventBus.envelope.eventType()).isEqualTo(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT);
+        assertThat(eventBus.envelope.key().getPartitionKey().toString())
+                .isEqualTo("intervention_acknowledgement|symbol|binance|demo|main|usd_m_futures|btcusdt|btcusdt");
+        InterventionAcknowledgementEvent event = (InterventionAcknowledgementEvent) eventBus.envelope.value();
+        assertThat(event.getEventId()).hasToString("evt:intervention-ack:ack-001");
+        assertThat(event.getAcknowledgementId()).hasToString("intervention-ack:ack-001");
+        assertThat(event.getClientOrderId()).isNull();
+        assertThat(event.getInterventionReason()).hasToString("external_position_change");
+        assertThat(event.getAcknowledgedBy()).hasToString("operator");
+        assertThat(event.getAcknowledgementReason()).hasToString("reviewed in exchange console");
+        assertThat(event.getAttributes()).containsEntry("position_side", "BOTH");
+        assertThat(event.getAttributes()).containsEntry("ticket", "ops-456");
+    }
+
+    @Test
     void rejects_missing_required_identity() {
         InterventionAcknowledgementService.OrderInterventionAcknowledgementRequest request =
                 new InterventionAcknowledgementService.OrderInterventionAcknowledgementRequest(
@@ -149,6 +171,34 @@ class InterventionAcknowledgementServiceTest {
         assertThat(eventBus.envelope).isNull();
     }
 
+    @Test
+    void rejects_missing_projected_position() {
+        assertThatThrownBy(() -> service.acknowledgePosition(positionRequest()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("No projected position exists for acknowledgement");
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
+    void rejects_position_without_unresolved_intervention() {
+        restorePositionIntervention("external_position_change", false);
+
+        assertThatThrownBy(() -> service.acknowledgePosition(positionRequest()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Projected position has no unresolved intervention");
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
+    void rejects_position_intervention_reason_mismatch() {
+        restorePositionIntervention("manual_position_close", true);
+
+        assertThatThrownBy(() -> service.acknowledgePosition(positionRequest()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Projected position intervention reason does not match acknowledgement");
+        assertThat(eventBus.envelope).isNull();
+    }
+
     private InterventionAcknowledgementService.OrderInterventionAcknowledgementRequest request() {
         return new InterventionAcknowledgementService.OrderInterventionAcknowledgementRequest(
                 "binance",
@@ -161,6 +211,21 @@ class InterventionAcknowledgementServiceTest {
                 "operator",
                 "reviewed in exchange console",
                 Map.of("ticket", "ops-123")
+        );
+    }
+
+    private InterventionAcknowledgementService.PositionInterventionAcknowledgementRequest positionRequest() {
+        return new InterventionAcknowledgementService.PositionInterventionAcknowledgementRequest(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                "BTCUSDT",
+                "BOTH",
+                "external_position_change",
+                "operator",
+                "reviewed in exchange console",
+                Map.of("ticket", "ops-456")
         );
     }
 
@@ -192,6 +257,32 @@ class InterventionAcknowledgementServiceTest {
                         NOW.minusSeconds(1),
                         "evt-order-intervention"
                 )),
+                List.of(),
+                List.of()
+        ));
+    }
+
+    private void restorePositionIntervention(String interventionReason, boolean externalIntervention) {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(new TradingStateProjection.PositionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "BOTH",
+                        "0",
+                        "50000.00",
+                        "50010.00",
+                        "0",
+                        "USER_DATA",
+                        externalIntervention,
+                        interventionReason,
+                        NOW.minusSeconds(1),
+                        "evt-position-intervention"
+                )),
+                List.of(),
                 List.of(),
                 List.of()
         ));

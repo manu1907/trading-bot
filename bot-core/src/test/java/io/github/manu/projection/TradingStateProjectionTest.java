@@ -242,6 +242,46 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void acknowledgement_clears_matching_position_intervention() {
+        projection.apply(position("evt-position-open", "-0.10", timestamp(40), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+        projection.apply(position("evt-position-change", "0", timestamp(41), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+
+        ProjectionUpdate acknowledgementUpdate = projection.apply(positionInterventionAcknowledgement(
+                "evt-position-ack",
+                "external_position_change",
+                "SHORT",
+                timestamp(42)
+        ));
+
+        assertThat(acknowledgementUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalPositionInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.position(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "SHORT"))
+                .get()
+                .satisfies(position -> {
+                    assertThat(position.externalIntervention()).isFalse();
+                    assertThat(position.interventionReason()).isNull();
+                    assertThat(position.updateSource()).isEqualTo("INTERVENTION_ACKNOWLEDGEMENT");
+                    assertThat(position.eventId()).isEqualTo("evt-position-ack");
+                });
+    }
+
+    @Test
+    void position_acknowledgement_with_wrong_reason_does_not_clear_intervention() {
+        projection.apply(position("evt-position-open", "-0.10", timestamp(40), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+        projection.apply(position("evt-position-change", "0", timestamp(41), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+
+        ProjectionUpdate acknowledgementUpdate = projection.apply(positionInterventionAcknowledgement(
+                "evt-position-ack",
+                "manual_position_close",
+                "SHORT",
+                timestamp(42)
+        ));
+
+        assertThat(acknowledgementUpdate.status()).isEqualTo(ProjectionUpdateStatus.IGNORED);
+        assertThat(projection.hasExternalPositionInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+    }
+
+    @Test
     void can_be_used_as_event_handler_for_journal_replay() {
         projection.handle(balance("evt-balance", "1000", "950", timestamp(10))).join();
 
@@ -492,6 +532,42 @@ class TradingStateProjectionTest {
                         MARKET,
                         SYMBOL,
                         "client-1"
+                ),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<InterventionAcknowledgementEvent> positionInterventionAcknowledgement(
+            String eventId,
+            String interventionReason,
+            String positionSide,
+            Instant acknowledgedAt
+    ) {
+        InterventionAcknowledgementEvent event = InterventionAcknowledgementEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setAcknowledgementId("ack-" + eventId)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setClientOrderId(null)
+                .setInterventionReason(interventionReason)
+                .setAcknowledgedBy("operator")
+                .setAcknowledgementReason("reviewed")
+                .setAcknowledgedAtMicros(acknowledgedAt)
+                .setAttributes(Map.of("position_side", positionSide))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                TradingEventKeys.symbol(
+                        TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL
                 ),
                 event
         );

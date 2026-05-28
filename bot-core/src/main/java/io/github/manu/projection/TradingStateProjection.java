@@ -426,6 +426,16 @@ public final class TradingStateProjection implements TradingEventHandler {
             TradingEventEnvelope<?> envelope,
             InterventionAcknowledgementEvent event
     ) {
+        if (value(event.getClientOrderId()) == null) {
+            return applyPositionInterventionAcknowledgement(envelope, event);
+        }
+        return applyOrderInterventionAcknowledgement(envelope, event);
+    }
+
+    private ProjectionUpdate applyOrderInterventionAcknowledgement(
+            TradingEventEnvelope<?> envelope,
+            InterventionAcknowledgementEvent event
+    ) {
         String eventId = value(event.getEventId());
         String entityKey = key(
                 event.getProvider(),
@@ -478,9 +488,71 @@ public final class TradingStateProjection implements TradingEventHandler {
         }
     }
 
+    private ProjectionUpdate applyPositionInterventionAcknowledgement(
+            TradingEventEnvelope<?> envelope,
+            InterventionAcknowledgementEvent event
+    ) {
+        String eventId = value(event.getEventId());
+        String positionSide = acknowledgementAttribute(event, "position_side");
+        String entityKey = key(
+                event.getProvider(),
+                event.getEnvironment(),
+                event.getAccount(),
+                event.getMarket(),
+                event.getSymbol(),
+                positionSide
+        );
+        synchronized (lock) {
+            if (!rememberEventId(eventId)) {
+                return ProjectionUpdate.duplicate(envelope.eventType(), entityKey, eventId);
+            }
+            PositionState current = positions.get(entityKey);
+            if (current == null) {
+                return ProjectionUpdate.ignored(envelope.eventType(), eventId);
+            }
+            if (!interventionReasonMatches(current, event)) {
+                return ProjectionUpdate.ignored(envelope.eventType(), eventId);
+            }
+            if (event.getAcknowledgedAtMicros().isBefore(current.updatedAt())) {
+                return ProjectionUpdate.stale(envelope.eventType(), entityKey, eventId);
+            }
+            PositionState acknowledged = new PositionState(
+                    current.provider(),
+                    current.environment(),
+                    current.account(),
+                    current.market(),
+                    current.symbol(),
+                    current.positionSide(),
+                    current.positionAmount(),
+                    current.entryPrice(),
+                    current.markPrice(),
+                    current.unrealizedPnl(),
+                    "INTERVENTION_ACKNOWLEDGEMENT",
+                    false,
+                    null,
+                    event.getAcknowledgedAtMicros(),
+                    eventId
+            );
+            positions.put(entityKey, acknowledged);
+            return ProjectionUpdate.applied(envelope.eventType(), entityKey, eventId);
+        }
+    }
+
     private boolean interventionReasonMatches(OrderState current, InterventionAcknowledgementEvent event) {
         String expectedReason = value(event.getInterventionReason());
         return expectedReason == null || expectedReason.equals(current.interventionReason());
+    }
+
+    private boolean interventionReasonMatches(PositionState current, InterventionAcknowledgementEvent event) {
+        String expectedReason = value(event.getInterventionReason());
+        return expectedReason == null || expectedReason.equals(current.interventionReason());
+    }
+
+    private String acknowledgementAttribute(InterventionAcknowledgementEvent event, String key) {
+        if (event.getAttributes() == null) {
+            return null;
+        }
+        return value(event.getAttributes().get(key));
     }
 
     private <T extends TimedState> ProjectionUpdate applyState(

@@ -2,6 +2,7 @@ package io.github.manu.intervention;
 
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
@@ -177,6 +178,65 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
+    void accepts_position_acknowledgement_when_token_matches_projection() {
+        restorePositionIntervention("external_position_change", true);
+
+        client.post()
+                .uri("/internal/interventions/positions/acknowledgements")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(positionAcknowledgementRequest())
+                .exchange()
+                .expectStatus()
+                .isAccepted()
+                .expectBody()
+                .jsonPath("$.status")
+                .isEqualTo("accepted")
+                .jsonPath("$.eventType")
+                .isEqualTo("INTERVENTION_ACKNOWLEDGEMENT");
+
+        assertThat(eventBus.envelope).isNotNull();
+        assertThat(eventBus.envelope.eventType()).isEqualTo(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT);
+        InterventionAcknowledgementEvent event = (InterventionAcknowledgementEvent) eventBus.envelope.value();
+        assertThat(event.getClientOrderId()).isNull();
+    }
+
+    @Test
+    void rejects_position_acknowledgement_when_token_is_invalid() {
+        restorePositionIntervention("external_position_change", true);
+
+        client.post()
+                .uri("/internal/interventions/positions/acknowledgements")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .bodyValue(positionAcknowledgementRequest())
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
+    void maps_position_acknowledgement_projection_rejection_to_conflict() {
+        client.post()
+                .uri("/internal/interventions/positions/acknowledgements")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(positionAcknowledgementRequest())
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("conflict")
+                .jsonPath("$.message")
+                .isEqualTo("No projected position exists for acknowledgement");
+
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
     void maps_projection_rejection_to_conflict() {
         client.post()
                 .uri("/internal/interventions/orders/acknowledgements")
@@ -206,6 +266,21 @@ class InterventionOperatorControllerTest {
                 "acknowledgedBy", "operator",
                 "acknowledgementReason", "reviewed in exchange console",
                 "attributes", Map.of("ticket", "ops-123")
+        );
+    }
+
+    private Map<String, Object> positionAcknowledgementRequest() {
+        return Map.of(
+                "provider", "binance",
+                "environment", "demo",
+                "account", "main",
+                "market", "usd_m_futures",
+                "symbol", "BTCUSDT",
+                "positionSide", "BOTH",
+                "interventionReason", "external_position_change",
+                "acknowledgedBy", "operator",
+                "acknowledgementReason", "reviewed in exchange console",
+                "attributes", Map.of("ticket", "ops-456")
         );
     }
 
