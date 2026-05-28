@@ -7,6 +7,8 @@ import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RiskDecision;
+import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.messaging.TradingEventHandler;
 import org.apache.avro.specific.SpecificRecord;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,7 @@ public final class TradingStateProjection implements TradingEventHandler {
     private final Map<String, PositionState> positions = new ConcurrentHashMap<>();
     private final Map<String, OrderState> orders = new ConcurrentHashMap<>();
     private final Map<String, RiskState> risks = new ConcurrentHashMap<>();
+    private final Map<String, ManualReviewDecisionState> manualReviewDecisions = new ConcurrentHashMap<>();
     private final LinkedHashSet<String> appliedEventIds = new LinkedHashSet<>();
     private final int maxAppliedEventIds;
     private final Object lock = new Object();
@@ -61,6 +65,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             case ORDER_RESULT -> applyOrderResult(envelope, cast(envelope.value(), OrderResultEvent.class));
             case EXECUTION_REPORT -> applyExecutionReport(envelope, cast(envelope.value(), ExecutionReportEvent.class));
             case RISK_UPDATE -> applyRisk(envelope, cast(envelope.value(), RiskUpdateEvent.class));
+            case RISK_DECISION -> applyRiskDecision(envelope, cast(envelope.value(), RiskDecisionEvent.class));
             case INTERVENTION_ACKNOWLEDGEMENT -> applyInterventionAcknowledgement(
                     envelope,
                     cast(envelope.value(), InterventionAcknowledgementEvent.class)
@@ -160,6 +165,43 @@ public final class TradingStateProjection implements TradingEventHandler {
         return externalPositionInterventions(provider, environment, account, market) > 0;
     }
 
+    public List<ManualReviewDecisionState> manualReviewDecisionStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        String prefix = key(provider, environment, account, market);
+        return manualReviewDecisions.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .filter(this::pendingManualReview)
+                .toList();
+    }
+
+    private boolean pendingManualReview(ManualReviewDecisionState decision) {
+        boolean orderReason = decision.reasons().contains("intervention:external_order");
+        boolean positionReason = decision.reasons().contains("intervention:external_position");
+        if (!orderReason && !positionReason) {
+            return true;
+        }
+        if (orderReason && hasExternalOrderInterventions(
+                decision.provider(),
+                decision.environment(),
+                decision.account(),
+                decision.market()
+        )) {
+            return true;
+        }
+        return positionReason && hasExternalPositionInterventions(
+                decision.provider(),
+                decision.environment(),
+                decision.account(),
+                decision.market()
+        );
+    }
+
     public TradingStateSnapshot snapshot() {
         synchronized (lock) {
             return new TradingStateSnapshot(
@@ -167,6 +209,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                     valuesByKey(positions),
                     valuesByKey(orders),
                     valuesByKey(risks),
+                    valuesByKey(manualReviewDecisions),
                     List.copyOf(appliedEventIds)
             );
         }
@@ -179,6 +222,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             positions.clear();
             orders.clear();
             risks.clear();
+            manualReviewDecisions.clear();
             appliedEventIds.clear();
             for (BalanceState state : snapshot.balances()) {
                 balances.put(key(state.provider(), state.environment(), state.account(), state.market(), state.asset()), state);
@@ -215,6 +259,15 @@ public final class TradingStateProjection implements TradingEventHandler {
                         state.market(),
                         state.riskScope(),
                         entityId
+                ), state);
+            }
+            for (ManualReviewDecisionState state : snapshot.manualReviewDecisions()) {
+                manualReviewDecisions.put(key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.commandId()
                 ), state);
             }
             for (String eventId : snapshot.appliedEventIds()) {
@@ -422,6 +475,55 @@ public final class TradingStateProjection implements TradingEventHandler {
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), risks, state);
     }
 
+    private ProjectionUpdate applyRiskDecision(
+            TradingEventEnvelope<?> envelope,
+            RiskDecisionEvent event
+    ) {
+        String eventId = value(event.getEventId());
+        String commandId = value(event.getCommandId());
+        if (commandId == null) {
+            return ProjectionUpdate.ignored(envelope.eventType(), eventId);
+        }
+        String entityKey = key(
+                event.getProvider(),
+                event.getEnvironment(),
+                event.getAccount(),
+                event.getMarket(),
+                commandId
+        );
+        Instant decidedAt = event.getDecidedAtMicros();
+        synchronized (lock) {
+            if (!rememberEventId(eventId)) {
+                return ProjectionUpdate.duplicate(envelope.eventType(), entityKey, eventId);
+            }
+            ManualReviewDecisionState current = manualReviewDecisions.get(entityKey);
+            if (current != null && decidedAt.isBefore(current.updatedAt())) {
+                return ProjectionUpdate.stale(envelope.eventType(), entityKey, eventId);
+            }
+            if (event.getDecision() != RiskDecision.MANUAL_REVIEW) {
+                manualReviewDecisions.remove(entityKey);
+                return ProjectionUpdate.applied(envelope.eventType(), entityKey, eventId);
+            }
+            ManualReviewDecisionState state = new ManualReviewDecisionState(
+                    value(event.getProvider()),
+                    value(event.getEnvironment()),
+                    value(event.getAccount()),
+                    value(event.getMarket()),
+                    value(event.getSymbol()),
+                    commandId,
+                    value(event.getSignalId()),
+                    value(event.getStrategyId()),
+                    value(event.getDecisionId()),
+                    stringList(event.getReasons()),
+                    stringMap(event.getAttributes()),
+                    decidedAt,
+                    eventId
+            );
+            manualReviewDecisions.put(entityKey, state);
+            return ProjectionUpdate.applied(envelope.eventType(), entityKey, eventId);
+        }
+    }
+
     private ProjectionUpdate applyInterventionAcknowledgement(
             TradingEventEnvelope<?> envelope,
             InterventionAcknowledgementEvent event
@@ -553,6 +655,31 @@ public final class TradingStateProjection implements TradingEventHandler {
             return null;
         }
         return value(event.getAttributes().get(key));
+    }
+
+    private List<String> stringList(List<? extends CharSequence> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .map(this::value)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private Map<String, String> stringMap(Map<CharSequence, CharSequence> values) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> normalized = new LinkedHashMap<>();
+        values.forEach((key, entryValue) -> {
+            String normalizedKey = value(key);
+            String normalizedValue = value(entryValue);
+            if (normalizedKey != null && normalizedValue != null) {
+                normalized.put(normalizedKey, normalizedValue);
+            }
+        });
+        return Map.copyOf(normalized);
     }
 
     private <T extends TimedState> ProjectionUpdate applyState(
@@ -825,5 +952,27 @@ public final class TradingStateProjection implements TradingEventHandler {
             Instant updatedAt,
             String eventId
     ) implements TimedState {
+    }
+
+    public record ManualReviewDecisionState(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String commandId,
+            String signalId,
+            String strategyId,
+            String decisionId,
+            List<String> reasons,
+            Map<String, String> attributes,
+            Instant updatedAt,
+            String eventId
+    ) implements TimedState {
+
+        public ManualReviewDecisionState {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
     }
 }

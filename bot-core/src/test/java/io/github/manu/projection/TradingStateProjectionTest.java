@@ -9,10 +9,13 @@ import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RiskDecision;
+import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -282,6 +285,55 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void projects_manual_review_risk_decisions_for_operator_review() {
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(42)));
+
+        ProjectionUpdate update = projection.apply(riskDecision(
+                "evt-risk-decision-review",
+                RiskDecision.MANUAL_REVIEW,
+                timestamp(43)
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.commandId()).isEqualTo("cmd-1");
+                    assertThat(decision.signalId()).isEqualTo("sig-1");
+                    assertThat(decision.strategyId()).isEqualTo("lfa");
+                    assertThat(decision.decisionId()).isEqualTo("risk-decision:cmd-1");
+                    assertThat(decision.reasons()).containsExactly("intervention:external_order");
+                    assertThat(decision.attributes()).containsEntry("external_order_intervention_action", "MANUAL_REVIEW");
+                    assertThat(decision.updatedAt()).isEqualTo(timestamp(43));
+                });
+    }
+
+    @Test
+    void non_manual_risk_decision_clears_pending_manual_review_for_same_command() {
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(42)));
+        projection.apply(riskDecision("evt-risk-decision-review", RiskDecision.MANUAL_REVIEW, timestamp(43)));
+
+        ProjectionUpdate update = projection.apply(riskDecision(
+                "evt-risk-decision-approved",
+                RiskDecision.APPROVED,
+                timestamp(44)
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEmpty();
+    }
+
+    @Test
+    void resolved_intervention_hides_intervention_driven_manual_review_decision() {
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
+        projection.apply(riskDecision("evt-risk-decision-review", RiskDecision.MANUAL_REVIEW, timestamp(41)));
+
+        projection.apply(interventionAcknowledgement("evt-ack", "external_order_observed", timestamp(42)));
+
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEmpty();
+    }
+
+    @Test
     void can_be_used_as_event_handler_for_journal_replay() {
         projection.handle(balance("evt-balance", "1000", "950", timestamp(10))).join();
 
@@ -292,8 +344,9 @@ class TradingStateProjectionTest {
     void snapshots_and_restores_projection_state() {
         projection.apply(balance("evt-balance", "1000", "950", timestamp(10)));
         projection.apply(position("evt-position", "-0.10", timestamp(11)));
-        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(12)));
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(12)));
         projection.apply(risk("evt-risk", "-0.01304097", timestamp(13)));
+        projection.apply(riskDecision("evt-risk-decision-review", RiskDecision.MANUAL_REVIEW, timestamp(14)));
 
         TradingStateSnapshot snapshot = projection.snapshot();
         TradingStateProjection restored = new TradingStateProjection();
@@ -311,6 +364,9 @@ class TradingStateProjectionTest {
         assertThat(restored.risk(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "UNDERLYING", "BTCUSDT"))
                 .get()
                 .satisfies(risk -> assertThat(risk.delta()).isEqualTo("-0.01304097"));
+        assertThat(restored.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> assertThat(decision.commandId()).isEqualTo("cmd-1"));
         assertThat(restored.apply(balance("evt-balance", "1001", "951", timestamp(14))).status())
                 .isEqualTo(ProjectionUpdateStatus.DUPLICATE);
     }
@@ -413,6 +469,39 @@ class TradingStateProjectionTest {
         return TradingEventEnvelope.of(
                 TradingEventType.RISK_UPDATE,
                 TradingEventKeys.symbol(TradingEventType.RISK_UPDATE, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "BTCUSDT"),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<RiskDecisionEvent> riskDecision(
+            String eventId,
+            RiskDecision decision,
+            Instant decidedAt
+    ) {
+        RiskDecisionEvent event = RiskDecisionEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setDecisionId("risk-decision:cmd-1")
+                .setCommandId("cmd-1")
+                .setSignalId("sig-1")
+                .setStrategyId("lfa")
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setDecision(decision)
+                .setReasons(decision == RiskDecision.MANUAL_REVIEW
+                        ? List.of("intervention:external_order")
+                        : List.of("risk_gate:approved"))
+                .setMaxQuantity(null)
+                .setMaxNotional(null)
+                .setDecidedAtMicros(decidedAt)
+                .setAttributes(Map.of("external_order_intervention_action", "MANUAL_REVIEW"))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.RISK_DECISION,
+                TradingEventKeys.symbol(TradingEventType.RISK_DECISION, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL),
                 event
         );
     }

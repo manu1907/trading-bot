@@ -504,7 +504,10 @@ supported, and the explicit `external_order_action` and
 `external_position_action` values decide whether unresolved interventions send
 commands to `MANUAL_REVIEW`, `REJECT_NEW_COMMANDS`, or `ALLOW_NEW_COMMANDS`.
 The catalog default is `MANUAL_REVIEW` for both order and position
-interventions. Clearing an order or position intervention is explicit and auditable: an
+interventions. `MANUAL_REVIEW` risk decisions are projected as manual-review
+decisions keyed by command id, included in durable projection snapshots, and
+exposed by the operator API while their intervention reason remains unresolved.
+Clearing an order or position intervention is explicit and auditable: an
 `InterventionAcknowledgementEvent` is journal/replay
 compatible and clears a matching intervention in the projection. Order
 acknowledgements are keyed by client order id. Position acknowledgements are
@@ -517,8 +520,8 @@ optional operator HTTP API is disabled by default and controlled by
 `trading.intervention.operator-api.enabled`; when enabled it requires
 `X-Operator-Token` to match
 `trading.intervention.operator-api.operator-token` before listing unresolved
-order or position interventions for a target or accepting an order or position
-acknowledgement. A later execution policy must decide whether to
+order or position interventions, listing pending manual-review decisions, or
+accepting an order or position acknowledgement. A later execution policy must decide whether to
 stand down, replace, re-plan, hedge, or require operator review. Position
 projection records update source and conservatively flags user-data or REST
 position-size changes as external interventions when no managed bot order exists

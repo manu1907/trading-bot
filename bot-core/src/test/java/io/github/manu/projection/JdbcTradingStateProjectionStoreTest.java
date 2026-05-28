@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,7 +44,14 @@ class JdbcTradingStateProjectionStoreTest {
                 .satisfies(order -> assertThat(order.exchangeStatus()).isEqualTo("NEW"));
         assertThat(loaded.get().risks()).singleElement()
                 .satisfies(risk -> assertThat(risk.delta()).isEqualTo("-0.01304097"));
-        assertThat(loaded.get().appliedEventIds()).containsExactly("evt-balance", "evt-position", "evt-order", "evt-risk");
+        assertThat(loaded.get().manualReviewDecisions()).singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.commandId()).isEqualTo("cmd-1");
+                    assertThat(decision.reasons()).containsExactly("intervention:external_order");
+                    assertThat(decision.attributes()).containsEntry("external_order_intervention_action", "MANUAL_REVIEW");
+                });
+        assertThat(loaded.get().appliedEventIds())
+                .containsExactly("evt-balance", "evt-position", "evt-order", "evt-risk", "evt-risk-decision");
     }
 
     @Test
@@ -142,7 +150,22 @@ class JdbcTradingStateProjectionStoreTest {
                         now.plusSeconds(3),
                         "evt-risk"
                 )),
-                List.of("evt-balance", "evt-position", "evt-order", "evt-risk")
+                List.of(new TradingStateProjection.ManualReviewDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "options",
+                        "BTC-251123-126000-C",
+                        "cmd-1",
+                        "sig-1",
+                        "lfa",
+                        "risk-decision:cmd-1",
+                        List.of("intervention:external_order"),
+                        Map.of("external_order_intervention_action", "MANUAL_REVIEW"),
+                        now.plusSeconds(4),
+                        "evt-risk-decision"
+                )),
+                List.of("evt-balance", "evt-position", "evt-order", "evt-risk", "evt-risk-decision")
         );
     }
 }

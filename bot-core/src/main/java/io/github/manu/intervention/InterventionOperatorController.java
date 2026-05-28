@@ -97,6 +97,33 @@ public final class InterventionOperatorController {
         }
     }
 
+    @GetMapping("/manual-reviews")
+    public Mono<ResponseEntity<?>> manualReviews(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestParam("provider") String provider,
+            @RequestParam("environment") String environment,
+            @RequestParam("account") String account,
+            @RequestParam("market") String market
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        try {
+            List<ManualReviewDecisionResponse> decisions = projection.manualReviewDecisionStates(
+                            requireText(provider, "provider"),
+                            requireText(environment, "environment"),
+                            requireText(account, "account"),
+                            requireText(market, "market")
+                    )
+                    .stream()
+                    .map(ManualReviewDecisionResponse::from)
+                    .toList();
+            return Mono.just(ResponseEntity.ok(new ManualReviewDecisionsResponse(decisions.size(), decisions)));
+        } catch (IllegalArgumentException exception) {
+            return badRequest(exception);
+        }
+    }
+
     @PostMapping("/orders/acknowledgements")
     public Mono<ResponseEntity<?>> acknowledgeOrder(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
@@ -215,6 +242,9 @@ public final class InterventionOperatorController {
     record OrderInterventionsResponse(int count, List<OrderInterventionResponse> interventions) {
     }
 
+    record ManualReviewDecisionsResponse(int count, List<ManualReviewDecisionResponse> decisions) {
+    }
+
     record PositionAcknowledgementHttpRequest(
             String provider,
             String environment,
@@ -283,6 +313,41 @@ public final class InterventionOperatorController {
                     order.interventionReason(),
                     order.updatedAt(),
                     order.eventId()
+            );
+        }
+    }
+
+    record ManualReviewDecisionResponse(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String commandId,
+            String signalId,
+            String strategyId,
+            String decisionId,
+            List<String> reasons,
+            Map<String, String> attributes,
+            Instant updatedAt,
+            String eventId
+    ) {
+
+        static ManualReviewDecisionResponse from(TradingStateProjection.ManualReviewDecisionState state) {
+            return new ManualReviewDecisionResponse(
+                    state.provider(),
+                    state.environment(),
+                    state.account(),
+                    state.market(),
+                    state.symbol(),
+                    state.commandId(),
+                    state.signalId(),
+                    state.strategyId(),
+                    state.decisionId(),
+                    state.reasons(),
+                    state.attributes(),
+                    state.updatedAt(),
+                    state.eventId()
             );
         }
     }

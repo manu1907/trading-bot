@@ -178,6 +178,56 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
+    void lists_pending_manual_review_decisions_when_token_matches() {
+        restoreManualReviewDecision();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/manual-reviews")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.count")
+                .isEqualTo(1)
+                .jsonPath("$.decisions[0].commandId")
+                .isEqualTo("cmd-1")
+                .jsonPath("$.decisions[0].decisionId")
+                .isEqualTo("risk-decision:cmd-1")
+                .jsonPath("$.decisions[0].reasons[0]")
+                .isEqualTo("intervention:external_order")
+                .jsonPath("$.decisions[0].attributes.external_order_intervention_action")
+                .isEqualTo("MANUAL_REVIEW");
+    }
+
+    @Test
+    void rejects_manual_review_listing_when_token_is_invalid() {
+        restoreManualReviewDecision();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/manual-reviews")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+    }
+
+    @Test
     void accepts_position_acknowledgement_when_token_matches_projection() {
         restorePositionIntervention("external_position_change", true);
 
@@ -339,6 +389,54 @@ class InterventionOperatorControllerTest {
                 )),
                 List.of(),
                 List.of(),
+                List.of()
+        ));
+    }
+
+    private void restoreManualReviewDecision() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        null,
+                        "client-1",
+                        "12345",
+                        "ACCEPTED",
+                        "NEW",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "USER_DATA",
+                        "NEW",
+                        false,
+                        true,
+                        "external_order_observed",
+                        NOW.minusSeconds(1),
+                        "evt-order-intervention"
+                )),
+                List.of(),
+                List.of(new TradingStateProjection.ManualReviewDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "cmd-1",
+                        "sig-1",
+                        "lfa",
+                        "risk-decision:cmd-1",
+                        List.of("intervention:external_order"),
+                        Map.of("external_order_intervention_action", "MANUAL_REVIEW"),
+                        NOW.minusSeconds(1),
+                        "evt-risk-decision-review"
+                )),
                 List.of()
         ));
     }
