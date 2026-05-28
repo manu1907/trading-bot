@@ -509,8 +509,9 @@ journal decoration and normal routing to capture the audit trail without blind
 or mismatched acknowledgements. The optional operator HTTP API is disabled by
 default and controlled by `trading.intervention.operator-api.enabled`; when
 enabled it requires `X-Operator-Token` to match
-`trading.intervention.operator-api.operator-token` before accepting an
-acknowledgement. A later execution policy must decide whether to
+`trading.intervention.operator-api.operator-token` before listing unresolved
+order interventions for a target or accepting an acknowledgement. A later
+execution policy must decide whether to
 stand down, replace, re-plan, hedge, or require operator review. Position
 projection already absorbs user-data and REST state, but manual position closes
 or size changes still need equivalent classification and policy before live

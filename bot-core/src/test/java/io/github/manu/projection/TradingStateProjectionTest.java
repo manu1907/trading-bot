@@ -112,9 +112,16 @@ class TradingStateProjectionTest {
                     assertThat(order.interventionReason()).isEqualTo("external_order_observed");
                     assertThat(order.updateSource()).isEqualTo("USER_DATA");
                     assertThat(order.executionType()).isEqualTo("TRADE");
-                });
+        });
         assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
         assertThat(projection.externalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEqualTo(1);
+        assertThat(projection.externalOrderInterventionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.symbol()).isEqualTo(SYMBOL);
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.interventionReason()).isEqualTo("external_order_observed");
+                });
     }
 
     @Test

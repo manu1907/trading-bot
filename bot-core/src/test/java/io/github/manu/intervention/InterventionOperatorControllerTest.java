@@ -34,6 +34,7 @@ class InterventionOperatorControllerTest {
     );
     private final InterventionOperatorController controller = new InterventionOperatorController(
             service,
+            projection,
             new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"))
     );
     private final WebTestClient client = WebTestClient.bindToController(controller).build();
@@ -75,6 +76,54 @@ class InterventionOperatorControllerTest {
                 .isEqualTo("unauthorized");
 
         assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
+    void lists_unresolved_order_interventions_when_token_matches() {
+        restoreOrderIntervention("external_order_observed", true);
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/orders")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.count")
+                .isEqualTo(1)
+                .jsonPath("$.interventions[0].symbol")
+                .isEqualTo("BTCUSDT")
+                .jsonPath("$.interventions[0].clientOrderId")
+                .isEqualTo("client-1")
+                .jsonPath("$.interventions[0].interventionReason")
+                .isEqualTo("external_order_observed");
+    }
+
+    @Test
+    void rejects_order_intervention_listing_when_token_is_invalid() {
+        restoreOrderIntervention("external_order_observed", true);
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/orders")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
     }
 
     @Test

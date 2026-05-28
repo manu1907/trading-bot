@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.LinkedHashSet;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -115,12 +115,22 @@ public final class TradingStateProjection implements TradingEventHandler {
     }
 
     public long externalOrderInterventions(String provider, String environment, String account, String market) {
+        return externalOrderInterventionStates(provider, environment, account, market).size();
+    }
+
+    public List<OrderState> externalOrderInterventionStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
         String prefix = key(provider, environment, account, market);
         return orders.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
                 .map(Map.Entry::getValue)
                 .filter(OrderState::externalIntervention)
-                .count();
+                .toList();
     }
 
     public boolean hasExternalOrderInterventions(String provider, String environment, String account, String market) {

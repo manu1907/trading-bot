@@ -237,8 +237,9 @@ Implemented Binance foundations:
   request against the current projection before publishing through
   `TradingEventBus`, so blind or mismatched acknowledgements cannot clear the
   wrong intervention and normal event routing captures the audit trail.
-- Disabled-by-default operator HTTP API for order intervention acknowledgements,
-  guarded by `trading.intervention.operator-api.enabled` and
+- Disabled-by-default operator HTTP API for listing unresolved order
+  interventions and publishing order intervention acknowledgements, guarded by
+  `trading.intervention.operator-api.enabled` and
   `trading.intervention.operator-api.operator-token`.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
