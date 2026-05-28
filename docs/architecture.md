@@ -497,11 +497,15 @@ order projection records whether an order is bot-managed, whether the latest
 update came from submit result or user-data, and whether user-data exposed an
 external order or an unplanned cancel/modify of a managed order. That metadata
 feeds the order risk gate: by default, new order commands for that runtime
-target are rejected while unresolved external/unplanned order intervention is
-present. This is controlled by
-`trading.execution.risk-gate.manual-intervention.reject-external-order-interventions`
-and defaults to true. Clearing an order or position intervention is explicit
-and auditable: an `InterventionAcknowledgementEvent` is journal/replay
+target become `MANUAL_REVIEW` while unresolved external/unplanned order
+intervention is present. Manual intervention behavior is configured under
+`trading.execution.risk-gate.manual-intervention`: legacy reject flags remain
+supported, and the explicit `external_order_action` and
+`external_position_action` values decide whether unresolved interventions send
+commands to `MANUAL_REVIEW`, `REJECT_NEW_COMMANDS`, or `ALLOW_NEW_COMMANDS`.
+The catalog default is `MANUAL_REVIEW` for both order and position
+interventions. Clearing an order or position intervention is explicit and auditable: an
+`InterventionAcknowledgementEvent` is journal/replay
 compatible and clears a matching intervention in the projection. Order
 acknowledgements are keyed by client order id. Position acknowledgements are
 keyed by symbol and carry `position_side` in event attributes. Core exposes an
@@ -518,9 +522,9 @@ acknowledgement. A later execution policy must decide whether to
 stand down, replace, re-plan, hedge, or require operator review. Position
 projection records update source and conservatively flags user-data or REST
 position-size changes as external interventions when no managed bot order exists
-for the same target/symbol. The order risk gate rejects new commands while such
-position interventions are unresolved by default through
-`trading.execution.risk-gate.manual-intervention.reject-external-position-interventions`.
+for the same target/symbol. The order risk gate stops new commands while such
+position interventions are unresolved unless the configured action is
+`ALLOW_NEW_COMMANDS`.
 Position fill-to-delta causality and remediation policy still need to decide
 whether to stand down, re-hedge, re-open, or require operator review before live
 automation can be called complete.

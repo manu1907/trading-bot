@@ -79,27 +79,50 @@ class OrderRiskGateTest {
     }
 
     @Test
-    void rejects_order_when_target_has_external_order_intervention() {
+    void requires_manual_review_when_target_has_external_order_intervention() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
         RiskDecisionEvent decision = gate(defaultProperties(), projectionWithExternalIntervention()).evaluate(command());
 
-        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
         assertThat(decision.getReasons()).containsExactly("intervention:external_order");
         assertThat(decision.getMaxQuantity()).isNull();
         assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "1");
+        assertThat(decision.getAttributes()).containsEntry("external_order_intervention_action", "MANUAL_REVIEW");
     }
 
     @Test
-    void rejects_order_when_target_has_external_position_intervention() {
+    void requires_manual_review_when_target_has_external_position_intervention() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
         RiskDecisionEvent decision = gate(defaultProperties(), projectionWithExternalPositionIntervention()).evaluate(command());
 
-        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
         assertThat(decision.getReasons()).containsExactly("intervention:external_position");
         assertThat(decision.getMaxQuantity()).isNull();
         assertThat(decision.getAttributes()).containsEntry("external_position_interventions", "1");
+        assertThat(decision.getAttributes()).containsEntry("external_position_intervention_action", "MANUAL_REVIEW");
+    }
+
+    @Test
+    void can_be_configured_to_reject_external_order_intervention_without_manual_review() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                new ExecutionProperties.ManualIntervention(
+                        true,
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithExternalIntervention()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("intervention:external_order");
+        assertThat(decision.getAttributes()).containsEntry("external_order_intervention_action", "REJECT_NEW_COMMANDS");
     }
 
     @Test

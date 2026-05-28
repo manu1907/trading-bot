@@ -1,6 +1,7 @@
 package io.github.manu.execution;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 @ConfigurationProperties(prefix = "trading.execution")
 public record ExecutionProperties(
@@ -9,6 +10,7 @@ public record ExecutionProperties(
         Idempotency idempotency
 ) {
 
+    @ConstructorBinding
     public ExecutionProperties {
         pipeline = pipeline == null ? Pipeline.disabled() : pipeline;
         riskGate = riskGate == null ? RiskGate.defaults() : riskGate;
@@ -38,6 +40,7 @@ public record ExecutionProperties(
             ManualIntervention manualIntervention
     ) {
 
+        @ConstructorBinding
         public RiskGate {
             enabled = enabled == null || enabled;
             reconciliation = reconciliation == null ? Reconciliation.defaults() : reconciliation;
@@ -72,14 +75,24 @@ public record ExecutionProperties(
 
     public record ManualIntervention(
             Boolean rejectExternalOrderInterventions,
-            Boolean rejectExternalPositionInterventions
+            Boolean rejectExternalPositionInterventions,
+            InterventionAction externalOrderAction,
+            InterventionAction externalPositionAction
     ) {
 
+        @ConstructorBinding
         public ManualIntervention {
-            rejectExternalOrderInterventions = rejectExternalOrderInterventions == null
-                    || rejectExternalOrderInterventions;
-            rejectExternalPositionInterventions = rejectExternalPositionInterventions == null
-                    || rejectExternalPositionInterventions;
+            externalOrderAction = resolveAction(rejectExternalOrderInterventions, externalOrderAction);
+            externalPositionAction = resolveAction(rejectExternalPositionInterventions, externalPositionAction);
+            rejectExternalOrderInterventions = externalOrderAction.blocksNewCommands();
+            rejectExternalPositionInterventions = externalPositionAction.blocksNewCommands();
+        }
+
+        public ManualIntervention(
+                Boolean rejectExternalOrderInterventions,
+                Boolean rejectExternalPositionInterventions
+        ) {
+            this(rejectExternalOrderInterventions, rejectExternalPositionInterventions, null, null);
         }
 
         public ManualIntervention(Boolean rejectExternalOrderInterventions) {
@@ -87,7 +100,43 @@ public record ExecutionProperties(
         }
 
         static ManualIntervention defaults() {
-            return new ManualIntervention(true, true);
+            return new ManualIntervention(
+                    true,
+                    true,
+                    InterventionAction.MANUAL_REVIEW,
+                    InterventionAction.MANUAL_REVIEW
+            );
+        }
+
+        private static InterventionAction resolveAction(Boolean legacyRejectFlag, InterventionAction action) {
+            if (action != null) {
+                if (legacyRejectFlag != null && legacyRejectFlag != action.blocksNewCommands()) {
+                    throw new IllegalArgumentException(
+                            "manual intervention reject flag conflicts with remediation action"
+                    );
+                }
+                return action;
+            }
+            if (legacyRejectFlag == null || legacyRejectFlag) {
+                return InterventionAction.MANUAL_REVIEW;
+            }
+            return InterventionAction.ALLOW_NEW_COMMANDS;
+        }
+    }
+
+    public enum InterventionAction {
+        ALLOW_NEW_COMMANDS(false),
+        REJECT_NEW_COMMANDS(true),
+        MANUAL_REVIEW(true);
+
+        private final boolean blocksNewCommands;
+
+        InterventionAction(boolean blocksNewCommands) {
+            this.blocksNewCommands = blocksNewCommands;
+        }
+
+        boolean blocksNewCommands() {
+            return blocksNewCommands;
         }
     }
 

@@ -96,10 +96,16 @@ public final class OrderRiskGate {
         if (!properties.riskGate().enabled()) {
             reasons.add(DISABLED_REASON);
         } else {
-            reasons.addAll(reconciliationReasons(properties.riskGate().reconciliation(), reconciliationConfidence));
-            reasons.addAll(manualInterventionReasons(properties.riskGate().manualIntervention(), command));
-            if (!reasons.isEmpty()) {
+            List<String> reconciliationReasons =
+                    reconciliationReasons(properties.riskGate().reconciliation(), reconciliationConfidence);
+            ManualInterventionDecision manualInterventionDecision =
+                    manualInterventionDecision(properties.riskGate().manualIntervention(), command);
+            reasons.addAll(reconciliationReasons);
+            reasons.addAll(manualInterventionDecision.reasons());
+            if (!reconciliationReasons.isEmpty() || manualInterventionDecision.reject()) {
                 decision = RiskDecision.REJECTED;
+            } else if (manualInterventionDecision.manualReview()) {
+                decision = RiskDecision.MANUAL_REVIEW;
             } else {
                 reasons.add(APPROVED_REASON);
             }
@@ -144,30 +150,53 @@ public final class OrderRiskGate {
         return List.copyOf(reasons);
     }
 
-    private List<String> manualInterventionReasons(
+    private ManualInterventionDecision manualInterventionDecision(
             ExecutionProperties.ManualIntervention manualIntervention,
             OrderCommandEvent command
     ) {
         List<String> reasons = new ArrayList<>();
-        if (manualIntervention.rejectExternalOrderInterventions()
-                && tradingStateProjection.hasExternalOrderInterventions(
+        boolean reject = false;
+        boolean manualReview = false;
+        if (tradingStateProjection.hasExternalOrderInterventions(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        )) {
+            ManualInterventionDecision decision = decisionFor(
+                    manualIntervention.externalOrderAction(),
+                    EXTERNAL_ORDER_INTERVENTION_REASON
+            );
+            reasons.addAll(decision.reasons());
+            reject = decision.reject();
+            manualReview = decision.manualReview();
+        }
+        if (tradingStateProjection.hasExternalPositionInterventions(
                         value(command.getProvider()),
                         value(command.getEnvironment()),
                         value(command.getAccount()),
                         value(command.getMarket())
                 )) {
-            reasons.add(EXTERNAL_ORDER_INTERVENTION_REASON);
+            ManualInterventionDecision decision = decisionFor(
+                    manualIntervention.externalPositionAction(),
+                    EXTERNAL_POSITION_INTERVENTION_REASON
+            );
+            reasons.addAll(decision.reasons());
+            reject = reject || decision.reject();
+            manualReview = manualReview || decision.manualReview();
         }
-        if (manualIntervention.rejectExternalPositionInterventions()
-                && tradingStateProjection.hasExternalPositionInterventions(
-                        value(command.getProvider()),
-                        value(command.getEnvironment()),
-                        value(command.getAccount()),
-                        value(command.getMarket())
-                )) {
-            reasons.add(EXTERNAL_POSITION_INTERVENTION_REASON);
-        }
-        return List.copyOf(reasons);
+        return new ManualInterventionDecision(List.copyOf(reasons), reject, manualReview);
+    }
+
+    private ManualInterventionDecision decisionFor(
+            ExecutionProperties.InterventionAction action,
+            String reason
+    ) {
+        return switch (action) {
+            case ALLOW_NEW_COMMANDS -> new ManualInterventionDecision(List.of(), false, false);
+            case REJECT_NEW_COMMANDS -> new ManualInterventionDecision(List.of(reason), true, false);
+            case MANUAL_REVIEW -> new ManualInterventionDecision(List.of(reason), false, true);
+        };
     }
 
     private ReconciliationTargetConfidence reconciliationConfidence(OrderCommandEvent command) {
@@ -204,7 +233,22 @@ public final class OrderRiskGate {
                 value(command.getMarket())
         );
         attributes.put("external_position_interventions", Long.toString(positionInterventions));
+        attributes.put(
+                "external_order_intervention_action",
+                properties.riskGate().manualIntervention().externalOrderAction().name()
+        );
+        attributes.put(
+                "external_position_intervention_action",
+                properties.riskGate().manualIntervention().externalPositionAction().name()
+        );
         return Map.copyOf(attributes);
+    }
+
+    private record ManualInterventionDecision(
+            List<String> reasons,
+            boolean reject,
+            boolean manualReview
+    ) {
     }
 
     private String signalId(OrderCommandEvent command) {

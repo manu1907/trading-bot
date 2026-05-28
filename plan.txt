@@ -74,23 +74,26 @@ The bot is not professional-execution-ready until these gaps are closed:
   and whether user-data exposed an external or unplanned order change. Retries,
   cancel/replace, durable unknown-status recovery, manual-intervention policy,
   and final order state transitions are not complete.
-- The risk gate now conservatively rejects new order commands when the target
-  projection has unresolved external or unplanned order intervention, unless
-  `trading.execution.risk-gate.manual-intervention.reject-external-order-interventions`
-  is explicitly disabled. This is a stop-the-line guard, not a full remediation
-  policy. Operator acknowledgement is now an Avro event that clears a matching
-  order or position intervention through the replayable projection path.
+- The risk gate now conservatively stops new order commands when the target
+  projection has unresolved external or unplanned order intervention. Manual
+  intervention handling is configurable per order/position intervention through
+  `external_order_action` and `external_position_action`; the default is
+  `MANUAL_REVIEW`, with `REJECT_NEW_COMMANDS` and `ALLOW_NEW_COMMANDS`
+  available only through explicit config. This is a stop-the-line guard, not a
+  full remediation policy. Operator acknowledgement is now an Avro event that
+  clears a matching order or position intervention through the replayable
+  projection path.
 - No durable idempotent order-command lifecycle from strategy signal through
   exchange result, user-stream execution report, reconciliation, restart, and
   final position state.
 - Manual position changes are not yet policy-complete. Position projection now
   records update source and conservatively flags user-data or REST position-size
   changes as external interventions when no managed bot order exists for the
-  same target/symbol. The risk gate rejects new order commands while such
-  position interventions are unresolved by default. Operator acknowledgement can
-  clear a matching projected position intervention through replay, but later
-  position work must bind fills to position deltas and decide whether to stand
-  down, re-hedge, re-open, or require operator review.
+  same target/symbol. The risk gate sends new order commands to manual review
+  while such position interventions are unresolved by default. Operator
+  acknowledgement can clear a matching projected position intervention through
+  replay, but later position work must bind fills to position deltas and decide
+  whether to stand down, re-hedge, re-open, or require operator review.
 - Core has an in-memory account/order/position/risk projection that can be
   rebuilt from events and rejects stale per-entity updates. Binance
   reconciliation can compare REST snapshots against that projection and record
@@ -434,9 +437,11 @@ Binance parity gaps to close before claiming full connector support:
   intervention. Unknown external orders, unplanned managed-order cancel/modify,
   and manual position closes or size changes now stop blind new-order
   automation at the order-risk-gate level for order interventions and
-  conservative no-managed-order position interventions. The missing part is the
-  configured remediation policy that decides to stand down, re-plan, hedge, or
-  request operator review; fill-to-position causality for managed orders is
+  conservative no-managed-order position interventions. The stop action is
+  configurable as manual review, rejection, or explicit allow per order/position
+  intervention class, defaulting to manual review. The missing part is the
+  remediation orchestrator that executes stand-down, re-plan, hedge, or
+  operator-review workflows; fill-to-position causality for managed orders is
   also still pending. Order and position acknowledgement event handling,
   service validation, and token-gated operator API exist; the API can list order
   and position interventions, but no operator UI or multi-order/position
