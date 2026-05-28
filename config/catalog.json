@@ -30,6 +30,12 @@
           "reject_external_order_interventions": true
         }
       }
+    },
+    "intervention": {
+      "operator_api": {
+        "enabled": false,
+        "operator_token": null
+      }
     }
   },
   "exchange": {
