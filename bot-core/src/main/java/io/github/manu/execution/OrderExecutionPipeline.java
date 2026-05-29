@@ -5,6 +5,7 @@ import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
+import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.messaging.TradingEventBus;
@@ -20,6 +21,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 
 public final class OrderExecutionPipeline implements TradingEventHandler {
 
@@ -114,9 +117,32 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
 
         OrderExecutionGateway selectedGateway = gateway.orElseThrow();
         return publishedDecision
-                .thenCompose(ignored -> selectedGateway.submit(command))
+                .thenCompose(ignored -> submitThroughGateway(selectedGateway, command))
                 .thenCompose(eventBus::publish)
                 .thenApply(ignored -> null);
+    }
+
+    private CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submitThroughGateway(
+            OrderExecutionGateway gateway,
+            OrderCommandEvent command
+    ) {
+        try {
+            return gateway.submit(command)
+                    .handle((envelope, failure) -> {
+                        if (failure != null) {
+                            return gatewayFailureEnvelope(command, failure);
+                        }
+                        if (envelope == null) {
+                            return gatewayFailureEnvelope(
+                                    command,
+                                    new IllegalStateException("Order execution gateway returned no result envelope")
+                            );
+                        }
+                        return envelope;
+                    });
+        } catch (RuntimeException e) {
+            return CompletableFuture.completedFuture(gatewayFailureEnvelope(command, e));
+        }
     }
 
     private Optional<OrderExecutionGateway> gatewayFor(OrderCommandEvent command) {
@@ -212,6 +238,59 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
                 .setDecidedAtMicros(Instant.now(clock))
                 .setAttributes(Map.copyOf(attributes))
                 .build();
+    }
+
+    private TradingEventEnvelope<OrderResultEvent> gatewayFailureEnvelope(
+            OrderCommandEvent command,
+            Throwable failure
+    ) {
+        Throwable cause = unwrap(failure);
+        String causeType = cause.getClass().getSimpleName();
+        String message = cause.getMessage() == null || cause.getMessage().isBlank()
+                ? causeType
+                : cause.getMessage();
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.put("source", "order_execution_pipeline");
+        attributes.put("gateway_failure", "true");
+        attributes.put("gateway_failure_type", causeType);
+        OrderResultEvent result = OrderResultEvent.newBuilder()
+                .setEventId("order-result:"
+                        + value(command.getCommandId())
+                        + ":"
+                        + value(command.getClientOrderId())
+                        + ":gateway_failure")
+                .setSchemaVersion(1)
+                .setCommandId(value(command.getCommandId()))
+                .setProvider(value(command.getProvider()))
+                .setEnvironment(value(command.getEnvironment()))
+                .setAccount(value(command.getAccount()))
+                .setMarket(value(command.getMarket()))
+                .setSymbol(value(command.getSymbol()))
+                .setClientOrderId(value(command.getClientOrderId()))
+                .setExchangeOrderId(null)
+                .setStatus(OrderResultStatus.UNKNOWN)
+                .setExchangeStatus(null)
+                .setPrice(value(command.getPrice()))
+                .setOriginalQuantity(value(command.getQuantity()))
+                .setExecutedQuantity(null)
+                .setAveragePrice(null)
+                .setCumulativeQuote(null)
+                .setExchangeTransactTimeMicros(null)
+                .setObservedAtMicros(Instant.now(clock))
+                .setRejectCode("GATEWAY_FAILURE")
+                .setRejectMessage(message)
+                .setAttributes(Map.copyOf(attributes))
+                .build();
+        return envelope(TradingEventType.ORDER_RESULT, result);
+    }
+
+    private Throwable unwrap(Throwable failure) {
+        Throwable current = Objects.requireNonNull(failure, "failure");
+        while ((current instanceof CompletionException || current instanceof ExecutionException)
+                && current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current;
     }
 
     private String signalId(OrderCommandEvent command) {

@@ -128,6 +128,43 @@ class OrderExecutionPipelineTest {
         assertThat(duplicateDecision.getAttributes()).containsEntry("duplicate_idempotency_key", "idem-001");
     }
 
+    @Test
+    void publishes_unknown_order_result_when_gateway_submit_throws() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        pipeline(List.of(new ThrowingGateway())).handleOrderCommand(command()).join();
+
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.RISK_DECISION, TradingEventType.ORDER_RESULT);
+        assertUnknownGatewayFailure(eventBus.envelopes.get(1), "IllegalStateException", "socket closed before write");
+    }
+
+    @Test
+    void publishes_unknown_order_result_when_gateway_future_fails() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        pipeline(List.of(new FutureFailingGateway())).handleOrderCommand(command()).join();
+
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.RISK_DECISION, TradingEventType.ORDER_RESULT);
+        assertUnknownGatewayFailure(eventBus.envelopes.get(1), "IllegalArgumentException", "bad request envelope");
+    }
+
+    @Test
+    void publishes_unknown_order_result_when_gateway_returns_no_result() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        pipeline(List.of(new NullResultGateway())).handleOrderCommand(command()).join();
+
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.RISK_DECISION, TradingEventType.ORDER_RESULT);
+        assertUnknownGatewayFailure(
+                eventBus.envelopes.get(1),
+                "IllegalStateException",
+                "Order execution gateway returned no result envelope"
+        );
+    }
+
     private OrderExecutionPipeline pipeline(List<OrderExecutionGateway> gateways) {
         OrderRiskGate riskGate = new OrderRiskGate(new ExecutionProperties(null), reconciliationTracker, clock);
         return new OrderExecutionPipeline(
@@ -224,6 +261,23 @@ class OrderExecutionPipelineTest {
         );
     }
 
+    private void assertUnknownGatewayFailure(
+            TradingEventEnvelope<? extends SpecificRecord> envelope,
+            String failureType,
+            String failureMessage
+    ) {
+        OrderResultEvent result = (OrderResultEvent) envelope.value();
+        assertThat(result.getStatus()).isEqualTo(OrderResultStatus.UNKNOWN);
+        assertThat(result.getEventId()).isEqualTo("order-result:cmd-001:tb-lfa-cmd-001:gateway_failure");
+        assertThat(result.getRejectCode()).isEqualTo("GATEWAY_FAILURE");
+        assertThat(result.getRejectMessage()).isEqualTo(failureMessage);
+        assertThat(result.getObservedAtMicros()).isEqualTo(NOW);
+        assertThat(result.getAttributes())
+                .containsEntry("source", "order_execution_pipeline")
+                .containsEntry("gateway_failure", "true")
+                .containsEntry("gateway_failure_type", failureType);
+    }
+
     private final class FakeGateway implements OrderExecutionGateway {
 
         private final CapturingTradingEventBus bus;
@@ -248,6 +302,45 @@ class OrderExecutionPipelineTest {
                     .extracting(TradingEventEnvelope::eventType)
                     .isEqualTo(TradingEventType.RISK_DECISION);
             return CompletableFuture.completedFuture(resultEnvelope(command));
+        }
+    }
+
+    private final class ThrowingGateway implements OrderExecutionGateway {
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            throw new IllegalStateException("socket closed before write");
+        }
+    }
+
+    private final class FutureFailingGateway implements OrderExecutionGateway {
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("bad request envelope"));
+        }
+    }
+
+    private final class NullResultGateway implements OrderExecutionGateway {
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            return CompletableFuture.completedFuture(null);
         }
     }
 
