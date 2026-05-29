@@ -1,11 +1,14 @@
 package io.github.manu.projection;
 
+import io.github.manu.events.TradingEventType;
+import io.github.manu.messaging.TradingEventHandlerRegistration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.SmartLifecycle;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,6 +27,29 @@ class ProjectionConfigurationTest {
                 .run(context -> assertThat(context)
                         .hasSingleBean(ProjectionProperties.class)
                         .doesNotHaveBean(TradingStateProjectionStore.class));
+    }
+
+    @Test
+    void registers_projection_handlers_for_replayable_state_events() {
+        contextRunner
+                .withBean(TradingStateProjection.class, TradingStateProjection::new)
+                .run(context -> {
+                    List<TradingEventType> eventTypes = context.getBeansOfType(TradingEventHandlerRegistration.class)
+                            .values()
+                            .stream()
+                            .map(TradingEventHandlerRegistration::eventType)
+                            .toList();
+
+                    assertThat(eventTypes).contains(
+                            TradingEventType.BALANCE_UPDATE,
+                            TradingEventType.POSITION_UPDATE,
+                            TradingEventType.ORDER_RESULT,
+                            TradingEventType.EXECUTION_REPORT,
+                            TradingEventType.RISK_UPDATE,
+                            TradingEventType.RISK_DECISION,
+                            TradingEventType.INTERVENTION_ACKNOWLEDGEMENT
+                    );
+                });
     }
 
     @Test
