@@ -9,14 +9,17 @@ class ExecutionPropertiesTest {
 
     @Test
     void defaults_manual_intervention_to_manual_review_actions() {
-        ExecutionProperties.ManualIntervention manualIntervention =
-                new ExecutionProperties(null).riskGate().manualIntervention();
+        ExecutionProperties properties = new ExecutionProperties(null);
+        ExecutionProperties.ManualIntervention manualIntervention = properties.riskGate().manualIntervention();
 
         assertThat(manualIntervention.rejectExternalOrderInterventions()).isTrue();
         assertThat(manualIntervention.rejectExternalPositionInterventions()).isTrue();
         assertThat(manualIntervention.externalOrderAction())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
         assertThat(manualIntervention.externalPositionAction())
+                .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+        assertThat(properties.riskGate().unknownOrderStatus().rejectUnknownOrderStatus()).isTrue();
+        assertThat(properties.riskGate().unknownOrderStatus().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
     }
 
@@ -43,5 +46,15 @@ class ExecutionPropertiesTest {
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("manual intervention reject flag conflicts with remediation action");
+    }
+
+    @Test
+    void rejects_conflicting_unknown_order_status_flag_and_action() {
+        assertThatThrownBy(() -> new ExecutionProperties.UnknownOrderStatus(
+                        false,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("unknown order status reject flag conflicts with remediation action");
     }
 }

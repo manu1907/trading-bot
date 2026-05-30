@@ -160,6 +160,25 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void tracks_unknown_order_status_until_newer_order_state_resolves_it() {
+        projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(35)));
+
+        assertThat(projection.hasUnknownOrderStatuses(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+        assertThat(projection.unknownOrderStatuses(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEqualTo(1);
+        assertThat(projection.unknownOrderStatusStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.unknownStatus()).isTrue();
+                });
+
+        projection.apply(executionReport("evt-resolved", "NEW", "0", timestamp(36)));
+
+        assertThat(projection.hasUnknownOrderStatuses(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.unknownOrderStatuses(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isZero();
+    }
+
+    @Test
     void marks_user_data_order_without_known_bot_command_as_external_intervention() {
         ProjectionUpdate update = projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
 
@@ -334,6 +353,26 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void resolved_unknown_order_status_hides_unknown_status_manual_review_decision() {
+        projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(40)));
+        projection.apply(riskDecision(
+                "evt-risk-decision-review",
+                RiskDecision.MANUAL_REVIEW,
+                timestamp(41),
+                List.of("order_status:unknown"),
+                Map.of("unknown_order_status_action", "MANUAL_REVIEW")
+        ));
+
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> assertThat(decision.reasons()).containsExactly("order_status:unknown"));
+
+        projection.apply(executionReport("evt-resolved", "NEW", "0", timestamp(42)));
+
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEmpty();
+    }
+
+    @Test
     void can_be_used_as_event_handler_for_journal_replay() {
         projection.handle(balance("evt-balance", "1000", "950", timestamp(10))).join();
 
@@ -478,6 +517,24 @@ class TradingStateProjectionTest {
             RiskDecision decision,
             Instant decidedAt
     ) {
+        return riskDecision(
+                eventId,
+                decision,
+                decidedAt,
+                decision == RiskDecision.MANUAL_REVIEW
+                        ? List.of("intervention:external_order")
+                        : List.of("risk_gate:approved"),
+                Map.of("external_order_intervention_action", "MANUAL_REVIEW")
+        );
+    }
+
+    private TradingEventEnvelope<RiskDecisionEvent> riskDecision(
+            String eventId,
+            RiskDecision decision,
+            Instant decidedAt,
+            List<CharSequence> reasons,
+            Map<CharSequence, CharSequence> attributes
+    ) {
         RiskDecisionEvent event = RiskDecisionEvent.newBuilder()
                 .setEventId(eventId)
                 .setSchemaVersion(1)
@@ -491,13 +548,11 @@ class TradingStateProjectionTest {
                 .setMarket(MARKET)
                 .setSymbol(SYMBOL)
                 .setDecision(decision)
-                .setReasons(decision == RiskDecision.MANUAL_REVIEW
-                        ? List.of("intervention:external_order")
-                        : List.of("risk_gate:approved"))
+                .setReasons(reasons)
                 .setMaxQuantity(null)
                 .setMaxNotional(null)
                 .setDecidedAtMicros(decidedAt)
-                .setAttributes(Map.of("external_order_intervention_action", "MANUAL_REVIEW"))
+                .setAttributes(attributes)
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.RISK_DECISION,

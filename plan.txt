@@ -76,7 +76,9 @@ The bot is not professional-execution-ready until these gaps are closed:
   and final order state transitions are not complete. Gateway submit failures
   after risk approval now publish conservative `UNKNOWN` order results so the
   event journal and projection have an auditable recovery marker instead of a
-  silent pipeline failure.
+  silent pipeline failure. The risk gate now treats unresolved `UNKNOWN` order
+  status as a configurable stop condition, defaulting to manual review until a
+  later order/user-data/reconciliation event resolves the order state.
 - The risk gate now conservatively stops new order commands when the target
   projection has unresolved external or unplanned order intervention. Manual
   intervention handling is configurable per order/position intervention through
@@ -289,6 +291,9 @@ Implemented Binance foundations:
 - Core order execution pipeline converts synchronous, asynchronous, and null
   gateway submission failures into conservative `UNKNOWN` `OrderResultEvent`
   records for journal/projection recovery.
+- Core risk gate consumes projected unknown order statuses and blocks new
+  automation by configurable action, with catalog defaults set to manual
+  review.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.

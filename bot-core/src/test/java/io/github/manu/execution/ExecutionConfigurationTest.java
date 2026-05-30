@@ -15,16 +15,20 @@ class ExecutionConfigurationTest {
         contextRunner
                 .withPropertyValues(
                         "trading.execution.risk-gate.manual-intervention.external-order-action=reject-new-commands",
-                        "trading.execution.risk-gate.manual-intervention.external-position-action=manual-review"
+                        "trading.execution.risk-gate.manual-intervention.external-position-action=manual-review",
+                        "trading.execution.risk-gate.unknown-order-status.action=reject-new-commands"
                 )
                 .run(context -> {
                     assertThat(context).hasSingleBean(ExecutionProperties.class);
+                    ExecutionProperties properties = context.getBean(ExecutionProperties.class);
                     ExecutionProperties.ManualIntervention manualIntervention =
-                            context.getBean(ExecutionProperties.class).riskGate().manualIntervention();
+                            properties.riskGate().manualIntervention();
                     assertThat(manualIntervention.externalOrderAction())
                             .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
                     assertThat(manualIntervention.externalPositionAction())
                             .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+                    assertThat(properties.riskGate().unknownOrderStatus().action())
+                            .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
                 });
     }
 }

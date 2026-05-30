@@ -142,6 +142,29 @@ public final class TradingStateProjection implements TradingEventHandler {
         return externalOrderInterventions(provider, environment, account, market) > 0;
     }
 
+    public long unknownOrderStatuses(String provider, String environment, String account, String market) {
+        return unknownOrderStatusStates(provider, environment, account, market).size();
+    }
+
+    public List<OrderState> unknownOrderStatusStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        String prefix = key(provider, environment, account, market);
+        return orders.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .filter(OrderState::unknownStatus)
+                .toList();
+    }
+
+    public boolean hasUnknownOrderStatuses(String provider, String environment, String account, String market) {
+        return unknownOrderStatuses(provider, environment, account, market) > 0;
+    }
+
     public long externalPositionInterventions(String provider, String environment, String account, String market) {
         return externalPositionInterventionStates(provider, environment, account, market).size();
     }
@@ -183,7 +206,8 @@ public final class TradingStateProjection implements TradingEventHandler {
     private boolean pendingManualReview(ManualReviewDecisionState decision) {
         boolean orderReason = decision.reasons().contains("intervention:external_order");
         boolean positionReason = decision.reasons().contains("intervention:external_position");
-        if (!orderReason && !positionReason) {
+        boolean unknownOrderReason = decision.reasons().contains("order_status:unknown");
+        if (!orderReason && !positionReason && !unknownOrderReason) {
             return true;
         }
         if (orderReason && hasExternalOrderInterventions(
@@ -194,7 +218,15 @@ public final class TradingStateProjection implements TradingEventHandler {
         )) {
             return true;
         }
-        return positionReason && hasExternalPositionInterventions(
+        if (positionReason && hasExternalPositionInterventions(
+                decision.provider(),
+                decision.environment(),
+                decision.account(),
+                decision.market()
+        )) {
+            return true;
+        }
+        return unknownOrderReason && hasUnknownOrderStatuses(
                 decision.provider(),
                 decision.environment(),
                 decision.account(),
@@ -924,6 +956,10 @@ public final class TradingStateProjection implements TradingEventHandler {
         public OrderState {
             managedByBot = Boolean.TRUE.equals(managedByBot);
             externalIntervention = Boolean.TRUE.equals(externalIntervention);
+        }
+
+        public boolean unknownStatus() {
+            return "UNKNOWN".equals(status);
         }
     }
 

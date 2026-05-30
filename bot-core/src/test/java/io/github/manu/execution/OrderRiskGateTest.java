@@ -47,6 +47,7 @@ class OrderRiskGateTest {
         assertThat(decision.getAttributes()).containsEntry("reconciliation_observed_states", "0");
         assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "0");
         assertThat(decision.getAttributes()).containsEntry("external_position_interventions", "0");
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_statuses", "0");
         assertThat(decision.getDecidedAtMicros()).isEqualTo(NOW);
     }
 
@@ -105,6 +106,19 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void requires_manual_review_when_target_has_unknown_order_status() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithUnknownOrderStatus()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_status:unknown");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_statuses", "1");
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_status_action", "MANUAL_REVIEW");
+    }
+
+    @Test
     void can_be_configured_to_reject_external_order_intervention_without_manual_review() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
         ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
@@ -123,6 +137,26 @@ class OrderRiskGateTest {
         assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
         assertThat(decision.getReasons()).containsExactly("intervention:external_order");
         assertThat(decision.getAttributes()).containsEntry("external_order_intervention_action", "REJECT_NEW_COMMANDS");
+    }
+
+    @Test
+    void can_be_configured_to_reject_unknown_order_status_without_manual_review() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                new ExecutionProperties.UnknownOrderStatus(
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithUnknownOrderStatus()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_status:unknown");
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_status_action", "REJECT_NEW_COMMANDS");
     }
 
     @Test
@@ -153,6 +187,23 @@ class OrderRiskGateTest {
         assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
         assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
         assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "1");
+    }
+
+    @Test
+    void can_be_configured_to_allow_unknown_order_status() {
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                new ExecutionProperties.UnknownOrderStatus(false, null)
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithUnknownOrderStatus()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_statuses", "1");
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_status_action", "ALLOW_NEW_COMMANDS");
     }
 
     @Test
@@ -281,6 +332,41 @@ class OrderRiskGateTest {
                         "evt-external-position"
                 )),
                 List.of(),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection projectionWithUnknownOrderStatus() {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        "cmd-unknown",
+                        "tb-lfa-unknown",
+                        null,
+                        OrderResultStatus.UNKNOWN.name(),
+                        null,
+                        "50000.00",
+                        "0.001",
+                        null,
+                        null,
+                        null,
+                        "ORDER_RESULT",
+                        null,
+                        true,
+                        false,
+                        null,
+                        NOW,
+                        "evt-unknown-order"
+                )),
                 List.of(),
                 List.of()
         ));

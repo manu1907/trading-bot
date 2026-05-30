@@ -29,6 +29,7 @@ public final class OrderRiskGate {
     private static final String DEGRADED_REASON = "reconciliation:degraded";
     private static final String EXTERNAL_ORDER_INTERVENTION_REASON = "intervention:external_order";
     private static final String EXTERNAL_POSITION_INTERVENTION_REASON = "intervention:external_position";
+    private static final String UNKNOWN_ORDER_STATUS_REASON = "order_status:unknown";
 
     private final ExecutionProperties properties;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
@@ -100,11 +101,16 @@ public final class OrderRiskGate {
                     reconciliationReasons(properties.riskGate().reconciliation(), reconciliationConfidence);
             ManualInterventionDecision manualInterventionDecision =
                     manualInterventionDecision(properties.riskGate().manualIntervention(), command);
+            ManualInterventionDecision unknownOrderStatusDecision =
+                    unknownOrderStatusDecision(properties.riskGate().unknownOrderStatus(), command);
             reasons.addAll(reconciliationReasons);
             reasons.addAll(manualInterventionDecision.reasons());
-            if (!reconciliationReasons.isEmpty() || manualInterventionDecision.reject()) {
+            reasons.addAll(unknownOrderStatusDecision.reasons());
+            if (!reconciliationReasons.isEmpty()
+                    || manualInterventionDecision.reject()
+                    || unknownOrderStatusDecision.reject()) {
                 decision = RiskDecision.REJECTED;
-            } else if (manualInterventionDecision.manualReview()) {
+            } else if (manualInterventionDecision.manualReview() || unknownOrderStatusDecision.manualReview()) {
                 decision = RiskDecision.MANUAL_REVIEW;
             } else {
                 reasons.add(APPROVED_REASON);
@@ -188,6 +194,21 @@ public final class OrderRiskGate {
         return new ManualInterventionDecision(List.copyOf(reasons), reject, manualReview);
     }
 
+    private ManualInterventionDecision unknownOrderStatusDecision(
+            ExecutionProperties.UnknownOrderStatus unknownOrderStatus,
+            OrderCommandEvent command
+    ) {
+        if (!tradingStateProjection.hasUnknownOrderStatuses(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        )) {
+            return new ManualInterventionDecision(List.of(), false, false);
+        }
+        return decisionFor(unknownOrderStatus.action(), UNKNOWN_ORDER_STATUS_REASON);
+    }
+
     private ManualInterventionDecision decisionFor(
             ExecutionProperties.InterventionAction action,
             String reason
@@ -233,6 +254,13 @@ public final class OrderRiskGate {
                 value(command.getMarket())
         );
         attributes.put("external_position_interventions", Long.toString(positionInterventions));
+        long unknownOrderStatuses = tradingStateProjection.unknownOrderStatuses(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        );
+        attributes.put("unknown_order_statuses", Long.toString(unknownOrderStatuses));
         attributes.put(
                 "external_order_intervention_action",
                 properties.riskGate().manualIntervention().externalOrderAction().name()
@@ -240,6 +268,10 @@ public final class OrderRiskGate {
         attributes.put(
                 "external_position_intervention_action",
                 properties.riskGate().manualIntervention().externalPositionAction().name()
+        );
+        attributes.put(
+                "unknown_order_status_action",
+                properties.riskGate().unknownOrderStatus().action().name()
         );
         return Map.copyOf(attributes);
     }

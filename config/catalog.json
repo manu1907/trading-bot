@@ -31,6 +31,10 @@
           "reject_external_position_interventions": true,
           "external_order_action": "MANUAL_REVIEW",
           "external_position_action": "MANUAL_REVIEW"
+        },
+        "unknown_order_status": {
+          "reject_unknown_order_status": true,
+          "action": "MANUAL_REVIEW"
         }
       }
     },

@@ -37,7 +37,8 @@ public record ExecutionProperties(
     public record RiskGate(
             Boolean enabled,
             Reconciliation reconciliation,
-            ManualIntervention manualIntervention
+            ManualIntervention manualIntervention,
+            UnknownOrderStatus unknownOrderStatus
     ) {
 
         @ConstructorBinding
@@ -45,14 +46,24 @@ public record ExecutionProperties(
             enabled = enabled == null || enabled;
             reconciliation = reconciliation == null ? Reconciliation.defaults() : reconciliation;
             manualIntervention = manualIntervention == null ? ManualIntervention.defaults() : manualIntervention;
+            unknownOrderStatus = unknownOrderStatus == null ? UnknownOrderStatus.defaults() : unknownOrderStatus;
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation) {
-            this(enabled, reconciliation, null);
+            this(enabled, reconciliation, null, null);
+        }
+
+        public RiskGate(Boolean enabled, Reconciliation reconciliation, ManualIntervention manualIntervention) {
+            this(enabled, reconciliation, manualIntervention, null);
         }
 
         static RiskGate defaults() {
-            return new RiskGate(true, Reconciliation.defaults(), ManualIntervention.defaults());
+            return new RiskGate(
+                    true,
+                    Reconciliation.defaults(),
+                    ManualIntervention.defaults(),
+                    UnknownOrderStatus.defaults()
+            );
         }
     }
 
@@ -82,8 +93,16 @@ public record ExecutionProperties(
 
         @ConstructorBinding
         public ManualIntervention {
-            externalOrderAction = resolveAction(rejectExternalOrderInterventions, externalOrderAction);
-            externalPositionAction = resolveAction(rejectExternalPositionInterventions, externalPositionAction);
+            externalOrderAction = resolveAction(
+                    rejectExternalOrderInterventions,
+                    externalOrderAction,
+                    "manual intervention"
+            );
+            externalPositionAction = resolveAction(
+                    rejectExternalPositionInterventions,
+                    externalPositionAction,
+                    "manual intervention"
+            );
             rejectExternalOrderInterventions = externalOrderAction.blocksNewCommands();
             rejectExternalPositionInterventions = externalPositionAction.blocksNewCommands();
         }
@@ -108,12 +127,14 @@ public record ExecutionProperties(
             );
         }
 
-        private static InterventionAction resolveAction(Boolean legacyRejectFlag, InterventionAction action) {
+        private static InterventionAction resolveAction(
+                Boolean legacyRejectFlag,
+                InterventionAction action,
+                String policyName
+        ) {
             if (action != null) {
                 if (legacyRejectFlag != null && legacyRejectFlag != action.blocksNewCommands()) {
-                    throw new IllegalArgumentException(
-                            "manual intervention reject flag conflicts with remediation action"
-                    );
+                    throw new IllegalArgumentException(policyName + " reject flag conflicts with remediation action");
                 }
                 return action;
             }
@@ -121,6 +142,26 @@ public record ExecutionProperties(
                 return InterventionAction.MANUAL_REVIEW;
             }
             return InterventionAction.ALLOW_NEW_COMMANDS;
+        }
+    }
+
+    public record UnknownOrderStatus(
+            Boolean rejectUnknownOrderStatus,
+            InterventionAction action
+    ) {
+
+        @ConstructorBinding
+        public UnknownOrderStatus {
+            action = ManualIntervention.resolveAction(
+                    rejectUnknownOrderStatus,
+                    action,
+                    "unknown order status"
+            );
+            rejectUnknownOrderStatus = action.blocksNewCommands();
+        }
+
+        static UnknownOrderStatus defaults() {
+            return new UnknownOrderStatus(true, InterventionAction.MANUAL_REVIEW);
         }
     }
 
