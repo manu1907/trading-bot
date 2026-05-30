@@ -51,6 +51,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
     private final ObjectProvider<TradingEventJournal> journalProvider;
     private final ObjectProvider<TradingStateProjection> projectionProvider;
     private final ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTrackerProvider;
+    private final ObjectProvider<BinanceExchangeMetadataService> metadataServiceProvider;
     private final Clock clock;
     private final BinanceHttpTransport httpTransportOverride;
     private final BinanceWebSocketTransport webSocketTransportOverride;
@@ -65,7 +66,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
     private ScheduledExecutorService reconciliationSchedulerExecutor;
 
     public BinanceExchangeModule() {
-        this(null, null, null, null, Clock.systemUTC(), null, null);
+        this(null, null, null, null, null, Clock.systemUTC(), null, null);
     }
 
     @Autowired
@@ -73,13 +74,15 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
             ObjectProvider<TradingEventBus> eventBusProvider,
             ObjectProvider<TradingEventJournal> journalProvider,
             ObjectProvider<TradingStateProjection> projectionProvider,
-            ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTrackerProvider
+            ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTrackerProvider,
+            ObjectProvider<BinanceExchangeMetadataService> metadataServiceProvider
     ) {
         this(
                 eventBusProvider,
                 journalProvider,
                 projectionProvider,
                 reconciliationConfidenceTrackerProvider,
+                metadataServiceProvider,
                 Clock.systemUTC(),
                 null,
                 null
@@ -90,13 +93,14 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                           Clock clock,
                           BinanceHttpTransport httpTransportOverride,
                           BinanceWebSocketTransport webSocketTransportOverride) {
-        this(eventBusProvider, null, null, null, clock, httpTransportOverride, webSocketTransportOverride);
+        this(eventBusProvider, null, null, null, null, clock, httpTransportOverride, webSocketTransportOverride);
     }
 
     BinanceExchangeModule(ObjectProvider<TradingEventBus> eventBusProvider,
                           ObjectProvider<TradingEventJournal> journalProvider,
                           ObjectProvider<TradingStateProjection> projectionProvider,
                           ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTrackerProvider,
+                          ObjectProvider<BinanceExchangeMetadataService> metadataServiceProvider,
                           Clock clock,
                           BinanceHttpTransport httpTransportOverride,
                           BinanceWebSocketTransport webSocketTransportOverride) {
@@ -104,6 +108,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         this.journalProvider = journalProvider;
         this.projectionProvider = projectionProvider;
         this.reconciliationConfidenceTrackerProvider = reconciliationConfidenceTrackerProvider;
+        this.metadataServiceProvider = metadataServiceProvider;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.httpTransportOverride = httpTransportOverride;
         this.webSocketTransportOverride = webSocketTransportOverride;
@@ -114,7 +119,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                           Clock clock,
                           BinanceHttpTransport httpTransportOverride,
                           BinanceWebSocketTransport webSocketTransportOverride) {
-        this(eventBusProvider, journalProvider, null, null, clock, httpTransportOverride, webSocketTransportOverride);
+        this(eventBusProvider, journalProvider, null, null, null, clock, httpTransportOverride, webSocketTransportOverride);
     }
 
     @Override
@@ -218,7 +223,9 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         );
         BinanceOrderResult result;
         try {
-            result = orderClient.placeOrder(toBinanceOrderCommand(command, binance));
+            BinanceOrderCommand binanceCommand = toBinanceOrderCommand(command, binance);
+            validateExchangeFilters(binanceCommand, binance);
+            result = orderClient.placeOrder(binanceCommand);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(toEnvelope(command, null, "VALIDATION", e.getMessage(), OrderResultStatus.REJECTED));
         } catch (BinanceApiException e) {
@@ -603,6 +610,25 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                 booleanAttribute(attributes, "market_maker_protection"),
                 booleanAttribute(attributes, "post_only")
         );
+    }
+
+    private void validateExchangeFilters(BinanceOrderCommand command, BinanceProperties binance) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        BinanceExchangeMetadataService service = metadataServiceProvider == null
+                ? null
+                : metadataServiceProvider.getIfAvailable();
+        if (service == null) {
+            throw new IllegalArgumentException("exchangeInfo metadata service is required for Binance exchange-filter validation");
+        }
+        BinanceExchangeMetadata metadata = service.current()
+                .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl()))
+                .or(() -> service.refresh(config)
+                        .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl())))
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "exchangeInfo metadata is required for Binance exchange-filter validation"));
+        new BinanceExchangeFilterValidator().validate(command, metadata);
     }
 
     private TradingEventEnvelope<OrderResultEvent> toEnvelope(

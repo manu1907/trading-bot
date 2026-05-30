@@ -304,6 +304,12 @@ Implemented Binance foundations:
   core-to-Binance command mapping, Binance-specific command attributes,
   normalized `OrderResultEvent` output, validation rejection mapping, and
   configured unknown-execution-status mapping.
+- Binance new-order gateway pre-submit exchangeInfo validation for symbol
+  trading status, symbol order-type/time-in-force permissions, price tick
+  filters, lot-size filters, and explicit notional filters when current
+  exchange metadata is available. Catalog defaults now enable this validation
+  for every configured Binance market so the bot does not treat exchange
+  rejections as the normal validation layer.
 - Core order execution pipeline converts synchronous, asynchronous, and null
   gateway submission failures into conservative `UNKNOWN` `OrderResultEvent`
   records for journal/projection recovery.
@@ -477,8 +483,10 @@ Binance parity gaps to close before claiming full connector support:
   event handling and service validation. The API can list order interventions,
   position interventions, and manual-review decisions, but no operator UI or
   multi-order/position acknowledgement workflow exists yet.
-- All products: enforce exchange filters in risk/execution before order
-  submission; do not rely on Binance rejections as validation.
+- All products: extend exchange-filter enforcement beyond first new-order
+  gateway coverage to order-list placement, cancel-replace, amend/modify,
+  batch placement, filter types that need live weighted-average prices, and
+  core planner/risk checks before provider-specific command mapping.
 
 ## Target Stack
 

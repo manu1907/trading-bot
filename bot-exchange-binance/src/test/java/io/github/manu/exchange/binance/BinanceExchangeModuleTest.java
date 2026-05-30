@@ -365,6 +365,10 @@ class BinanceExchangeModuleTest {
                 """));
         BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
                 provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
                 Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
                 httpTransport,
                 null
@@ -401,6 +405,10 @@ class BinanceExchangeModuleTest {
                 """));
         BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
                 provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
                 Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
                 httpTransport,
                 null
@@ -414,6 +422,35 @@ class BinanceExchangeModuleTest {
             assertThat(value.getStatus()).isEqualTo(OrderResultStatus.UNKNOWN);
             assertThat(value.getRejectCode()).isEqualTo("-1000");
             assertThat(value.getRejectMessage()).contains("Unknown error");
+        });
+    }
+
+    @Test
+    void rejects_order_command_before_http_when_exchange_filter_fails() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+
+        runtimeModule.configure(config);
+        TradingEventEnvelope<?> result = runtimeModule.submit(OrderCommandEvent.newBuilder(orderCommand())
+                .setQuantity("0.0005")
+                .build()).join();
+
+        assertThat(httpTransport.calls()).isEmpty();
+        assertThat(result.eventType()).isEqualTo(TradingEventType.ORDER_RESULT);
+        assertThat((OrderResultEvent) result.value()).satisfies(value -> {
+            assertThat(value.getStatus()).isEqualTo(OrderResultStatus.REJECTED);
+            assertThat(value.getRejectCode()).isEqualTo("VALIDATION");
+            assertThat(value.getRejectMessage()).contains("quantity 0.0005 is below exchangeInfo minimum 0.001");
         });
     }
 
@@ -561,6 +598,16 @@ class BinanceExchangeModuleTest {
                 .build();
     }
 
+    private BinanceExchangeMetadataService exchangeMetadataService() {
+        return new BinanceExchangeMetadataService(rest -> new BinanceExchangeInfoClient(
+                rest,
+                new ExchangeInfoHttpTransport(),
+                JsonMapperFactory.create(),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                new BinanceExchangeInfoParser()
+        ));
+    }
+
     private BigDecimal decimal(String value) {
         return new BigDecimal(value);
     }
@@ -634,6 +681,58 @@ class BinanceExchangeModuleTest {
 
         List<FakeCall> calls() {
             return List.copyOf(calls);
+        }
+    }
+
+    private static final class ExchangeInfoHttpTransport implements BinanceHttpTransport {
+
+        @Override
+        public BinanceHttpResponse sendPublic(URI uri, String method) {
+            return new BinanceHttpResponse(200, """
+                    {
+                      "timezone": "UTC",
+                      "rateLimits": [],
+                      "assets": [],
+                      "symbols": [
+                        {
+                          "symbol": "BTCUSDT",
+                          "status": "TRADING",
+                          "baseAsset": "BTC",
+                          "quoteAsset": "USDT",
+                          "orderTypes": ["LIMIT", "MARKET"],
+                          "timeInForce": ["GTC", "IOC", "FOK"],
+                          "filters": [
+                            {
+                              "filterType": "PRICE_FILTER",
+                              "minPrice": "0.10",
+                              "maxPrice": "1000000",
+                              "tickSize": "0.10"
+                            },
+                            {
+                              "filterType": "LOT_SIZE",
+                              "minQty": "0.001",
+                              "maxQty": "100",
+                              "stepSize": "0.001"
+                            },
+                            {
+                              "filterType": "MIN_NOTIONAL",
+                              "notional": "5"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                    """);
+        }
+
+        @Override
+        public BinanceHttpResponse send(
+                BinanceSignedRequest request,
+                String method,
+                String apiKey,
+                String apiKeyHeader
+        ) {
+            throw new UnsupportedOperationException("signed requests are not used by exchangeInfo metadata tests");
         }
     }
 

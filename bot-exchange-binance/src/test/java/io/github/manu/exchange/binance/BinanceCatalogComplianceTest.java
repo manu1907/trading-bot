@@ -94,6 +94,11 @@ class BinanceCatalogComplianceTest {
             assertThat(markets.required("options").required("options_account")
                     .required("auto_cancel_all_open_orders_mutations_enabled").asBoolean())
                     .isFalse();
+            for (String market : EXPECTED_MARKETS) {
+                assertThat(markets.required(market).required("trading")
+                        .required("enforce_exchange_filters").asBoolean())
+                        .isTrue();
+            }
         }
     }
 

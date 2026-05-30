@@ -5,6 +5,7 @@ import tools.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 final class BinanceExchangeInfoParser {
 
@@ -102,6 +103,11 @@ final class BinanceExchangeInfoParser {
                     textOrNull(item.path("maxQty")),
                     textOrNull(item.path("stepSize")),
                     textOrNull(item.path("notional")),
+                    textOrNull(item.path("minNotional")),
+                    textOrNull(item.path("maxNotional")),
+                    optionalBoolean(item.path("applyToMarket")).orElse(null),
+                    optionalBoolean(item.path("applyMinToMarket")).orElse(null),
+                    optionalBoolean(item.path("applyMaxToMarket")).orElse(null),
                     textOrNull(item.path("multiplierUp")),
                     textOrNull(item.path("multiplierDown")),
                     textOrNull(item.path("multiplierDecimal")),
@@ -142,5 +148,12 @@ final class BinanceExchangeInfoParser {
             return null;
         }
         return node.asInt();
+    }
+
+    private Optional<Boolean> optionalBoolean(JsonNode node) {
+        if (node.isMissingNode() || node.isNull()) {
+            return Optional.empty();
+        }
+        return Optional.of(node.asBoolean());
     }
 }
