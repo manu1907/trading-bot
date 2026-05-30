@@ -35,6 +35,35 @@ class TradingEventHandlerRegistryTest {
     }
 
     @Test
+    void separates_live_and_replay_handlers() {
+        List<String> handled = new ArrayList<>();
+        TradingEventHandler liveOnly = ignored -> {
+            handled.add("live");
+            return CompletableFuture.completedFuture(null);
+        };
+        TradingEventHandler replayOnly = ignored -> {
+            handled.add("replay");
+            return CompletableFuture.completedFuture(null);
+        };
+        TradingEventHandlerRegistry registry = new TradingEventHandlerRegistry(List.of(
+                TradingEventHandlerRegistration.liveOnly(TradingEventType.ORDER_COMMAND, liveOnly),
+                TradingEventHandlerRegistration.replayOnly(TradingEventType.ORDER_COMMAND, replayOnly)
+        ));
+
+        registry.handlerFor(TradingEventType.ORDER_COMMAND).handle(null).join();
+        registry.replayHandlerFor(TradingEventType.ORDER_COMMAND).handle(null).join();
+
+        assertThat(handled).containsExactly("live", "replay");
+    }
+
+    @Test
+    void missing_replay_handler_is_noop() {
+        TradingEventHandlerRegistry registry = new TradingEventHandlerRegistry(List.of());
+
+        registry.replayHandlerFor(TradingEventType.ORDER_COMMAND).handle(null).join();
+    }
+
+    @Test
     void missing_handler_returns_failed_future() {
         TradingEventHandlerRegistry registry = new TradingEventHandlerRegistry(List.of());
 

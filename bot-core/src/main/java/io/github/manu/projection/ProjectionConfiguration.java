@@ -61,6 +61,11 @@ public class ProjectionConfiguration {
     }
 
     @Bean
+    TradingEventHandlerRegistration orderCommandProjectionHandler(TradingStateProjection projection) {
+        return TradingEventHandlerRegistration.replayOnly(TradingEventType.ORDER_COMMAND, projection);
+    }
+
+    @Bean
     TradingEventHandlerRegistration orderResultProjectionHandler(TradingStateProjection projection) {
         return new TradingEventHandlerRegistration(TradingEventType.ORDER_RESULT, projection);
     }

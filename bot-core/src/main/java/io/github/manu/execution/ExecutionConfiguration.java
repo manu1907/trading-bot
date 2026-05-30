@@ -30,7 +30,7 @@ public class ExecutionConfiguration {
     @Bean
     @ConditionalOnProperty(prefix = "trading.execution.pipeline", name = "enabled", havingValue = "true")
     TradingEventHandlerRegistration orderExecutionPipelineHandler(OrderExecutionPipeline pipeline) {
-        return new TradingEventHandlerRegistration(TradingEventType.ORDER_COMMAND, pipeline);
+        return TradingEventHandlerRegistration.liveOnly(TradingEventType.ORDER_COMMAND, pipeline);
     }
 
     @Bean

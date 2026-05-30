@@ -41,7 +41,7 @@ public final class JournalRecoveryService {
     private void replay(JournaledTradingEvent journaled) {
         try {
             TradingEventEnvelope<?> envelope = decode(journaled.event());
-            TradingEventHandler handler = handlerRegistry.handlerFor(envelope.eventType());
+            TradingEventHandler handler = handlerRegistry.replayHandlerFor(envelope.eventType());
             handler.handle(envelope).join();
         } catch (RuntimeException ex) {
             throw new JournalException("Failed to replay journal event at index " + journaled.index(), unwrap(ex));

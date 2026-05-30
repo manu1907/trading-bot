@@ -6,6 +6,9 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
+import io.github.manu.events.v1.OrderCommandEvent;
+import io.github.manu.events.v1.OrderCommandSide;
+import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
@@ -156,6 +159,23 @@ class TradingStateProjectionTest {
                     assertThat(order.executedQuantity()).isEqualTo("0.05");
                     assertThat(order.eventId()).isEqualTo("evt-exec");
                     assertThat(order.updatedAt()).isEqualTo(timestamp(31));
+                });
+    }
+
+    @Test
+    void projects_replayed_order_command_as_pending_order_identity() {
+        ProjectionUpdate update = projection.apply(orderCommand("evt-command", timestamp(33)));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-1");
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.status()).isEqualTo("COMMAND_RECEIVED");
+                    assertThat(order.updateSource()).isEqualTo("ORDER_COMMAND");
+                    assertThat(order.managedByBot()).isTrue();
+                    assertThat(order.updatedAt()).isEqualTo(timestamp(33));
                 });
     }
 
@@ -570,6 +590,35 @@ class TradingStateProjectionTest {
         return TradingEventEnvelope.of(
                 TradingEventType.RISK_DECISION,
                 TradingEventKeys.symbol(TradingEventType.RISK_DECISION, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<OrderCommandEvent> orderCommand(String eventId, Instant requestedAt) {
+        OrderCommandEvent event = OrderCommandEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setCommandId("cmd-1")
+                .setStrategyId("lfa")
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setSide(OrderCommandSide.BUY)
+                .setOrderType(OrderCommandType.LIMIT)
+                .setQuantity("0.10")
+                .setPrice("100")
+                .setReduceOnly(false)
+                .setClosePosition(false)
+                .setClientOrderId("client-1")
+                .setIdempotencyKey("idem-1")
+                .setRequestedAtMicros(requestedAt)
+                .setAttributes(Map.of())
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.ORDER_COMMAND,
+                TradingEventKeys.order(TradingEventType.ORDER_COMMAND, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"),
                 event
         );
     }

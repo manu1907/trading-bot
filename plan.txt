@@ -81,7 +81,9 @@ The bot is not professional-execution-ready until these gaps are closed:
   later order/user-data/reconciliation event resolves the order state.
   Projection-backed idempotency now rejects commands that reuse an already
   projected command ID or client order ID after restart, when enabled by the
-  catalog idempotency policy.
+  catalog idempotency policy. Journal recovery now separates replay-safe
+  handlers from live side-effect handlers, so old order commands can rebuild
+  projected order identity without resubmitting through the execution pipeline.
 - The risk gate now conservatively stops new order commands when the target
   projection has unresolved external or unplanned order intervention. Manual
   intervention handling is configurable per order/position intervention through
@@ -288,9 +290,11 @@ Implemented Binance foundations:
   idempotency keys for the same provider/environment/account/market before a
   gateway submit can happen. The risk gate also checks replayed projection
   state for duplicate command IDs and client order IDs after restart when
-  `reject_projected_duplicates` is enabled. The remaining gap is the tiny
-  pre-result window where a command was admitted but no order result or
-  user-data/reconciliation event has been projected yet.
+  `reject_projected_duplicates` is enabled. `ORDER_COMMAND` events are
+  projected only during replay, closing the pre-result restart window without
+  racing live execution. Remaining durable lifecycle work includes explicit
+  command state transitions, retries, cancel/replace, and reconciliation-driven
+  remediation for unknown exchange status.
 - Binance `OrderExecutionGateway` adapter for new-order submission, including
   core-to-Binance command mapping, Binance-specific command attributes,
   normalized `OrderResultEvent` output, validation rejection mapping, and

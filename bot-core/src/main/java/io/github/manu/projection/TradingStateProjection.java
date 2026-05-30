@@ -5,6 +5,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
+import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RiskDecision;
@@ -62,6 +63,7 @@ public final class TradingStateProjection implements TradingEventHandler {
         return switch (envelope.eventType()) {
             case BALANCE_UPDATE -> applyBalance(envelope, cast(envelope.value(), BalanceUpdateEvent.class));
             case POSITION_UPDATE -> applyPosition(envelope, cast(envelope.value(), PositionUpdateEvent.class));
+            case ORDER_COMMAND -> applyOrderCommand(envelope, cast(envelope.value(), OrderCommandEvent.class));
             case ORDER_RESULT -> applyOrderResult(envelope, cast(envelope.value(), OrderResultEvent.class));
             case EXECUTION_REPORT -> applyExecutionReport(envelope, cast(envelope.value(), ExecutionReportEvent.class));
             case RISK_UPDATE -> applyRisk(envelope, cast(envelope.value(), RiskUpdateEvent.class));
@@ -383,6 +385,43 @@ public final class TradingStateProjection implements TradingEventHandler {
                 eventId
         );
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), positions, state);
+    }
+
+    private ProjectionUpdate applyOrderCommand(TradingEventEnvelope<?> envelope, OrderCommandEvent event) {
+        String eventId = value(event.getEventId());
+        String entityKey = key(
+                event.getProvider(),
+                event.getEnvironment(),
+                event.getAccount(),
+                event.getMarket(),
+                event.getSymbol(),
+                event.getClientOrderId()
+        );
+        OrderState state = new OrderState(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                value(event.getSymbol()),
+                value(event.getCommandId()),
+                value(event.getClientOrderId()),
+                null,
+                "COMMAND_RECEIVED",
+                null,
+                value(event.getPrice()),
+                value(event.getQuantity()),
+                null,
+                null,
+                null,
+                "ORDER_COMMAND",
+                null,
+                true,
+                false,
+                null,
+                event.getRequestedAtMicros(),
+                eventId
+        );
+        return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), orders, state);
     }
 
     private ProjectionUpdate applyOrderResult(TradingEventEnvelope<?> envelope, OrderResultEvent event) {

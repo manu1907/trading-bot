@@ -7,6 +7,9 @@ import io.github.manu.events.TradingEventMessageCodec;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.ConfigChangeEvent;
 import io.github.manu.events.v1.ConfigChangeSource;
+import io.github.manu.events.v1.OrderCommandEvent;
+import io.github.manu.events.v1.OrderCommandSide;
+import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.StrategySignalEvent;
 import io.github.manu.events.v1.StrategySignalType;
 import io.github.manu.events.v1.TradingEventKey;
@@ -110,6 +113,38 @@ class JournalRecoveryServiceTest {
         assertThat(handled).containsExactly("signal");
     }
 
+    @Test
+    void skips_live_only_handlers_during_journal_recovery() {
+        TradingEventMessageCodec codec = new TradingEventMessageCodec();
+        SerializedTradingEvent command = codec.serialize(orderCommandEnvelope());
+        InMemoryTradingEventJournal journal = new InMemoryTradingEventJournal(List.of(
+                new JournaledTradingEvent(12, command)
+        ));
+        List<String> handled = new ArrayList<>();
+        TradingEventHandlerRegistry registry = new TradingEventHandlerRegistry(List.of(
+                TradingEventHandlerRegistration.liveOnly(
+                        TradingEventType.ORDER_COMMAND,
+                        envelope -> {
+                            handled.add("live-command");
+                            return CompletableFuture.completedFuture(null);
+                        }
+                ),
+                TradingEventHandlerRegistration.replayOnly(
+                        TradingEventType.ORDER_COMMAND,
+                        envelope -> {
+                            handled.add("replay-command");
+                            return CompletableFuture.completedFuture(null);
+                        }
+                )
+        ));
+        JournalRecoveryService recoveryService = new JournalRecoveryService(journal, registry);
+
+        JournalRecoveryReport report = recoveryService.replayAll();
+
+        assertThat(report.replayedEvents()).isEqualTo(1);
+        assertThat(handled).containsExactly("replay-command");
+    }
+
     private static TradingEventEnvelope<StrategySignalEvent> strategySignalEnvelope() {
         TradingEventKey key = TradingEventKeys.strategy(TradingEventType.STRATEGY_SIGNAL, "lfa");
         StrategySignalEvent signal = StrategySignalEvent.newBuilder()
@@ -163,6 +198,40 @@ class JournalRecoveryServiceTest {
                 .setAttributes(Map.of())
                 .build();
         return TradingEventEnvelope.of(TradingEventType.CONFIG_CHANGE, key, event);
+    }
+
+    private static TradingEventEnvelope<OrderCommandEvent> orderCommandEnvelope() {
+        TradingEventKey key = TradingEventKeys.order(
+                TradingEventType.ORDER_COMMAND,
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                "BTCUSDT",
+                "tb-recovery-001"
+        );
+        OrderCommandEvent event = OrderCommandEvent.newBuilder()
+                .setEventId("evt-command")
+                .setSchemaVersion(1)
+                .setCommandId("cmd-recovery-001")
+                .setStrategyId("lfa")
+                .setProvider("binance")
+                .setEnvironment("demo")
+                .setAccount("main")
+                .setMarket("usdm_futures")
+                .setSymbol("BTCUSDT")
+                .setSide(OrderCommandSide.BUY)
+                .setOrderType(OrderCommandType.LIMIT)
+                .setQuantity("0.001")
+                .setPrice("50000.00")
+                .setReduceOnly(false)
+                .setClosePosition(false)
+                .setClientOrderId("tb-recovery-001")
+                .setIdempotencyKey("idem-recovery-001")
+                .setRequestedAtMicros(TIMESTAMP)
+                .setAttributes(Map.of())
+                .build();
+        return TradingEventEnvelope.of(TradingEventType.ORDER_COMMAND, key, event);
     }
 
     private record InMemoryTradingEventJournal(List<JournaledTradingEvent> events) implements TradingEventJournal {

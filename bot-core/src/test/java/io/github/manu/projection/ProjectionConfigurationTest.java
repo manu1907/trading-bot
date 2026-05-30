@@ -41,6 +41,7 @@ class ProjectionConfigurationTest {
                             .toList();
 
                     assertThat(eventTypes).contains(
+                            TradingEventType.ORDER_COMMAND,
                             TradingEventType.BALANCE_UPDATE,
                             TradingEventType.POSITION_UPDATE,
                             TradingEventType.ORDER_RESULT,
@@ -49,6 +50,10 @@ class ProjectionConfigurationTest {
                             TradingEventType.RISK_DECISION,
                             TradingEventType.INTERVENTION_ACKNOWLEDGEMENT
                     );
+                    assertThat(context.getBean("orderCommandProjectionHandler", TradingEventHandlerRegistration.class).live())
+                            .isFalse();
+                    assertThat(context.getBean("orderCommandProjectionHandler", TradingEventHandlerRegistration.class).replay())
+                            .isTrue();
                 });
     }
 
