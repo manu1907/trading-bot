@@ -160,6 +160,19 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void finds_projected_orders_by_command_id_for_restart_idempotency() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+
+        assertThat(projection.ordersByCommandId(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "cmd-1"))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.commandId()).isEqualTo("cmd-1");
+                });
+        assertThat(projection.ordersByCommandId(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "missing-command")).isEmpty();
+    }
+
+    @Test
     void tracks_unknown_order_status_until_newer_order_state_resolves_it() {
         projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(35)));
 

@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 @Component
 public final class OrderRiskGate {
@@ -30,6 +31,9 @@ public final class OrderRiskGate {
     private static final String EXTERNAL_ORDER_INTERVENTION_REASON = "intervention:external_order";
     private static final String EXTERNAL_POSITION_INTERVENTION_REASON = "intervention:external_position";
     private static final String UNKNOWN_ORDER_STATUS_REASON = "order_status:unknown";
+    private static final String PROJECTED_DUPLICATE_COMMAND_ID_REASON = "execution:projected_duplicate_command_id";
+    private static final String PROJECTED_DUPLICATE_CLIENT_ORDER_ID_REASON =
+            "execution:projected_duplicate_client_order_id";
 
     private final ExecutionProperties properties;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
@@ -103,12 +107,15 @@ public final class OrderRiskGate {
                     manualInterventionDecision(properties.riskGate().manualIntervention(), command);
             ManualInterventionDecision unknownOrderStatusDecision =
                     unknownOrderStatusDecision(properties.riskGate().unknownOrderStatus(), command);
+            ProjectionIdempotencyDecision projectionIdempotencyDecision = projectionIdempotencyDecision(command);
             reasons.addAll(reconciliationReasons);
             reasons.addAll(manualInterventionDecision.reasons());
             reasons.addAll(unknownOrderStatusDecision.reasons());
+            reasons.addAll(projectionIdempotencyDecision.reasons());
             if (!reconciliationReasons.isEmpty()
                     || manualInterventionDecision.reject()
-                    || unknownOrderStatusDecision.reject()) {
+                    || unknownOrderStatusDecision.reject()
+                    || projectionIdempotencyDecision.reject()) {
                 decision = RiskDecision.REJECTED;
             } else if (manualInterventionDecision.manualReview() || unknownOrderStatusDecision.manualReview()) {
                 decision = RiskDecision.MANUAL_REVIEW;
@@ -209,6 +216,68 @@ public final class OrderRiskGate {
         return decisionFor(unknownOrderStatus.action(), UNKNOWN_ORDER_STATUS_REASON);
     }
 
+    private ProjectionIdempotencyDecision projectionIdempotencyDecision(OrderCommandEvent command) {
+        if (!properties.idempotency().enabled() || !properties.idempotency().rejectProjectedDuplicates()) {
+            return ProjectionIdempotencyDecision.none();
+        }
+        List<TradingStateProjection.OrderState> commandMatches = tradingStateProjection.ordersByCommandId(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket()),
+                value(command.getCommandId())
+        );
+        if (!commandMatches.isEmpty()) {
+            TradingStateProjection.OrderState match = commandMatches.getFirst();
+            return ProjectionIdempotencyDecision.reject(
+                    PROJECTED_DUPLICATE_COMMAND_ID_REASON,
+                    duplicateAttributes(
+                            "projected_duplicate_command_id",
+                            value(command.getCommandId()),
+                            "projected_duplicate_client_order_id",
+                            match.clientOrderId()
+                    )
+            );
+        }
+        Optional<TradingStateProjection.OrderState> clientOrderMatch = tradingStateProjection.order(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket()),
+                value(command.getSymbol()),
+                value(command.getClientOrderId())
+        );
+        if (clientOrderMatch.isPresent()) {
+            TradingStateProjection.OrderState match = clientOrderMatch.orElseThrow();
+            return ProjectionIdempotencyDecision.reject(
+                    PROJECTED_DUPLICATE_CLIENT_ORDER_ID_REASON,
+                    duplicateAttributes(
+                            "projected_duplicate_client_order_id",
+                            value(command.getClientOrderId()),
+                            "projected_duplicate_command_id",
+                            match.commandId()
+                    )
+            );
+        }
+        return ProjectionIdempotencyDecision.none();
+    }
+
+    private Map<CharSequence, CharSequence> duplicateAttributes(
+            String firstKey,
+            String firstValue,
+            String secondKey,
+            String secondValue
+    ) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        if (firstValue != null) {
+            attributes.put(firstKey, firstValue);
+        }
+        if (secondValue != null) {
+            attributes.put(secondKey, secondValue);
+        }
+        return Map.copyOf(attributes);
+    }
+
     private ManualInterventionDecision decisionFor(
             ExecutionProperties.InterventionAction action,
             String reason
@@ -273,6 +342,11 @@ public final class OrderRiskGate {
                 "unknown_order_status_action",
                 properties.riskGate().unknownOrderStatus().action().name()
         );
+        attributes.put(
+                "projected_idempotency_reject_duplicates",
+                Boolean.toString(properties.idempotency().rejectProjectedDuplicates())
+        );
+        attributes.putAll(projectionIdempotencyDecision(command).attributes());
         return Map.copyOf(attributes);
     }
 
@@ -281,6 +355,24 @@ public final class OrderRiskGate {
             boolean reject,
             boolean manualReview
     ) {
+    }
+
+    private record ProjectionIdempotencyDecision(
+            List<String> reasons,
+            boolean reject,
+            Map<CharSequence, CharSequence> attributes
+    ) {
+
+        private static ProjectionIdempotencyDecision none() {
+            return new ProjectionIdempotencyDecision(List.of(), false, Map.of());
+        }
+
+        private static ProjectionIdempotencyDecision reject(
+                String reason,
+                Map<CharSequence, CharSequence> attributes
+        ) {
+            return new ProjectionIdempotencyDecision(List.of(reason), true, attributes);
+        }
     }
 
     private String signalId(OrderCommandEvent command) {

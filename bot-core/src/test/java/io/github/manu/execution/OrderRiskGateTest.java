@@ -119,6 +119,57 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void rejects_order_when_projected_command_id_already_exists_after_restart() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithProjectedOrder("cmd-001", "tb-lfa-old"))
+                .evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("execution:projected_duplicate_command_id");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes())
+                .containsEntry("projected_duplicate_command_id", "cmd-001")
+                .containsEntry("projected_duplicate_client_order_id", "tb-lfa-old")
+                .containsEntry("projected_idempotency_reject_duplicates", "true");
+    }
+
+    @Test
+    void rejects_order_when_projected_client_order_id_already_exists_after_restart() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithProjectedOrder("cmd-old", "tb-lfa-001"))
+                .evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("execution:projected_duplicate_client_order_id");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes())
+                .containsEntry("projected_duplicate_command_id", "cmd-old")
+                .containsEntry("projected_duplicate_client_order_id", "tb-lfa-001");
+    }
+
+    @Test
+    void can_be_configured_to_allow_projected_duplicate_order_identity() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(
+                null,
+                new ExecutionProperties.RiskGate(
+                        true,
+                        new ExecutionProperties.Reconciliation(false, true, true)
+                ),
+                new ExecutionProperties.Idempotency(true, 100_000, false)
+        );
+
+        RiskDecisionEvent decision = gate(properties, projectionWithProjectedOrder("cmd-001", "tb-lfa-001"))
+                .evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes()).containsEntry("projected_idempotency_reject_duplicates", "false");
+    }
+
+    @Test
     void can_be_configured_to_reject_external_order_intervention_without_manual_review() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
         ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
@@ -366,6 +417,41 @@ class OrderRiskGateTest {
                         null,
                         NOW,
                         "evt-unknown-order"
+                )),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection projectionWithProjectedOrder(String commandId, String clientOrderId) {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        commandId,
+                        clientOrderId,
+                        "12345",
+                        OrderResultStatus.ACCEPTED.name(),
+                        "NEW",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "ORDER_RESULT",
+                        null,
+                        true,
+                        false,
+                        null,
+                        NOW,
+                        "evt-projected-order"
                 )),
                 List.of(),
                 List.of()

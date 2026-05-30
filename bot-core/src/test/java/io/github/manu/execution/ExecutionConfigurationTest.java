@@ -16,7 +16,8 @@ class ExecutionConfigurationTest {
                 .withPropertyValues(
                         "trading.execution.risk-gate.manual-intervention.external-order-action=reject-new-commands",
                         "trading.execution.risk-gate.manual-intervention.external-position-action=manual-review",
-                        "trading.execution.risk-gate.unknown-order-status.action=reject-new-commands"
+                        "trading.execution.risk-gate.unknown-order-status.action=reject-new-commands",
+                        "trading.execution.idempotency.reject-projected-duplicates=false"
                 )
                 .run(context -> {
                     assertThat(context).hasSingleBean(ExecutionProperties.class);
@@ -29,6 +30,7 @@ class ExecutionConfigurationTest {
                             .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
                     assertThat(properties.riskGate().unknownOrderStatus().action())
                             .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
+                    assertThat(properties.idempotency().rejectProjectedDuplicates()).isFalse();
                 });
     }
 }

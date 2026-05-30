@@ -21,6 +21,7 @@ class ExecutionPropertiesTest {
         assertThat(properties.riskGate().unknownOrderStatus().rejectUnknownOrderStatus()).isTrue();
         assertThat(properties.riskGate().unknownOrderStatus().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+        assertThat(properties.idempotency().rejectProjectedDuplicates()).isTrue();
     }
 
     @Test

@@ -79,6 +79,9 @@ The bot is not professional-execution-ready until these gaps are closed:
   silent pipeline failure. The risk gate now treats unresolved `UNKNOWN` order
   status as a configurable stop condition, defaulting to manual review until a
   later order/user-data/reconciliation event resolves the order state.
+  Projection-backed idempotency now rejects commands that reuse an already
+  projected command ID or client order ID after restart, when enabled by the
+  catalog idempotency policy.
 - The risk gate now conservatively stops new order commands when the target
   projection has unresolved external or unplanned order intervention. Manual
   intervention handling is configurable per order/position intervention through
@@ -283,7 +286,11 @@ Implemented Binance foundations:
   `trading.execution.idempotency`; enabled by default and bounded by
   `max_tracked_keys` in the catalog. It rejects duplicate command IDs or
   idempotency keys for the same provider/environment/account/market before a
-  gateway submit can happen. Durable restart-safe idempotency remains a gap.
+  gateway submit can happen. The risk gate also checks replayed projection
+  state for duplicate command IDs and client order IDs after restart when
+  `reject_projected_duplicates` is enabled. The remaining gap is the tiny
+  pre-result window where a command was admitted but no order result or
+  user-data/reconciliation event has been projected yet.
 - Binance `OrderExecutionGateway` adapter for new-order submission, including
   core-to-Binance command mapping, Binance-specific command attributes,
   normalized `OrderResultEvent` output, validation rejection mapping, and

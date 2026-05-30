@@ -183,23 +183,30 @@ public record ExecutionProperties(
 
     public record Idempotency(
             Boolean enabled,
-            Integer maxTrackedKeys
+            Integer maxTrackedKeys,
+            Boolean rejectProjectedDuplicates
     ) {
 
         private static final int DEFAULT_MAX_TRACKED_KEYS = 100_000;
 
+        @ConstructorBinding
         public Idempotency {
             enabled = enabled == null || enabled;
             maxTrackedKeys = maxTrackedKeys == null
                     ? Integer.valueOf(DEFAULT_MAX_TRACKED_KEYS)
                     : maxTrackedKeys;
+            rejectProjectedDuplicates = rejectProjectedDuplicates == null || rejectProjectedDuplicates;
             if (maxTrackedKeys.intValue() < 1) {
                 throw new IllegalArgumentException("maxTrackedKeys must be positive");
             }
         }
 
+        public Idempotency(Boolean enabled, Integer maxTrackedKeys) {
+            this(enabled, maxTrackedKeys, null);
+        }
+
         static Idempotency defaults() {
-            return new Idempotency(true, DEFAULT_MAX_TRACKED_KEYS);
+            return new Idempotency(true, DEFAULT_MAX_TRACKED_KEYS, true);
         }
     }
 }
