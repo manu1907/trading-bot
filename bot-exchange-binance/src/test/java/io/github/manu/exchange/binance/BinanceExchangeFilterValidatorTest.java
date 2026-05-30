@@ -39,6 +39,20 @@ class BinanceExchangeFilterValidatorTest {
     }
 
     @Test
+    void rejects_modify_order_with_quantity_below_minimum() {
+        assertThatThrownBy(() -> validator.validate(modifyCommand("0.0005", "50000.10"), metadata()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+    }
+
+    @Test
+    void rejects_modify_order_with_price_not_aligned_to_tick_size() {
+        assertThatThrownBy(() -> validator.validate(modifyCommand("0.002", "50000.15"), metadata()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("price 50000.15 does not align with exchangeInfo step 0.10");
+    }
+
+    @Test
     void rejects_symbol_that_is_not_trading() {
         BinanceExchangeMetadata haltedMetadata = metadata("BREAK", "BTCUSDT");
 
@@ -78,6 +92,18 @@ class BinanceExchangeFilterValidatorTest {
                 null,
                 null,
                 null,
+                null
+        );
+    }
+
+    private BinanceModifyOrderCommand modifyCommand(String quantity, String price) {
+        return new BinanceModifyOrderCommand(
+                "BTCUSDT",
+                12345L,
+                null,
+                "BUY",
+                new BigDecimal(quantity),
+                new BigDecimal(price),
                 null
         );
     }

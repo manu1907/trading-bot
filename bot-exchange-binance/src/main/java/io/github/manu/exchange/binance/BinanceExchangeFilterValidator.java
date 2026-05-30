@@ -12,7 +12,7 @@ final class BinanceExchangeFilterValidator {
 
     void validate(BinanceOrderCommand command, BinanceExchangeMetadata metadata) {
         List<String> errors = new ArrayList<>();
-        BinanceExchangeMetadata.SymbolInfo symbol = symbol(command, metadata)
+        BinanceExchangeMetadata.SymbolInfo symbol = symbol(command.symbol(), metadata)
                 .orElse(null);
         if (symbol == null) {
             throw new IllegalArgumentException("exchangeInfo has no symbol metadata for " + command.symbol());
@@ -28,11 +28,28 @@ final class BinanceExchangeFilterValidator {
         }
     }
 
+    void validate(BinanceModifyOrderCommand command, BinanceExchangeMetadata metadata) {
+        List<String> errors = new ArrayList<>();
+        BinanceExchangeMetadata.SymbolInfo symbol = symbol(command.symbol(), metadata)
+                .orElse(null);
+        if (symbol == null) {
+            throw new IllegalArgumentException("exchangeInfo has no symbol metadata for " + command.symbol());
+        }
+
+        validateSymbolTrading(symbol, errors);
+        validatePriceFilter(command, symbol, errors);
+        validateLotSize(command, symbol, errors);
+        validateNotional(command, symbol, errors);
+
+        if (!errors.isEmpty()) {
+            throw new IllegalArgumentException(String.join("; ", errors));
+        }
+    }
+
     private Optional<BinanceExchangeMetadata.SymbolInfo> symbol(
-            BinanceOrderCommand command,
+            String symbol,
             BinanceExchangeMetadata metadata
     ) {
-        String symbol = command.symbol();
         return metadata.symbols().stream()
                 .filter(candidate -> candidate.symbol().equalsIgnoreCase(symbol))
                 .findFirst();
@@ -43,9 +60,7 @@ final class BinanceExchangeFilterValidator {
             BinanceExchangeMetadata.SymbolInfo symbol,
             List<String> errors
     ) {
-        if (hasText(symbol.status()) && !"TRADING".equalsIgnoreCase(symbol.status())) {
-            errors.add("symbol " + symbol.symbol() + " is not trading; exchangeInfo status is " + symbol.status());
-        }
+        validateSymbolTrading(symbol, errors);
         if (!symbol.orderTypes().isEmpty()
                 && hasText(command.type())
                 && !containsIgnoreCase(symbol.orderTypes(), command.type())) {
@@ -58,6 +73,12 @@ final class BinanceExchangeFilterValidator {
         }
     }
 
+    private void validateSymbolTrading(BinanceExchangeMetadata.SymbolInfo symbol, List<String> errors) {
+        if (hasText(symbol.status()) && !"TRADING".equalsIgnoreCase(symbol.status())) {
+            errors.add("symbol " + symbol.symbol() + " is not trading; exchangeInfo status is " + symbol.status());
+        }
+    }
+
     private void validatePriceFilter(
             BinanceOrderCommand command,
             BinanceExchangeMetadata.SymbolInfo symbol,
@@ -67,6 +88,14 @@ final class BinanceExchangeFilterValidator {
             validatePriceValue("price", command.price(), filter, errors);
             validatePriceValue("stopPrice", command.stopPrice(), filter, errors);
         });
+    }
+
+    private void validatePriceFilter(
+            BinanceModifyOrderCommand command,
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            List<String> errors
+    ) {
+        filter(symbol, "PRICE_FILTER").ifPresent(filter -> validatePriceValue("price", command.price(), filter, errors));
     }
 
     private void validatePriceValue(
@@ -96,6 +125,14 @@ final class BinanceExchangeFilterValidator {
             validateQuantityValue("quantity", command.quantity(), quantityFilter, errors);
         }
         lotSize.ifPresent(filter -> validateQuantityValue("icebergQty", command.icebergQty(), filter, errors));
+    }
+
+    private void validateLotSize(
+            BinanceModifyOrderCommand command,
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            List<String> errors
+    ) {
+        filter(symbol, "LOT_SIZE").ifPresent(filter -> validateQuantityValue("quantity", command.quantity(), filter, errors));
     }
 
     private void validateQuantityValue(
@@ -135,11 +172,34 @@ final class BinanceExchangeFilterValidator {
         });
     }
 
+    private void validateNotional(
+            BinanceModifyOrderCommand command,
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            List<String> errors
+    ) {
+        BigDecimal notional = notional(command);
+        if (notional == null) {
+            return;
+        }
+        filter(symbol, "MIN_NOTIONAL").ifPresent(filter -> validateMin("notional", notional, minNotional(filter), errors));
+        filter(symbol, "NOTIONAL").ifPresent(filter -> {
+            validateMin("notional", notional, minNotional(filter), errors);
+            validateMax("notional", notional, decimal(filter.maxNotional()), errors);
+        });
+    }
+
     private BigDecimal notional(BinanceOrderCommand command) {
         if (command.price() != null && command.quantity() != null) {
             return command.price().multiply(command.quantity());
         }
         return command.quoteOrderQty();
+    }
+
+    private BigDecimal notional(BinanceModifyOrderCommand command) {
+        if (command.price() != null && command.quantity() != null) {
+            return command.price().multiply(command.quantity());
+        }
+        return null;
     }
 
     private BigDecimal minNotional(BinanceExchangeMetadata.Filter filter) {

@@ -313,7 +313,9 @@ Implemented Binance foundations:
   covers Binance batch new-order placement when exchange-filter enforcement is
   enabled, so lower-level batch clients cannot bypass the single-order gateway
   validation path. Spot cancel-replace replacement orders now use the same
-  guard before the cancel-replace request is sent.
+  guard before the cancel-replace request is sent. Futures modify-order and
+  modify-multiple-order commands now validate explicit price, quantity, and
+  notional fields against exchangeInfo before any modify request is sent.
 - Core order execution pipeline converts synchronous, asynchronous, and null
   gateway submission failures into conservative `UNKNOWN` `OrderResultEvent`
   records for journal/projection recovery.
@@ -489,8 +491,9 @@ Binance parity gaps to close before claiming full connector support:
   multi-order/position acknowledgement workflow exists yet.
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, and cancel-replace replacement coverage to order-list
-  placement, amend/modify, filter types that need live weighted-average prices,
-  and core planner/risk checks before provider-specific command mapping.
+  placement, spot amend-keep-priority quantity changes, filter types that need
+  live weighted-average prices, and core planner/risk checks before
+  provider-specific command mapping.
 
 ## Target Stack
 

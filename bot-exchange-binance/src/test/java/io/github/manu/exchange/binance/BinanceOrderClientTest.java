@@ -141,6 +141,17 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void rejects_modify_order_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(orderResponse("MODIFY", "NEW"));
+        BinanceOrderClient client = clientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.modifyOrder(modifyOrder("0.0005", "50000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
     void modifies_multiple_orders_and_preserves_per_order_errors() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
                 [
@@ -177,6 +188,20 @@ class BinanceOrderClientTest {
             assertThat(call.method()).isEqualTo("PUT");
             assertThat(call.uri()).contains("/fapi/v1/batchOrders?batchOrders=");
         });
+    }
+
+    @Test
+    void rejects_modify_multiple_orders_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "[]"));
+        BinanceOrderClient client = clientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.modifyMultipleOrders(List.of(
+                modifyOrder(),
+                modifyOrder("0.002", "50000.15")
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("price 50000.15 does not align with exchangeInfo step 0.10");
+        assertThat(transport.calls()).isEmpty();
     }
 
     @Test
@@ -1522,13 +1547,17 @@ class BinanceOrderClientTest {
     }
 
     private BinanceModifyOrderCommand modifyOrder() {
+        return modifyOrder("0.001", "50000");
+    }
+
+    private BinanceModifyOrderCommand modifyOrder(String quantity, String price) {
         return new BinanceModifyOrderCommand(
                 "BTCUSDT",
                 12345L,
                 null,
                 "BUY",
-                new BigDecimal("0.001"),
-                new BigDecimal("50000"),
+                new BigDecimal(quantity),
+                new BigDecimal(price),
                 null
         );
     }

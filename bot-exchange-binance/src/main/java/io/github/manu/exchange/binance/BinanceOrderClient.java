@@ -137,10 +137,12 @@ final class BinanceOrderClient {
     }
 
     BinanceOrderResult modifyOrder(BinanceModifyOrderCommand command) {
+        validateModifyExchangeFilters(List.of(command));
         return parseOrderResult(send(requestFactory.modifyOrder(command, privateCredential), "PUT"));
     }
 
     List<BinanceBatchOrderResult> modifyMultipleOrders(List<BinanceModifyOrderCommand> commands) {
+        validateModifyExchangeFilters(commands);
         return parseBatchOrderResults(send(requestFactory.modifyMultipleOrders(commands, privateCredential), "PUT"), "modify multiple orders");
     }
 
@@ -301,6 +303,18 @@ final class BinanceOrderClient {
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
         BinanceExchangeFilterValidator validator = new BinanceExchangeFilterValidator();
         for (BinanceOrderCommand command : commands) {
+            validator.validate(command, metadata);
+        }
+    }
+
+    private void validateModifyExchangeFilters(List<BinanceModifyOrderCommand> commands) {
+        if (!binance.trading().enforceExchangeFilters() || commands == null || commands.isEmpty()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        BinanceExchangeFilterValidator validator = new BinanceExchangeFilterValidator();
+        for (BinanceModifyOrderCommand command : commands) {
             validator.validate(command, metadata);
         }
     }
