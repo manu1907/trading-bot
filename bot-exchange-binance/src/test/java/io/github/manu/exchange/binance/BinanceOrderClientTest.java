@@ -641,6 +641,25 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void rejects_cancel_replace_replacement_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.cancelReplace(new BinanceCancelReplaceCommand(
+                spotLimitOrder("replace-1", "0.0005"),
+                "STOP_ON_FAILURE",
+                "cancel-1",
+                null,
+                33L,
+                "ONLY_NEW",
+                null
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
     void preserves_spot_cancel_replace_partial_failure_body() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(409, """
                 {
@@ -1330,6 +1349,22 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceOrderClient spotClientWithExchangeFilterEnforcement(
+            FakeTransport transport,
+            BinanceExchangeMetadata exchangeMetadata
+    ) {
+        return new BinanceOrderClient(
+                spotBinanceWithExchangeFilterEnforcement(),
+                "api-key",
+                "test-secret",
+                FIXED_CLOCK,
+                0,
+                transport,
+                JsonMapperFactory.create(),
+                exchangeMetadata
+        );
+    }
+
     private BinanceOrderClient optionsClient(FakeTransport transport) {
         return new BinanceOrderClient(
                 optionsBinance(),
@@ -1449,6 +1484,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceOrderCommand spotLimitOrder(String clientOrderId) {
+        return spotLimitOrder(clientOrderId, "0.001");
+    }
+
+    private BinanceOrderCommand spotLimitOrder(String clientOrderId, String quantity) {
         return new BinanceOrderCommand(
                 "BTCUSDT",
                 "BUY",
@@ -1465,7 +1504,7 @@ class BinanceOrderClientTest {
                 null,
                 clientOrderId,
                 null,
-                new BigDecimal("0.001"),
+                new BigDecimal(quantity),
                 null,
                 new BigDecimal("49900"),
                 null,
@@ -1779,6 +1818,25 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceProperties spotBinanceWithExchangeFilterEnforcement() {
+        return new BinanceProperties(
+                "SPOT",
+                new BinanceProperties.Credentials(
+                        "binance_real_main",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_DATA", "TRADE")
+                ),
+                spotRest(),
+                websocket(),
+                spotTrading(true),
+                userData(),
+                null,
+                null
+        );
+    }
+
     private BinanceProperties optionsBinance() {
         return new BinanceProperties(
                 "OPTIONS",
@@ -1982,6 +2040,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceProperties.Trading spotTrading() {
+        return spotTrading(false);
+    }
+
+    private BinanceProperties.Trading spotTrading(boolean enforceExchangeFilters) {
         return new BinanceProperties.Trading(
                 "/api/v3/order",
                 "/api/v3/order/test",
@@ -2036,7 +2098,9 @@ class BinanceOrderClientTest {
                 true,
                 false,
                 false,
-                false
+                false,
+                false,
+                enforceExchangeFilters
         );
     }
 

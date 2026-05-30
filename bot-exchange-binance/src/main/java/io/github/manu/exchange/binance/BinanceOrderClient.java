@@ -234,6 +234,10 @@ final class BinanceOrderClient {
     }
 
     BinanceCancelReplaceResult cancelReplace(BinanceCancelReplaceCommand command) {
+        Objects.requireNonNull(command, "command");
+        if (command.replacementOrder() != null) {
+            validateExchangeFilters(List.of(command.replacementOrder()));
+        }
         BinanceHttpResponse response = sendRaw(requestFactory.cancelReplace(command, privateCredential), "POST");
         JsonNode root = readJson(response);
         if ((response.statusCode() >= 200 && response.statusCode() <= 299) || root.hasNonNull("data")) {
