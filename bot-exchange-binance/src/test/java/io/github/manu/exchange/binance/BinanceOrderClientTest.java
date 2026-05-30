@@ -602,6 +602,19 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void rejects_amend_keep_priority_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.amendKeepPriority(
+                new BinanceAmendKeepPriorityCommand("BTCUSDT", 33L, null, "amended-33", new BigDecimal("0.0005"))
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("newQty 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
     void cancels_and_replaces_spot_order() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
                 {

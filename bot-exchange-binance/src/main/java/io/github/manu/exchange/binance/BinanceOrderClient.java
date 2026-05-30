@@ -232,6 +232,7 @@ final class BinanceOrderClient {
     }
 
     BinanceAmendKeepPriorityResult amendKeepPriority(BinanceAmendKeepPriorityCommand command) {
+        validateAmendExchangeFilters(command);
         return toAmendKeepPriorityResult(readJson(send(requestFactory.amendKeepPriority(command, privateCredential), "PUT")));
     }
 
@@ -317,6 +318,15 @@ final class BinanceOrderClient {
         for (BinanceModifyOrderCommand command : commands) {
             validator.validate(command, metadata);
         }
+    }
+
+    private void validateAmendExchangeFilters(BinanceAmendKeepPriorityCommand command) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        new BinanceExchangeFilterValidator().validate(command, metadata);
     }
 
     private BinanceHttpResponse send(BinanceSignedRequest request, String method) {

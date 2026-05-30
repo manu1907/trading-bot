@@ -46,6 +46,22 @@ final class BinanceExchangeFilterValidator {
         }
     }
 
+    void validate(BinanceAmendKeepPriorityCommand command, BinanceExchangeMetadata metadata) {
+        List<String> errors = new ArrayList<>();
+        BinanceExchangeMetadata.SymbolInfo symbol = symbol(command.symbol(), metadata)
+                .orElse(null);
+        if (symbol == null) {
+            throw new IllegalArgumentException("exchangeInfo has no symbol metadata for " + command.symbol());
+        }
+
+        validateSymbolTrading(symbol, errors);
+        validateLotSize(command, symbol, errors);
+
+        if (!errors.isEmpty()) {
+            throw new IllegalArgumentException(String.join("; ", errors));
+        }
+    }
+
     private Optional<BinanceExchangeMetadata.SymbolInfo> symbol(
             String symbol,
             BinanceExchangeMetadata metadata
@@ -133,6 +149,14 @@ final class BinanceExchangeFilterValidator {
             List<String> errors
     ) {
         filter(symbol, "LOT_SIZE").ifPresent(filter -> validateQuantityValue("quantity", command.quantity(), filter, errors));
+    }
+
+    private void validateLotSize(
+            BinanceAmendKeepPriorityCommand command,
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            List<String> errors
+    ) {
+        filter(symbol, "LOT_SIZE").ifPresent(filter -> validateQuantityValue("newQty", command.newQuantity(), filter, errors));
     }
 
     private void validateQuantityValue(

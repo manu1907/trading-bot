@@ -53,6 +53,13 @@ class BinanceExchangeFilterValidatorTest {
     }
 
     @Test
+    void rejects_amend_keep_priority_with_quantity_below_minimum() {
+        assertThatThrownBy(() -> validator.validate(amendCommand("0.0005"), metadata()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("newQty 0.0005 is below exchangeInfo minimum 0.001");
+    }
+
+    @Test
     void rejects_symbol_that_is_not_trading() {
         BinanceExchangeMetadata haltedMetadata = metadata("BREAK", "BTCUSDT");
 
@@ -105,6 +112,16 @@ class BinanceExchangeFilterValidatorTest {
                 new BigDecimal(quantity),
                 new BigDecimal(price),
                 null
+        );
+    }
+
+    private BinanceAmendKeepPriorityCommand amendCommand(String quantity) {
+        return new BinanceAmendKeepPriorityCommand(
+                "BTCUSDT",
+                12345L,
+                null,
+                "amend-1",
+                new BigDecimal(quantity)
         );
     }
 
