@@ -96,6 +96,28 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void rejects_batch_order_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "[]"));
+        BinanceOrderClient client = clientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.placeBatchOrders(List.of(limitOrder(), limitOrder("0.0005"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
+    void requires_exchange_metadata_when_filter_enforcement_is_enabled() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, orderResponseBody("tb_1", "NEW")));
+        BinanceOrderClient client = clientWithExchangeFilterEnforcement(transport, null);
+
+        assertThatThrownBy(() -> client.placeOrder(limitOrder()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exchangeInfo metadata is required");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
     void modifies_order_and_parses_response() {
         FakeTransport transport = new FakeTransport(orderResponse("MODIFY", "NEW"));
         BinanceOrderClient client = client(transport);
@@ -1280,6 +1302,22 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceOrderClient clientWithExchangeFilterEnforcement(
+            FakeTransport transport,
+            BinanceExchangeMetadata exchangeMetadata
+    ) {
+        return new BinanceOrderClient(
+                binanceWithExchangeFilterEnforcement(),
+                "api-key",
+                "test-secret",
+                FIXED_CLOCK,
+                0,
+                transport,
+                JsonMapperFactory.create(),
+                exchangeMetadata
+        );
+    }
+
     private BinanceOrderClient spotClient(FakeTransport transport) {
         return new BinanceOrderClient(
                 spotBinance(),
@@ -1305,6 +1343,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceOrderCommand limitOrder() {
+        return limitOrder("0.001");
+    }
+
+    private BinanceOrderCommand limitOrder(String quantity) {
         return new BinanceOrderCommand(
                 "BTCUSDT",
                 "BUY",
@@ -1321,11 +1363,79 @@ class BinanceOrderClientTest {
                 null,
                 "tb_1",
                 null,
-                new BigDecimal("0.001"),
+                new BigDecimal(quantity),
                 null,
                 new BigDecimal("50000"),
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private BinanceExchangeMetadata exchangeMetadata() {
+        return new BinanceExchangeMetadata(
+                Instant.parse("2026-05-22T20:00:00Z"),
+                "https://demo-fapi.binance.com",
+                "UTC",
+                List.of(),
+                List.of(),
+                List.of(new BinanceExchangeMetadata.SymbolInfo(
+                        "BTCUSDT",
+                        null,
+                        "PERPETUAL",
+                        null,
+                        null,
+                        "TRADING",
+                        "BTC",
+                        "USDT",
+                        "USDT",
+                        2,
+                        3,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        List.of("LIMIT", "MARKET"),
+                        List.of("GTC", "IOC", "FOK"),
+                        List.of(
+                                exchangeFilter("PRICE_FILTER", "0.10", "1000000", "0.10", null, null, null, null),
+                                exchangeFilter("LOT_SIZE", null, null, null, "0.001", "100", "0.001", null),
+                                exchangeFilter("MIN_NOTIONAL", null, null, null, null, null, null, "5")
+                        )
+                ))
+        );
+    }
+
+    private BinanceExchangeMetadata.Filter exchangeFilter(
+            String filterType,
+            String minPrice,
+            String maxPrice,
+            String tickSize,
+            String minQty,
+            String maxQty,
+            String stepSize,
+            String notional
+    ) {
+        return new BinanceExchangeMetadata.Filter(
+                filterType,
+                minPrice,
+                maxPrice,
+                tickSize,
+                minQty,
+                maxQty,
+                stepSize,
+                notional,
                 null,
                 null,
                 null,
@@ -1631,6 +1741,25 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceProperties binanceWithExchangeFilterEnforcement() {
+        return new BinanceProperties(
+                "FUTURES_USD_M",
+                new BinanceProperties.Credentials(
+                        "binance_demo_main",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_STREAM", "USER_DATA", "TRADE")
+                ),
+                rest(),
+                websocket(),
+                trading(true),
+                userData(),
+                null,
+                futuresAccount()
+        );
+    }
+
     private BinanceProperties spotBinance() {
         return new BinanceProperties(
                 "SPOT",
@@ -1788,6 +1917,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceProperties.Trading trading() {
+        return trading(false);
+    }
+
+    private BinanceProperties.Trading trading(boolean enforceExchangeFilters) {
         return new BinanceProperties.Trading(
                 "/fapi/v1/order",
                 null,
@@ -1842,7 +1975,9 @@ class BinanceOrderClientTest {
                 false,
                 false,
                 false,
-                false
+                false,
+                false,
+                enforceExchangeFilters
         );
     }
 

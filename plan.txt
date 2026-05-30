@@ -309,7 +309,10 @@ Implemented Binance foundations:
   filters, lot-size filters, and explicit notional filters when current
   exchange metadata is available. Catalog defaults now enable this validation
   for every configured Binance market so the bot does not treat exchange
-  rejections as the normal validation layer.
+  rejections as the normal validation layer. The same client-level guard now
+  covers Binance batch new-order placement when exchange-filter enforcement is
+  enabled, so lower-level batch clients cannot bypass the single-order gateway
+  validation path.
 - Core order execution pipeline converts synchronous, asynchronous, and null
   gateway submission failures into conservative `UNKNOWN` `OrderResultEvent`
   records for journal/projection recovery.
@@ -483,10 +486,10 @@ Binance parity gaps to close before claiming full connector support:
   event handling and service validation. The API can list order interventions,
   position interventions, and manual-review decisions, but no operator UI or
   multi-order/position acknowledgement workflow exists yet.
-- All products: extend exchange-filter enforcement beyond first new-order
-  gateway coverage to order-list placement, cancel-replace, amend/modify,
-  batch placement, filter types that need live weighted-average prices, and
-  core planner/risk checks before provider-specific command mapping.
+- All products: extend exchange-filter enforcement beyond first new-order and
+  batch-placement coverage to order-list placement, cancel-replace,
+  amend/modify, filter types that need live weighted-average prices, and core
+  planner/risk checks before provider-specific command mapping.
 
 ## Target Stack
 

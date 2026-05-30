@@ -212,19 +212,19 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                 Duration.ofMillis(binance.rest().responseTimeoutMillis())
         )
                 : httpTransportOverride;
-        BinanceOrderClient orderClient = new BinanceOrderClient(
-                binance,
-                binance.credentials().apiKey(),
-                binance.credentials().apiSecret(),
-                clock,
-                0L,
-                httpTransport,
-                JsonMapperFactory.create()
-        );
         BinanceOrderResult result;
         try {
+            BinanceOrderClient orderClient = new BinanceOrderClient(
+                    binance,
+                    binance.credentials().apiKey(),
+                    binance.credentials().apiSecret(),
+                    clock,
+                    0L,
+                    httpTransport,
+                    JsonMapperFactory.create(),
+                    resolveExchangeMetadata(binance)
+            );
             BinanceOrderCommand binanceCommand = toBinanceOrderCommand(command, binance);
-            validateExchangeFilters(binanceCommand, binance);
             result = orderClient.placeOrder(binanceCommand);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(toEnvelope(command, null, "VALIDATION", e.getMessage(), OrderResultStatus.REJECTED));
@@ -612,9 +612,9 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         );
     }
 
-    private void validateExchangeFilters(BinanceOrderCommand command, BinanceProperties binance) {
+    private BinanceExchangeMetadata resolveExchangeMetadata(BinanceProperties binance) {
         if (!binance.trading().enforceExchangeFilters()) {
-            return;
+            return null;
         }
         BinanceExchangeMetadataService service = metadataServiceProvider == null
                 ? null
@@ -622,13 +622,12 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         if (service == null) {
             throw new IllegalArgumentException("exchangeInfo metadata service is required for Binance exchange-filter validation");
         }
-        BinanceExchangeMetadata metadata = service.current()
+        return service.current()
                 .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl()))
                 .or(() -> service.refresh(config)
                         .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl())))
                 .orElseThrow(() -> new IllegalArgumentException(
                         "exchangeInfo metadata is required for Binance exchange-filter validation"));
-        new BinanceExchangeFilterValidator().validate(command, metadata);
     }
 
     private TradingEventEnvelope<OrderResultEvent> toEnvelope(

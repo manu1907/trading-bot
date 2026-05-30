@@ -23,6 +23,7 @@ final class BinanceOrderClient {
     private final BinanceHttpTransport transport;
     private final ObjectMapper jsonMapper;
     private final BinanceRateLimitTracker rateLimitTracker;
+    private final Optional<BinanceExchangeMetadata> exchangeMetadata;
 
     BinanceOrderClient(BinanceProperties binance,
                        String apiKey,
@@ -51,7 +52,38 @@ final class BinanceOrderClient {
                        long serverTimeOffsetMillis,
                        BinanceHttpTransport transport,
                        ObjectMapper jsonMapper) {
-        this(binance, apiKey, privateCredential, clock, serverTimeOffsetMillis, transport, jsonMapper, new BinanceRateLimitTracker(clock));
+        this(
+                binance,
+                apiKey,
+                privateCredential,
+                clock,
+                serverTimeOffsetMillis,
+                transport,
+                jsonMapper,
+                new BinanceRateLimitTracker(clock),
+                null
+        );
+    }
+
+    BinanceOrderClient(BinanceProperties binance,
+                       String apiKey,
+                       String privateCredential,
+                       Clock clock,
+                       long serverTimeOffsetMillis,
+                       BinanceHttpTransport transport,
+                       ObjectMapper jsonMapper,
+                       BinanceExchangeMetadata exchangeMetadata) {
+        this(
+                binance,
+                apiKey,
+                privateCredential,
+                clock,
+                serverTimeOffsetMillis,
+                transport,
+                jsonMapper,
+                new BinanceRateLimitTracker(clock),
+                exchangeMetadata
+        );
     }
 
     BinanceOrderClient(BinanceProperties binance,
@@ -62,6 +94,28 @@ final class BinanceOrderClient {
                        BinanceHttpTransport transport,
                        ObjectMapper jsonMapper,
                        BinanceRateLimitTracker rateLimitTracker) {
+        this(
+                binance,
+                apiKey,
+                privateCredential,
+                clock,
+                serverTimeOffsetMillis,
+                transport,
+                jsonMapper,
+                rateLimitTracker,
+                null
+        );
+    }
+
+    BinanceOrderClient(BinanceProperties binance,
+                       String apiKey,
+                       String privateCredential,
+                       Clock clock,
+                       long serverTimeOffsetMillis,
+                       BinanceHttpTransport transport,
+                       ObjectMapper jsonMapper,
+                       BinanceRateLimitTracker rateLimitTracker,
+                       BinanceExchangeMetadata exchangeMetadata) {
         this.binance = Objects.requireNonNull(binance, "binance");
         this.apiKey = requireText(apiKey, "apiKey");
         this.privateCredential = requireText(privateCredential, "privateCredential");
@@ -69,13 +123,16 @@ final class BinanceOrderClient {
         this.transport = Objects.requireNonNull(transport, "transport");
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
         this.rateLimitTracker = Objects.requireNonNull(rateLimitTracker, "rateLimitTracker");
+        this.exchangeMetadata = Optional.ofNullable(exchangeMetadata);
     }
 
     BinanceOrderResult placeOrder(BinanceOrderCommand command) {
+        validateExchangeFilters(List.of(command));
         return parseOrderResult(send(requestFactory.newOrder(command, privateCredential), "POST"));
     }
 
     List<BinanceBatchOrderResult> placeBatchOrders(List<BinanceOrderCommand> commands) {
+        validateExchangeFilters(commands);
         return parseBatchOrderResults(send(requestFactory.batchOrders(commands, privateCredential), "POST"), "batch orders");
     }
 
@@ -230,6 +287,18 @@ final class BinanceOrderClient {
 
     Optional<BinanceRateLimitUsage> currentRateLimitUsage() {
         return rateLimitTracker.current();
+    }
+
+    private void validateExchangeFilters(List<BinanceOrderCommand> commands) {
+        if (!binance.trading().enforceExchangeFilters() || commands == null || commands.isEmpty()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        BinanceExchangeFilterValidator validator = new BinanceExchangeFilterValidator();
+        for (BinanceOrderCommand command : commands) {
+            validator.validate(command, metadata);
+        }
     }
 
     private BinanceHttpResponse send(BinanceSignedRequest request, String method) {
