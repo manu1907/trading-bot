@@ -119,6 +119,19 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void requires_manual_review_when_target_has_unresolved_order_command() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithUnresolvedOrderCommand()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_command:unresolved");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes()).containsEntry("unresolved_order_commands", "1");
+        assertThat(decision.getAttributes()).containsEntry("pending_order_command_action", "MANUAL_REVIEW");
+    }
+
+    @Test
     void rejects_order_when_projected_command_id_already_exists_after_restart() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -211,6 +224,27 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void can_be_configured_to_reject_unresolved_order_command_without_manual_review() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                null,
+                new ExecutionProperties.PendingOrderCommand(
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithUnresolvedOrderCommand()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_command:unresolved");
+        assertThat(decision.getAttributes()).containsEntry("pending_order_command_action", "REJECT_NEW_COMMANDS");
+    }
+
+    @Test
     void can_be_configured_to_allow_external_position_intervention() {
         ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
                 true,
@@ -255,6 +289,24 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
         assertThat(decision.getAttributes()).containsEntry("unknown_order_statuses", "1");
         assertThat(decision.getAttributes()).containsEntry("unknown_order_status_action", "ALLOW_NEW_COMMANDS");
+    }
+
+    @Test
+    void can_be_configured_to_allow_unresolved_order_command() {
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                null,
+                new ExecutionProperties.PendingOrderCommand(false, null)
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithUnresolvedOrderCommand()).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes()).containsEntry("unresolved_order_commands", "1");
+        assertThat(decision.getAttributes()).containsEntry("pending_order_command_action", "ALLOW_NEW_COMMANDS");
     }
 
     @Test
@@ -417,6 +469,41 @@ class OrderRiskGateTest {
                         null,
                         NOW,
                         "evt-unknown-order"
+                )),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection projectionWithUnresolvedOrderCommand() {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        "cmd-pending",
+                        "tb-lfa-pending",
+                        null,
+                        "COMMAND_RECEIVED",
+                        null,
+                        "50000.00",
+                        "0.001",
+                        null,
+                        null,
+                        null,
+                        "ORDER_COMMAND",
+                        null,
+                        true,
+                        false,
+                        null,
+                        NOW,
+                        "evt-pending-order-command"
                 )),
                 List.of(),
                 List.of()

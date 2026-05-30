@@ -177,6 +177,25 @@ class TradingStateProjectionTest {
                     assertThat(order.managedByBot()).isTrue();
                     assertThat(order.updatedAt()).isEqualTo(timestamp(33));
                 });
+        assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+        assertThat(projection.unresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEqualTo(1);
+    }
+
+    @Test
+    void tracks_unresolved_order_command_until_newer_order_state_resolves_it() {
+        projection.apply(orderCommand("evt-command", timestamp(33)));
+
+        assertThat(projection.unresolvedOrderCommandStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.unresolvedCommand()).isTrue();
+                });
+
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+
+        assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.unresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isZero();
     }
 
     @Test
@@ -401,6 +420,26 @@ class TradingStateProjectionTest {
                 .satisfies(decision -> assertThat(decision.reasons()).containsExactly("order_status:unknown"));
 
         projection.apply(executionReport("evt-resolved", "NEW", "0", timestamp(42)));
+
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEmpty();
+    }
+
+    @Test
+    void resolved_order_command_hides_unresolved_command_manual_review_decision() {
+        projection.apply(orderCommand("evt-command", timestamp(40)));
+        projection.apply(riskDecision(
+                "evt-risk-decision-review",
+                RiskDecision.MANUAL_REVIEW,
+                timestamp(41),
+                List.of("order_command:unresolved"),
+                Map.of("pending_order_command_action", "MANUAL_REVIEW")
+        ));
+
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> assertThat(decision.reasons()).containsExactly("order_command:unresolved"));
+
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(42)));
 
         assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEmpty();
     }

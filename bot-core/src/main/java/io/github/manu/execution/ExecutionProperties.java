@@ -38,7 +38,8 @@ public record ExecutionProperties(
             Boolean enabled,
             Reconciliation reconciliation,
             ManualIntervention manualIntervention,
-            UnknownOrderStatus unknownOrderStatus
+            UnknownOrderStatus unknownOrderStatus,
+            PendingOrderCommand pendingOrderCommand
     ) {
 
         @ConstructorBinding
@@ -47,14 +48,24 @@ public record ExecutionProperties(
             reconciliation = reconciliation == null ? Reconciliation.defaults() : reconciliation;
             manualIntervention = manualIntervention == null ? ManualIntervention.defaults() : manualIntervention;
             unknownOrderStatus = unknownOrderStatus == null ? UnknownOrderStatus.defaults() : unknownOrderStatus;
+            pendingOrderCommand = pendingOrderCommand == null ? PendingOrderCommand.defaults() : pendingOrderCommand;
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation) {
-            this(enabled, reconciliation, null, null);
+            this(enabled, reconciliation, null, null, null);
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation, ManualIntervention manualIntervention) {
-            this(enabled, reconciliation, manualIntervention, null);
+            this(enabled, reconciliation, manualIntervention, null, null);
+        }
+
+        public RiskGate(
+                Boolean enabled,
+                Reconciliation reconciliation,
+                ManualIntervention manualIntervention,
+                UnknownOrderStatus unknownOrderStatus
+        ) {
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, null);
         }
 
         static RiskGate defaults() {
@@ -62,7 +73,8 @@ public record ExecutionProperties(
                     true,
                     Reconciliation.defaults(),
                     ManualIntervention.defaults(),
-                    UnknownOrderStatus.defaults()
+                    UnknownOrderStatus.defaults(),
+                    PendingOrderCommand.defaults()
             );
         }
     }
@@ -162,6 +174,26 @@ public record ExecutionProperties(
 
         static UnknownOrderStatus defaults() {
             return new UnknownOrderStatus(true, InterventionAction.MANUAL_REVIEW);
+        }
+    }
+
+    public record PendingOrderCommand(
+            Boolean rejectUnresolvedOrderCommands,
+            InterventionAction action
+    ) {
+
+        @ConstructorBinding
+        public PendingOrderCommand {
+            action = ManualIntervention.resolveAction(
+                    rejectUnresolvedOrderCommands,
+                    action,
+                    "pending order command"
+            );
+            rejectUnresolvedOrderCommands = action.blocksNewCommands();
+        }
+
+        static PendingOrderCommand defaults() {
+            return new PendingOrderCommand(true, InterventionAction.MANUAL_REVIEW);
         }
     }
 

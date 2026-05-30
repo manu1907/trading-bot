@@ -21,6 +21,9 @@ class ExecutionPropertiesTest {
         assertThat(properties.riskGate().unknownOrderStatus().rejectUnknownOrderStatus()).isTrue();
         assertThat(properties.riskGate().unknownOrderStatus().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+        assertThat(properties.riskGate().pendingOrderCommand().rejectUnresolvedOrderCommands()).isTrue();
+        assertThat(properties.riskGate().pendingOrderCommand().action())
+                .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
         assertThat(properties.idempotency().rejectProjectedDuplicates()).isTrue();
     }
 
@@ -57,5 +60,15 @@ class ExecutionPropertiesTest {
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("unknown order status reject flag conflicts with remediation action");
+    }
+
+    @Test
+    void rejects_conflicting_pending_order_command_flag_and_action() {
+        assertThatThrownBy(() -> new ExecutionProperties.PendingOrderCommand(
+                        false,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("pending order command reject flag conflicts with remediation action");
     }
 }

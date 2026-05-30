@@ -187,6 +187,29 @@ public final class TradingStateProjection implements TradingEventHandler {
         return unknownOrderStatuses(provider, environment, account, market) > 0;
     }
 
+    public long unresolvedOrderCommands(String provider, String environment, String account, String market) {
+        return unresolvedOrderCommandStates(provider, environment, account, market).size();
+    }
+
+    public List<OrderState> unresolvedOrderCommandStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        String prefix = key(provider, environment, account, market);
+        return orders.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .filter(OrderState::unresolvedCommand)
+                .toList();
+    }
+
+    public boolean hasUnresolvedOrderCommands(String provider, String environment, String account, String market) {
+        return unresolvedOrderCommands(provider, environment, account, market) > 0;
+    }
+
     public long externalPositionInterventions(String provider, String environment, String account, String market) {
         return externalPositionInterventionStates(provider, environment, account, market).size();
     }
@@ -229,7 +252,8 @@ public final class TradingStateProjection implements TradingEventHandler {
         boolean orderReason = decision.reasons().contains("intervention:external_order");
         boolean positionReason = decision.reasons().contains("intervention:external_position");
         boolean unknownOrderReason = decision.reasons().contains("order_status:unknown");
-        if (!orderReason && !positionReason && !unknownOrderReason) {
+        boolean unresolvedCommandReason = decision.reasons().contains("order_command:unresolved");
+        if (!orderReason && !positionReason && !unknownOrderReason && !unresolvedCommandReason) {
             return true;
         }
         if (orderReason && hasExternalOrderInterventions(
@@ -248,7 +272,15 @@ public final class TradingStateProjection implements TradingEventHandler {
         )) {
             return true;
         }
-        return unknownOrderReason && hasUnknownOrderStatuses(
+        if (unknownOrderReason && hasUnknownOrderStatuses(
+                decision.provider(),
+                decision.environment(),
+                decision.account(),
+                decision.market()
+        )) {
+            return true;
+        }
+        return unresolvedCommandReason && hasUnresolvedOrderCommands(
                 decision.provider(),
                 decision.environment(),
                 decision.account(),
@@ -1019,6 +1051,10 @@ public final class TradingStateProjection implements TradingEventHandler {
 
         public boolean unknownStatus() {
             return "UNKNOWN".equals(status);
+        }
+
+        public boolean unresolvedCommand() {
+            return "COMMAND_RECEIVED".equals(status);
         }
     }
 

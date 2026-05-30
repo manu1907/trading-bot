@@ -36,6 +36,10 @@
         "unknown_order_status": {
           "reject_unknown_order_status": true,
           "action": "MANUAL_REVIEW"
+        },
+        "pending_order_command": {
+          "reject_unresolved_order_commands": true,
+          "action": "MANUAL_REVIEW"
         }
       }
     },

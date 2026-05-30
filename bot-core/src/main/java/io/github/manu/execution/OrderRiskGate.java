@@ -31,6 +31,7 @@ public final class OrderRiskGate {
     private static final String EXTERNAL_ORDER_INTERVENTION_REASON = "intervention:external_order";
     private static final String EXTERNAL_POSITION_INTERVENTION_REASON = "intervention:external_position";
     private static final String UNKNOWN_ORDER_STATUS_REASON = "order_status:unknown";
+    private static final String UNRESOLVED_ORDER_COMMAND_REASON = "order_command:unresolved";
     private static final String PROJECTED_DUPLICATE_COMMAND_ID_REASON = "execution:projected_duplicate_command_id";
     private static final String PROJECTED_DUPLICATE_CLIENT_ORDER_ID_REASON =
             "execution:projected_duplicate_client_order_id";
@@ -107,17 +108,23 @@ public final class OrderRiskGate {
                     manualInterventionDecision(properties.riskGate().manualIntervention(), command);
             ManualInterventionDecision unknownOrderStatusDecision =
                     unknownOrderStatusDecision(properties.riskGate().unknownOrderStatus(), command);
+            ManualInterventionDecision pendingOrderCommandDecision =
+                    pendingOrderCommandDecision(properties.riskGate().pendingOrderCommand(), command);
             ProjectionIdempotencyDecision projectionIdempotencyDecision = projectionIdempotencyDecision(command);
             reasons.addAll(reconciliationReasons);
             reasons.addAll(manualInterventionDecision.reasons());
             reasons.addAll(unknownOrderStatusDecision.reasons());
+            reasons.addAll(pendingOrderCommandDecision.reasons());
             reasons.addAll(projectionIdempotencyDecision.reasons());
             if (!reconciliationReasons.isEmpty()
                     || manualInterventionDecision.reject()
                     || unknownOrderStatusDecision.reject()
+                    || pendingOrderCommandDecision.reject()
                     || projectionIdempotencyDecision.reject()) {
                 decision = RiskDecision.REJECTED;
-            } else if (manualInterventionDecision.manualReview() || unknownOrderStatusDecision.manualReview()) {
+            } else if (manualInterventionDecision.manualReview()
+                    || unknownOrderStatusDecision.manualReview()
+                    || pendingOrderCommandDecision.manualReview()) {
                 decision = RiskDecision.MANUAL_REVIEW;
             } else {
                 reasons.add(APPROVED_REASON);
@@ -214,6 +221,21 @@ public final class OrderRiskGate {
             return new ManualInterventionDecision(List.of(), false, false);
         }
         return decisionFor(unknownOrderStatus.action(), UNKNOWN_ORDER_STATUS_REASON);
+    }
+
+    private ManualInterventionDecision pendingOrderCommandDecision(
+            ExecutionProperties.PendingOrderCommand pendingOrderCommand,
+            OrderCommandEvent command
+    ) {
+        if (!tradingStateProjection.hasUnresolvedOrderCommands(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        )) {
+            return new ManualInterventionDecision(List.of(), false, false);
+        }
+        return decisionFor(pendingOrderCommand.action(), UNRESOLVED_ORDER_COMMAND_REASON);
     }
 
     private ProjectionIdempotencyDecision projectionIdempotencyDecision(OrderCommandEvent command) {
@@ -330,6 +352,13 @@ public final class OrderRiskGate {
                 value(command.getMarket())
         );
         attributes.put("unknown_order_statuses", Long.toString(unknownOrderStatuses));
+        long unresolvedOrderCommands = tradingStateProjection.unresolvedOrderCommands(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        );
+        attributes.put("unresolved_order_commands", Long.toString(unresolvedOrderCommands));
         attributes.put(
                 "external_order_intervention_action",
                 properties.riskGate().manualIntervention().externalOrderAction().name()
@@ -341,6 +370,10 @@ public final class OrderRiskGate {
         attributes.put(
                 "unknown_order_status_action",
                 properties.riskGate().unknownOrderStatus().action().name()
+        );
+        attributes.put(
+                "pending_order_command_action",
+                properties.riskGate().pendingOrderCommand().action().name()
         );
         attributes.put(
                 "projected_idempotency_reject_duplicates",

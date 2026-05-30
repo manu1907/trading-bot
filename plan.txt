@@ -84,6 +84,9 @@ The bot is not professional-execution-ready until these gaps are closed:
   catalog idempotency policy. Journal recovery now separates replay-safe
   handlers from live side-effect handlers, so old order commands can rebuild
   projected order identity without resubmitting through the execution pipeline.
+  Replayed order commands without a later result are treated as unresolved
+  command state and stop new automation by configurable action, defaulting to
+  manual review.
 - The risk gate now conservatively stops new order commands when the target
   projection has unresolved external or unplanned order intervention. Manual
   intervention handling is configurable per order/position intervention through
@@ -292,9 +295,11 @@ Implemented Binance foundations:
   state for duplicate command IDs and client order IDs after restart when
   `reject_projected_duplicates` is enabled. `ORDER_COMMAND` events are
   projected only during replay, closing the pre-result restart window without
-  racing live execution. Remaining durable lifecycle work includes explicit
-  command state transitions, retries, cancel/replace, and reconciliation-driven
-  remediation for unknown exchange status.
+  racing live execution. Unresolved replayed commands now remain visible to the
+  risk gate until a newer order result, user-data event, or reconciliation
+  snapshot resolves them. Remaining durable lifecycle work includes explicit
+  command state transitions, retries, cancel/replace, and
+  reconciliation-driven remediation for unknown exchange status.
 - Binance `OrderExecutionGateway` adapter for new-order submission, including
   core-to-Binance command mapping, Binance-specific command attributes,
   normalized `OrderResultEvent` output, validation rejection mapping, and
