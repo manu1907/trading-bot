@@ -3,6 +3,7 @@ package io.github.manu.execution;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandPositionSide;
 import io.github.manu.events.v1.OrderCommandSide;
@@ -97,6 +98,9 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 .setAccount(account)
                 .setMarket(market)
                 .setSymbol(symbol)
+                .setAction(OrderCommandAction.NEW)
+                .setTargetClientOrderId(null)
+                .setTargetExchangeOrderId(null)
                 .setSide(side(signalType))
                 .setOrderType(orderType)
                 .setPositionSide(positionSide(features).orElse(null))

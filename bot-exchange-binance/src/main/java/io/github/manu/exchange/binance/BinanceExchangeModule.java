@@ -7,6 +7,7 @@ import io.github.manu.events.SerializedTradingEvent;
 import io.github.manu.events.TradingEventCodec;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
@@ -226,8 +227,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                     resolveExchangeMetadata(binance),
                     referencePriceProvider(binance, httpTransport)
             );
-            BinanceOrderCommand binanceCommand = toBinanceOrderCommand(command, binance);
-            result = orderClient.placeOrder(binanceCommand);
+            result = executeOrderCommand(orderClient, command, binance);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(toEnvelope(command, null, "VALIDATION", e.getMessage(), OrderResultStatus.REJECTED));
         } catch (BinanceApiException e) {
@@ -240,6 +240,37 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
             return CompletableFuture.completedFuture(toEnvelope(command, null, rejectCode, e.exchangeMessage(), status));
         }
         return CompletableFuture.completedFuture(toEnvelope(command, result, null, null, null));
+    }
+
+    private BinanceOrderResult executeOrderCommand(
+            BinanceOrderClient orderClient,
+            OrderCommandEvent command,
+            BinanceProperties binance
+    ) {
+        return switch (action(command)) {
+            case NEW -> orderClient.placeOrder(toBinanceOrderCommand(command, binance));
+            case CANCEL -> orderClient.cancelOrder(value(command.getSymbol()), targetClientOrderId(command));
+            case MODIFY -> throw new IllegalArgumentException(
+                    "MODIFY order commands are not wired through the Binance execution gateway yet"
+            );
+        };
+    }
+
+    private OrderCommandAction action(OrderCommandEvent command) {
+        return command.getAction() == null ? OrderCommandAction.NEW : command.getAction();
+    }
+
+    private String targetClientOrderId(OrderCommandEvent command) {
+        String target = value(command.getTargetClientOrderId());
+        if (target != null) {
+            return target;
+        }
+        Map<CharSequence, CharSequence> attributes = command.getAttributes() == null ? Map.of() : command.getAttributes();
+        target = attribute(attributes, null, "target_client_order_id", "origClientOrderId");
+        if (target != null) {
+            return target;
+        }
+        throw new IllegalArgumentException("CANCEL order commands require targetClientOrderId");
     }
 
     @Override

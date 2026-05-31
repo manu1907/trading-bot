@@ -80,6 +80,9 @@ class TradingEventSchemasTest {
         original.put("account", "main");
         original.put("market", "usdm_futures");
         original.put("symbol", "BTCUSDT");
+        original.put("action", enumValue(schema.getField("action").schema(), "NEW"));
+        original.put("targetClientOrderId", null);
+        original.put("targetExchangeOrderId", null);
         original.put("side", enumValue(schema.getField("side").schema(), "BUY"));
         original.put("orderType", enumValue(schema.getField("orderType").schema(), "LIMIT"));
         original.put("positionSide", enumValue(nullableValueSchema(schema.getField("positionSide").schema()), "LONG"));
@@ -101,6 +104,7 @@ class TradingEventSchemasTest {
 
         assertThat(decoded.get("commandId").toString()).isEqualTo("cmd-001");
         assertThat(decoded.get("symbol").toString()).isEqualTo("BTCUSDT");
+        assertThat(decoded.get("action").toString()).isEqualTo("NEW");
         assertThat(decoded.get("side").toString()).isEqualTo("BUY");
         assertThat(decoded.get("quantity").toString()).isEqualTo("0.001");
         assertThat(decoded.get("price").toString()).isEqualTo("50000.10");

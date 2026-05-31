@@ -13,6 +13,9 @@
     { "name": "account", "type": "string" },
     { "name": "market", "type": "string" },
     { "name": "symbol", "type": "string" },
+    { "name": "action", "type": { "type": "enum", "name": "OrderCommandAction", "symbols": ["NEW", "CANCEL", "MODIFY"] }, "default": "NEW" },
+    { "name": "targetClientOrderId", "type": ["null", "string"], "default": null },
+    { "name": "targetExchangeOrderId", "type": ["null", "string"], "default": null },
     { "name": "side", "type": { "type": "enum", "name": "OrderCommandSide", "symbols": ["BUY", "SELL"] } },
     {
       "name": "orderType",

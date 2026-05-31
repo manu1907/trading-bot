@@ -8,6 +8,7 @@ import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventMessageCodec;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandSide;
 import io.github.manu.events.v1.OrderCommandTimeInForce;
@@ -447,6 +448,59 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void routes_cancel_order_commands_through_order_execution_gateway() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, """
+                {
+                  "symbol": "BTCUSDT",
+                  "orderId": 123456,
+                  "clientOrderId": "tb-lfa-001",
+                  "status": "CANCELED",
+                  "side": "BUY",
+                  "type": "LIMIT",
+                  "positionSide": "BOTH",
+                  "price": "50000.00",
+                  "origQty": "0.001",
+                  "executedQty": "0",
+                  "avgPrice": "0",
+                  "cumQuote": "0",
+                  "updateTime": 1772000000002
+                }
+                """));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+        OrderCommandEvent command = OrderCommandEvent.newBuilder(orderCommand())
+                .setAction(OrderCommandAction.CANCEL)
+                .setCommandId("cmd-cancel-001")
+                .setClientOrderId("tb-cancel-001")
+                .setTargetClientOrderId("tb-lfa-001")
+                .build();
+
+        runtimeModule.configure(config);
+        TradingEventEnvelope<?> result = runtimeModule.submit(command).join();
+
+        assertThat(httpTransport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("DELETE");
+            assertThat(call.uri()).contains("/fapi/v1/order");
+            assertThat(call.uri()).contains("symbol=BTCUSDT");
+            assertThat(call.uri()).contains("origClientOrderId=tb-lfa-001");
+        });
+        assertThat((OrderResultEvent) result.value()).satisfies(value -> {
+            assertThat(value.getCommandId()).isEqualTo("cmd-cancel-001");
+            assertThat(value.getClientOrderId()).isEqualTo("tb-lfa-001");
+            assertThat(value.getStatus()).isEqualTo(OrderResultStatus.CANCELED);
+        });
+    }
+
+    @Test
     void maps_unknown_binance_order_execution_status_to_unknown_result() throws Exception {
         ResolvedExchangeConfig config = checkedInResolvedConfig();
         FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(503, """
@@ -631,6 +685,9 @@ class BinanceExchangeModuleTest {
                 .setAccount("main")
                 .setMarket("usdm_futures")
                 .setSymbol("BTCUSDT")
+                .setAction(OrderCommandAction.NEW)
+                .setTargetClientOrderId(null)
+                .setTargetExchangeOrderId(null)
                 .setSide(OrderCommandSide.BUY)
                 .setOrderType(OrderCommandType.LIMIT)
                 .setPositionSide(null)

@@ -348,6 +348,13 @@ Implemented Binance foundations:
   `newOrderRespType`, and `selfTradePreventionMode` into the same validated
   provider command before signing/submission, so catalog profiles can align
   closely with Binance documentation without bypassing capability checks.
+- Core order commands now carry an explicit provider-agnostic action
+  (`NEW`, `CANCEL`, `MODIFY`) plus target order identifiers. Strategy-generated
+  commands are marked `NEW`, and the Binance execution gateway routes
+  `CANCEL` commands with a `targetClientOrderId` through the existing signed
+  cancel-order endpoint. MODIFY remains modeled but intentionally rejected at
+  the gateway until its provider-specific mapping and reconciliation semantics
+  are wired.
 - Core risk gate consumes projected unknown order statuses and blocks new
   automation by configurable action, with catalog defaults set to manual
   review.
@@ -508,8 +515,9 @@ Binance parity gaps to close before claiming full connector support:
   by durable projection state and projection-backed ordering is fully
   implemented and tested against current Binance documentation.
 - All products: extend provider `OrderExecutionGateway` adapters beyond
-  new-order submission, extend strategy-signal planning beyond deterministic
-  first-order command construction and initial scoped feature profiles into
+  new-order submission and initial Binance cancel routing, extend
+  strategy-signal planning beyond deterministic first-order command
+  construction and initial scoped feature profiles into
   market-condition/provider-feature optimization policies, and extend the
   reconciliation runtime with durable replay-safe ordering and
   projection-backed idempotency around stream gaps, process restart, and

@@ -2,6 +2,7 @@ package io.github.manu.execution;
 
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandPositionSide;
 import io.github.manu.events.v1.OrderCommandSide;
@@ -47,6 +48,9 @@ class StrategySignalPlannerTest {
             assertThat(command.getAccount()).isEqualTo("main");
             assertThat(command.getMarket()).isEqualTo("usd_m_futures");
             assertThat(command.getSymbol()).isEqualTo("BTCUSDT");
+            assertThat(command.getAction()).isEqualTo(OrderCommandAction.NEW);
+            assertThat(command.getTargetClientOrderId()).isNull();
+            assertThat(command.getTargetExchangeOrderId()).isNull();
             assertThat(command.getSide()).isEqualTo(OrderCommandSide.BUY);
             assertThat(command.getOrderType()).isEqualTo(OrderCommandType.LIMIT);
             assertThat(command.getTimeInForce()).isEqualTo(OrderCommandTimeInForce.GTC);
