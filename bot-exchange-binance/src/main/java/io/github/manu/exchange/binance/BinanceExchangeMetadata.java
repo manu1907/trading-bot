@@ -87,6 +87,11 @@ public record BinanceExchangeMetadata(
             String multiplierUp,
             String multiplierDown,
             String multiplierDecimal,
+            Integer avgPriceMins,
+            String bidMultiplierUp,
+            String bidMultiplierDown,
+            String askMultiplierUp,
+            String askMultiplierDown,
             Integer limit
     ) {
     }

@@ -333,7 +333,8 @@ Implemented Binance foundations:
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
 - `exchangeInfo` fetch/parse for symbol metadata, filters, rate limits, order
-  types, time-in-force, trigger protection, and precision fields.
+  types, time-in-force, trigger protection, precision fields, percent-price
+  average-price windows, and side-specific percent-price multipliers.
 - Basic order create/query/open/cancel endpoints.
 - Spot pegged-order command fields, validation, and request construction.
 - Margin `sideEffectType` and `autoRepayAtCancel` command fields, validation,
@@ -499,9 +500,9 @@ Binance parity gaps to close before claiming full connector support:
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, Spot order-list placement, cancel-replace replacement,
   futures modify, Spot amend, and Spot SOR coverage to any remaining
-  state-changing order endpoints, filter types that need live weighted-average
-  prices, and core planner/risk checks before provider-specific command
-  mapping.
+  state-changing order endpoints, runtime enforcement for filter types that
+  need live weighted-average prices, and core planner/risk checks before
+  provider-specific command mapping.
 
 ## Target Stack
 

@@ -246,6 +246,11 @@ class BinanceExchangeFilterValidatorTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null
         );
     }

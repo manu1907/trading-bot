@@ -1594,6 +1594,11 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null
         );
     }

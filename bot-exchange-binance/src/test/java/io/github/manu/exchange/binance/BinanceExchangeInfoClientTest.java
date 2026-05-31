@@ -59,7 +59,8 @@ class BinanceExchangeInfoClientTest {
             assertThat(symbol.filters()).containsExactly(
                     filter("PRICE_FILTER", "0.01", "1000000", "0.01", null, null, null, null, null, null, null, null),
                     filter("MIN_NOTIONAL", null, null, null, null, null, null, "5", null, null, null, null),
-                    filter("PERCENT_PRICE", null, null, null, null, null, null, null, "1.1500", "0.8500", "4", null),
+                    percentPriceFilter("1.1500", "0.8500", "4", 5),
+                    percentPriceBySideFilter("1.2000", "0.8000", "1.1000", "0.9000", 3),
                     filter("MAX_NUM_ORDERS", null, null, null, null, null, null, null, null, null, null, 200)
             );
         });
@@ -117,7 +118,77 @@ class BinanceExchangeInfoClientTest {
                 multiplierUp,
                 multiplierDown,
                 multiplierDecimal,
+                null,
+                null,
+                null,
+                null,
+                null,
                 limit
+        );
+    }
+
+    private BinanceExchangeMetadata.Filter percentPriceFilter(
+            String multiplierUp,
+            String multiplierDown,
+            String multiplierDecimal,
+            Integer avgPriceMins
+    ) {
+        return new BinanceExchangeMetadata.Filter(
+                "PERCENT_PRICE",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                multiplierUp,
+                multiplierDown,
+                multiplierDecimal,
+                avgPriceMins,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private BinanceExchangeMetadata.Filter percentPriceBySideFilter(
+            String bidMultiplierUp,
+            String bidMultiplierDown,
+            String askMultiplierUp,
+            String askMultiplierDown,
+            Integer avgPriceMins
+    ) {
+        return new BinanceExchangeMetadata.Filter(
+                "PERCENT_PRICE_BY_SIDE",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                avgPriceMins,
+                bidMultiplierUp,
+                bidMultiplierDown,
+                askMultiplierUp,
+                askMultiplierDown,
+                null
         );
     }
 
@@ -184,7 +255,16 @@ class BinanceExchangeInfoClientTest {
                           "filterType": "PERCENT_PRICE",
                           "multiplierUp": "1.1500",
                           "multiplierDown": "0.8500",
-                          "multiplierDecimal": "4"
+                          "multiplierDecimal": "4",
+                          "avgPriceMins": 5
+                        },
+                        {
+                          "filterType": "PERCENT_PRICE_BY_SIDE",
+                          "bidMultiplierUp": "1.2000",
+                          "bidMultiplierDown": "0.8000",
+                          "askMultiplierUp": "1.1000",
+                          "askMultiplierDown": "0.9000",
+                          "avgPriceMins": 3
                         },
                         {"filterType": "MAX_NUM_ORDERS", "limit": 200}
                       ],

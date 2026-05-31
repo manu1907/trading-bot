@@ -111,6 +111,11 @@ final class BinanceExchangeInfoParser {
                     textOrNull(item.path("multiplierUp")),
                     textOrNull(item.path("multiplierDown")),
                     textOrNull(item.path("multiplierDecimal")),
+                    intOrNull(item.path("avgPriceMins")),
+                    textOrNull(item.path("bidMultiplierUp")),
+                    textOrNull(item.path("bidMultiplierDown")),
+                    textOrNull(item.path("askMultiplierUp")),
+                    textOrNull(item.path("askMultiplierDown")),
                     intOrNull(item.path("limit"))
             ));
         }
