@@ -34,6 +34,18 @@ public class ExecutionConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "trading.execution.signal-planner", name = "enabled", havingValue = "true")
+    StrategySignalPlanner strategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus) {
+        return new StrategySignalPlanner(properties, eventBus);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "trading.execution.signal-planner", name = "enabled", havingValue = "true")
+    TradingEventHandlerRegistration strategySignalPlannerHandler(StrategySignalPlanner planner) {
+        return TradingEventHandlerRegistration.liveOnly(TradingEventType.STRATEGY_SIGNAL, planner);
+    }
+
+    @Bean
     OrderExecutionIdempotencyTracker orderExecutionIdempotencyTracker(ExecutionProperties properties) {
         return new OrderExecutionIdempotencyTracker(properties);
     }

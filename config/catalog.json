@@ -15,6 +15,18 @@
       "pipeline": {
         "enabled": false
       },
+      "signal_planner": {
+        "enabled": false,
+        "defaults": {
+          "provider": null,
+          "environment": null,
+          "account": null,
+          "market": null,
+          "symbol": null,
+          "limit_order_time_in_force": "GTC",
+          "client_order_id_prefix": "tb"
+        }
+      },
       "idempotency": {
         "enabled": true,
         "max_tracked_keys": 100000,

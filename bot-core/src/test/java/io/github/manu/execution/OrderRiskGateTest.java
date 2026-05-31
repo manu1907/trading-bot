@@ -167,6 +167,7 @@ class OrderRiskGateTest {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
         ExecutionProperties properties = new ExecutionProperties(
                 null,
+                null,
                 new ExecutionProperties.RiskGate(
                         true,
                         new ExecutionProperties.Reconciliation(false, true, true)

@@ -78,6 +78,7 @@ class OrderExecutionIdempotencyTrackerTest {
         return new OrderExecutionIdempotencyTracker(new ExecutionProperties(
                 null,
                 null,
+                null,
                 new ExecutionProperties.Idempotency(enabled, maxTrackedKeys)
         ));
     }

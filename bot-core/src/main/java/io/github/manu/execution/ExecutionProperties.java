@@ -9,6 +9,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "trading.execution")
 public record ExecutionProperties(
         Pipeline pipeline,
+        SignalPlanner signalPlanner,
         RiskGate riskGate,
         Idempotency idempotency
 ) {
@@ -16,12 +17,17 @@ public record ExecutionProperties(
     @ConstructorBinding
     public ExecutionProperties {
         pipeline = pipeline == null ? Pipeline.disabled() : pipeline;
+        signalPlanner = signalPlanner == null ? SignalPlanner.disabled() : signalPlanner;
         riskGate = riskGate == null ? RiskGate.defaults() : riskGate;
         idempotency = idempotency == null ? Idempotency.defaults() : idempotency;
     }
 
     public ExecutionProperties(RiskGate riskGate) {
-        this(null, riskGate, null);
+        this(null, null, riskGate, null);
+    }
+
+    public ExecutionProperties(SignalPlanner signalPlanner, RiskGate riskGate) {
+        this(null, signalPlanner, riskGate, null);
     }
 
     public record Pipeline(
@@ -34,6 +40,47 @@ public record ExecutionProperties(
 
         static Pipeline disabled() {
             return new Pipeline(false);
+        }
+    }
+
+    public record SignalPlanner(
+            Boolean enabled,
+            Defaults defaults
+    ) {
+
+        @ConstructorBinding
+        public SignalPlanner {
+            enabled = Boolean.TRUE.equals(enabled);
+            defaults = defaults == null ? Defaults.empty() : defaults;
+        }
+
+        static SignalPlanner disabled() {
+            return new SignalPlanner(false, Defaults.empty());
+        }
+
+        public record Defaults(
+                String provider,
+                String environment,
+                String account,
+                String market,
+                String symbol,
+                String limitOrderTimeInForce,
+                String clientOrderIdPrefix
+        ) {
+
+            @ConstructorBinding
+            public Defaults {
+                limitOrderTimeInForce = limitOrderTimeInForce == null || limitOrderTimeInForce.isBlank()
+                        ? "GTC"
+                        : limitOrderTimeInForce.trim();
+                clientOrderIdPrefix = clientOrderIdPrefix == null || clientOrderIdPrefix.isBlank()
+                        ? "tb"
+                        : clientOrderIdPrefix.trim();
+            }
+
+            static Defaults empty() {
+                return new Defaults(null, null, null, null, null, "GTC", "tb");
+            }
         }
     }
 
