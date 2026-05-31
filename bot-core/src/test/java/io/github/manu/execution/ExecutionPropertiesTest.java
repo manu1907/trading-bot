@@ -24,6 +24,11 @@ class ExecutionPropertiesTest {
         assertThat(properties.riskGate().pendingOrderCommand().rejectUnresolvedOrderCommands()).isTrue();
         assertThat(properties.riskGate().pendingOrderCommand().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+        assertThat(properties.riskGate().orderLimit().enabled()).isTrue();
+        assertThat(properties.riskGate().orderLimit().rejectInvalidNumericFields()).isTrue();
+        assertThat(properties.riskGate().orderLimit().rejectUnboundedNotional()).isTrue();
+        assertThat(properties.riskGate().orderLimit().action())
+                .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
         assertThat(properties.idempotency().rejectProjectedDuplicates()).isTrue();
     }
 
@@ -70,5 +75,33 @@ class ExecutionPropertiesTest {
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("pending order command reject flag conflicts with remediation action");
+    }
+
+    @Test
+    void rejects_non_positive_order_limit_configuration() {
+        assertThatThrownBy(() -> new ExecutionProperties.OrderLimit(
+                        true,
+                        true,
+                        "0",
+                        null,
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("maxQuantity must be positive when configured");
+    }
+
+    @Test
+    void rejects_non_decimal_order_limit_configuration() {
+        assertThatThrownBy(() -> new ExecutionProperties.OrderLimit(
+                        true,
+                        true,
+                        null,
+                        "not-a-decimal",
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("maxNotional must be a decimal number");
     }
 }

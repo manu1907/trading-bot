@@ -339,6 +339,10 @@ Implemented Binance foundations:
 - Core risk gate consumes projected unknown order statuses and blocks new
   automation by configurable action, with catalog defaults set to manual
   review.
+- Core risk gate now performs provider-agnostic order sizing checks before
+  provider mapping: invalid numeric fields and non-positive sizing fields are
+  rejected, and optional catalog-configured max quantity/max notional caps can
+  reject or require manual review before any connector receives the command.
 - HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
 - Timestamp/recvWindow handling, server-time offset, and deterministic
   signature payload construction.
@@ -511,8 +515,9 @@ Binance parity gaps to close before claiming full connector support:
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, Spot order-list placement, cancel-replace replacement,
   futures modify, Spot amend, Spot SOR, and Spot WebSocket API order-placement
-  coverage to any remaining state-changing order endpoints and core planner/risk
-  checks before provider-specific command mapping.
+  coverage to any remaining state-changing order endpoints and extend
+  provider-agnostic planner/risk checks beyond the initial sizing/notional guard
+  before provider-specific command mapping.
 
 ## Target Stack
 

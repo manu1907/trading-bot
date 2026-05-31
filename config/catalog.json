@@ -40,6 +40,14 @@
         "pending_order_command": {
           "reject_unresolved_order_commands": true,
           "action": "MANUAL_REVIEW"
+        },
+        "order_limit": {
+          "enabled": true,
+          "reject_invalid_numeric_fields": true,
+          "max_quantity": null,
+          "max_notional": null,
+          "reject_unbounded_notional": true,
+          "action": "REJECT_NEW_COMMANDS"
         }
       }
     },

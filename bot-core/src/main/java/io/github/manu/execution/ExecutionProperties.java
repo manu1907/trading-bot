@@ -3,6 +3,8 @@ package io.github.manu.execution;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
+import java.math.BigDecimal;
+
 @ConfigurationProperties(prefix = "trading.execution")
 public record ExecutionProperties(
         Pipeline pipeline,
@@ -39,7 +41,8 @@ public record ExecutionProperties(
             Reconciliation reconciliation,
             ManualIntervention manualIntervention,
             UnknownOrderStatus unknownOrderStatus,
-            PendingOrderCommand pendingOrderCommand
+            PendingOrderCommand pendingOrderCommand,
+            OrderLimit orderLimit
     ) {
 
         @ConstructorBinding
@@ -49,14 +52,15 @@ public record ExecutionProperties(
             manualIntervention = manualIntervention == null ? ManualIntervention.defaults() : manualIntervention;
             unknownOrderStatus = unknownOrderStatus == null ? UnknownOrderStatus.defaults() : unknownOrderStatus;
             pendingOrderCommand = pendingOrderCommand == null ? PendingOrderCommand.defaults() : pendingOrderCommand;
+            orderLimit = orderLimit == null ? OrderLimit.defaults() : orderLimit;
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation) {
-            this(enabled, reconciliation, null, null, null);
+            this(enabled, reconciliation, null, null, null, null);
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation, ManualIntervention manualIntervention) {
-            this(enabled, reconciliation, manualIntervention, null, null);
+            this(enabled, reconciliation, manualIntervention, null, null, null);
         }
 
         public RiskGate(
@@ -65,7 +69,17 @@ public record ExecutionProperties(
                 ManualIntervention manualIntervention,
                 UnknownOrderStatus unknownOrderStatus
         ) {
-            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, null);
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, null, null);
+        }
+
+        public RiskGate(
+                Boolean enabled,
+                Reconciliation reconciliation,
+                ManualIntervention manualIntervention,
+                UnknownOrderStatus unknownOrderStatus,
+                PendingOrderCommand pendingOrderCommand
+        ) {
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, pendingOrderCommand, null);
         }
 
         static RiskGate defaults() {
@@ -74,7 +88,8 @@ public record ExecutionProperties(
                     Reconciliation.defaults(),
                     ManualIntervention.defaults(),
                     UnknownOrderStatus.defaults(),
-                    PendingOrderCommand.defaults()
+                    PendingOrderCommand.defaults(),
+                    OrderLimit.defaults()
             );
         }
     }
@@ -194,6 +209,43 @@ public record ExecutionProperties(
 
         static PendingOrderCommand defaults() {
             return new PendingOrderCommand(true, InterventionAction.MANUAL_REVIEW);
+        }
+    }
+
+    public record OrderLimit(
+            Boolean enabled,
+            Boolean rejectInvalidNumericFields,
+            String maxQuantity,
+            String maxNotional,
+            Boolean rejectUnboundedNotional,
+            InterventionAction action
+    ) {
+
+        @ConstructorBinding
+        public OrderLimit {
+            enabled = enabled == null || enabled;
+            rejectInvalidNumericFields = rejectInvalidNumericFields == null || rejectInvalidNumericFields;
+            rejectUnboundedNotional = rejectUnboundedNotional == null || rejectUnboundedNotional;
+            action = action == null ? InterventionAction.REJECT_NEW_COMMANDS : action;
+            validatePositiveDecimal("maxQuantity", maxQuantity);
+            validatePositiveDecimal("maxNotional", maxNotional);
+        }
+
+        static OrderLimit defaults() {
+            return new OrderLimit(true, true, null, null, true, InterventionAction.REJECT_NEW_COMMANDS);
+        }
+
+        private static void validatePositiveDecimal(String field, String value) {
+            if (value == null || value.isBlank()) {
+                return;
+            }
+            try {
+                if (new BigDecimal(value).compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new IllegalArgumentException(field + " must be positive when configured");
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(field + " must be a decimal number", e);
+            }
         }
     }
 

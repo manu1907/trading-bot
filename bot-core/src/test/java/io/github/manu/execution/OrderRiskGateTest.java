@@ -336,6 +336,85 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
     }
 
+    @Test
+    void rejects_non_positive_quantity_before_provider_mapping() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties()).evaluate(commandWithQuantity("0"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_limit:non_positive_quantity");
+        assertThat(decision.getAttributes()).containsEntry("order_limit_enabled", "true");
+    }
+
+    @Test
+    void rejects_invalid_numeric_order_field_before_provider_mapping() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties()).evaluate(commandWithQuantity("not-a-number"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_limit:invalid_numeric");
+    }
+
+    @Test
+    void rejects_order_above_configured_max_quantity_before_provider_mapping() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                true,
+                true,
+                "0.0005",
+                null,
+                true,
+                ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+        ));
+
+        RiskDecisionEvent decision = gate(properties).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_limit:max_quantity");
+        assertThat(decision.getAttributes()).containsEntry("order_limit_max_quantity", "0.0005");
+    }
+
+    @Test
+    void requires_manual_review_when_order_exceeds_configured_max_notional() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                true,
+                true,
+                null,
+                "40",
+                true,
+                ExecutionProperties.InterventionAction.MANUAL_REVIEW
+        ));
+
+        RiskDecisionEvent decision = gate(properties).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_limit:max_notional");
+        assertThat(decision.getAttributes())
+                .containsEntry("order_limit_max_notional", "40")
+                .containsEntry("order_limit_computed_notional", "50");
+    }
+
+    @Test
+    void rejects_unbounded_notional_when_max_notional_requires_computable_exposure() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                true,
+                true,
+                null,
+                "40",
+                true,
+                ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+        ));
+
+        RiskDecisionEvent decision = gate(properties).evaluate(commandWithoutPriceOrQuoteQuantity());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_limit:unbounded_notional");
+    }
+
     private OrderRiskGate gate(ExecutionProperties properties) {
         return new OrderRiskGate(properties, reconciliationTracker, clock);
     }
@@ -346,6 +425,17 @@ class OrderRiskGateTest {
 
     private ExecutionProperties defaultProperties() {
         return new ExecutionProperties(null);
+    }
+
+    private ExecutionProperties propertiesWithOrderLimit(ExecutionProperties.OrderLimit orderLimit) {
+        return new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                null,
+                null,
+                orderLimit
+        ));
     }
 
     private void recordReconciliation(ReconciliationConfidenceStatus status) {
@@ -567,6 +657,19 @@ class OrderRiskGateTest {
                 .setIdempotencyKey("idem-001")
                 .setRequestedAtMicros(NOW)
                 .setAttributes(Map.of("signal_id", "sig-001"))
+                .build();
+    }
+
+    private OrderCommandEvent commandWithQuantity(String quantity) {
+        return OrderCommandEvent.newBuilder(command())
+                .setQuantity(quantity)
+                .build();
+    }
+
+    private OrderCommandEvent commandWithoutPriceOrQuoteQuantity() {
+        return OrderCommandEvent.newBuilder(command())
+                .setPrice(null)
+                .setQuoteOrderQuantity(null)
                 .build();
     }
 }

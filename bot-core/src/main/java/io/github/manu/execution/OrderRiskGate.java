@@ -12,6 +12,7 @@ import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +36,14 @@ public final class OrderRiskGate {
     private static final String PROJECTED_DUPLICATE_COMMAND_ID_REASON = "execution:projected_duplicate_command_id";
     private static final String PROJECTED_DUPLICATE_CLIENT_ORDER_ID_REASON =
             "execution:projected_duplicate_client_order_id";
+    private static final String INVALID_NUMERIC_FIELD_REASON = "order_limit:invalid_numeric";
+    private static final String NON_POSITIVE_QUANTITY_REASON = "order_limit:non_positive_quantity";
+    private static final String NON_POSITIVE_QUOTE_QUANTITY_REASON = "order_limit:non_positive_quote_order_quantity";
+    private static final String NON_POSITIVE_PRICE_REASON = "order_limit:non_positive_price";
+    private static final String MAX_QUANTITY_REASON = "order_limit:max_quantity";
+    private static final String MAX_NOTIONAL_REASON = "order_limit:max_notional";
+    private static final String UNBOUNDED_NOTIONAL_REASON = "order_limit:unbounded_notional";
+    private static final BigDecimal ZERO = BigDecimal.ZERO;
 
     private final ExecutionProperties properties;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
@@ -111,20 +120,24 @@ public final class OrderRiskGate {
             ManualInterventionDecision pendingOrderCommandDecision =
                     pendingOrderCommandDecision(properties.riskGate().pendingOrderCommand(), command);
             ProjectionIdempotencyDecision projectionIdempotencyDecision = projectionIdempotencyDecision(command);
+            OrderLimitDecision orderLimitDecision = orderLimitDecision(properties.riskGate().orderLimit(), command);
             reasons.addAll(reconciliationReasons);
             reasons.addAll(manualInterventionDecision.reasons());
             reasons.addAll(unknownOrderStatusDecision.reasons());
             reasons.addAll(pendingOrderCommandDecision.reasons());
             reasons.addAll(projectionIdempotencyDecision.reasons());
+            reasons.addAll(orderLimitDecision.reasons());
             if (!reconciliationReasons.isEmpty()
                     || manualInterventionDecision.reject()
                     || unknownOrderStatusDecision.reject()
                     || pendingOrderCommandDecision.reject()
-                    || projectionIdempotencyDecision.reject()) {
+                    || projectionIdempotencyDecision.reject()
+                    || orderLimitDecision.reject()) {
                 decision = RiskDecision.REJECTED;
             } else if (manualInterventionDecision.manualReview()
                     || unknownOrderStatusDecision.manualReview()
-                    || pendingOrderCommandDecision.manualReview()) {
+                    || pendingOrderCommandDecision.manualReview()
+                    || orderLimitDecision.manualReview()) {
                 decision = RiskDecision.MANUAL_REVIEW;
             } else {
                 reasons.add(APPROVED_REASON);
@@ -284,6 +297,73 @@ public final class OrderRiskGate {
         return ProjectionIdempotencyDecision.none();
     }
 
+    private OrderLimitDecision orderLimitDecision(
+            ExecutionProperties.OrderLimit orderLimit,
+            OrderCommandEvent command
+    ) {
+        if (!orderLimit.enabled()) {
+            return OrderLimitDecision.none();
+        }
+        List<String> reasons = new ArrayList<>();
+        boolean reject = false;
+        boolean manualReview = false;
+        DecimalField quantity = decimalField("quantity", command.getQuantity());
+        DecimalField quoteOrderQuantity = decimalField("quoteOrderQuantity", command.getQuoteOrderQuantity());
+        DecimalField price = decimalField("price", command.getPrice());
+        DecimalField stopPrice = decimalField("stopPrice", command.getStopPrice());
+        DecimalField activationPrice = decimalField("activationPrice", command.getActivationPrice());
+        DecimalField callbackRate = decimalField("callbackRate", command.getCallbackRate());
+        List<DecimalField> fields = List.of(
+                quantity,
+                quoteOrderQuantity,
+                price,
+                stopPrice,
+                activationPrice,
+                callbackRate
+        );
+        if (orderLimit.rejectInvalidNumericFields() && fields.stream().anyMatch(field -> field.invalid())) {
+            reasons.add(INVALID_NUMERIC_FIELD_REASON);
+            reject = true;
+        }
+        if (isNonPositive(quantity)) {
+            reasons.add(NON_POSITIVE_QUANTITY_REASON);
+            reject = true;
+        }
+        if (isNonPositive(quoteOrderQuantity)) {
+            reasons.add(NON_POSITIVE_QUOTE_QUANTITY_REASON);
+            reject = true;
+        }
+        if (List.of(price, stopPrice, activationPrice, callbackRate).stream().anyMatch(this::isNonPositive)) {
+            reasons.add(NON_POSITIVE_PRICE_REASON);
+            reject = true;
+        }
+
+        BigDecimal maxQuantity = decimal(orderLimit.maxQuantity());
+        if (maxQuantity != null && quantity.value() != null && quantity.value().compareTo(maxQuantity) > 0) {
+            ManualInterventionDecision decision = decisionFor(orderLimit.action(), MAX_QUANTITY_REASON);
+            reasons.addAll(decision.reasons());
+            reject = reject || decision.reject();
+            manualReview = manualReview || decision.manualReview();
+        }
+
+        BigDecimal maxNotional = decimal(orderLimit.maxNotional());
+        if (maxNotional != null) {
+            BigDecimal notional = notional(quantity.value(), quoteOrderQuantity.value(), price.value());
+            if (notional == null && orderLimit.rejectUnboundedNotional()) {
+                ManualInterventionDecision decision = decisionFor(orderLimit.action(), UNBOUNDED_NOTIONAL_REASON);
+                reasons.addAll(decision.reasons());
+                reject = reject || decision.reject();
+                manualReview = manualReview || decision.manualReview();
+            } else if (notional != null && notional.compareTo(maxNotional) > 0) {
+                ManualInterventionDecision decision = decisionFor(orderLimit.action(), MAX_NOTIONAL_REASON);
+                reasons.addAll(decision.reasons());
+                reject = reject || decision.reject();
+                manualReview = manualReview || decision.manualReview();
+            }
+        }
+        return new OrderLimitDecision(List.copyOf(reasons), reject, manualReview);
+    }
+
     private Map<CharSequence, CharSequence> duplicateAttributes(
             String firstKey,
             String firstValue,
@@ -380,7 +460,80 @@ public final class OrderRiskGate {
                 Boolean.toString(properties.idempotency().rejectProjectedDuplicates())
         );
         attributes.putAll(projectionIdempotencyDecision(command).attributes());
+        attributes.putAll(orderLimitAttributes(command));
         return Map.copyOf(attributes);
+    }
+
+    private Map<CharSequence, CharSequence> orderLimitAttributes(OrderCommandEvent command) {
+        ExecutionProperties.OrderLimit orderLimit = properties.riskGate().orderLimit();
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.put("order_limit_enabled", Boolean.toString(orderLimit.enabled()));
+        attributes.put("order_limit_reject_invalid_numeric_fields", Boolean.toString(orderLimit.rejectInvalidNumericFields()));
+        attributes.put("order_limit_reject_unbounded_notional", Boolean.toString(orderLimit.rejectUnboundedNotional()));
+        attributes.put("order_limit_action", orderLimit.action().name());
+        if (orderLimit.maxQuantity() != null) {
+            attributes.put("order_limit_max_quantity", orderLimit.maxQuantity());
+        }
+        if (orderLimit.maxNotional() != null) {
+            attributes.put("order_limit_max_notional", orderLimit.maxNotional());
+        }
+        BigDecimal computedNotional = notional(
+                decimal(command.getQuantity()),
+                decimal(command.getQuoteOrderQuantity()),
+                decimal(command.getPrice())
+        );
+        if (computedNotional != null) {
+            attributes.put("order_limit_computed_notional", decimalText(computedNotional));
+        }
+        return Map.copyOf(attributes);
+    }
+
+    private DecimalField decimalField(String name, CharSequence raw) {
+        String value = value(raw);
+        if (value == null) {
+            return new DecimalField(name, null, false);
+        }
+        try {
+            return new DecimalField(name, new BigDecimal(value), false);
+        } catch (NumberFormatException e) {
+            return new DecimalField(name, null, true);
+        }
+    }
+
+    private BigDecimal decimal(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private BigDecimal decimal(CharSequence value) {
+        return decimal(value(value));
+    }
+
+    private boolean isNonPositive(DecimalField field) {
+        return field.value() != null && field.value().compareTo(ZERO) <= 0;
+    }
+
+    private BigDecimal notional(BigDecimal quantity, BigDecimal quoteOrderQuantity, BigDecimal price) {
+        if (quoteOrderQuantity != null && quoteOrderQuantity.compareTo(ZERO) > 0) {
+            return quoteOrderQuantity;
+        }
+        if (quantity != null
+                && price != null
+                && quantity.compareTo(ZERO) > 0
+                && price.compareTo(ZERO) > 0) {
+            return quantity.multiply(price);
+        }
+        return null;
+    }
+
+    private String decimalText(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private record ManualInterventionDecision(
@@ -406,6 +559,20 @@ public final class OrderRiskGate {
         ) {
             return new ProjectionIdempotencyDecision(List.of(reason), true, attributes);
         }
+    }
+
+    private record OrderLimitDecision(
+            List<String> reasons,
+            boolean reject,
+            boolean manualReview
+    ) {
+
+        private static OrderLimitDecision none() {
+            return new OrderLimitDecision(List.of(), false, false);
+        }
+    }
+
+    private record DecimalField(String name, BigDecimal value, boolean invalid) {
     }
 
     private String signalId(OrderCommandEvent command) {
