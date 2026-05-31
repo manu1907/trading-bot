@@ -259,22 +259,27 @@ final class BinanceOrderClient {
     }
 
     BinanceOrderListResult placeOcoOrderList(BinanceOcoOrderListCommand command) {
+        validateExchangeFilters(command);
         return toOrderListResult(readJson(send(requestFactory.ocoOrderList(command, privateCredential), "POST")));
     }
 
     BinanceOrderListResult placeOtoOrderList(BinanceOtoOrderListCommand command) {
+        validateExchangeFilters(command);
         return toOrderListResult(readJson(send(requestFactory.otoOrderList(command, privateCredential), "POST")));
     }
 
     BinanceOrderListResult placeOtocoOrderList(BinanceOtocoOrderListCommand command) {
+        validateExchangeFilters(command);
         return toOrderListResult(readJson(send(requestFactory.otocoOrderList(command, privateCredential), "POST")));
     }
 
     BinanceOrderListResult placeOpoOrderList(BinanceOpoOrderListCommand command) {
+        validateExchangeFilters(command);
         return toOrderListResult(readJson(send(requestFactory.opoOrderList(command, privateCredential), "POST")));
     }
 
     BinanceOrderListResult placeOpocoOrderList(BinanceOpocoOrderListCommand command) {
+        validateExchangeFilters(command);
         return toOrderListResult(readJson(send(requestFactory.opocoOrderList(command, privateCredential), "POST")));
     }
 
@@ -321,6 +326,51 @@ final class BinanceOrderClient {
     }
 
     private void validateAmendExchangeFilters(BinanceAmendKeepPriorityCommand command) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        new BinanceExchangeFilterValidator().validate(command, metadata);
+    }
+
+    private void validateExchangeFilters(BinanceOcoOrderListCommand command) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        new BinanceExchangeFilterValidator().validate(command, metadata);
+    }
+
+    private void validateExchangeFilters(BinanceOtoOrderListCommand command) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        new BinanceExchangeFilterValidator().validate(command, metadata);
+    }
+
+    private void validateExchangeFilters(BinanceOtocoOrderListCommand command) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        new BinanceExchangeFilterValidator().validate(command, metadata);
+    }
+
+    private void validateExchangeFilters(BinanceOpoOrderListCommand command) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        new BinanceExchangeFilterValidator().validate(command, metadata);
+    }
+
+    private void validateExchangeFilters(BinanceOpocoOrderListCommand command) {
         if (!binance.trading().enforceExchangeFilters()) {
             return;
         }

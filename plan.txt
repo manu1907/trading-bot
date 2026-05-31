@@ -317,7 +317,10 @@ Implemented Binance foundations:
   modify-multiple-order commands now validate explicit price, quantity, and
   notional fields against exchangeInfo before any modify request is sent. Spot
   amend-keep-priority requests now validate the new quantity against
-  exchangeInfo lot-size filters before any amend request is sent.
+  exchangeInfo lot-size filters before any amend request is sent. Spot
+  OCO/OTO/OTOCO/OPO/OPOCO order-list placement now validates explicit
+  quantities, iceberg quantities, prices, and computable notionals against
+  exchangeInfo before any order-list request is sent.
 - Core order execution pipeline converts synchronous, asynchronous, and null
   gateway submission failures into conservative `UNKNOWN` `OrderResultEvent`
   records for journal/projection recovery.
@@ -492,9 +495,10 @@ Binance parity gaps to close before claiming full connector support:
   position interventions, and manual-review decisions, but no operator UI or
   multi-order/position acknowledgement workflow exists yet.
 - All products: extend exchange-filter enforcement beyond first new-order,
-  batch-placement, and cancel-replace replacement coverage to order-list
-  placement, filter types that need live weighted-average prices, and core
-  planner/risk checks before provider-specific command mapping.
+  batch-placement, Spot order-list placement, cancel-replace replacement,
+  futures modify, and Spot amend coverage to any remaining state-changing
+  order endpoints, filter types that need live weighted-average prices, and
+  core planner/risk checks before provider-specific command mapping.
 
 ## Target Stack
 

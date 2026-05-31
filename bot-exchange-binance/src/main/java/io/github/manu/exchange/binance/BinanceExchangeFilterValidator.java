@@ -62,6 +62,115 @@ final class BinanceExchangeFilterValidator {
         }
     }
 
+    void validate(BinanceOcoOrderListCommand command, BinanceExchangeMetadata metadata) {
+        validateOrderList(
+                command.symbol(),
+                metadata,
+                List.of(
+                        new QuantityField("quantity", command.quantity()),
+                        new QuantityField("aboveIcebergQty", command.aboveIcebergQuantity()),
+                        new QuantityField("belowIcebergQty", command.belowIcebergQuantity())
+                ),
+                List.of(
+                        new PriceField("abovePrice", command.abovePrice()),
+                        new PriceField("aboveStopPrice", command.aboveStopPrice()),
+                        new PriceField("belowPrice", command.belowPrice()),
+                        new PriceField("belowStopPrice", command.belowStopPrice())
+                ),
+                List.of(
+                        new NotionalField("aboveNotional", command.abovePrice(), command.quantity()),
+                        new NotionalField("belowNotional", command.belowPrice(), command.quantity())
+                )
+        );
+    }
+
+    void validate(BinanceOtoOrderListCommand command, BinanceExchangeMetadata metadata) {
+        validateOrderList(
+                command.symbol(),
+                metadata,
+                List.of(
+                        new QuantityField("workingQuantity", command.workingQuantity()),
+                        new QuantityField("workingIcebergQty", command.workingIcebergQuantity()),
+                        new QuantityField("pendingQuantity", command.pendingQuantity()),
+                        new QuantityField("pendingIcebergQty", command.pendingIcebergQuantity())
+                ),
+                List.of(
+                        new PriceField("workingPrice", command.workingPrice()),
+                        new PriceField("pendingPrice", command.pendingPrice()),
+                        new PriceField("pendingStopPrice", command.pendingStopPrice())
+                ),
+                List.of(
+                        new NotionalField("workingNotional", command.workingPrice(), command.workingQuantity()),
+                        new NotionalField("pendingNotional", command.pendingPrice(), command.pendingQuantity())
+                )
+        );
+    }
+
+    void validate(BinanceOtocoOrderListCommand command, BinanceExchangeMetadata metadata) {
+        validateOrderList(
+                command.symbol(),
+                metadata,
+                List.of(
+                        new QuantityField("workingQuantity", command.workingQuantity()),
+                        new QuantityField("workingIcebergQty", command.workingIcebergQuantity()),
+                        new QuantityField("pendingQuantity", command.pendingQuantity()),
+                        new QuantityField("pendingAboveIcebergQty", command.pendingAboveIcebergQuantity()),
+                        new QuantityField("pendingBelowIcebergQty", command.pendingBelowIcebergQuantity())
+                ),
+                List.of(
+                        new PriceField("workingPrice", command.workingPrice()),
+                        new PriceField("pendingAbovePrice", command.pendingAbovePrice()),
+                        new PriceField("pendingAboveStopPrice", command.pendingAboveStopPrice()),
+                        new PriceField("pendingBelowPrice", command.pendingBelowPrice()),
+                        new PriceField("pendingBelowStopPrice", command.pendingBelowStopPrice())
+                ),
+                List.of(
+                        new NotionalField("workingNotional", command.workingPrice(), command.workingQuantity()),
+                        new NotionalField("pendingAboveNotional", command.pendingAbovePrice(), command.pendingQuantity()),
+                        new NotionalField("pendingBelowNotional", command.pendingBelowPrice(), command.pendingQuantity())
+                )
+        );
+    }
+
+    void validate(BinanceOpoOrderListCommand command, BinanceExchangeMetadata metadata) {
+        validateOrderList(
+                command.symbol(),
+                metadata,
+                List.of(
+                        new QuantityField("workingQuantity", command.workingQuantity()),
+                        new QuantityField("workingIcebergQty", command.workingIcebergQuantity()),
+                        new QuantityField("pendingIcebergQty", command.pendingIcebergQuantity())
+                ),
+                List.of(
+                        new PriceField("workingPrice", command.workingPrice()),
+                        new PriceField("pendingPrice", command.pendingPrice()),
+                        new PriceField("pendingStopPrice", command.pendingStopPrice())
+                ),
+                List.of(new NotionalField("workingNotional", command.workingPrice(), command.workingQuantity()))
+        );
+    }
+
+    void validate(BinanceOpocoOrderListCommand command, BinanceExchangeMetadata metadata) {
+        validateOrderList(
+                command.symbol(),
+                metadata,
+                List.of(
+                        new QuantityField("workingQuantity", command.workingQuantity()),
+                        new QuantityField("workingIcebergQty", command.workingIcebergQuantity()),
+                        new QuantityField("pendingAboveIcebergQty", command.pendingAboveIcebergQuantity()),
+                        new QuantityField("pendingBelowIcebergQty", command.pendingBelowIcebergQuantity())
+                ),
+                List.of(
+                        new PriceField("workingPrice", command.workingPrice()),
+                        new PriceField("pendingAbovePrice", command.pendingAbovePrice()),
+                        new PriceField("pendingAboveStopPrice", command.pendingAboveStopPrice()),
+                        new PriceField("pendingBelowPrice", command.pendingBelowPrice()),
+                        new PriceField("pendingBelowStopPrice", command.pendingBelowStopPrice())
+                ),
+                List.of(new NotionalField("workingNotional", command.workingPrice(), command.workingQuantity()))
+        );
+    }
+
     private Optional<BinanceExchangeMetadata.SymbolInfo> symbol(
             String symbol,
             BinanceExchangeMetadata metadata
@@ -92,6 +201,32 @@ final class BinanceExchangeFilterValidator {
     private void validateSymbolTrading(BinanceExchangeMetadata.SymbolInfo symbol, List<String> errors) {
         if (hasText(symbol.status()) && !"TRADING".equalsIgnoreCase(symbol.status())) {
             errors.add("symbol " + symbol.symbol() + " is not trading; exchangeInfo status is " + symbol.status());
+        }
+    }
+
+    private void validateOrderList(
+            String symbolName,
+            BinanceExchangeMetadata metadata,
+            List<QuantityField> quantities,
+            List<PriceField> prices,
+            List<NotionalField> notionals
+    ) {
+        List<String> errors = new ArrayList<>();
+        BinanceExchangeMetadata.SymbolInfo symbol = symbol(symbolName, metadata)
+                .orElse(null);
+        if (symbol == null) {
+            throw new IllegalArgumentException("exchangeInfo has no symbol metadata for " + symbolName);
+        }
+
+        validateSymbolTrading(symbol, errors);
+        filter(symbol, "LOT_SIZE").ifPresent(filter ->
+                quantities.forEach(quantity -> validateQuantityValue(quantity.field(), quantity.value(), filter, errors)));
+        filter(symbol, "PRICE_FILTER").ifPresent(filter ->
+                prices.forEach(price -> validatePriceValue(price.field(), price.value(), filter, errors)));
+        notionals.forEach(notional -> validateExplicitNotional(notional.field(), notional.price(), notional.quantity(), symbol, errors));
+
+        if (!errors.isEmpty()) {
+            throw new IllegalArgumentException(String.join("; ", errors));
         }
     }
 
@@ -212,6 +347,24 @@ final class BinanceExchangeFilterValidator {
         });
     }
 
+    private void validateExplicitNotional(
+            String field,
+            BigDecimal price,
+            BigDecimal quantity,
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            List<String> errors
+    ) {
+        if (price == null || quantity == null) {
+            return;
+        }
+        BigDecimal notional = price.multiply(quantity);
+        filter(symbol, "MIN_NOTIONAL").ifPresent(filter -> validateMin(field, notional, minNotional(filter), errors));
+        filter(symbol, "NOTIONAL").ifPresent(filter -> {
+            validateMin(field, notional, minNotional(filter), errors);
+            validateMax(field, notional, decimal(filter.maxNotional()), errors);
+        });
+    }
+
     private BigDecimal notional(BinanceOrderCommand command) {
         if (command.price() != null && command.quantity() != null) {
             return command.price().multiply(command.quantity());
@@ -300,5 +453,14 @@ final class BinanceExchangeFilterValidator {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private record QuantityField(String field, BigDecimal value) {
+    }
+
+    private record PriceField(String field, BigDecimal value) {
+    }
+
+    private record NotionalField(String field, BigDecimal price, BigDecimal quantity) {
     }
 }

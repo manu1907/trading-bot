@@ -60,6 +60,20 @@ class BinanceExchangeFilterValidatorTest {
     }
 
     @Test
+    void rejects_order_list_with_quantity_below_minimum() {
+        assertThatThrownBy(() -> validator.validate(ocoOrderList("0.0005", "48000.10"), metadata()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+    }
+
+    @Test
+    void rejects_order_list_with_price_not_aligned_to_tick_size() {
+        assertThatThrownBy(() -> validator.validate(ocoOrderList("0.002", "48000.15"), metadata()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("belowPrice 48000.15 does not align with exchangeInfo step 0.10");
+    }
+
+    @Test
     void rejects_symbol_that_is_not_trading() {
         BinanceExchangeMetadata haltedMetadata = metadata("BREAK", "BTCUSDT");
 
@@ -122,6 +136,44 @@ class BinanceExchangeFilterValidatorTest {
                 null,
                 "amend-1",
                 new BigDecimal(quantity)
+        );
+    }
+
+    private BinanceOcoOrderListCommand ocoOrderList(String quantity, String belowPrice) {
+        return new BinanceOcoOrderListCommand(
+                "BTCUSDT",
+                "oco-list-1",
+                "SELL",
+                new BigDecimal(quantity),
+                "LIMIT_MAKER",
+                "oco-above-1",
+                null,
+                new BigDecimal("52000.10"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "STOP_LOSS_LIMIT",
+                "oco-below-1",
+                null,
+                new BigDecimal(belowPrice),
+                new BigDecimal("48100.10"),
+                null,
+                "GTC",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "RESULT",
+                "NONE",
+                null,
+                null,
+                null
         );
     }
 

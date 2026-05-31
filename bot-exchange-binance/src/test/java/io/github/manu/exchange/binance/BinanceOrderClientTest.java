@@ -1318,6 +1318,61 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void rejects_spot_oco_order_list_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.placeOcoOrderList(ocoOrderList("0.0005")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
+    void rejects_spot_oto_order_list_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.placeOtoOrderList(otoOrderList("0.0005")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingQuantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
+    void rejects_spot_otoco_order_list_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.placeOtocoOrderList(otocoOrderList("0.0005")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingQuantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
+    void rejects_spot_opo_order_list_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.placeOpoOrderList(opoOrderList("0.0005")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingQuantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
+    void rejects_spot_opoco_order_list_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.placeOpocoOrderList(opocoOrderList("0.0005")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("workingQuantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
     void throws_sanitized_binance_api_exception_for_exchange_error() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(400, """
                 {"code": -4061, "msg": "Order's position side does not match user's setting."}
@@ -1576,11 +1631,15 @@ class BinanceOrderClientTest {
     }
 
     private BinanceOcoOrderListCommand ocoOrderList() {
+        return ocoOrderList("0.01");
+    }
+
+    private BinanceOcoOrderListCommand ocoOrderList(String quantity) {
         return new BinanceOcoOrderListCommand(
                 "BTCUSDT",
                 "oco-list-1",
                 "SELL",
-                new BigDecimal("0.01"),
+                new BigDecimal(quantity),
                 "LIMIT_MAKER",
                 "oco-above-1",
                 null,
@@ -1614,6 +1673,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceOtoOrderListCommand otoOrderList() {
+        return otoOrderList("0.01");
+    }
+
+    private BinanceOtoOrderListCommand otoOrderList(String workingQuantity) {
         return new BinanceOtoOrderListCommand(
                 "BTCUSDT",
                 "oto-list-1",
@@ -1623,7 +1686,7 @@ class BinanceOrderClientTest {
                 "SELL",
                 "oto-working-1",
                 new BigDecimal("52000"),
-                new BigDecimal("0.01"),
+                new BigDecimal(workingQuantity),
                 null,
                 "GTC",
                 null,
@@ -1652,6 +1715,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceOtocoOrderListCommand otocoOrderList() {
+        return otocoOrderList("0.01");
+    }
+
+    private BinanceOtocoOrderListCommand otocoOrderList(String workingQuantity) {
         return new BinanceOtocoOrderListCommand(
                 "BTCUSDT",
                 "otoco-list-1",
@@ -1661,7 +1728,7 @@ class BinanceOrderClientTest {
                 "SELL",
                 "otoco-working-1",
                 new BigDecimal("52000"),
-                new BigDecimal("0.01"),
+                new BigDecimal(workingQuantity),
                 null,
                 "GTC",
                 null,
@@ -1702,6 +1769,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceOpoOrderListCommand opoOrderList() {
+        return opoOrderList("0.01");
+    }
+
+    private BinanceOpoOrderListCommand opoOrderList(String workingQuantity) {
         return new BinanceOpoOrderListCommand(
                 "BTCUSDT",
                 "opo-list-1",
@@ -1711,7 +1782,7 @@ class BinanceOrderClientTest {
                 "SELL",
                 "opo-working-1",
                 new BigDecimal("52000"),
-                new BigDecimal("0.01"),
+                new BigDecimal(workingQuantity),
                 null,
                 "GTC",
                 null,
@@ -1736,6 +1807,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceOpocoOrderListCommand opocoOrderList() {
+        return opocoOrderList("0.01");
+    }
+
+    private BinanceOpocoOrderListCommand opocoOrderList(String workingQuantity) {
         return new BinanceOpocoOrderListCommand(
                 "BTCUSDT",
                 "opoco-list-1",
@@ -1745,7 +1820,7 @@ class BinanceOrderClientTest {
                 "SELL",
                 "opoco-working-1",
                 new BigDecimal("52000"),
-                new BigDecimal("0.01"),
+                new BigDecimal(workingQuantity),
                 null,
                 "GTC",
                 null,
