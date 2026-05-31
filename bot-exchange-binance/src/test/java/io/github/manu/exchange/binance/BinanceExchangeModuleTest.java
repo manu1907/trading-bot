@@ -395,6 +395,58 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void accepts_binance_native_feature_attribute_names_on_order_commands() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, """
+                {
+                  "symbol": "BTCUSDT",
+                  "orderId": 123456,
+                  "clientOrderId": "tb-lfa-001",
+                  "status": "NEW",
+                  "side": "BUY",
+                  "type": "LIMIT",
+                  "positionSide": "BOTH",
+                  "price": "0",
+                  "origQty": "0.001",
+                  "executedQty": "0",
+                  "avgPrice": "0",
+                  "cumQuote": "0",
+                  "updateTime": 1772000000002
+                }
+                """));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+        OrderCommandEvent command = OrderCommandEvent.newBuilder(orderCommand())
+                .setPrice(null)
+                .setAttributes(Map.of(
+                        "priceMatch", "QUEUE",
+                        "newOrderRespType", "ACK",
+                        "selfTradePreventionMode", "EXPIRE_TAKER"
+                ))
+                .build();
+
+        runtimeModule.configure(config);
+        TradingEventEnvelope<?> result = runtimeModule.submit(command).join();
+
+        assertThat(httpTransport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.uri()).contains("priceMatch=QUEUE");
+            assertThat(call.uri()).contains("newOrderRespType=ACK");
+            assertThat(call.uri()).contains("selfTradePreventionMode=EXPIRE_TAKER");
+            assertThat(call.uri()).doesNotContain("price=");
+        });
+        assertThat((OrderResultEvent) result.value()).satisfies(value ->
+                assertThat(value.getStatus()).isEqualTo(OrderResultStatus.ACCEPTED));
+    }
+
+    @Test
     void maps_unknown_binance_order_execution_status_to_unknown_result() throws Exception {
         ResolvedExchangeConfig config = checkedInResolvedConfig();
         FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(503, """

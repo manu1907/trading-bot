@@ -586,31 +586,31 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                 command.getOrderType() == null ? null : command.getOrderType().name(),
                 command.getTimeInForce() == null ? null : command.getTimeInForce().name(),
                 command.getPositionSide() == null ? null : command.getPositionSide().name(),
-                attribute(attributes, "order_response_type", binance.rest().orderResponseTypeDefault()),
-                attribute(attributes, "self_trade_prevention_mode"),
-                attribute(attributes, "side_effect_type"),
-                attribute(attributes, "price_match"),
-                attribute(attributes, "working_type"),
-                attribute(attributes, "peg_price_type"),
-                attribute(attributes, "peg_offset_type"),
-                integerAttribute(attributes, "peg_offset_value"),
+                attribute(attributes, binance.rest().orderResponseTypeDefault(), "order_response_type", "newOrderRespType"),
+                attribute(attributes, null, "self_trade_prevention_mode", "selfTradePreventionMode"),
+                attribute(attributes, null, "side_effect_type", "sideEffectType"),
+                attribute(attributes, null, "price_match", "priceMatch"),
+                attribute(attributes, null, "working_type", "workingType"),
+                attribute(attributes, null, "peg_price_type", "pegPriceType"),
+                attribute(attributes, null, "peg_offset_type", "pegOffsetType"),
+                integerAttribute(attributes, "peg_offset_value", "pegOffsetValue"),
                 value(command.getClientOrderId()),
-                longAttribute(attributes, "good_till_date"),
+                longAttribute(attributes, "good_till_date", "goodTillDate"),
                 decimal(command.getQuantity()),
                 decimal(command.getQuoteOrderQuantity()),
                 decimal(command.getPrice()),
                 decimal(command.getStopPrice()),
-                decimalAttribute(attributes, "trailing_delta"),
+                decimalAttribute(attributes, "trailing_delta", "trailingDelta"),
                 decimal(command.getCallbackRate()),
                 decimal(command.getActivationPrice()),
-                decimalAttribute(attributes, "iceberg_qty"),
+                decimalAttribute(attributes, "iceberg_qty", "icebergQty"),
                 command.getReduceOnly(),
                 command.getClosePosition(),
-                booleanAttribute(attributes, "price_protect"),
-                booleanAttribute(attributes, "auto_repay_at_cancel"),
-                booleanAttribute(attributes, "isolated_margin"),
-                booleanAttribute(attributes, "market_maker_protection"),
-                booleanAttribute(attributes, "post_only")
+                booleanAttribute(attributes, "price_protect", "priceProtect"),
+                booleanAttribute(attributes, "auto_repay_at_cancel", "autoRepayAtCancel"),
+                booleanAttribute(attributes, "isolated_margin", "isIsolated"),
+                booleanAttribute(attributes, "market_maker_protection", "marketMakerProtection"),
+                booleanAttribute(attributes, "post_only", "postOnly")
         );
     }
 
@@ -725,34 +725,32 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         return text == null ? null : new BigDecimal(text);
     }
 
-    private BigDecimal decimalAttribute(Map<CharSequence, CharSequence> attributes, String name) {
-        return decimal(attribute(attributes, name));
+    private BigDecimal decimalAttribute(Map<CharSequence, CharSequence> attributes, String... names) {
+        return decimal(attribute(attributes, null, names));
     }
 
-    private Integer integerAttribute(Map<CharSequence, CharSequence> attributes, String name) {
-        String value = attribute(attributes, name);
+    private Integer integerAttribute(Map<CharSequence, CharSequence> attributes, String... names) {
+        String value = attribute(attributes, null, names);
         return value == null ? null : Integer.valueOf(value);
     }
 
-    private Long longAttribute(Map<CharSequence, CharSequence> attributes, String name) {
-        String value = attribute(attributes, name);
+    private Long longAttribute(Map<CharSequence, CharSequence> attributes, String... names) {
+        String value = attribute(attributes, null, names);
         return value == null ? null : Long.valueOf(value);
     }
 
-    private Boolean booleanAttribute(Map<CharSequence, CharSequence> attributes, String name) {
-        String value = attribute(attributes, name);
+    private Boolean booleanAttribute(Map<CharSequence, CharSequence> attributes, String... names) {
+        String value = attribute(attributes, null, names);
         return value == null ? null : Boolean.valueOf(value);
     }
 
-    private String attribute(Map<CharSequence, CharSequence> attributes, String name) {
-        return attribute(attributes, name, null);
-    }
-
-    private String attribute(Map<CharSequence, CharSequence> attributes, String name, String defaultValue) {
-        for (Map.Entry<CharSequence, CharSequence> entry : attributes.entrySet()) {
-            if (name.contentEquals(entry.getKey())) {
-                String value = value(entry.getValue());
-                return value == null ? defaultValue : value;
+    private String attribute(Map<CharSequence, CharSequence> attributes, String defaultValue, String... names) {
+        for (String name : names) {
+            for (Map.Entry<CharSequence, CharSequence> entry : attributes.entrySet()) {
+                if (name.contentEquals(entry.getKey())) {
+                    String value = value(entry.getValue());
+                    return value == null ? defaultValue : value;
+                }
             }
         }
         return defaultValue;

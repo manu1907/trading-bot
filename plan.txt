@@ -343,6 +343,11 @@ Implemented Binance foundations:
   provider-feature attributes, and pass-through feature attributes for later
   provider-specific mapping. HOLD/CANCEL signals do not create new-order
   commands; cancel/remediation orchestration remains separate.
+- Binance order submission maps both the bot's snake_case feature attributes
+  and Binance-native REST parameter names such as `priceMatch`,
+  `newOrderRespType`, and `selfTradePreventionMode` into the same validated
+  provider command before signing/submission, so catalog profiles can align
+  closely with Binance documentation without bypassing capability checks.
 - Core risk gate consumes projected unknown order statuses and blocks new
   automation by configurable action, with catalog defaults set to manual
   review.
