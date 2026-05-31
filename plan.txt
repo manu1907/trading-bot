@@ -352,9 +352,9 @@ Implemented Binance foundations:
   (`NEW`, `CANCEL`, `MODIFY`) plus target order identifiers. Strategy-generated
   commands are marked `NEW`, and the Binance execution gateway routes
   `CANCEL` commands with a `targetClientOrderId` through the existing signed
-  cancel-order endpoint. MODIFY remains modeled but intentionally rejected at
-  the gateway until its provider-specific mapping and reconciliation semantics
-  are wired.
+  cancel-order endpoint and `MODIFY` commands through the configured futures
+  modify-order endpoint using target client/order ids plus the replacement
+  side, quantity, price, or `priceMatch` fields.
 - Core risk gate consumes projected unknown order statuses and blocks new
   automation by configurable action, with catalog defaults set to manual
   review.
@@ -515,7 +515,7 @@ Binance parity gaps to close before claiming full connector support:
   by durable projection state and projection-backed ordering is fully
   implemented and tested against current Binance documentation.
 - All products: extend provider `OrderExecutionGateway` adapters beyond
-  new-order submission and initial Binance cancel routing, extend
+  new-order submission and initial Binance cancel/modify routing, extend
   strategy-signal planning beyond deterministic first-order command
   construction and initial scoped feature profiles into
   market-condition/provider-feature optimization policies, and extend the

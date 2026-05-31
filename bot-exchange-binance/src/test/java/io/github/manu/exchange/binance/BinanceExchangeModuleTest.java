@@ -501,6 +501,66 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void routes_modify_order_commands_through_order_execution_gateway() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, """
+                {
+                  "symbol": "BTCUSDT",
+                  "orderId": 123456,
+                  "clientOrderId": "tb-lfa-001",
+                  "status": "NEW",
+                  "side": "BUY",
+                  "type": "LIMIT",
+                  "positionSide": "BOTH",
+                  "price": "50100.00",
+                  "origQty": "0.002",
+                  "executedQty": "0",
+                  "avgPrice": "0",
+                  "cumQuote": "0",
+                  "updateTime": 1772000000002
+                }
+                """));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+        OrderCommandEvent command = OrderCommandEvent.newBuilder(orderCommand())
+                .setAction(OrderCommandAction.MODIFY)
+                .setCommandId("cmd-modify-001")
+                .setClientOrderId("tb-modify-001")
+                .setTargetClientOrderId("tb-lfa-001")
+                .setQuantity("0.002")
+                .setPrice("50100.00")
+                .build();
+
+        runtimeModule.configure(config);
+        TradingEventEnvelope<?> result = runtimeModule.submit(command).join();
+
+        assertThat(httpTransport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("PUT");
+            assertThat(call.uri()).contains("/fapi/v1/order");
+            assertThat(call.uri()).contains("symbol=BTCUSDT");
+            assertThat(call.uri()).contains("origClientOrderId=tb-lfa-001");
+            assertThat(call.uri()).contains("side=BUY");
+            assertThat(call.uri()).contains("quantity=0.002");
+            assertThat(call.uri()).contains("price=50100");
+        });
+        assertThat((OrderResultEvent) result.value()).satisfies(value -> {
+            assertThat(value.getCommandId()).isEqualTo("cmd-modify-001");
+            assertThat(value.getClientOrderId()).isEqualTo("tb-lfa-001");
+            assertThat(value.getStatus()).isEqualTo(OrderResultStatus.ACCEPTED);
+            assertThat(value.getPrice()).isEqualTo("50100");
+            assertThat(value.getOriginalQuantity()).isEqualTo("0.002");
+        });
+    }
+
+    @Test
     void maps_unknown_binance_order_execution_status_to_unknown_result() throws Exception {
         ResolvedExchangeConfig config = checkedInResolvedConfig();
         FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(503, """
