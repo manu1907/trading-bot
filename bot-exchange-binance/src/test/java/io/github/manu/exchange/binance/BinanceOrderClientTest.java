@@ -842,6 +842,28 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void rejects_spot_sor_order_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.placeSorOrder(spotLimitOrder("sor-invalid-1", "0.0005")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
+    void rejects_spot_sor_test_order_before_http_when_exchange_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceOrderClient client = spotClientWithExchangeFilterEnforcement(transport, exchangeMetadata());
+
+        assertThatThrownBy(() -> client.testSorOrder(spotLimitOrder("sor-test-invalid-1", "0.0005"), true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
     void places_spot_oco_order_list_and_parses_reports() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
                 {

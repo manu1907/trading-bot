@@ -250,10 +250,12 @@ final class BinanceOrderClient {
     }
 
     BinanceSorOrderResult placeSorOrder(BinanceOrderCommand command) {
+        validateExchangeFilters(List.of(command));
         return toSorOrderResult(readJson(send(requestFactory.sorOrder(command, privateCredential), "POST")));
     }
 
     BinanceSorTestOrderResult testSorOrder(BinanceOrderCommand command, boolean computeCommissionRates) {
+        validateExchangeFilters(List.of(command));
         JsonNode root = readJson(send(requestFactory.sorTestOrder(command, computeCommissionRates, privateCredential), "POST"));
         return toSorTestOrderResult(root);
     }
