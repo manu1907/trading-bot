@@ -328,8 +328,9 @@ Implemented Binance foundations:
   `enforce_percent_price_filters` flag is enabled and a weighted-average
   reference-price provider is supplied. Binance runtime startup now supplies a
   REST-backed reference-price provider when that flag is enabled, using
-  catalog-backed public reference-price paths and response fields; catalog
-  defaults keep percent-price enforcement disabled until explicitly enabled.
+  catalog-backed public reference-price paths, response fields, cache TTLs,
+  source timestamp fields, and max-age policies; catalog defaults keep
+  percent-price enforcement disabled until explicitly enabled.
 - Core order execution pipeline converts synchronous, asynchronous, and null
   gateway submission failures into conservative `UNKNOWN` `OrderResultEvent`
   records for journal/projection recovery.
@@ -507,8 +508,8 @@ Binance parity gaps to close before claiming full connector support:
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, Spot order-list placement, cancel-replace replacement,
   futures modify, Spot amend, and Spot SOR coverage to any remaining
-  state-changing order endpoints, reference-price freshness/caching policy,
-  and core planner/risk checks before provider-specific command mapping.
+  state-changing order endpoints and core planner/risk checks before
+  provider-specific command mapping.
 
 ## Target Stack
 

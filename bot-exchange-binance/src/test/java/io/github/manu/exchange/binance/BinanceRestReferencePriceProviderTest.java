@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,20 +68,96 @@ class BinanceRestReferencePriceProviderTest {
                 .hasMessageContaining("reference price fetch failed");
     }
 
+    @Test
+    void reuses_cached_reference_price_inside_configured_ttl() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-31T12:00:00Z"));
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        {"price": "68000.00000000", "closeTime": 1780228799000}
+                        """),
+                new BinanceHttpResponse(200, """
+                        {"price": "69000.00000000", "closeTime": 1780228799000}
+                        """)
+        );
+        BinanceRestReferencePriceProvider provider = new BinanceRestReferencePriceProvider(
+                binance("/api/v3/avgPrice", "price", "closeTime", 60_000, 1_000),
+                transport,
+                JsonMapperFactory.create(),
+                clock
+        );
+
+        Optional<BigDecimal> first = provider.weightedAveragePrice("BTCUSDT");
+        clock.advanceMillis(500);
+        Optional<BigDecimal> second = provider.weightedAveragePrice("BTCUSDT");
+
+        assertThat(first).hasValue(new BigDecimal("68000.00000000"));
+        assertThat(second).hasValue(new BigDecimal("68000.00000000"));
+        assertThat(transport.calls()).hasSize(1);
+    }
+
+    @Test
+    void refetches_reference_price_after_configured_cache_ttl() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-31T12:00:00Z"));
+        FakeTransport transport = new FakeTransport(
+                new BinanceHttpResponse(200, """
+                        {"price": "68000.00000000", "closeTime": 1780228799000}
+                        """),
+                new BinanceHttpResponse(200, """
+                        {"price": "69000.00000000", "closeTime": 1780228802000}
+                        """)
+        );
+        BinanceRestReferencePriceProvider provider = new BinanceRestReferencePriceProvider(
+                binance("/api/v3/avgPrice", "price", "closeTime", 60_000, 1_000),
+                transport,
+                JsonMapperFactory.create(),
+                clock
+        );
+
+        provider.weightedAveragePrice("BTCUSDT");
+        clock.advanceMillis(1_001);
+        Optional<BigDecimal> refreshed = provider.weightedAveragePrice("BTCUSDT");
+
+        assertThat(refreshed).hasValue(new BigDecimal("69000.00000000"));
+        assertThat(transport.calls()).hasSize(2);
+    }
+
+    @Test
+    void rejects_stale_reference_price_when_max_age_is_configured() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {"price": "68000.00000000", "closeTime": 1780228700000}
+                """));
+        BinanceRestReferencePriceProvider provider = new BinanceRestReferencePriceProvider(
+                binance("/api/v3/avgPrice", "price", "closeTime", 1_000, 1_000),
+                transport,
+                JsonMapperFactory.create(),
+                FIXED_CLOCK
+        );
+
+        Optional<BigDecimal> price = provider.weightedAveragePrice("BTCUSDT");
+
+        assertThat(price).isEmpty();
+    }
+
     private BinanceRestReferencePriceProvider provider(
             FakeTransport transport,
             String referencePricePath,
             String referencePriceResponseField
     ) {
         return new BinanceRestReferencePriceProvider(
-                binance(referencePricePath, referencePriceResponseField),
+                binance(referencePricePath, referencePriceResponseField, null, null, null),
                 transport,
                 JsonMapperFactory.create(),
                 FIXED_CLOCK
         );
     }
 
-    private BinanceProperties binance(String referencePricePath, String referencePriceResponseField) {
+    private BinanceProperties binance(
+            String referencePricePath,
+            String referencePriceResponseField,
+            String referencePriceTimestampField,
+            Integer referencePriceMaxAgeMillis,
+            Integer referencePriceCacheTtlMillis
+    ) {
         return new BinanceProperties(
                 "FUTURES_USD_M",
                 new BinanceProperties.Credentials(
@@ -92,7 +169,13 @@ class BinanceRestReferencePriceProviderTest {
                 ),
                 rest(),
                 websocket(),
-                trading(referencePricePath, referencePriceResponseField),
+                trading(
+                        referencePricePath,
+                        referencePriceResponseField,
+                        referencePriceTimestampField,
+                        referencePriceMaxAgeMillis,
+                        referencePriceCacheTtlMillis
+                ),
                 null,
                 null,
                 null
@@ -143,7 +226,13 @@ class BinanceRestReferencePriceProviderTest {
         );
     }
 
-    private BinanceProperties.Trading trading(String referencePricePath, String referencePriceResponseField) {
+    private BinanceProperties.Trading trading(
+            String referencePricePath,
+            String referencePriceResponseField,
+            String referencePriceTimestampField,
+            Integer referencePriceMaxAgeMillis,
+            Integer referencePriceCacheTtlMillis
+    ) {
         return new BinanceProperties.Trading(
                 "/fapi/v1/order",
                 null,
@@ -173,6 +262,9 @@ class BinanceRestReferencePriceProviderTest {
                 null,
                 referencePricePath,
                 referencePriceResponseField,
+                referencePriceTimestampField,
+                referencePriceMaxAgeMillis,
+                referencePriceCacheTtlMillis,
                 List.of("BUY", "SELL"),
                 List.of("LIMIT", "MARKET"),
                 List.of("GTC", "IOC", "FOK"),
@@ -234,6 +326,33 @@ class BinanceRestReferencePriceProviderTest {
 
         List<PublicCall> calls() {
             return List.copyOf(calls);
+        }
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+
+        MutableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        void advanceMillis(long millis) {
+            instant = instant.plusMillis(millis);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
         }
     }
 }

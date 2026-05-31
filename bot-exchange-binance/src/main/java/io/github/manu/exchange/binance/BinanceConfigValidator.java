@@ -363,9 +363,14 @@ final class BinanceConfigValidator {
                 errors
         );
         requireOptionalPath(path + ".reference_price_path", trading.referencePricePath(), errors);
+        requireOptionalPositive(path + ".reference_price_max_age_millis", trading.referencePriceMaxAgeMillis(), errors);
+        requireOptionalPositive(path + ".reference_price_cache_ttl_millis", trading.referencePriceCacheTtlMillis(), errors);
         if (trading.enforcePercentPriceFilters()) {
             requirePath(path + ".reference_price_path", trading.referencePricePath(), errors);
             requireText(path + ".reference_price_response_field", trading.referencePriceResponseField(), errors);
+            if (trading.referencePriceMaxAgeMillis() != null) {
+                requireText(path + ".reference_price_timestamp_field", trading.referencePriceTimestampField(), errors);
+            }
         }
         requireSameValues(path + ".supported_sides", trading.supportedSides(), expected.supportedSides(), errors);
         requireSameValues(path + ".supported_order_types", trading.supportedOrderTypes(), expected.supportedOrderTypes(), errors);
