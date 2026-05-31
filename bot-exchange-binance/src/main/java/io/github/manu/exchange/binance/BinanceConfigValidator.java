@@ -362,6 +362,11 @@ final class BinanceConfigValidator {
                 expected.exerciseRecordPath(),
                 errors
         );
+        requireOptionalPath(path + ".reference_price_path", trading.referencePricePath(), errors);
+        if (trading.enforcePercentPriceFilters()) {
+            requirePath(path + ".reference_price_path", trading.referencePricePath(), errors);
+            requireText(path + ".reference_price_response_field", trading.referencePriceResponseField(), errors);
+        }
         requireSameValues(path + ".supported_sides", trading.supportedSides(), expected.supportedSides(), errors);
         requireSameValues(path + ".supported_order_types", trading.supportedOrderTypes(), expected.supportedOrderTypes(), errors);
         requireSameValues(path + ".supported_time_in_force", trading.supportedTimeInForce(), expected.supportedTimeInForce(), errors);

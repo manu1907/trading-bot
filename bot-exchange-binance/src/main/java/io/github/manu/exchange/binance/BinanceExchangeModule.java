@@ -222,7 +222,9 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                     0L,
                     httpTransport,
                     JsonMapperFactory.create(),
-                    resolveExchangeMetadata(binance)
+                    new BinanceRateLimitTracker(clock),
+                    resolveExchangeMetadata(binance),
+                    referencePriceProvider(binance, httpTransport)
             );
             BinanceOrderCommand binanceCommand = toBinanceOrderCommand(command, binance);
             result = orderClient.placeOrder(binanceCommand);
@@ -628,6 +630,16 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                         .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl())))
                 .orElseThrow(() -> new IllegalArgumentException(
                         "exchangeInfo metadata is required for Binance exchange-filter validation"));
+    }
+
+    private BinanceReferencePriceProvider referencePriceProvider(
+            BinanceProperties binance,
+            BinanceHttpTransport httpTransport
+    ) {
+        if (!binance.trading().enforcePercentPriceFilters()) {
+            return null;
+        }
+        return new BinanceRestReferencePriceProvider(binance, httpTransport, JsonMapperFactory.create(), clock);
     }
 
     private TradingEventEnvelope<OrderResultEvent> toEnvelope(

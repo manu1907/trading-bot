@@ -218,6 +218,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/api/v3/avgPrice",
+                      "reference_price_response_field": "price",
                       "test_order_path": "/api/v3/order/test",
                       "supported_price_match_order_types": [
 
@@ -428,6 +430,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/api/v3/avgPrice",
+                      "reference_price_response_field": "price",
                       "supported_price_match_order_types": [
 
                       ],
@@ -636,6 +640,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/api/v3/avgPrice",
+                      "reference_price_response_field": "price",
                       "supported_price_match_order_types": [
 
                       ],
@@ -846,6 +852,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/fapi/v1/ticker/24hr",
+                      "reference_price_response_field": "weightedAvgPrice",
                       "supported_price_match_order_types": [
                         "LIMIT",
                         "STOP",
@@ -1058,6 +1066,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/dapi/v1/ticker/24hr",
+                      "reference_price_response_field": "weightedAvgPrice",
                       "supported_price_match_order_types": [
                         "LIMIT",
                         "STOP",
@@ -1244,6 +1254,8 @@
                       "supports_post_only": true,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": null,
+                      "reference_price_response_field": null,
                       "supported_price_match_order_types": [
 
                       ],
@@ -1441,6 +1453,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/api/v3/avgPrice",
+                      "reference_price_response_field": "price",
                       "test_order_path": "/api/v3/order/test",
                       "supported_price_match_order_types": [
 
@@ -1651,6 +1665,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/api/v3/avgPrice",
+                      "reference_price_response_field": "price",
                       "supported_price_match_order_types": [
 
                       ],
@@ -1859,6 +1875,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/api/v3/avgPrice",
+                      "reference_price_response_field": "price",
                       "supported_price_match_order_types": [
 
                       ],
@@ -2069,6 +2087,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/fapi/v1/ticker/24hr",
+                      "reference_price_response_field": "weightedAvgPrice",
                       "supported_price_match_order_types": [
                         "LIMIT",
                         "STOP",
@@ -2281,6 +2301,8 @@
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": "/dapi/v1/ticker/24hr",
+                      "reference_price_response_field": "weightedAvgPrice",
                       "supported_price_match_order_types": [
                         "LIMIT",
                         "STOP",
@@ -2467,6 +2489,8 @@
                       "supports_post_only": true,
                       "enforce_exchange_filters": true,
                       "enforce_percent_price_filters": false,
+                      "reference_price_path": null,
+                      "reference_price_response_field": null,
                       "supported_price_match_order_types": [
 
                       ],
