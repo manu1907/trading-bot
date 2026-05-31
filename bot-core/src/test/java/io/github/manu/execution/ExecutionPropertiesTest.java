@@ -29,6 +29,7 @@ class ExecutionPropertiesTest {
         assertThat(properties.riskGate().orderLimit().rejectUnboundedNotional()).isTrue();
         assertThat(properties.riskGate().orderLimit().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
+        assertThat(properties.riskGate().orderLimit().targetLimits()).isEmpty();
         assertThat(properties.idempotency().rejectProjectedDuplicates()).isTrue();
     }
 
@@ -103,5 +104,22 @@ class ExecutionPropertiesTest {
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("maxNotional must be a decimal number");
+    }
+
+    @Test
+    void rejects_non_positive_target_order_limit_configuration() {
+        assertThatThrownBy(() -> new ExecutionProperties.OrderLimit.TargetLimit(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        null,
+                        "0",
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("targetLimits.maxNotional must be positive when configured");
     }
 }

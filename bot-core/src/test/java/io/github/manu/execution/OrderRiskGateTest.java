@@ -415,6 +415,52 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("order_limit:unbounded_notional");
     }
 
+    @Test
+    void applies_most_specific_target_order_limit_before_provider_mapping() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                true,
+                true,
+                null,
+                "100",
+                true,
+                ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS,
+                List.of(
+                        new ExecutionProperties.OrderLimit.TargetLimit(
+                                PROVIDER,
+                                ENVIRONMENT,
+                                ACCOUNT,
+                                MARKET,
+                                null,
+                                null,
+                                "75",
+                                true,
+                                ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                        ),
+                        new ExecutionProperties.OrderLimit.TargetLimit(
+                                PROVIDER,
+                                ENVIRONMENT,
+                                ACCOUNT,
+                                MARKET,
+                                SYMBOL,
+                                null,
+                                "40",
+                                true,
+                                ExecutionProperties.InterventionAction.MANUAL_REVIEW
+                        )
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_limit:max_notional");
+        assertThat(decision.getAttributes())
+                .containsEntry("order_limit_max_notional", "40")
+                .containsEntry("order_limit_scope", "binance|demo|main|usd_m_futures|BTCUSDT")
+                .containsEntry("order_limit_action", "MANUAL_REVIEW");
+    }
+
     private OrderRiskGate gate(ExecutionProperties properties) {
         return new OrderRiskGate(properties, reconciliationTracker, clock);
     }

@@ -4,6 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @ConfigurationProperties(prefix = "trading.execution")
 public record ExecutionProperties(
@@ -218,7 +219,8 @@ public record ExecutionProperties(
             String maxQuantity,
             String maxNotional,
             Boolean rejectUnboundedNotional,
-            InterventionAction action
+            InterventionAction action,
+            List<TargetLimit> targetLimits
     ) {
 
         @ConstructorBinding
@@ -229,10 +231,41 @@ public record ExecutionProperties(
             action = action == null ? InterventionAction.REJECT_NEW_COMMANDS : action;
             validatePositiveDecimal("maxQuantity", maxQuantity);
             validatePositiveDecimal("maxNotional", maxNotional);
+            targetLimits = targetLimits == null ? List.of() : List.copyOf(targetLimits);
+        }
+
+        public OrderLimit(
+                Boolean enabled,
+                Boolean rejectInvalidNumericFields,
+                String maxQuantity,
+                String maxNotional,
+                Boolean rejectUnboundedNotional,
+                InterventionAction action
+        ) {
+            this(enabled, rejectInvalidNumericFields, maxQuantity, maxNotional, rejectUnboundedNotional, action, List.of());
         }
 
         static OrderLimit defaults() {
-            return new OrderLimit(true, true, null, null, true, InterventionAction.REJECT_NEW_COMMANDS);
+            return new OrderLimit(true, true, null, null, true, InterventionAction.REJECT_NEW_COMMANDS, List.of());
+        }
+
+        public record TargetLimit(
+                String provider,
+                String environment,
+                String account,
+                String market,
+                String symbol,
+                String maxQuantity,
+                String maxNotional,
+                Boolean rejectUnboundedNotional,
+                InterventionAction action
+        ) {
+
+            @ConstructorBinding
+            public TargetLimit {
+                validatePositiveDecimal("targetLimits.maxQuantity", maxQuantity);
+                validatePositiveDecimal("targetLimits.maxNotional", maxNotional);
+            }
         }
 
         private static void validatePositiveDecimal(String field, String value) {

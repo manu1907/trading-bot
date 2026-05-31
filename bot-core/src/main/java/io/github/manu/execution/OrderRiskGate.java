@@ -304,6 +304,7 @@ public final class OrderRiskGate {
         if (!orderLimit.enabled()) {
             return OrderLimitDecision.none();
         }
+        EffectiveOrderLimit effectiveLimit = effectiveOrderLimit(orderLimit, command);
         List<String> reasons = new ArrayList<>();
         boolean reject = false;
         boolean manualReview = false;
@@ -338,30 +339,86 @@ public final class OrderRiskGate {
             reject = true;
         }
 
-        BigDecimal maxQuantity = decimal(orderLimit.maxQuantity());
+        BigDecimal maxQuantity = decimal(effectiveLimit.maxQuantity());
         if (maxQuantity != null && quantity.value() != null && quantity.value().compareTo(maxQuantity) > 0) {
-            ManualInterventionDecision decision = decisionFor(orderLimit.action(), MAX_QUANTITY_REASON);
+            ManualInterventionDecision decision = decisionFor(effectiveLimit.action(), MAX_QUANTITY_REASON);
             reasons.addAll(decision.reasons());
             reject = reject || decision.reject();
             manualReview = manualReview || decision.manualReview();
         }
 
-        BigDecimal maxNotional = decimal(orderLimit.maxNotional());
+        BigDecimal maxNotional = decimal(effectiveLimit.maxNotional());
         if (maxNotional != null) {
             BigDecimal notional = notional(quantity.value(), quoteOrderQuantity.value(), price.value());
-            if (notional == null && orderLimit.rejectUnboundedNotional()) {
-                ManualInterventionDecision decision = decisionFor(orderLimit.action(), UNBOUNDED_NOTIONAL_REASON);
+            if (notional == null && effectiveLimit.rejectUnboundedNotional()) {
+                ManualInterventionDecision decision = decisionFor(effectiveLimit.action(), UNBOUNDED_NOTIONAL_REASON);
                 reasons.addAll(decision.reasons());
                 reject = reject || decision.reject();
                 manualReview = manualReview || decision.manualReview();
             } else if (notional != null && notional.compareTo(maxNotional) > 0) {
-                ManualInterventionDecision decision = decisionFor(orderLimit.action(), MAX_NOTIONAL_REASON);
+                ManualInterventionDecision decision = decisionFor(effectiveLimit.action(), MAX_NOTIONAL_REASON);
                 reasons.addAll(decision.reasons());
                 reject = reject || decision.reject();
                 manualReview = manualReview || decision.manualReview();
             }
         }
         return new OrderLimitDecision(List.copyOf(reasons), reject, manualReview);
+    }
+
+    private EffectiveOrderLimit effectiveOrderLimit(
+            ExecutionProperties.OrderLimit orderLimit,
+            OrderCommandEvent command
+    ) {
+        ExecutionProperties.OrderLimit.TargetLimit selected = null;
+        int selectedSpecificity = -1;
+        for (ExecutionProperties.OrderLimit.TargetLimit candidate : orderLimit.targetLimits()) {
+            int specificity = specificity(candidate, command);
+            if (specificity > selectedSpecificity) {
+                selected = candidate;
+                selectedSpecificity = specificity;
+            }
+        }
+        if (selected == null) {
+            return new EffectiveOrderLimit(
+                    orderLimit.maxQuantity(),
+                    orderLimit.maxNotional(),
+                    orderLimit.rejectUnboundedNotional(),
+                    orderLimit.action(),
+                    "global"
+            );
+        }
+        return new EffectiveOrderLimit(
+                selected.maxQuantity() == null ? orderLimit.maxQuantity() : selected.maxQuantity(),
+                selected.maxNotional() == null ? orderLimit.maxNotional() : selected.maxNotional(),
+                selected.rejectUnboundedNotional() == null
+                        ? orderLimit.rejectUnboundedNotional()
+                        : selected.rejectUnboundedNotional(),
+                selected.action() == null ? orderLimit.action() : selected.action(),
+                targetLimitScope(selected)
+        );
+    }
+
+    private int specificity(ExecutionProperties.OrderLimit.TargetLimit candidate, OrderCommandEvent command) {
+        int specificity = 0;
+        specificity = match(candidate.provider(), value(command.getProvider()), specificity);
+        specificity = match(candidate.environment(), value(command.getEnvironment()), specificity);
+        specificity = match(candidate.account(), value(command.getAccount()), specificity);
+        specificity = match(candidate.market(), value(command.getMarket()), specificity);
+        specificity = match(candidate.symbol(), value(command.getSymbol()), specificity);
+        return specificity;
+    }
+
+    private int match(String expected, String actual, int specificity) {
+        if (specificity < 0) {
+            return -1;
+        }
+        if (expected == null || expected.isBlank()) {
+            return specificity;
+        }
+        if (actual != null && expected.equalsIgnoreCase(actual)) {
+            return specificity + 1;
+        }
+        return -1;
     }
 
     private Map<CharSequence, CharSequence> duplicateAttributes(
@@ -466,16 +523,18 @@ public final class OrderRiskGate {
 
     private Map<CharSequence, CharSequence> orderLimitAttributes(OrderCommandEvent command) {
         ExecutionProperties.OrderLimit orderLimit = properties.riskGate().orderLimit();
+        EffectiveOrderLimit effectiveLimit = effectiveOrderLimit(orderLimit, command);
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         attributes.put("order_limit_enabled", Boolean.toString(orderLimit.enabled()));
         attributes.put("order_limit_reject_invalid_numeric_fields", Boolean.toString(orderLimit.rejectInvalidNumericFields()));
-        attributes.put("order_limit_reject_unbounded_notional", Boolean.toString(orderLimit.rejectUnboundedNotional()));
-        attributes.put("order_limit_action", orderLimit.action().name());
-        if (orderLimit.maxQuantity() != null) {
-            attributes.put("order_limit_max_quantity", orderLimit.maxQuantity());
+        attributes.put("order_limit_reject_unbounded_notional", Boolean.toString(effectiveLimit.rejectUnboundedNotional()));
+        attributes.put("order_limit_action", effectiveLimit.action().name());
+        attributes.put("order_limit_scope", effectiveLimit.scope());
+        if (effectiveLimit.maxQuantity() != null) {
+            attributes.put("order_limit_max_quantity", effectiveLimit.maxQuantity());
         }
-        if (orderLimit.maxNotional() != null) {
-            attributes.put("order_limit_max_notional", orderLimit.maxNotional());
+        if (effectiveLimit.maxNotional() != null) {
+            attributes.put("order_limit_max_notional", effectiveLimit.maxNotional());
         }
         BigDecimal computedNotional = notional(
                 decimal(command.getQuantity()),
@@ -486,6 +545,21 @@ public final class OrderRiskGate {
             attributes.put("order_limit_computed_notional", decimalText(computedNotional));
         }
         return Map.copyOf(attributes);
+    }
+
+    private String targetLimitScope(ExecutionProperties.OrderLimit.TargetLimit targetLimit) {
+        return String.join(
+                "|",
+                valueOrWildcard(targetLimit.provider()),
+                valueOrWildcard(targetLimit.environment()),
+                valueOrWildcard(targetLimit.account()),
+                valueOrWildcard(targetLimit.market()),
+                valueOrWildcard(targetLimit.symbol())
+        );
+    }
+
+    private String valueOrWildcard(String value) {
+        return value == null || value.isBlank() ? "*" : value;
     }
 
     private DecimalField decimalField(String name, CharSequence raw) {
@@ -573,6 +647,15 @@ public final class OrderRiskGate {
     }
 
     private record DecimalField(String name, BigDecimal value, boolean invalid) {
+    }
+
+    private record EffectiveOrderLimit(
+            String maxQuantity,
+            String maxNotional,
+            Boolean rejectUnboundedNotional,
+            ExecutionProperties.InterventionAction action,
+            String scope
+    ) {
     }
 
     private String signalId(OrderCommandEvent command) {

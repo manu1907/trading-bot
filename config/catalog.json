@@ -47,7 +47,10 @@
           "max_quantity": null,
           "max_notional": null,
           "reject_unbounded_notional": true,
-          "action": "REJECT_NEW_COMMANDS"
+          "action": "REJECT_NEW_COMMANDS",
+          "target_limits": [
+
+          ]
         }
       }
     },
