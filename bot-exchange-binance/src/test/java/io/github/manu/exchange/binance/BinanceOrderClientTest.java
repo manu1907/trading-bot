@@ -12,6 +12,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -103,6 +104,36 @@ class BinanceOrderClientTest {
         assertThatThrownBy(() -> client.placeBatchOrders(List.of(limitOrder(), limitOrder("0.0005"))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("quantity 0.0005 is below exchangeInfo minimum 0.001");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
+    void rejects_order_before_http_when_percent_price_filter_fails() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, orderResponseBody("tb_1", "NEW")));
+        BinanceOrderClient client = clientWithPercentPriceFilterEnforcement(
+                transport,
+                exchangeMetadataWithPercentPriceFilters(),
+                symbol -> Optional.of(new BigDecimal("49000"))
+        );
+
+        assertThatThrownBy(() -> client.placeOrder(limitOrder("0.001")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("price 50000 is above PERCENT_PRICE maximum 49000.00");
+        assertThat(transport.calls()).isEmpty();
+    }
+
+    @Test
+    void rejects_order_before_http_when_percent_price_reference_is_missing() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, orderResponseBody("tb_1", "NEW")));
+        BinanceOrderClient client = clientWithPercentPriceFilterEnforcement(
+                transport,
+                exchangeMetadataWithPercentPriceFilters(),
+                symbol -> Optional.empty()
+        );
+
+        assertThatThrownBy(() -> client.placeOrder(limitOrder("0.001")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("weighted-average reference price is unavailable");
         assertThat(transport.calls()).isEmpty();
     }
 
@@ -1452,6 +1483,25 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceOrderClient clientWithPercentPriceFilterEnforcement(
+            FakeTransport transport,
+            BinanceExchangeMetadata exchangeMetadata,
+            BinanceReferencePriceProvider referencePriceProvider
+    ) {
+        return new BinanceOrderClient(
+                binanceWithPercentPriceFilterEnforcement(),
+                "api-key",
+                "test-secret",
+                FIXED_CLOCK,
+                0,
+                transport,
+                JsonMapperFactory.create(),
+                new BinanceRateLimitTracker(FIXED_CLOCK),
+                exchangeMetadata,
+                referencePriceProvider
+        );
+    }
+
     private BinanceOrderClient spotClient(FakeTransport transport) {
         return new BinanceOrderClient(
                 spotBinance(),
@@ -1567,6 +1617,44 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceExchangeMetadata exchangeMetadataWithPercentPriceFilters() {
+        return new BinanceExchangeMetadata(
+                Instant.parse("2026-05-22T20:00:00Z"),
+                "https://demo-fapi.binance.com",
+                "UTC",
+                List.of(),
+                List.of(),
+                List.of(new BinanceExchangeMetadata.SymbolInfo(
+                        "BTCUSDT",
+                        null,
+                        "PERPETUAL",
+                        null,
+                        null,
+                        "TRADING",
+                        "BTC",
+                        "USDT",
+                        "USDT",
+                        2,
+                        3,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        List.of("LIMIT", "MARKET"),
+                        List.of("GTC", "IOC", "FOK"),
+                        List.of(
+                                exchangeFilter("PRICE_FILTER", "0.10", "1000000", "0.10", null, null, null, null),
+                                exchangeFilter("LOT_SIZE", null, null, null, "0.001", "100", "0.001", null),
+                                exchangeFilter("MIN_NOTIONAL", null, null, null, null, null, null, "5"),
+                                percentPriceFilter("1.00", "0.99")
+                        )
+                ))
+        );
+    }
+
     private BinanceExchangeMetadata.Filter exchangeFilter(
             String filterType,
             String minPrice,
@@ -1595,6 +1683,33 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private BinanceExchangeMetadata.Filter percentPriceFilter(String multiplierUp, String multiplierDown) {
+        return new BinanceExchangeMetadata.Filter(
+                "PERCENT_PRICE",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                multiplierUp,
+                multiplierDown,
+                null,
+                5,
                 null,
                 null,
                 null,
@@ -1943,6 +2058,25 @@ class BinanceOrderClientTest {
         );
     }
 
+    private BinanceProperties binanceWithPercentPriceFilterEnforcement() {
+        return new BinanceProperties(
+                "FUTURES_USD_M",
+                new BinanceProperties.Credentials(
+                        "binance_demo_main",
+                        "api-key",
+                        "api-secret",
+                        "HMAC_SHA256",
+                        List.of("USER_STREAM", "USER_DATA", "TRADE")
+                ),
+                rest(),
+                websocket(),
+                trading(true, true),
+                userData(),
+                null,
+                futuresAccount()
+        );
+    }
+
     private BinanceProperties spotBinance() {
         return new BinanceProperties(
                 "SPOT",
@@ -2123,6 +2257,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceProperties.Trading trading(boolean enforceExchangeFilters) {
+        return trading(enforceExchangeFilters, false);
+    }
+
+    private BinanceProperties.Trading trading(boolean enforceExchangeFilters, boolean enforcePercentPriceFilters) {
         return new BinanceProperties.Trading(
                 "/fapi/v1/order",
                 null,
@@ -2179,7 +2317,8 @@ class BinanceOrderClientTest {
                 false,
                 false,
                 false,
-                enforceExchangeFilters
+                enforceExchangeFilters,
+                enforcePercentPriceFilters
         );
     }
 
@@ -2188,6 +2327,10 @@ class BinanceOrderClientTest {
     }
 
     private BinanceProperties.Trading spotTrading(boolean enforceExchangeFilters) {
+        return spotTrading(enforceExchangeFilters, false);
+    }
+
+    private BinanceProperties.Trading spotTrading(boolean enforceExchangeFilters, boolean enforcePercentPriceFilters) {
         return new BinanceProperties.Trading(
                 "/api/v3/order",
                 "/api/v3/order/test",
@@ -2244,7 +2387,8 @@ class BinanceOrderClientTest {
                 false,
                 false,
                 false,
-                enforceExchangeFilters
+                enforceExchangeFilters,
+                enforcePercentPriceFilters
         );
     }
 

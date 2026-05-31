@@ -24,6 +24,7 @@ final class BinanceOrderClient {
     private final ObjectMapper jsonMapper;
     private final BinanceRateLimitTracker rateLimitTracker;
     private final Optional<BinanceExchangeMetadata> exchangeMetadata;
+    private final Optional<BinanceReferencePriceProvider> referencePriceProvider;
 
     BinanceOrderClient(BinanceProperties binance,
                        String apiKey,
@@ -61,6 +62,7 @@ final class BinanceOrderClient {
                 transport,
                 jsonMapper,
                 new BinanceRateLimitTracker(clock),
+                null,
                 null
         );
     }
@@ -82,7 +84,8 @@ final class BinanceOrderClient {
                 transport,
                 jsonMapper,
                 new BinanceRateLimitTracker(clock),
-                exchangeMetadata
+                exchangeMetadata,
+                null
         );
     }
 
@@ -103,6 +106,7 @@ final class BinanceOrderClient {
                 transport,
                 jsonMapper,
                 rateLimitTracker,
+                null,
                 null
         );
     }
@@ -116,6 +120,30 @@ final class BinanceOrderClient {
                        ObjectMapper jsonMapper,
                        BinanceRateLimitTracker rateLimitTracker,
                        BinanceExchangeMetadata exchangeMetadata) {
+        this(
+                binance,
+                apiKey,
+                privateCredential,
+                clock,
+                serverTimeOffsetMillis,
+                transport,
+                jsonMapper,
+                rateLimitTracker,
+                exchangeMetadata,
+                null
+        );
+    }
+
+    BinanceOrderClient(BinanceProperties binance,
+                       String apiKey,
+                       String privateCredential,
+                       Clock clock,
+                       long serverTimeOffsetMillis,
+                       BinanceHttpTransport transport,
+                       ObjectMapper jsonMapper,
+                       BinanceRateLimitTracker rateLimitTracker,
+                       BinanceExchangeMetadata exchangeMetadata,
+                       BinanceReferencePriceProvider referencePriceProvider) {
         this.binance = Objects.requireNonNull(binance, "binance");
         this.apiKey = requireText(apiKey, "apiKey");
         this.privateCredential = requireText(privateCredential, "privateCredential");
@@ -124,6 +152,7 @@ final class BinanceOrderClient {
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
         this.rateLimitTracker = Objects.requireNonNull(rateLimitTracker, "rateLimitTracker");
         this.exchangeMetadata = Optional.ofNullable(exchangeMetadata);
+        this.referencePriceProvider = Optional.ofNullable(referencePriceProvider);
     }
 
     BinanceOrderResult placeOrder(BinanceOrderCommand command) {
@@ -309,7 +338,7 @@ final class BinanceOrderClient {
         }
         BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
-        BinanceExchangeFilterValidator validator = new BinanceExchangeFilterValidator();
+        BinanceExchangeFilterValidator validator = exchangeFilterValidator();
         for (BinanceOrderCommand command : commands) {
             validator.validate(command, metadata);
         }
@@ -321,7 +350,7 @@ final class BinanceOrderClient {
         }
         BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
-        BinanceExchangeFilterValidator validator = new BinanceExchangeFilterValidator();
+        BinanceExchangeFilterValidator validator = exchangeFilterValidator();
         for (BinanceModifyOrderCommand command : commands) {
             validator.validate(command, metadata);
         }
@@ -333,7 +362,7 @@ final class BinanceOrderClient {
         }
         BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
-        new BinanceExchangeFilterValidator().validate(command, metadata);
+        exchangeFilterValidator().validate(command, metadata);
     }
 
     private void validateExchangeFilters(BinanceOcoOrderListCommand command) {
@@ -342,7 +371,7 @@ final class BinanceOrderClient {
         }
         BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
-        new BinanceExchangeFilterValidator().validate(command, metadata);
+        exchangeFilterValidator().validate(command, metadata);
     }
 
     private void validateExchangeFilters(BinanceOtoOrderListCommand command) {
@@ -351,7 +380,7 @@ final class BinanceOrderClient {
         }
         BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
-        new BinanceExchangeFilterValidator().validate(command, metadata);
+        exchangeFilterValidator().validate(command, metadata);
     }
 
     private void validateExchangeFilters(BinanceOtocoOrderListCommand command) {
@@ -360,7 +389,7 @@ final class BinanceOrderClient {
         }
         BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
-        new BinanceExchangeFilterValidator().validate(command, metadata);
+        exchangeFilterValidator().validate(command, metadata);
     }
 
     private void validateExchangeFilters(BinanceOpoOrderListCommand command) {
@@ -369,7 +398,7 @@ final class BinanceOrderClient {
         }
         BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
-        new BinanceExchangeFilterValidator().validate(command, metadata);
+        exchangeFilterValidator().validate(command, metadata);
     }
 
     private void validateExchangeFilters(BinanceOpocoOrderListCommand command) {
@@ -378,7 +407,14 @@ final class BinanceOrderClient {
         }
         BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
                 new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
-        new BinanceExchangeFilterValidator().validate(command, metadata);
+        exchangeFilterValidator().validate(command, metadata);
+    }
+
+    private BinanceExchangeFilterValidator exchangeFilterValidator() {
+        return new BinanceExchangeFilterValidator(
+                binance.trading().enforcePercentPriceFilters(),
+                referencePriceProvider.orElse(null)
+        );
     }
 
     private BinanceHttpResponse send(BinanceSignedRequest request, String method) {

@@ -9,6 +9,20 @@ import java.util.Optional;
 final class BinanceExchangeFilterValidator {
 
     private static final BigDecimal ZERO = BigDecimal.ZERO;
+    private final boolean enforcePercentPriceFilters;
+    private final BinanceReferencePriceProvider referencePriceProvider;
+
+    BinanceExchangeFilterValidator() {
+        this(false, null);
+    }
+
+    BinanceExchangeFilterValidator(
+            boolean enforcePercentPriceFilters,
+            BinanceReferencePriceProvider referencePriceProvider
+    ) {
+        this.enforcePercentPriceFilters = enforcePercentPriceFilters;
+        this.referencePriceProvider = referencePriceProvider;
+    }
 
     void validate(BinanceOrderCommand command, BinanceExchangeMetadata metadata) {
         List<String> errors = new ArrayList<>();
@@ -20,6 +34,7 @@ final class BinanceExchangeFilterValidator {
 
         validateSymbolMetadata(command, symbol, errors);
         validatePriceFilter(command, symbol, errors);
+        validatePercentPriceFilter(command, symbol, errors);
         validateLotSize(command, symbol, errors);
         validateNotional(command, symbol, errors);
 
@@ -38,6 +53,7 @@ final class BinanceExchangeFilterValidator {
 
         validateSymbolTrading(symbol, errors);
         validatePriceFilter(command, symbol, errors);
+        validatePercentPriceFilter(command, symbol, errors);
         validateLotSize(command, symbol, errors);
         validateNotional(command, symbol, errors);
 
@@ -72,10 +88,10 @@ final class BinanceExchangeFilterValidator {
                         new QuantityField("belowIcebergQty", command.belowIcebergQuantity())
                 ),
                 List.of(
-                        new PriceField("abovePrice", command.abovePrice()),
-                        new PriceField("aboveStopPrice", command.aboveStopPrice()),
-                        new PriceField("belowPrice", command.belowPrice()),
-                        new PriceField("belowStopPrice", command.belowStopPrice())
+                        new PriceField("abovePrice", command.abovePrice(), command.side()),
+                        new PriceField("aboveStopPrice", command.aboveStopPrice(), command.side()),
+                        new PriceField("belowPrice", command.belowPrice(), command.side()),
+                        new PriceField("belowStopPrice", command.belowStopPrice(), command.side())
                 ),
                 List.of(
                         new NotionalField("aboveNotional", command.abovePrice(), command.quantity()),
@@ -95,9 +111,9 @@ final class BinanceExchangeFilterValidator {
                         new QuantityField("pendingIcebergQty", command.pendingIcebergQuantity())
                 ),
                 List.of(
-                        new PriceField("workingPrice", command.workingPrice()),
-                        new PriceField("pendingPrice", command.pendingPrice()),
-                        new PriceField("pendingStopPrice", command.pendingStopPrice())
+                        new PriceField("workingPrice", command.workingPrice(), command.workingSide()),
+                        new PriceField("pendingPrice", command.pendingPrice(), command.pendingSide()),
+                        new PriceField("pendingStopPrice", command.pendingStopPrice(), command.pendingSide())
                 ),
                 List.of(
                         new NotionalField("workingNotional", command.workingPrice(), command.workingQuantity()),
@@ -118,11 +134,11 @@ final class BinanceExchangeFilterValidator {
                         new QuantityField("pendingBelowIcebergQty", command.pendingBelowIcebergQuantity())
                 ),
                 List.of(
-                        new PriceField("workingPrice", command.workingPrice()),
-                        new PriceField("pendingAbovePrice", command.pendingAbovePrice()),
-                        new PriceField("pendingAboveStopPrice", command.pendingAboveStopPrice()),
-                        new PriceField("pendingBelowPrice", command.pendingBelowPrice()),
-                        new PriceField("pendingBelowStopPrice", command.pendingBelowStopPrice())
+                        new PriceField("workingPrice", command.workingPrice(), command.workingSide()),
+                        new PriceField("pendingAbovePrice", command.pendingAbovePrice(), command.pendingSide()),
+                        new PriceField("pendingAboveStopPrice", command.pendingAboveStopPrice(), command.pendingSide()),
+                        new PriceField("pendingBelowPrice", command.pendingBelowPrice(), command.pendingSide()),
+                        new PriceField("pendingBelowStopPrice", command.pendingBelowStopPrice(), command.pendingSide())
                 ),
                 List.of(
                         new NotionalField("workingNotional", command.workingPrice(), command.workingQuantity()),
@@ -142,9 +158,9 @@ final class BinanceExchangeFilterValidator {
                         new QuantityField("pendingIcebergQty", command.pendingIcebergQuantity())
                 ),
                 List.of(
-                        new PriceField("workingPrice", command.workingPrice()),
-                        new PriceField("pendingPrice", command.pendingPrice()),
-                        new PriceField("pendingStopPrice", command.pendingStopPrice())
+                        new PriceField("workingPrice", command.workingPrice(), command.workingSide()),
+                        new PriceField("pendingPrice", command.pendingPrice(), command.pendingSide()),
+                        new PriceField("pendingStopPrice", command.pendingStopPrice(), command.pendingSide())
                 ),
                 List.of(new NotionalField("workingNotional", command.workingPrice(), command.workingQuantity()))
         );
@@ -161,11 +177,11 @@ final class BinanceExchangeFilterValidator {
                         new QuantityField("pendingBelowIcebergQty", command.pendingBelowIcebergQuantity())
                 ),
                 List.of(
-                        new PriceField("workingPrice", command.workingPrice()),
-                        new PriceField("pendingAbovePrice", command.pendingAbovePrice()),
-                        new PriceField("pendingAboveStopPrice", command.pendingAboveStopPrice()),
-                        new PriceField("pendingBelowPrice", command.pendingBelowPrice()),
-                        new PriceField("pendingBelowStopPrice", command.pendingBelowStopPrice())
+                        new PriceField("workingPrice", command.workingPrice(), command.workingSide()),
+                        new PriceField("pendingAbovePrice", command.pendingAbovePrice(), command.pendingSide()),
+                        new PriceField("pendingAboveStopPrice", command.pendingAboveStopPrice(), command.pendingSide()),
+                        new PriceField("pendingBelowPrice", command.pendingBelowPrice(), command.pendingSide()),
+                        new PriceField("pendingBelowStopPrice", command.pendingBelowStopPrice(), command.pendingSide())
                 ),
                 List.of(new NotionalField("workingNotional", command.workingPrice(), command.workingQuantity()))
         );
@@ -223,6 +239,7 @@ final class BinanceExchangeFilterValidator {
                 quantities.forEach(quantity -> validateQuantityValue(quantity.field(), quantity.value(), filter, errors)));
         filter(symbol, "PRICE_FILTER").ifPresent(filter ->
                 prices.forEach(price -> validatePriceValue(price.field(), price.value(), filter, errors)));
+        validateOrderListPercentPriceFilter(symbol, prices, errors);
         notionals.forEach(notional -> validateExplicitNotional(notional.field(), notional.price(), notional.quantity(), symbol, errors));
 
         if (!errors.isEmpty()) {
@@ -249,6 +266,77 @@ final class BinanceExchangeFilterValidator {
         filter(symbol, "PRICE_FILTER").ifPresent(filter -> validatePriceValue("price", command.price(), filter, errors));
     }
 
+    private void validatePercentPriceFilter(
+            BinanceOrderCommand command,
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            List<String> errors
+    ) {
+        validatePercentPriceValue(symbol, new PriceField("price", command.price(), command.side()), errors);
+        validatePercentPriceValue(symbol, new PriceField("stopPrice", command.stopPrice(), command.side()), errors);
+    }
+
+    private void validatePercentPriceFilter(
+            BinanceModifyOrderCommand command,
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            List<String> errors
+    ) {
+        validatePercentPriceValue(symbol, new PriceField("price", command.price(), command.side()), errors);
+    }
+
+    private void validateOrderListPercentPriceFilter(
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            List<PriceField> prices,
+            List<String> errors
+    ) {
+        prices.forEach(price -> validatePercentPriceValue(symbol, price, errors));
+    }
+
+    private void validatePercentPriceValue(
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            PriceField price,
+            List<String> errors
+    ) {
+        if (!enforcePercentPriceFilters || price.value() == null) {
+            return;
+        }
+        Optional<BinanceExchangeMetadata.Filter> percentPrice = filter(symbol, "PERCENT_PRICE");
+        Optional<BinanceExchangeMetadata.Filter> percentPriceBySide = filter(symbol, "PERCENT_PRICE_BY_SIDE");
+        if (percentPrice.isEmpty() && percentPriceBySide.isEmpty()) {
+            return;
+        }
+        BigDecimal weightedAveragePrice = weightedAveragePrice(symbol, errors);
+        if (weightedAveragePrice == null) {
+            return;
+        }
+        percentPrice.ifPresent(filter ->
+                validatePercentRange(
+                        price.field(),
+                        price.value(),
+                        weightedAveragePrice,
+                        decimal(filter.multiplierDown()),
+                        decimal(filter.multiplierUp()),
+                        "PERCENT_PRICE",
+                        errors
+                ));
+        percentPriceBySide.ifPresent(filter -> {
+            BigDecimal lower = isSell(price.side())
+                    ? decimal(filter.askMultiplierDown())
+                    : decimal(filter.bidMultiplierDown());
+            BigDecimal upper = isSell(price.side())
+                    ? decimal(filter.askMultiplierUp())
+                    : decimal(filter.bidMultiplierUp());
+            validatePercentRange(
+                    price.field(),
+                    price.value(),
+                    weightedAveragePrice,
+                    lower,
+                    upper,
+                    "PERCENT_PRICE_BY_SIDE",
+                    errors
+            );
+        });
+    }
+
     private void validatePriceValue(
             String field,
             BigDecimal value,
@@ -260,6 +348,41 @@ final class BinanceExchangeFilterValidator {
         }
         validateRange(field, value, decimal(filter.minPrice()), decimal(filter.maxPrice()), errors);
         validateStep(field, value, decimal(filter.minPrice()), decimal(filter.tickSize()), errors);
+    }
+
+    private BigDecimal weightedAveragePrice(BinanceExchangeMetadata.SymbolInfo symbol, List<String> errors) {
+        if (referencePriceProvider == null) {
+            errors.add("weighted-average reference price is required for exchangeInfo percent-price validation for " + symbol.symbol());
+            return null;
+        }
+        Optional<BigDecimal> value = referencePriceProvider.weightedAveragePrice(symbol.symbol());
+        if (value.isEmpty()) {
+            errors.add("weighted-average reference price is unavailable for exchangeInfo percent-price validation for " + symbol.symbol());
+            return null;
+        }
+        BigDecimal weightedAveragePrice = value.get();
+        if (weightedAveragePrice.compareTo(ZERO) <= 0) {
+            errors.add("weighted-average reference price must be positive for exchangeInfo percent-price validation for " + symbol.symbol());
+            return null;
+        }
+        return weightedAveragePrice;
+    }
+
+    private void validatePercentRange(
+            String field,
+            BigDecimal price,
+            BigDecimal weightedAveragePrice,
+            BigDecimal multiplierDown,
+            BigDecimal multiplierUp,
+            String filterType,
+            List<String> errors
+    ) {
+        validateMin(field, price, percentPriceLimit(weightedAveragePrice, multiplierDown), errors, filterType);
+        validateMax(field, price, percentPriceLimit(weightedAveragePrice, multiplierUp), errors, filterType);
+    }
+
+    private BigDecimal percentPriceLimit(BigDecimal weightedAveragePrice, BigDecimal multiplier) {
+        return multiplier == null ? null : weightedAveragePrice.multiply(multiplier);
     }
 
     private void validateLotSize(
@@ -396,14 +519,34 @@ final class BinanceExchangeFilterValidator {
     }
 
     private void validateMin(String field, BigDecimal value, BigDecimal min, List<String> errors) {
+        validateMin(field, value, min, errors, "exchangeInfo");
+    }
+
+    private void validateMin(
+            String field,
+            BigDecimal value,
+            BigDecimal min,
+            List<String> errors,
+            String source
+    ) {
         if (enabled(min) && value.compareTo(min) < 0) {
-            errors.add(field + " " + value.toPlainString() + " is below exchangeInfo minimum " + min.toPlainString());
+            errors.add(field + " " + value.toPlainString() + " is below " + source + " minimum " + min.toPlainString());
         }
     }
 
     private void validateMax(String field, BigDecimal value, BigDecimal max, List<String> errors) {
+        validateMax(field, value, max, errors, "exchangeInfo");
+    }
+
+    private void validateMax(
+            String field,
+            BigDecimal value,
+            BigDecimal max,
+            List<String> errors,
+            String source
+    ) {
         if (enabled(max) && value.compareTo(max) > 0) {
-            errors.add(field + " " + value.toPlainString() + " is above exchangeInfo maximum " + max.toPlainString());
+            errors.add(field + " " + value.toPlainString() + " is above " + source + " maximum " + max.toPlainString());
         }
     }
 
@@ -440,6 +583,10 @@ final class BinanceExchangeFilterValidator {
         return "MARKET".equalsIgnoreCase(command.type());
     }
 
+    private boolean isSell(String side) {
+        return "SELL".equalsIgnoreCase(side);
+    }
+
     private BigDecimal decimal(String value) {
         if (!hasText(value)) {
             return null;
@@ -458,7 +605,7 @@ final class BinanceExchangeFilterValidator {
     private record QuantityField(String field, BigDecimal value) {
     }
 
-    private record PriceField(String field, BigDecimal value) {
+    private record PriceField(String field, BigDecimal value, String side) {
     }
 
     private record NotionalField(String field, BigDecimal price, BigDecimal quantity) {

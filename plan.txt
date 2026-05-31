@@ -322,7 +322,12 @@ Implemented Binance foundations:
   quantities, iceberg quantities, prices, and computable notionals against
   exchangeInfo before any order-list request is sent. Spot SOR order and
   SOR test-order placement now use the same exchangeInfo validation before
-  any signed SOR request is sent.
+  any signed SOR request is sent. Percent-price and percent-price-by-side
+  filters can now be enforced for new-order, modify, SOR, cancel-replace
+  replacement, and Spot order-list explicit price fields when the catalog-backed
+  `enforce_percent_price_filters` flag is enabled and a weighted-average
+  reference-price provider is supplied; catalog defaults keep this disabled
+  until a live reference-price source is wired into runtime startup.
 - Core order execution pipeline converts synchronous, asynchronous, and null
   gateway submission failures into conservative `UNKNOWN` `OrderResultEvent`
   records for journal/projection recovery.
@@ -500,8 +505,8 @@ Binance parity gaps to close before claiming full connector support:
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, Spot order-list placement, cancel-replace replacement,
   futures modify, Spot amend, and Spot SOR coverage to any remaining
-  state-changing order endpoints, runtime enforcement for filter types that
-  need live weighted-average prices, and core planner/risk checks before
+  state-changing order endpoints, runtime wiring for live weighted-average
+  reference-price sources, and core planner/risk checks before
   provider-specific command mapping.
 
 ## Target Stack

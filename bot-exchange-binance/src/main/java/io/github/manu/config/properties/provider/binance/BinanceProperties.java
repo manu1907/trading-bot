@@ -217,7 +217,8 @@ public record BinanceProperties(
             boolean supportsIsolatedMarginFlag,
             boolean supportsMarketMakerProtection,
             boolean supportsPostOnly,
-            boolean enforceExchangeFilters
+            boolean enforceExchangeFilters,
+            boolean enforcePercentPriceFilters
     ) {
         public Trading(
                 String newOrderPath,
@@ -330,6 +331,7 @@ public record BinanceProperties(
                     supportsMarginSideEffectControls,
                     supportsIsolatedMarginFlag,
                     supportsMarketMakerProtection,
+                    false,
                     false,
                     false
             );
@@ -448,6 +450,7 @@ public record BinanceProperties(
                     supportsIsolatedMarginFlag,
                     supportsMarketMakerProtection,
                     supportsPostOnly,
+                    false,
                     false
             );
         }

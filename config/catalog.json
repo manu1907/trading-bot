@@ -217,6 +217,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "test_order_path": "/api/v3/order/test",
                       "supported_price_match_order_types": [
 
@@ -426,6 +427,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
 
                       ],
@@ -633,6 +635,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
 
                       ],
@@ -842,6 +845,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
                         "LIMIT",
                         "STOP",
@@ -1053,6 +1057,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
                         "LIMIT",
                         "STOP",
@@ -1238,6 +1243,7 @@
                       "supports_market_maker_protection": true,
                       "supports_post_only": true,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
 
                       ],
@@ -1434,6 +1440,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "test_order_path": "/api/v3/order/test",
                       "supported_price_match_order_types": [
 
@@ -1643,6 +1650,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
 
                       ],
@@ -1850,6 +1858,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
 
                       ],
@@ -2059,6 +2068,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
                         "LIMIT",
                         "STOP",
@@ -2270,6 +2280,7 @@
                       "supports_market_maker_protection": false,
                       "supports_post_only": false,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
                         "LIMIT",
                         "STOP",
@@ -2455,6 +2466,7 @@
                       "supports_market_maker_protection": true,
                       "supports_post_only": true,
                       "enforce_exchange_filters": true,
+                      "enforce_percent_price_filters": false,
                       "supported_price_match_order_types": [
 
                       ],

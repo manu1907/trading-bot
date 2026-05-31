@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -74,6 +75,18 @@ class BinanceExchangeFilterValidatorTest {
     }
 
     @Test
+    void rejects_order_with_side_specific_percent_price_filter() {
+        BinanceExchangeFilterValidator percentValidator = new BinanceExchangeFilterValidator(
+                true,
+                symbol -> Optional.of(new BigDecimal("100"))
+        );
+
+        assertThatThrownBy(() -> percentValidator.validate(sellCommand("0.100", "112.00"), metadataWithPercentPriceBySide()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("price 112.00 is above PERCENT_PRICE_BY_SIDE maximum 110.00");
+    }
+
+    @Test
     void rejects_symbol_that_is_not_trading() {
         BinanceExchangeMetadata haltedMetadata = metadata("BREAK", "BTCUSDT");
 
@@ -86,6 +99,41 @@ class BinanceExchangeFilterValidatorTest {
         return new BinanceOrderCommand(
                 "BTCUSDT",
                 "BUY",
+                "LIMIT",
+                "GTC",
+                null,
+                "RESULT",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "client-1",
+                null,
+                new BigDecimal(quantity),
+                null,
+                new BigDecimal(price),
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private BinanceOrderCommand sellCommand(String quantity, String price) {
+        return new BinanceOrderCommand(
+                "BTCUSDT",
+                "SELL",
                 "LIMIT",
                 "GTC",
                 null,
@@ -218,6 +266,44 @@ class BinanceExchangeFilterValidatorTest {
         );
     }
 
+    private BinanceExchangeMetadata metadataWithPercentPriceBySide() {
+        return new BinanceExchangeMetadata(
+                Instant.parse("2026-05-22T20:00:00Z"),
+                "https://fapi.binance.com",
+                "UTC",
+                List.of(),
+                List.of(),
+                List.of(new BinanceExchangeMetadata.SymbolInfo(
+                        "BTCUSDT",
+                        null,
+                        "PERPETUAL",
+                        null,
+                        null,
+                        "TRADING",
+                        "BTC",
+                        "USDT",
+                        "USDT",
+                        2,
+                        3,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        List.of("LIMIT", "MARKET"),
+                        List.of("GTC", "IOC", "FOK"),
+                        List.of(
+                                filter("PRICE_FILTER", "0.10", "1000000", "0.10", null, null, null, null, null),
+                                filter("LOT_SIZE", null, null, null, "0.001", "100", "0.001", null, null),
+                                filter("MIN_NOTIONAL", null, null, null, null, null, null, "5", null),
+                                percentPriceBySideFilter()
+                        )
+                ))
+        );
+    }
+
     private BinanceExchangeMetadata.Filter filter(
             String filterType,
             String minPrice,
@@ -251,6 +337,33 @@ class BinanceExchangeFilterValidatorTest {
                 null,
                 null,
                 null,
+                null
+        );
+    }
+
+    private BinanceExchangeMetadata.Filter percentPriceBySideFilter() {
+        return new BinanceExchangeMetadata.Filter(
+                "PERCENT_PRICE_BY_SIDE",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                5,
+                "1.20",
+                "0.80",
+                "1.10",
+                "0.90",
                 null
         );
     }
