@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @ConfigurationProperties(prefix = "trading.execution")
 public record ExecutionProperties(
@@ -45,17 +46,23 @@ public record ExecutionProperties(
 
     public record SignalPlanner(
             Boolean enabled,
-            Defaults defaults
+            Defaults defaults,
+            List<FeatureProfile> featureProfiles
     ) {
 
         @ConstructorBinding
         public SignalPlanner {
             enabled = Boolean.TRUE.equals(enabled);
             defaults = defaults == null ? Defaults.empty() : defaults;
+            featureProfiles = featureProfiles == null ? List.of() : List.copyOf(featureProfiles);
+        }
+
+        public SignalPlanner(Boolean enabled, Defaults defaults) {
+            this(enabled, defaults, List.of());
         }
 
         static SignalPlanner disabled() {
-            return new SignalPlanner(false, Defaults.empty());
+            return new SignalPlanner(false, Defaults.empty(), List.of());
         }
 
         public record Defaults(
@@ -80,6 +87,26 @@ public record ExecutionProperties(
 
             static Defaults empty() {
                 return new Defaults(null, null, null, null, null, "GTC", "tb");
+            }
+        }
+
+        public record FeatureProfile(
+                String provider,
+                String environment,
+                String account,
+                String market,
+                String symbol,
+                String signalType,
+                String orderType,
+                Double minConfidence,
+                Map<String, String> matchFeatures,
+                Map<String, String> attributes
+        ) {
+
+            @ConstructorBinding
+            public FeatureProfile {
+                matchFeatures = matchFeatures == null ? Map.of() : Map.copyOf(matchFeatures);
+                attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
             }
         }
     }

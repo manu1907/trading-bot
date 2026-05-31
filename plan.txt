@@ -339,7 +339,8 @@ Implemented Binance foundations:
 - Core strategy-signal planner can translate provider-agnostic strategy
   signals into provider-agnostic order commands using catalog-backed default
   target/provider selection, deterministic command/client ids, order type and
-  time-in-force selection, and pass-through feature attributes for later
+  time-in-force selection, configurable feature profiles for scoped
+  provider-feature attributes, and pass-through feature attributes for later
   provider-specific mapping. HOLD/CANCEL signals do not create new-order
   commands; cancel/remediation orchestration remains separate.
 - Core risk gate consumes projected unknown order statuses and blocks new
@@ -503,8 +504,9 @@ Binance parity gaps to close before claiming full connector support:
   implemented and tested against current Binance documentation.
 - All products: extend provider `OrderExecutionGateway` adapters beyond
   new-order submission, extend strategy-signal planning beyond deterministic
-  first-order command construction into provider-feature selection policies,
-  and extend the reconciliation runtime with durable replay-safe ordering and
+  first-order command construction and initial scoped feature profiles into
+  market-condition/provider-feature optimization policies, and extend the
+  reconciliation runtime with durable replay-safe ordering and
   projection-backed idempotency around stream gaps, process restart, and
   unknown execution status.
 - All products: add policy handling for manual/external order and position

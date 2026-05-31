@@ -76,6 +76,16 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         OrderCommandType orderType = orderType(signal, features);
         String quantity = value(signal.getTargetQuantity());
         String quoteOrderQuantity = quantity == null ? value(signal.getTargetNotional()) : null;
+        Map<CharSequence, CharSequence> attributes = attributes(
+                signal,
+                features,
+                provider,
+                environment,
+                account,
+                market,
+                symbol,
+                orderType
+        );
 
         OrderCommandEvent command = OrderCommandEvent.newBuilder()
                 .setEventId("order-command:" + signalId)
@@ -102,7 +112,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 .setClientOrderId(clientOrderId(signalId, features))
                 .setIdempotencyKey("signal:" + signalId)
                 .setRequestedAtMicros(Instant.now(clock))
-                .setAttributes(attributes(signal, features))
+                .setAttributes(attributes)
                 .build();
         return Optional.of(command);
     }
@@ -180,12 +190,28 @@ public final class StrategySignalPlanner implements TradingEventHandler {
 
     private Map<CharSequence, CharSequence> attributes(
             StrategySignalEvent signal,
-            Map<CharSequence, CharSequence> features
+            Map<CharSequence, CharSequence> features,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            OrderCommandType orderType
     ) {
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         if (signal.getAttributes() != null) {
             attributes.putAll(signal.getAttributes());
         }
+        attributes.putAll(plannerProfileAttributes(
+                signal,
+                features,
+                provider,
+                environment,
+                account,
+                market,
+                symbol,
+                orderType
+        ));
         attributes.putAll(features);
         attributes.put("signal_id", requireText(value(signal.getSignalId()), "signalId"));
         attributes.put("signal_type", signal.getSignalType().name());
@@ -197,6 +223,71 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             attributes.put("signal_target_notional", signal.getTargetNotional().toString());
         }
         return Map.copyOf(attributes);
+    }
+
+    private Map<CharSequence, CharSequence> plannerProfileAttributes(
+            StrategySignalEvent signal,
+            Map<CharSequence, CharSequence> features,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            OrderCommandType orderType
+    ) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        int index = 0;
+        for (ExecutionProperties.SignalPlanner.FeatureProfile profile : properties.signalPlanner().featureProfiles()) {
+            if (matches(profile, signal, features, provider, environment, account, market, symbol, orderType)) {
+                attributes.putAll(profile.attributes());
+                attributes.put("planner_feature_profile_index", Integer.toString(index));
+            }
+            index++;
+        }
+        return Map.copyOf(attributes);
+    }
+
+    private boolean matches(
+            ExecutionProperties.SignalPlanner.FeatureProfile profile,
+            StrategySignalEvent signal,
+            Map<CharSequence, CharSequence> features,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            OrderCommandType orderType
+    ) {
+        return matches(profile.provider(), provider)
+                && matches(profile.environment(), environment)
+                && matches(profile.account(), account)
+                && matches(profile.market(), market)
+                && matches(profile.symbol(), symbol)
+                && matches(profile.signalType(), signal.getSignalType().name())
+                && matches(profile.orderType(), orderType.name())
+                && matchesConfidence(profile.minConfidence(), signal.getConfidence())
+                && matchesFeatures(profile.matchFeatures(), features);
+    }
+
+    private boolean matches(String expected, String actual) {
+        return expected == null || expected.isBlank() || expected.equalsIgnoreCase(actual);
+    }
+
+    private boolean matchesConfidence(Double minConfidence, Double confidence) {
+        return minConfidence == null || confidence != null && confidence >= minConfidence;
+    }
+
+    private boolean matchesFeatures(
+            Map<String, String> expectedFeatures,
+            Map<CharSequence, CharSequence> actualFeatures
+    ) {
+        for (Map.Entry<String, String> expected : expectedFeatures.entrySet()) {
+            String actual = feature(actualFeatures, expected.getKey());
+            if (actual == null || !actual.equalsIgnoreCase(expected.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean booleanFeature(Map<CharSequence, CharSequence> features, String key) {

@@ -25,7 +25,8 @@
           "symbol": null,
           "limit_order_time_in_force": "GTC",
           "client_order_id_prefix": "tb"
-        }
+        },
+        "feature_profiles": []
       },
       "idempotency": {
         "enabled": true,

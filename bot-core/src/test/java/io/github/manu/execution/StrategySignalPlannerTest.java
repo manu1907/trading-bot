@@ -124,6 +124,109 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void applies_matching_feature_profile_attributes_before_provider_mapping() {
+        StrategySignalPlanner planner = new StrategySignalPlanner(
+                new ExecutionProperties(new ExecutionProperties.SignalPlanner(
+                        true,
+                        defaults(),
+                        List.of(new ExecutionProperties.SignalPlanner.FeatureProfile(
+                                "binance",
+                                "demo",
+                                "main",
+                                "usd_m_futures",
+                                "BTCUSDT",
+                                "ENTER_LONG",
+                                "LIMIT",
+                                0.80,
+                                Map.of("market_regime", "fast"),
+                                Map.of(
+                                        "price_match", "QUEUE",
+                                        "working_type", "MARK_PRICE",
+                                        "price_protect", "true",
+                                        "self_trade_prevention_mode", "EXPIRE_TAKER"
+                                )
+                        ))
+                ), null),
+                eventBus,
+                FIXED_CLOCK
+        );
+        StrategySignalEvent signal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setFeatures(Map.of("market_regime", "fast"))
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal);
+
+        assertThat(planned).hasValueSatisfying(command -> assertThat(command.getAttributes())
+                .containsEntry("price_match", "QUEUE")
+                .containsEntry("working_type", "MARK_PRICE")
+                .containsEntry("price_protect", "true")
+                .containsEntry("self_trade_prevention_mode", "EXPIRE_TAKER")
+                .containsEntry("planner_feature_profile_index", "0"));
+    }
+
+    @Test
+    void keeps_explicit_signal_feature_over_matching_profile_attribute() {
+        StrategySignalPlanner planner = new StrategySignalPlanner(
+                new ExecutionProperties(new ExecutionProperties.SignalPlanner(
+                        true,
+                        defaults(),
+                        List.of(new ExecutionProperties.SignalPlanner.FeatureProfile(
+                                null,
+                                null,
+                                null,
+                                "usd_m_futures",
+                                null,
+                                null,
+                                "LIMIT",
+                                null,
+                                Map.of(),
+                                Map.of("working_type", "MARK_PRICE")
+                        ))
+                ), null),
+                eventBus,
+                FIXED_CLOCK
+        );
+        StrategySignalEvent signal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setFeatures(Map.of("working_type", "CONTRACT_PRICE"))
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal);
+
+        assertThat(planned).hasValueSatisfying(command -> assertThat(command.getAttributes())
+                .containsEntry("working_type", "CONTRACT_PRICE")
+                .containsEntry("planner_feature_profile_index", "0"));
+    }
+
+    @Test
+    void does_not_apply_feature_profile_below_minimum_confidence() {
+        StrategySignalPlanner planner = new StrategySignalPlanner(
+                new ExecutionProperties(new ExecutionProperties.SignalPlanner(
+                        true,
+                        defaults(),
+                        List.of(new ExecutionProperties.SignalPlanner.FeatureProfile(
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                "ENTER_LONG",
+                                null,
+                                0.95,
+                                Map.of(),
+                                Map.of("post_only", "true")
+                        ))
+                ), null),
+                eventBus,
+                FIXED_CLOCK
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).hasValueSatisfying(command ->
+                assertThat(command.getAttributes()).doesNotContainKey("post_only"));
+    }
+
+    @Test
     void ignores_hold_signal_without_publishing_order_command() {
         StrategySignalPlanner planner = planner();
 
@@ -152,18 +255,22 @@ class StrategySignalPlannerTest {
         return new StrategySignalPlanner(
                 new ExecutionProperties(new ExecutionProperties.SignalPlanner(
                         true,
-                        new ExecutionProperties.SignalPlanner.Defaults(
-                                "binance",
-                                "demo",
-                                "main",
-                                "usd_m_futures",
-                                "BTCUSDT",
-                                "GTC",
-                                "tb"
-                        )
+                        defaults()
                 ), null),
                 eventBus,
                 FIXED_CLOCK
+        );
+    }
+
+    private ExecutionProperties.SignalPlanner.Defaults defaults() {
+        return new ExecutionProperties.SignalPlanner.Defaults(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                "BTCUSDT",
+                "GTC",
+                "tb"
         );
     }
 
