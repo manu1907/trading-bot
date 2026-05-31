@@ -322,8 +322,10 @@ Implemented Binance foundations:
   quantities, iceberg quantities, prices, and computable notionals against
   exchangeInfo before any order-list request is sent. Spot SOR order and
   SOR test-order placement now use the same exchangeInfo validation before
-  any signed SOR request is sent. Percent-price and percent-price-by-side
-  filters can now be enforced for new-order, modify, SOR, cancel-replace
+  any signed SOR request is sent. Spot WebSocket API `order.place` now uses
+  the same exchangeInfo validation before opening a WebSocket API connection.
+  Percent-price and percent-price-by-side filters can now be enforced for
+  new-order, modify, SOR, WebSocket API order placement, cancel-replace
   replacement, and Spot order-list explicit price fields when the catalog-backed
   `enforce_percent_price_filters` flag is enabled and a weighted-average
   reference-price provider is supplied. Binance runtime startup now supplies a
@@ -427,7 +429,8 @@ Implemented Binance foundations:
   order validation, pending OCO-pair validation, and typed order-list parsing.
 - Spot WebSocket API order placement with configurable API endpoint, signed
   `order.place` request generation, outbound WebSocket transport support, and
-  correlated response/error parsing.
+  correlated response/error parsing plus optional exchangeInfo validation before
+  connection/open-send.
 - Binance user-data event mapper for Spot/Margin execution reports and balance
   updates plus USD-M/COIN-M futures order-trade and account-update payloads
   into core Avro execution, balance, and position envelopes.
@@ -507,9 +510,9 @@ Binance parity gaps to close before claiming full connector support:
   multi-order/position acknowledgement workflow exists yet.
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, Spot order-list placement, cancel-replace replacement,
-  futures modify, Spot amend, and Spot SOR coverage to any remaining
-  state-changing order endpoints and core planner/risk checks before
-  provider-specific command mapping.
+  futures modify, Spot amend, Spot SOR, and Spot WebSocket API order-placement
+  coverage to any remaining state-changing order endpoints and core planner/risk
+  checks before provider-specific command mapping.
 
 ## Target Stack
 

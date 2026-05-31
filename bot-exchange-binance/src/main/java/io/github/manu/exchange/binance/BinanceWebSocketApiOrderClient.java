@@ -25,6 +25,8 @@ final class BinanceWebSocketApiOrderClient {
     private final BinanceWebSocketClient webSocketClient;
     private final ObjectMapper jsonMapper;
     private final Duration requestTimeout;
+    private final Optional<BinanceExchangeMetadata> exchangeMetadata;
+    private final Optional<BinanceReferencePriceProvider> referencePriceProvider;
 
     BinanceWebSocketApiOrderClient(BinanceProperties binance,
                                    String apiKey,
@@ -41,7 +43,9 @@ final class BinanceWebSocketApiOrderClient {
                 serverTimeOffsetMillis,
                 transport,
                 JsonMapperFactory.create(),
-                requestTimeout
+                requestTimeout,
+                null,
+                null
         );
     }
 
@@ -53,6 +57,30 @@ final class BinanceWebSocketApiOrderClient {
                                    BinanceWebSocketTransport transport,
                                    ObjectMapper jsonMapper,
                                    Duration requestTimeout) {
+        this(
+                binance,
+                apiKey,
+                privateCredential,
+                clock,
+                serverTimeOffsetMillis,
+                transport,
+                jsonMapper,
+                requestTimeout,
+                null,
+                null
+        );
+    }
+
+    BinanceWebSocketApiOrderClient(BinanceProperties binance,
+                                   String apiKey,
+                                   String privateCredential,
+                                   Clock clock,
+                                   long serverTimeOffsetMillis,
+                                   BinanceWebSocketTransport transport,
+                                   ObjectMapper jsonMapper,
+                                   Duration requestTimeout,
+                                   BinanceExchangeMetadata exchangeMetadata,
+                                   BinanceReferencePriceProvider referencePriceProvider) {
         this.binance = Objects.requireNonNull(binance, "binance");
         this.apiKey = requireText(apiKey, "apiKey");
         this.privateCredential = requireText(privateCredential, "privateCredential");
@@ -61,15 +89,30 @@ final class BinanceWebSocketApiOrderClient {
         this.webSocketClient = new BinanceWebSocketClient(transport);
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
         this.requestTimeout = requirePositive(requestTimeout, "requestTimeout");
+        this.exchangeMetadata = Optional.ofNullable(exchangeMetadata);
+        this.referencePriceProvider = Optional.ofNullable(referencePriceProvider);
     }
 
     BinanceOrderResult placeOrder(String requestId, BinanceOrderCommand command) {
+        validateExchangeFilters(command);
         BinanceWebSocketApiRequest request = requestFactory.placeOrder(requestId, command, apiKey, privateCredential);
         ResponseListener listener = new ResponseListener(request.id(), jsonMapper);
         try (BinanceWebSocketConnection connection = webSocketClient.connect(endpointPlanner.api(), listener)) {
             connection.sendText(request.payload());
             return listener.result(requestTimeout);
         }
+    }
+
+    private void validateExchangeFilters(BinanceOrderCommand command) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        BinanceExchangeMetadata metadata = exchangeMetadata.orElseThrow(() ->
+                new IllegalArgumentException("exchangeInfo metadata is required for Binance exchange-filter validation"));
+        new BinanceExchangeFilterValidator(
+                binance.trading().enforcePercentPriceFilters(),
+                referencePriceProvider.orElse(null)
+        ).validate(command, metadata);
     }
 
     private BinanceOrderResult toOrderResult(JsonNode node) {
