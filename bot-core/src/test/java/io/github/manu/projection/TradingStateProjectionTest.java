@@ -328,6 +328,56 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void marks_rest_snapshot_order_without_known_bot_command_as_external_intervention() {
+        ProjectionUpdate update = projection.apply(restSnapshotOrderResult(
+                "evt-rest-order",
+                "reconciliation:manual-client-1",
+                "manual-client-1",
+                "98765",
+                OrderResultStatus.ACCEPTED,
+                "NEW",
+                timestamp(34)
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "manual-client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.managedByBot()).isFalse();
+                    assertThat(order.externalIntervention()).isTrue();
+                    assertThat(order.interventionReason()).isEqualTo("external_order_observed");
+                    assertThat(order.updateSource()).isEqualTo("REST_SNAPSHOT");
+                });
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+    }
+
+    @Test
+    void rest_snapshot_preserves_known_bot_command_identity() {
+        projection.apply(orderCommand("evt-command", timestamp(33)));
+
+        projection.apply(restSnapshotOrderResult(
+                "evt-rest-order",
+                "reconciliation:client-1",
+                "client-1",
+                "12345",
+                OrderResultStatus.ACCEPTED,
+                "NEW",
+                timestamp(34)
+        ));
+
+        assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-1");
+                    assertThat(order.managedByBot()).isTrue();
+                    assertThat(order.externalIntervention()).isFalse();
+                    assertThat(order.updateSource()).isEqualTo("REST_SNAPSHOT");
+                    assertThat(order.status()).isEqualTo("ACCEPTED");
+                });
+    }
+
+    @Test
     void tracks_unknown_order_status_until_newer_order_state_resolves_it() {
         projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(35)));
 
@@ -876,6 +926,44 @@ class TradingStateProjectionTest {
                         "gateway_failure", "true",
                         "command_client_order_id", clientOrderId,
                         "target_exchange_order_id", targetExchangeOrderId
+                ))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.ORDER_RESULT,
+                TradingEventKeys.order(TradingEventType.ORDER_RESULT, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, clientOrderId),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<OrderResultEvent> restSnapshotOrderResult(
+            String eventId,
+            String commandId,
+            String clientOrderId,
+            String exchangeOrderId,
+            OrderResultStatus status,
+            String exchangeStatus,
+            Instant observedAt
+    ) {
+        OrderResultEvent event = OrderResultEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setCommandId(commandId)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setClientOrderId(clientOrderId)
+                .setExchangeOrderId(exchangeOrderId)
+                .setStatus(status)
+                .setExchangeStatus(exchangeStatus)
+                .setPrice("100")
+                .setOriginalQuantity("0.10")
+                .setExecutedQuantity("0")
+                .setObservedAtMicros(observedAt)
+                .setAttributes(Map.of(
+                        "source", "rest_snapshot",
+                        "snapshotType", "open_orders"
                 ))
                 .build();
         return TradingEventEnvelope.of(

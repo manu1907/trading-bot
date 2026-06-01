@@ -520,13 +520,15 @@ public final class TradingStateProjection implements TradingEventHandler {
                 event.getSymbol(),
                 target.clientOrderId()
         );
+        OrderState current = orders.get(entityKey);
+        OrderIntervention intervention = orderResultIntervention(current, event);
         OrderState state = new OrderState(
                 value(event.getProvider()),
                 value(event.getEnvironment()),
                 value(event.getAccount()),
                 value(event.getMarket()),
                 value(event.getSymbol()),
-                value(event.getCommandId()),
+                orderResultCommandId(current, event),
                 target.clientOrderId(),
                 firstText(target.exchangeOrderId(), event.getExchangeOrderId()),
                 event.getStatus() == null ? null : event.getStatus().name(),
@@ -536,15 +538,39 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getExecutedQuantity()),
                 value(event.getAveragePrice()),
                 value(event.getCumulativeQuote()),
-                "ORDER_RESULT",
+                orderResultUpdateSource(event),
                 null,
-                true,
-                false,
-                null,
+                intervention.managedByBot(),
+                intervention.externalIntervention(),
+                intervention.reason(),
                 firstInstant(event.getExchangeTransactTimeMicros(), event.getObservedAtMicros()),
                 eventId
         );
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), orders, state);
+    }
+
+    private String orderResultCommandId(OrderState current, OrderResultEvent event) {
+        if (isRestSnapshot(event) && current != null && current.commandId() != null) {
+            return current.commandId();
+        }
+        return value(event.getCommandId());
+    }
+
+    private String orderResultUpdateSource(OrderResultEvent event) {
+        return isRestSnapshot(event) ? "REST_SNAPSHOT" : "ORDER_RESULT";
+    }
+
+    private OrderIntervention orderResultIntervention(OrderState current, OrderResultEvent event) {
+        if (!isRestSnapshot(event)) {
+            return new OrderIntervention(true, false, null);
+        }
+        if (current == null) {
+            return new OrderIntervention(false, true, "external_order_observed");
+        }
+        if (current.externalIntervention()) {
+            return new OrderIntervention(current.managedByBot(), true, current.interventionReason());
+        }
+        return new OrderIntervention(current.managedByBot(), false, null);
     }
 
     private OrderResultProjectionTarget orderResultProjectionTarget(OrderResultEvent event) {
@@ -575,6 +601,10 @@ public final class TradingStateProjection implements TradingEventHandler {
 
     private boolean isGatewayFailure(OrderResultEvent event) {
         return "true".equals(attribute(event, "gateway_failure"));
+    }
+
+    private boolean isRestSnapshot(OrderResultEvent event) {
+        return "rest_snapshot".equals(attribute(event, "source"));
     }
 
     private ProjectionUpdate applyExecutionReport(TradingEventEnvelope<?> envelope, ExecutionReportEvent event) {

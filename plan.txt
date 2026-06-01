@@ -277,6 +277,10 @@ Implemented Binance foundations:
 - Binance REST snapshot projection comparison for balances, positions, orders,
   and risk state, with catalog-backed `projection_comparison_enabled` and
   `fail_on_projection_mismatch` controls.
+- Core projection treats REST open-order snapshots as reconciliation evidence,
+  not submit evidence: known bot orders keep their original command identity,
+  while previously unknown snapshot orders are marked as external order
+  interventions instead of becoming bot-managed by default.
 - Provider-agnostic reconciliation confidence tracking for latest
   REST-vs-projection observations per provider/environment/account/market,
   event type, and entity key.
