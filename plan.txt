@@ -365,7 +365,9 @@ Implemented Binance foundations:
   can resolve the same projected command after restart. Gateway-failure
   `UNKNOWN` results also carry target identifiers and projection uses them to
   resolve the affected target order while leaving the unknown status visible to
-  the risk gate.
+  the risk gate. Planned cancel/modify user-data outcomes are no longer
+  classified as external interventions; unmanaged orders and unplanned managed
+  order cancel/replace/amendment events remain manual-review evidence.
 - Core risk gate consumes projected unknown order statuses and blocks new
   automation by configurable action, with catalog defaults set to manual
   review.

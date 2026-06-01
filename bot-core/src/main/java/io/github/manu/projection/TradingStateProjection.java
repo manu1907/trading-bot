@@ -657,10 +657,31 @@ public final class TradingStateProjection implements TradingEventHandler {
                     current.interventionReason()
             );
         }
+        if (Boolean.TRUE.equals(current.managedByBot()) && plannedManagedOrderChange(current, event)) {
+            return new OrderIntervention(true, false, null);
+        }
         if (Boolean.TRUE.equals(current.managedByBot()) && unplannedManagedOrderChange(event)) {
             return new OrderIntervention(true, true, "unplanned_managed_order_change");
         }
         return new OrderIntervention(Boolean.TRUE.equals(current.managedByBot()), false, null);
+    }
+
+    private boolean plannedManagedOrderChange(OrderState current, ExecutionReportEvent event) {
+        String executionType = value(event.getExecutionType());
+        if (!unplannedManagedOrderChange(event)) {
+            return false;
+        }
+        String orderStatus = value(event.getOrderStatus());
+        String currentStatus = value(current.status());
+        if (currentStatus != null && currentStatus.equals(orderStatus)) {
+            return true;
+        }
+        String pendingAction = value(current.executionType());
+        return switch (pendingAction == null ? "" : pendingAction) {
+            case "CANCEL" -> "CANCELED".equals(executionType) || "CANCELED".equals(orderStatus);
+            case "MODIFY" -> "AMENDMENT".equals(executionType) || "REPLACED".equals(executionType);
+            default -> false;
+        };
     }
 
     private boolean unplannedManagedOrderChange(ExecutionReportEvent event) {

@@ -301,6 +301,117 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void planned_cancel_user_data_does_not_create_order_intervention() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+        projection.apply(cancelOrderCommand(
+                "evt-cancel-command",
+                "cmd-cancel",
+                "cancel-client-1",
+                "client-1",
+                null,
+                timestamp(35)
+        ));
+
+        ProjectionUpdate update = projection.apply(executionReport(
+                "evt-cancel-report",
+                "CANCELED",
+                "CANCELED",
+                "0",
+                timestamp(36),
+                Map.of()
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-cancel");
+                    assertThat(order.status()).isEqualTo("CANCELED");
+                    assertThat(order.executionType()).isEqualTo("CANCELED");
+                    assertThat(order.externalIntervention()).isFalse();
+                });
+    }
+
+    @Test
+    void planned_modify_user_data_does_not_create_order_intervention() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+        projection.apply(modifyOrderCommand(
+                "evt-modify-command",
+                "cmd-modify",
+                "modify-client-1",
+                "client-1",
+                null,
+                timestamp(35)
+        ));
+
+        ProjectionUpdate update = projection.apply(executionReport(
+                "evt-amend-report",
+                "NEW",
+                "AMENDMENT",
+                "0",
+                timestamp(36),
+                Map.of()
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-modify");
+                    assertThat(order.status()).isEqualTo("NEW");
+                    assertThat(order.executionType()).isEqualTo("AMENDMENT");
+                    assertThat(order.externalIntervention()).isFalse();
+                });
+    }
+
+    @Test
+    void repeated_user_data_for_already_projected_planned_cancel_does_not_create_intervention() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+        projection.apply(cancelOrderCommand(
+                "evt-cancel-command",
+                "cmd-cancel",
+                "cancel-client-1",
+                "client-1",
+                null,
+                timestamp(35)
+        ));
+        projection.apply(orderResult(
+                "evt-cancel-result",
+                "cmd-cancel",
+                "client-1",
+                "12345",
+                OrderResultStatus.CANCELED,
+                "CANCELED",
+                timestamp(36)
+        ));
+
+        ProjectionUpdate update = projection.apply(executionReport(
+                "evt-cancel-report",
+                "CANCELED",
+                "CANCELED",
+                "0",
+                timestamp(37),
+                Map.of()
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-cancel");
+                    assertThat(order.status()).isEqualTo("CANCELED");
+                    assertThat(order.executionType()).isEqualTo("CANCELED");
+                    assertThat(order.externalIntervention()).isFalse();
+                });
+    }
+
+    @Test
     void finds_projected_orders_by_command_id_for_restart_idempotency() {
         projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
 
@@ -842,6 +953,31 @@ class TradingStateProjectionTest {
                 .setClientOrderId(clientOrderId)
                 .setTargetClientOrderId(targetClientOrderId)
                 .setTargetExchangeOrderId(targetExchangeOrderId)
+                .setIdempotencyKey(commandId + ":idem")
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.ORDER_COMMAND,
+                TradingEventKeys.order(TradingEventType.ORDER_COMMAND, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, clientOrderId),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<OrderCommandEvent> modifyOrderCommand(
+            String eventId,
+            String commandId,
+            String clientOrderId,
+            String targetClientOrderId,
+            String targetExchangeOrderId,
+            Instant requestedAt
+    ) {
+        OrderCommandEvent event = OrderCommandEvent.newBuilder(orderCommand(eventId, requestedAt).value())
+                .setAction(OrderCommandAction.MODIFY)
+                .setCommandId(commandId)
+                .setClientOrderId(clientOrderId)
+                .setTargetClientOrderId(targetClientOrderId)
+                .setTargetExchangeOrderId(targetExchangeOrderId)
+                .setQuantity("0.20")
+                .setPrice("101")
                 .setIdempotencyKey(commandId + ":idem")
                 .build();
         return TradingEventEnvelope.of(
