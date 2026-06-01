@@ -189,7 +189,11 @@ final class BinanceOrderClient {
     }
 
     BinanceOrderResult cancelOrder(String symbol, String originalClientOrderId) {
-        return parseOrderResult(send(requestFactory.cancelOrder(symbol, originalClientOrderId, privateCredential), "DELETE"));
+        return cancelOrder(symbol, null, originalClientOrderId);
+    }
+
+    BinanceOrderResult cancelOrder(String symbol, Long orderId, String originalClientOrderId) {
+        return parseOrderResult(send(requestFactory.cancelOrder(symbol, orderId, originalClientOrderId, privateCredential), "DELETE"));
     }
 
     BinanceOrderResult queryOrder(String symbol, String originalClientOrderId) {

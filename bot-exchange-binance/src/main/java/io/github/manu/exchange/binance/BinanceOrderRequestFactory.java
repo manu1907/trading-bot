@@ -97,16 +97,19 @@ final class BinanceOrderRequestFactory {
     }
 
     BinanceSignedRequest cancelOrder(String symbol, String originalClientOrderId, String privateCredential) {
-        if (symbol == null || symbol.isBlank()) {
-            throw new IllegalArgumentException("symbol is required");
+        return cancelOrder(symbol, null, originalClientOrderId, privateCredential);
+    }
+
+    BinanceSignedRequest cancelOrder(String symbol, Long orderId, String originalClientOrderId, String privateCredential) {
+        requireSymbol(symbol);
+        if (orderId == null && !hasText(originalClientOrderId)) {
+            throw new IllegalArgumentException("orderId or origClientOrderId is required");
         }
-        if (originalClientOrderId == null || originalClientOrderId.isBlank()) {
-            throw new IllegalArgumentException("origClientOrderId is required");
-        }
-        return restRequestFactory.signedUri(binance.trading().cancelOrderPath(), List.of(
-                BinanceRequestParameter.of("symbol", symbol),
-                BinanceRequestParameter.of(clientOrderIdParameterName(), originalClientOrderId)
-        ), privateCredential);
+        List<BinanceRequestParameter> parameters = new ArrayList<>();
+        add(parameters, "symbol", symbol);
+        add(parameters, "orderId", orderId);
+        add(parameters, clientOrderIdParameterName(), originalClientOrderId);
+        return restRequestFactory.signedUri(binance.trading().cancelOrderPath(), parameters, privateCredential);
     }
 
     BinanceSignedRequest queryOrder(String symbol, String originalClientOrderId, String privateCredential) {

@@ -45,7 +45,9 @@ public final class OrderRiskGate {
     private static final String MAX_NOTIONAL_REASON = "order_limit:max_notional";
     private static final String UNBOUNDED_NOTIONAL_REASON = "order_limit:unbounded_notional";
     private static final String MISSING_TARGET_CLIENT_ORDER_ID_REASON = "order_target:missing_client_order_id";
+    private static final String MISSING_TARGET_ORDER_ID_REASON = "order_target:missing_order_id";
     private static final String PROJECTED_TARGET_MISSING_REASON = "order_target:not_projected";
+    private static final String PROJECTED_TARGET_IDENTITY_MISMATCH_REASON = "order_target:identity_mismatch";
     private static final String PROJECTED_TARGET_UNMANAGED_REASON = "order_target:not_managed";
     private static final String PROJECTED_TARGET_CLOSED_REASON = "order_target:closed";
     private static final String PROJECTED_TARGET_EXTERNAL_INTERVENTION_REASON = "order_target:external_intervention";
@@ -389,6 +391,14 @@ public final class OrderRiskGate {
         boolean reject = false;
         boolean manualReview = false;
         String targetClientOrderId = value(command.getTargetClientOrderId());
+        String targetExchangeOrderId = value(command.getTargetExchangeOrderId());
+        if (targetOrder.requireTargetOrderId() && targetClientOrderId == null && targetExchangeOrderId == null) {
+            ManualInterventionDecision decision = decisionFor(targetOrder.action(), MISSING_TARGET_ORDER_ID_REASON);
+            reasons.addAll(decision.reasons());
+            reject = reject || decision.reject();
+            manualReview = manualReview || decision.manualReview();
+            return new TargetOrderDecision(List.copyOf(reasons), reject, manualReview);
+        }
         if (targetOrder.requireTargetClientOrderId() && targetClientOrderId == null) {
             ManualInterventionDecision decision = decisionFor(targetOrder.action(), MISSING_TARGET_CLIENT_ORDER_ID_REASON);
             reasons.addAll(decision.reasons());
@@ -397,16 +407,7 @@ public final class OrderRiskGate {
             return new TargetOrderDecision(List.copyOf(reasons), reject, manualReview);
         }
 
-        Optional<TradingStateProjection.OrderState> target = targetClientOrderId == null
-                ? Optional.empty()
-                : tradingStateProjection.order(
-                        value(command.getProvider()),
-                        value(command.getEnvironment()),
-                        value(command.getAccount()),
-                        value(command.getMarket()),
-                        value(command.getSymbol()),
-                        targetClientOrderId
-                );
+        Optional<TradingStateProjection.OrderState> target = projectedTarget(command, targetClientOrderId, targetExchangeOrderId);
         if (targetOrder.requireProjectedTarget() && target.isEmpty()) {
             ManualInterventionDecision decision = decisionFor(targetOrder.action(), PROJECTED_TARGET_MISSING_REASON);
             reasons.addAll(decision.reasons());
@@ -416,6 +417,13 @@ public final class OrderRiskGate {
         }
         if (target.isPresent()) {
             TradingStateProjection.OrderState state = target.orElseThrow();
+            if (targetIdentityMismatch(state, targetClientOrderId, targetExchangeOrderId)) {
+                ManualInterventionDecision decision =
+                        decisionFor(targetOrder.action(), PROJECTED_TARGET_IDENTITY_MISMATCH_REASON);
+                reasons.addAll(decision.reasons());
+                reject = reject || decision.reject();
+                manualReview = manualReview || decision.manualReview();
+            }
             if (targetOrder.requireManagedTarget() && !state.managedByBot()) {
                 ManualInterventionDecision decision = decisionFor(targetOrder.action(), PROJECTED_TARGET_UNMANAGED_REASON);
                 reasons.addAll(decision.reasons());
@@ -437,6 +445,50 @@ public final class OrderRiskGate {
             }
         }
         return new TargetOrderDecision(List.copyOf(reasons), reject, manualReview);
+    }
+
+    private boolean targetIdentityMismatch(
+            TradingStateProjection.OrderState state,
+            String targetClientOrderId,
+            String targetExchangeOrderId
+    ) {
+        String projectedClientOrderId = value(state.clientOrderId());
+        String projectedExchangeOrderId = value(state.exchangeOrderId());
+        return targetClientOrderId != null && projectedClientOrderId != null && !targetClientOrderId.equals(projectedClientOrderId)
+                || targetExchangeOrderId != null
+                && projectedExchangeOrderId != null
+                && !targetExchangeOrderId.equals(projectedExchangeOrderId);
+    }
+
+    private Optional<TradingStateProjection.OrderState> projectedTarget(
+            OrderCommandEvent command,
+            String targetClientOrderId,
+            String targetExchangeOrderId
+    ) {
+        if (targetClientOrderId != null) {
+            Optional<TradingStateProjection.OrderState> target = tradingStateProjection.order(
+                    value(command.getProvider()),
+                    value(command.getEnvironment()),
+                    value(command.getAccount()),
+                    value(command.getMarket()),
+                    value(command.getSymbol()),
+                    targetClientOrderId
+            );
+            if (target.isPresent()) {
+                return target;
+            }
+        }
+        if (targetExchangeOrderId == null) {
+            return Optional.empty();
+        }
+        return tradingStateProjection.orderByExchangeOrderId(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket()),
+                value(command.getSymbol()),
+                targetExchangeOrderId
+        );
     }
 
     private OrderCommandAction action(OrderCommandEvent command) {
@@ -645,22 +697,20 @@ public final class OrderRiskGate {
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         attributes.put("target_order_policy_enabled", Boolean.toString(targetOrder.enabled()));
         attributes.put("target_order_action", targetOrder.action().name());
+        attributes.put("target_order_require_order_id", Boolean.toString(targetOrder.requireTargetOrderId()));
         attributes.put("target_order_require_client_order_id", Boolean.toString(targetOrder.requireTargetClientOrderId()));
         attributes.put("target_order_require_projection", Boolean.toString(targetOrder.requireProjectedTarget()));
         attributes.put("target_order_require_managed", Boolean.toString(targetOrder.requireManagedTarget()));
         attributes.put("target_order_reject_closed", Boolean.toString(targetOrder.rejectClosedTarget()));
         attributes.put("target_order_reject_external_intervention", Boolean.toString(targetOrder.rejectExternalIntervention()));
         String targetClientOrderId = value(command.getTargetClientOrderId());
-        if (targetClientOrderId != null) {
-            attributes.put("target_client_order_id", targetClientOrderId);
-            tradingStateProjection.order(
-                    value(command.getProvider()),
-                    value(command.getEnvironment()),
-                    value(command.getAccount()),
-                    value(command.getMarket()),
-                    value(command.getSymbol()),
-                    targetClientOrderId
-            ).ifPresent(target -> {
+        String targetExchangeOrderId = value(command.getTargetExchangeOrderId());
+        if (targetClientOrderId != null || targetExchangeOrderId != null) {
+            putIfPresent(attributes, "target_client_order_id", targetClientOrderId);
+            putIfPresent(attributes, "target_exchange_order_id", targetExchangeOrderId);
+            projectedTarget(command, targetClientOrderId, targetExchangeOrderId).ifPresent(target -> {
+                putIfPresent(attributes, "target_projected_client_order_id", target.clientOrderId());
+                putIfPresent(attributes, "target_projected_exchange_order_id", target.exchangeOrderId());
                 putIfPresent(attributes, "target_order_status", target.status());
                 putIfPresent(attributes, "target_order_exchange_status", target.exchangeStatus());
                 attributes.put("target_order_managed_by_bot", Boolean.toString(target.managedByBot()));

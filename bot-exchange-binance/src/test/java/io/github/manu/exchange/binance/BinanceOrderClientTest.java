@@ -328,6 +328,21 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void cancels_order_by_exchange_order_id() {
+        FakeTransport transport = new FakeTransport(orderResponse("tb_cancel", "CANCELED"));
+        BinanceOrderClient client = client(transport);
+
+        BinanceOrderResult cancelled = client.cancelOrder("BTCUSDT", 12345L, null);
+
+        assertThat(cancelled.status()).isEqualTo("CANCELED");
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("DELETE");
+            assertThat(call.uri()).contains("/fapi/v1/order?symbol=BTCUSDT&orderId=12345");
+            assertThat(call.uri()).doesNotContain("origClientOrderId=");
+        });
+    }
+
+    @Test
     void queries_order_and_trade_history_for_reconciliation() {
         FakeTransport transport = new FakeTransport(
                 new BinanceHttpResponse(200, "[" + orderResponseBody("HISTORY", "FILLED") + "]"),

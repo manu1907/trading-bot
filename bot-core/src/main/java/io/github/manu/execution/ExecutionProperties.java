@@ -377,22 +377,45 @@ public record ExecutionProperties(
             Boolean requireManagedTarget,
             Boolean rejectClosedTarget,
             Boolean rejectExternalIntervention,
-            InterventionAction action
+            InterventionAction action,
+            Boolean requireTargetOrderId
     ) {
 
         @ConstructorBinding
         public TargetOrder {
             enabled = enabled == null || enabled;
-            requireTargetClientOrderId = requireTargetClientOrderId == null || requireTargetClientOrderId;
+            requireTargetClientOrderId = Boolean.TRUE.equals(requireTargetClientOrderId);
             requireProjectedTarget = requireProjectedTarget == null || requireProjectedTarget;
             requireManagedTarget = requireManagedTarget == null || requireManagedTarget;
             rejectClosedTarget = rejectClosedTarget == null || rejectClosedTarget;
             rejectExternalIntervention = rejectExternalIntervention == null || rejectExternalIntervention;
             action = action == null ? InterventionAction.MANUAL_REVIEW : action;
+            requireTargetOrderId = requireTargetOrderId == null || requireTargetOrderId;
+        }
+
+        public TargetOrder(
+                Boolean enabled,
+                Boolean requireTargetClientOrderId,
+                Boolean requireProjectedTarget,
+                Boolean requireManagedTarget,
+                Boolean rejectClosedTarget,
+                Boolean rejectExternalIntervention,
+                InterventionAction action
+        ) {
+            this(
+                    enabled,
+                    requireTargetClientOrderId,
+                    requireProjectedTarget,
+                    requireManagedTarget,
+                    rejectClosedTarget,
+                    rejectExternalIntervention,
+                    action,
+                    requireTargetClientOrderId
+            );
         }
 
         static TargetOrder defaults() {
-            return new TargetOrder(true, true, true, true, true, true, InterventionAction.MANUAL_REVIEW);
+            return new TargetOrder(true, false, true, true, true, true, InterventionAction.MANUAL_REVIEW, true);
         }
     }
 

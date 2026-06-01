@@ -212,6 +212,20 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void finds_projected_order_by_exchange_order_id_for_target_commands() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+
+        assertThat(projection.orderByExchangeOrderId(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "12345"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.exchangeOrderId()).isEqualTo("12345");
+                });
+        assertThat(projection.orderByExchangeOrderId(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "missing-order"))
+                .isEmpty();
+    }
+
+    @Test
     void tracks_unknown_order_status_until_newer_order_state_resolves_it() {
         projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(35)));
 

@@ -501,6 +501,61 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void routes_cancel_order_commands_by_exchange_order_id() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, """
+                {
+                  "symbol": "BTCUSDT",
+                  "orderId": 123456,
+                  "clientOrderId": "tb-lfa-001",
+                  "status": "CANCELED",
+                  "side": "BUY",
+                  "type": "LIMIT",
+                  "positionSide": "BOTH",
+                  "price": "50000.00",
+                  "origQty": "0.001",
+                  "executedQty": "0",
+                  "avgPrice": "0",
+                  "cumQuote": "0",
+                  "updateTime": 1772000000002
+                }
+                """));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+        OrderCommandEvent command = OrderCommandEvent.newBuilder(orderCommand())
+                .setAction(OrderCommandAction.CANCEL)
+                .setCommandId("cmd-cancel-001")
+                .setClientOrderId("tb-cancel-001")
+                .setTargetClientOrderId(null)
+                .setTargetExchangeOrderId("123456")
+                .build();
+
+        runtimeModule.configure(config);
+        TradingEventEnvelope<?> result = runtimeModule.submit(command).join();
+
+        assertThat(httpTransport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("DELETE");
+            assertThat(call.uri()).contains("/fapi/v1/order");
+            assertThat(call.uri()).contains("symbol=BTCUSDT");
+            assertThat(call.uri()).contains("orderId=123456");
+            assertThat(call.uri()).doesNotContain("origClientOrderId=");
+        });
+        assertThat((OrderResultEvent) result.value()).satisfies(value -> {
+            assertThat(value.getCommandId()).isEqualTo("cmd-cancel-001");
+            assertThat(value.getExchangeOrderId()).isEqualTo("123456");
+            assertThat(value.getStatus()).isEqualTo(OrderResultStatus.CANCELED);
+        });
+    }
+
+    @Test
     void routes_modify_order_commands_through_order_execution_gateway() throws Exception {
         ResolvedExchangeConfig config = checkedInResolvedConfig();
         FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, """

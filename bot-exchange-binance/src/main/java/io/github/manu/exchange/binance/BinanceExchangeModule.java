@@ -249,7 +249,11 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
     ) {
         return switch (action(command)) {
             case NEW -> orderClient.placeOrder(toBinanceOrderCommand(command, binance));
-            case CANCEL -> orderClient.cancelOrder(value(command.getSymbol()), targetClientOrderId(command));
+            case CANCEL -> orderClient.cancelOrder(
+                    value(command.getSymbol()),
+                    optionalTargetExchangeOrderId(command),
+                    optionalTargetClientOrderId(command)
+            );
             case MODIFY -> orderClient.modifyOrder(toBinanceModifyOrderCommand(command));
         };
     }
@@ -258,24 +262,11 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         return command.getAction() == null ? OrderCommandAction.NEW : command.getAction();
     }
 
-    private String targetClientOrderId(OrderCommandEvent command) {
-        String target = value(command.getTargetClientOrderId());
-        if (target != null) {
-            return target;
-        }
-        Map<CharSequence, CharSequence> attributes = command.getAttributes() == null ? Map.of() : command.getAttributes();
-        target = attribute(attributes, null, "target_client_order_id", "origClientOrderId");
-        if (target != null) {
-            return target;
-        }
-        throw new IllegalArgumentException("CANCEL order commands require targetClientOrderId");
-    }
-
     private BinanceModifyOrderCommand toBinanceModifyOrderCommand(OrderCommandEvent command) {
         Map<CharSequence, CharSequence> attributes = command.getAttributes() == null ? Map.of() : command.getAttributes();
         return new BinanceModifyOrderCommand(
                 value(command.getSymbol()),
-                targetExchangeOrderId(command),
+                optionalTargetExchangeOrderId(command),
                 optionalTargetClientOrderId(command),
                 command.getSide() == null ? null : command.getSide().name(),
                 decimal(command.getQuantity()),
@@ -284,8 +275,12 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         );
     }
 
-    private Long targetExchangeOrderId(OrderCommandEvent command) {
+    private Long optionalTargetExchangeOrderId(OrderCommandEvent command) {
         String target = value(command.getTargetExchangeOrderId());
+        if (target == null) {
+            Map<CharSequence, CharSequence> attributes = command.getAttributes() == null ? Map.of() : command.getAttributes();
+            target = attribute(attributes, null, "target_exchange_order_id", "orderId");
+        }
         if (target == null) {
             return null;
         }

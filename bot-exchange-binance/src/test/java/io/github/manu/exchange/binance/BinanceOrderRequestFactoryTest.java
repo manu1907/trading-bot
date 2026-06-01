@@ -258,6 +258,17 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_cancel_order_request_by_exchange_order_id() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.cancelOrder("BTCUSDT", 123456L, null, "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTCUSDT&orderId=123456&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://demo-fapi.binance.com/fapi/v1/order?");
+    }
+
+    @Test
     void builds_query_order_request_by_original_client_order_id() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
 

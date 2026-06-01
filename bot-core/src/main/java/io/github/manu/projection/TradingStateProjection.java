@@ -102,6 +102,27 @@ public final class TradingStateProjection implements TradingEventHandler {
         return Optional.ofNullable(orders.get(key(provider, environment, account, market, symbol, clientOrderId)));
     }
 
+    public Optional<OrderState> orderByExchangeOrderId(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String exchangeOrderId
+    ) {
+        String prefix = key(provider, environment, account, market, symbol);
+        String expectedExchangeOrderId = value(exchangeOrderId);
+        if (expectedExchangeOrderId == null) {
+            return Optional.empty();
+        }
+        return orders.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .filter(order -> expectedExchangeOrderId.equals(order.exchangeOrderId()))
+                .findFirst();
+    }
+
     public List<OrderState> ordersByCommandId(
             String provider,
             String environment,

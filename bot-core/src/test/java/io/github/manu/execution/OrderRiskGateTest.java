@@ -464,15 +464,17 @@ class OrderRiskGateTest {
     }
 
     @Test
-    void requires_manual_review_for_cancel_without_target_client_order_id() {
+    void requires_manual_review_for_cancel_without_target_order_id() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
         RiskDecisionEvent decision = gate(defaultProperties()).evaluate(cancelCommand(null));
 
         assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
-        assertThat(decision.getReasons()).containsExactly("order_target:missing_client_order_id");
+        assertThat(decision.getReasons()).containsExactly("order_target:missing_order_id");
         assertThat(decision.getAttributes())
                 .containsEntry("target_order_policy_enabled", "true")
+                .containsEntry("target_order_require_order_id", "true")
+                .containsEntry("target_order_require_client_order_id", "false")
                 .containsEntry("target_order_action", "MANUAL_REVIEW");
     }
 
@@ -505,6 +507,51 @@ class OrderRiskGateTest {
                 .containsEntry("target_client_order_id", "tb-lfa-open")
                 .containsEntry("target_order_status", "ACCEPTED")
                 .containsEntry("target_order_managed_by_bot", "true");
+    }
+
+    @Test
+    void approves_cancel_for_projected_managed_open_target_order_by_exchange_order_id() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithTargetOrder(
+                "tb-lfa-open",
+                "12345",
+                OrderResultStatus.ACCEPTED.name(),
+                true,
+                false
+        )).evaluate(cancelCommandByExchangeOrderId("12345"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes())
+                .containsEntry("target_exchange_order_id", "12345")
+                .containsEntry("target_projected_client_order_id", "tb-lfa-open")
+                .containsEntry("target_projected_exchange_order_id", "12345")
+                .containsEntry("target_order_status", "ACCEPTED")
+                .containsEntry("target_order_managed_by_bot", "true");
+    }
+
+    @Test
+    void requires_manual_review_when_target_identifiers_conflict_with_projection() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithTargetOrder(
+                "tb-lfa-open",
+                "12345",
+                OrderResultStatus.ACCEPTED.name(),
+                true,
+                false
+        )).evaluate(OrderCommandEvent.newBuilder(cancelCommand("tb-lfa-open"))
+                .setTargetExchangeOrderId("67890")
+                .build());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_target:identity_mismatch");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_client_order_id", "tb-lfa-open")
+                .containsEntry("target_exchange_order_id", "67890")
+                .containsEntry("target_projected_exchange_order_id", "12345");
     }
 
     @Test
@@ -787,6 +834,16 @@ class OrderRiskGateTest {
             boolean managedByBot,
             boolean externalIntervention
     ) {
+        return projectionWithTargetOrder(clientOrderId, "12345", status, managedByBot, externalIntervention);
+    }
+
+    private TradingStateProjection projectionWithTargetOrder(
+            String clientOrderId,
+            String exchangeOrderId,
+            String status,
+            boolean managedByBot,
+            boolean externalIntervention
+    ) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -799,7 +856,7 @@ class OrderRiskGateTest {
                         SYMBOL,
                         "cmd-target",
                         clientOrderId,
-                        "12345",
+                        exchangeOrderId,
                         status,
                         "NEW",
                         "50000.00",
@@ -864,6 +921,16 @@ class OrderRiskGateTest {
                 .setCommandId("cmd-cancel-001")
                 .setClientOrderId("tb-cancel-001")
                 .setTargetClientOrderId(targetClientOrderId)
+                .build();
+    }
+
+    private OrderCommandEvent cancelCommandByExchangeOrderId(String targetExchangeOrderId) {
+        return OrderCommandEvent.newBuilder(command())
+                .setAction(OrderCommandAction.CANCEL)
+                .setCommandId("cmd-cancel-001")
+                .setClientOrderId("tb-cancel-001")
+                .setTargetClientOrderId(null)
+                .setTargetExchangeOrderId(targetExchangeOrderId)
                 .build();
     }
 

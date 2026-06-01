@@ -351,19 +351,22 @@ Implemented Binance foundations:
 - Core order commands now carry an explicit provider-agnostic action
   (`NEW`, `CANCEL`, `MODIFY`) plus target order identifiers. Strategy-generated
   commands are marked `NEW`, and the Binance execution gateway routes
-  `CANCEL` commands with a `targetClientOrderId` through the existing signed
-  cancel-order endpoint and `MODIFY` commands through the configured futures
-  modify-order endpoint using target client/order ids plus the replacement
-  side, quantity, price, or `priceMatch` fields.
+  `CANCEL` commands through the existing signed cancel-order endpoint using
+  either target exchange order id or target client order id, and `MODIFY`
+  commands through the configured futures modify-order endpoint using target
+  client/order ids plus the replacement side, quantity, price, or `priceMatch`
+  fields.
 - Core risk gate consumes projected unknown order statuses and blocks new
   automation by configurable action, with catalog defaults set to manual
   review.
 - Core risk gate now applies catalog-backed target-order policy for cancel and
   modify commands before provider mapping. By default, cancel/modify commands
-  require a target client order id, a projected target order, bot-managed
-  ownership, a non-terminal target status, and no projected external
-  intervention; violations require manual review unless configured to reject or
-  allow.
+  require a target order identity, accepting either target exchange order id or
+  target client order id, plus a projected target order, bot-managed ownership,
+  non-conflicting projected target identifiers, a non-terminal target status, and
+  no projected external intervention; violations require manual review unless
+  configured to reject or allow. A stricter client-id-only mode remains
+  configurable.
 - Core risk gate now performs provider-agnostic order sizing checks before
   provider mapping: invalid numeric fields and non-positive sizing fields are
   rejected, and optional catalog-configured max quantity/max notional caps can
