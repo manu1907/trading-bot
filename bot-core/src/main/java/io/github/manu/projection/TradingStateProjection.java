@@ -511,13 +511,14 @@ public final class TradingStateProjection implements TradingEventHandler {
 
     private ProjectionUpdate applyOrderResult(TradingEventEnvelope<?> envelope, OrderResultEvent event) {
         String eventId = value(event.getEventId());
+        OrderResultProjectionTarget target = orderResultProjectionTarget(event);
         String entityKey = key(
                 event.getProvider(),
                 event.getEnvironment(),
                 event.getAccount(),
                 event.getMarket(),
                 event.getSymbol(),
-                event.getClientOrderId()
+                target.clientOrderId()
         );
         OrderState state = new OrderState(
                 value(event.getProvider()),
@@ -526,8 +527,8 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getMarket()),
                 value(event.getSymbol()),
                 value(event.getCommandId()),
-                value(event.getClientOrderId()),
-                value(event.getExchangeOrderId()),
+                target.clientOrderId(),
+                firstText(target.exchangeOrderId(), event.getExchangeOrderId()),
                 event.getStatus() == null ? null : event.getStatus().name(),
                 value(event.getExchangeStatus()),
                 value(event.getPrice()),
@@ -544,6 +545,36 @@ public final class TradingStateProjection implements TradingEventHandler {
                 eventId
         );
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), orders, state);
+    }
+
+    private OrderResultProjectionTarget orderResultProjectionTarget(OrderResultEvent event) {
+        String clientOrderId = value(event.getClientOrderId());
+        String exchangeOrderId = value(event.getExchangeOrderId());
+        if (!isGatewayFailure(event)) {
+            return new OrderResultProjectionTarget(clientOrderId, exchangeOrderId);
+        }
+        String targetClientOrderId = attribute(event, "target_client_order_id");
+        String targetExchangeOrderId = firstText(attribute(event, "target_exchange_order_id"), exchangeOrderId);
+        if (targetClientOrderId != null) {
+            return new OrderResultProjectionTarget(targetClientOrderId, targetExchangeOrderId);
+        }
+        if (targetExchangeOrderId == null) {
+            return new OrderResultProjectionTarget(clientOrderId, exchangeOrderId);
+        }
+        return orderByExchangeOrderId(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                value(event.getSymbol()),
+                targetExchangeOrderId
+        )
+                .map(order -> new OrderResultProjectionTarget(order.clientOrderId(), targetExchangeOrderId))
+                .orElseGet(() -> new OrderResultProjectionTarget(clientOrderId, targetExchangeOrderId));
+    }
+
+    private boolean isGatewayFailure(OrderResultEvent event) {
+        return "true".equals(attribute(event, "gateway_failure"));
     }
 
     private ProjectionUpdate applyExecutionReport(TradingEventEnvelope<?> envelope, ExecutionReportEvent event) {
@@ -940,6 +971,13 @@ public final class TradingStateProjection implements TradingEventHandler {
         return value(event.getAttributes().get(key));
     }
 
+    private String attribute(OrderResultEvent event, String key) {
+        if (event.getAttributes() == null) {
+            return null;
+        }
+        return value(event.getAttributes().get(key));
+    }
+
     private String firstText(CharSequence preferred, CharSequence fallback) {
         String value = value(preferred);
         return value == null ? value(fallback) : value;
@@ -1119,6 +1157,12 @@ public final class TradingStateProjection implements TradingEventHandler {
     }
 
     private record OrderCommandProjectionTarget(
+            String clientOrderId,
+            String exchangeOrderId
+    ) {
+    }
+
+    private record OrderResultProjectionTarget(
             String clientOrderId,
             String exchangeOrderId
     ) {

@@ -3,6 +3,7 @@ package io.github.manu.execution;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandSide;
 import io.github.manu.events.v1.OrderCommandType;
@@ -140,6 +141,27 @@ class OrderExecutionPipelineTest {
     }
 
     @Test
+    void publishes_target_identity_on_gateway_failure_for_target_order_commands() {
+        ExecutionProperties properties = targetCommandProperties();
+
+        pipeline(properties, List.of(new ThrowingGateway())).handleOrderCommand(cancelCommand()).join();
+
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.RISK_DECISION, TradingEventType.ORDER_RESULT);
+        OrderResultEvent result = (OrderResultEvent) eventBus.envelopes.get(1).value();
+        assertThat(result.getEventId()).isEqualTo("order-result:cmd-cancel-001:tb-lfa-open:gateway_failure");
+        assertThat(result.getClientOrderId()).isEqualTo("tb-lfa-open");
+        assertThat(result.getExchangeOrderId()).isEqualTo("123456");
+        assertThat(result.getStatus()).isEqualTo(OrderResultStatus.UNKNOWN);
+        assertThat(eventBus.envelopes.get(1).key().getEntityId()).isEqualTo("tb-lfa-open");
+        assertThat(result.getAttributes())
+                .containsEntry("command_client_order_id", "tb-cancel-001")
+                .containsEntry("target_client_order_id", "tb-lfa-open")
+                .containsEntry("target_exchange_order_id", "123456")
+                .containsEntry("gateway_failure", "true");
+    }
+
+    @Test
     void publishes_unknown_order_result_when_gateway_future_fails() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -166,14 +188,39 @@ class OrderExecutionPipelineTest {
     }
 
     private OrderExecutionPipeline pipeline(List<OrderExecutionGateway> gateways) {
-        OrderRiskGate riskGate = new OrderRiskGate(new ExecutionProperties(null), reconciliationTracker, clock);
+        return pipeline(new ExecutionProperties(null), gateways);
+    }
+
+    private OrderExecutionPipeline pipeline(ExecutionProperties properties, List<OrderExecutionGateway> gateways) {
+        OrderRiskGate riskGate = new OrderRiskGate(properties, reconciliationTracker, clock);
         return new OrderExecutionPipeline(
                 riskGate,
                 eventBus,
                 gateways,
-                new OrderExecutionIdempotencyTracker(new ExecutionProperties(null)),
+                new OrderExecutionIdempotencyTracker(properties),
                 clock
         );
+    }
+
+    private ExecutionProperties targetCommandProperties() {
+        return new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                null,
+                null,
+                null,
+                new ExecutionProperties.TargetOrder(
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW,
+                        true
+                )
+        ));
     }
 
     private void recordReconciliation(ReconciliationConfidenceStatus status) {
@@ -214,6 +261,15 @@ class OrderExecutionPipelineTest {
                 .setIdempotencyKey(idempotencyKey)
                 .setRequestedAtMicros(NOW)
                 .setAttributes(Map.of("signal_id", "sig-001"))
+                .build();
+    }
+
+    private OrderCommandEvent cancelCommand() {
+        return OrderCommandEvent.newBuilder(command("cmd-cancel-001", "idem-cancel-001"))
+                .setAction(OrderCommandAction.CANCEL)
+                .setClientOrderId("tb-cancel-001")
+                .setTargetClientOrderId("tb-lfa-open")
+                .setTargetExchangeOrderId("123456")
                 .build();
     }
 

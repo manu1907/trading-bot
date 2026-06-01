@@ -267,6 +267,40 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void resolves_gateway_failure_result_to_target_order_by_exchange_order_id() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+        projection.apply(cancelOrderCommand(
+                "evt-cancel-command",
+                "cmd-cancel",
+                "cancel-client-1",
+                null,
+                "12345",
+                timestamp(35)
+        ));
+
+        ProjectionUpdate failureUpdate = projection.apply(gatewayFailureOrderResult(
+                "evt-gateway-failure",
+                "cmd-cancel",
+                "cancel-client-1",
+                "12345",
+                timestamp(36)
+        ));
+
+        assertThat(failureUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "cancel-client-1")).isEmpty();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-cancel");
+                    assertThat(order.status()).isEqualTo("UNKNOWN");
+                    assertThat(order.exchangeOrderId()).isEqualTo("12345");
+                    assertThat(order.updateSource()).isEqualTo("ORDER_RESULT");
+                });
+        assertThat(projection.hasUnknownOrderStatuses(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+    }
+
+    @Test
     void finds_projected_orders_by_command_id_for_restart_idempotency() {
         projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
 
@@ -803,6 +837,46 @@ class TradingStateProjectionTest {
                 .setExecutedQuantity("0")
                 .setObservedAtMicros(observedAt)
                 .setAttributes(Map.of())
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.ORDER_RESULT,
+                TradingEventKeys.order(TradingEventType.ORDER_RESULT, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, clientOrderId),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<OrderResultEvent> gatewayFailureOrderResult(
+            String eventId,
+            String commandId,
+            String clientOrderId,
+            String targetExchangeOrderId,
+            Instant observedAt
+    ) {
+        OrderResultEvent event = OrderResultEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setCommandId(commandId)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setClientOrderId(clientOrderId)
+                .setExchangeOrderId(targetExchangeOrderId)
+                .setStatus(OrderResultStatus.UNKNOWN)
+                .setExchangeStatus(null)
+                .setPrice("100")
+                .setOriginalQuantity("0.10")
+                .setExecutedQuantity(null)
+                .setObservedAtMicros(observedAt)
+                .setRejectCode("GATEWAY_FAILURE")
+                .setRejectMessage("gateway failed")
+                .setAttributes(Map.of(
+                        "source", "order_execution_pipeline",
+                        "gateway_failure", "true",
+                        "command_client_order_id", clientOrderId,
+                        "target_exchange_order_id", targetExchangeOrderId
+                ))
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.ORDER_RESULT,

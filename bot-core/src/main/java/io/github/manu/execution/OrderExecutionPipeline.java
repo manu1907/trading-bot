@@ -3,6 +3,7 @@ package io.github.manu.execution;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
@@ -253,11 +254,18 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
         attributes.put("source", "order_execution_pipeline");
         attributes.put("gateway_failure", "true");
         attributes.put("gateway_failure_type", causeType);
+        putIfPresent(attributes, "command_client_order_id", value(command.getClientOrderId()));
+        putIfPresent(attributes, "target_client_order_id", value(command.getTargetClientOrderId()));
+        putIfPresent(attributes, "target_exchange_order_id", value(command.getTargetExchangeOrderId()));
+        String resultClientOrderId = gatewayFailureClientOrderId(command);
+        String resultExchangeOrderId = action(command) == OrderCommandAction.NEW
+                ? null
+                : value(command.getTargetExchangeOrderId());
         OrderResultEvent result = OrderResultEvent.newBuilder()
                 .setEventId("order-result:"
                         + value(command.getCommandId())
                         + ":"
-                        + value(command.getClientOrderId())
+                        + resultClientOrderId
                         + ":gateway_failure")
                 .setSchemaVersion(1)
                 .setCommandId(value(command.getCommandId()))
@@ -266,8 +274,8 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
                 .setAccount(value(command.getAccount()))
                 .setMarket(value(command.getMarket()))
                 .setSymbol(value(command.getSymbol()))
-                .setClientOrderId(value(command.getClientOrderId()))
-                .setExchangeOrderId(null)
+                .setClientOrderId(resultClientOrderId)
+                .setExchangeOrderId(resultExchangeOrderId)
                 .setStatus(OrderResultStatus.UNKNOWN)
                 .setExchangeStatus(null)
                 .setPrice(value(command.getPrice()))
@@ -282,6 +290,24 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
                 .setAttributes(Map.copyOf(attributes))
                 .build();
         return envelope(TradingEventType.ORDER_RESULT, result);
+    }
+
+    private String gatewayFailureClientOrderId(OrderCommandEvent command) {
+        if (action(command) == OrderCommandAction.NEW) {
+            return value(command.getClientOrderId());
+        }
+        String targetClientOrderId = value(command.getTargetClientOrderId());
+        return targetClientOrderId == null ? value(command.getClientOrderId()) : targetClientOrderId;
+    }
+
+    private OrderCommandAction action(OrderCommandEvent command) {
+        return command.getAction() == null ? OrderCommandAction.NEW : command.getAction();
+    }
+
+    private void putIfPresent(Map<CharSequence, CharSequence> attributes, String key, String value) {
+        if (value != null) {
+            attributes.put(key, value);
+        }
     }
 
     private Throwable unwrap(Throwable failure) {

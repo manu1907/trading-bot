@@ -358,7 +358,10 @@ Implemented Binance foundations:
   fields. Replay projection now attaches target-order commands to the target
   order identity rather than the command's own client id when the target client
   id or a known target exchange order id is available, so cancel/modify results
-  can resolve the same projected command after restart.
+  can resolve the same projected command after restart. Gateway-failure
+  `UNKNOWN` results also carry target identifiers and projection uses them to
+  resolve the affected target order while leaving the unknown status visible to
+  the risk gate.
 - Core risk gate consumes projected unknown order statuses and blocks new
   automation by configurable action, with catalog defaults set to manual
   review.
