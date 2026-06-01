@@ -6,6 +6,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandSide;
 import io.github.manu.events.v1.OrderCommandType;
@@ -196,6 +197,73 @@ class TradingStateProjectionTest {
 
         assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
         assertThat(projection.unresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isZero();
+    }
+
+    @Test
+    void projects_replayed_target_order_command_against_target_order_identity() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+
+        ProjectionUpdate commandUpdate = projection.apply(cancelOrderCommand(
+                "evt-cancel-command",
+                "cmd-cancel",
+                "cancel-client-1",
+                "client-1",
+                null,
+                timestamp(35)
+        ));
+
+        assertThat(commandUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "cancel-client-1")).isEmpty();
+        assertThat(projection.unresolvedOrderCommandStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.exchangeOrderId()).isEqualTo("12345");
+                    assertThat(order.commandId()).isEqualTo("cmd-cancel");
+                    assertThat(order.executionType()).isEqualTo("CANCEL");
+                    assertThat(order.unresolvedCommand()).isTrue();
+                });
+
+        projection.apply(orderResult(
+                "evt-cancel-result",
+                "cmd-cancel",
+                "client-1",
+                "12345",
+                OrderResultStatus.CANCELED,
+                "CANCELED",
+                timestamp(36)
+        ));
+
+        assertThat(projection.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-cancel");
+                    assertThat(order.status()).isEqualTo("CANCELED");
+                });
+    }
+
+    @Test
+    void projects_replayed_target_order_command_by_exchange_order_id_when_known() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+
+        projection.apply(cancelOrderCommand(
+                "evt-cancel-command",
+                "cmd-cancel",
+                "cancel-client-1",
+                null,
+                "12345",
+                timestamp(35)
+        ));
+
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "cancel-client-1")).isEmpty();
+        assertThat(projection.unresolvedOrderCommandStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.exchangeOrderId()).isEqualTo("12345");
+                    assertThat(order.commandId()).isEqualTo("cmd-cancel");
+                });
     }
 
     @Test
@@ -676,8 +744,43 @@ class TradingStateProjectionTest {
         );
     }
 
+    private TradingEventEnvelope<OrderCommandEvent> cancelOrderCommand(
+            String eventId,
+            String commandId,
+            String clientOrderId,
+            String targetClientOrderId,
+            String targetExchangeOrderId,
+            Instant requestedAt
+    ) {
+        OrderCommandEvent event = OrderCommandEvent.newBuilder(orderCommand(eventId, requestedAt).value())
+                .setAction(OrderCommandAction.CANCEL)
+                .setCommandId(commandId)
+                .setClientOrderId(clientOrderId)
+                .setTargetClientOrderId(targetClientOrderId)
+                .setTargetExchangeOrderId(targetExchangeOrderId)
+                .setIdempotencyKey(commandId + ":idem")
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.ORDER_COMMAND,
+                TradingEventKeys.order(TradingEventType.ORDER_COMMAND, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, clientOrderId),
+                event
+        );
+    }
+
     private TradingEventEnvelope<OrderResultEvent> orderResult(
             String eventId,
+            OrderResultStatus status,
+            String exchangeStatus,
+            Instant observedAt
+    ) {
+        return orderResult(eventId, "cmd-1", "client-1", "12345", status, exchangeStatus, observedAt);
+    }
+
+    private TradingEventEnvelope<OrderResultEvent> orderResult(
+            String eventId,
+            String commandId,
+            String clientOrderId,
+            String exchangeOrderId,
             OrderResultStatus status,
             String exchangeStatus,
             Instant observedAt
@@ -685,14 +788,14 @@ class TradingStateProjectionTest {
         OrderResultEvent event = OrderResultEvent.newBuilder()
                 .setEventId(eventId)
                 .setSchemaVersion(1)
-                .setCommandId("cmd-1")
+                .setCommandId(commandId)
                 .setProvider(PROVIDER)
                 .setEnvironment(ENVIRONMENT)
                 .setAccount(ACCOUNT)
                 .setMarket(MARKET)
                 .setSymbol(SYMBOL)
-                .setClientOrderId("client-1")
-                .setExchangeOrderId("12345")
+                .setClientOrderId(clientOrderId)
+                .setExchangeOrderId(exchangeOrderId)
                 .setStatus(status)
                 .setExchangeStatus(exchangeStatus)
                 .setPrice("100")
@@ -703,7 +806,7 @@ class TradingStateProjectionTest {
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.ORDER_RESULT,
-                TradingEventKeys.order(TradingEventType.ORDER_RESULT, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"),
+                TradingEventKeys.order(TradingEventType.ORDER_RESULT, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, clientOrderId),
                 event
         );
     }

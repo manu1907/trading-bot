@@ -355,7 +355,10 @@ Implemented Binance foundations:
   either target exchange order id or target client order id, and `MODIFY`
   commands through the configured futures modify-order endpoint using target
   client/order ids plus the replacement side, quantity, price, or `priceMatch`
-  fields.
+  fields. Replay projection now attaches target-order commands to the target
+  order identity rather than the command's own client id when the target client
+  id or a known target exchange order id is available, so cancel/modify results
+  can resolve the same projected command after restart.
 - Core risk gate consumes projected unknown order statuses and blocks new
   automation by configurable action, with catalog defaults set to manual
   review.

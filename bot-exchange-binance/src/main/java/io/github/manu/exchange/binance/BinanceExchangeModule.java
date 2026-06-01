@@ -712,8 +712,8 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                         value(command.getEnvironment()),
                         value(command.getAccount()),
                         value(command.getMarket()),
-                        value(command.getSymbol()),
-                        value(command.getClientOrderId())
+                        value(event.getSymbol()),
+                        value(event.getClientOrderId())
                 ),
                 event
         );

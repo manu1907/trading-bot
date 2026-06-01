@@ -487,6 +487,7 @@ class BinanceExchangeModuleTest {
         runtimeModule.configure(config);
         TradingEventEnvelope<?> result = runtimeModule.submit(command).join();
 
+        assertThat(result.key().getEntityId()).isEqualTo("tb-lfa-001");
         assertThat(httpTransport.calls()).singleElement().satisfies(call -> {
             assertThat(call.method()).isEqualTo("DELETE");
             assertThat(call.uri()).contains("/fapi/v1/order");
@@ -541,6 +542,7 @@ class BinanceExchangeModuleTest {
         runtimeModule.configure(config);
         TradingEventEnvelope<?> result = runtimeModule.submit(command).join();
 
+        assertThat(result.key().getEntityId()).isEqualTo("tb-lfa-001");
         assertThat(httpTransport.calls()).singleElement().satisfies(call -> {
             assertThat(call.method()).isEqualTo("DELETE");
             assertThat(call.uri()).contains("/fapi/v1/order");

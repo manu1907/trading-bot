@@ -5,6 +5,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
@@ -442,14 +443,16 @@ public final class TradingStateProjection implements TradingEventHandler {
 
     private ProjectionUpdate applyOrderCommand(TradingEventEnvelope<?> envelope, OrderCommandEvent event) {
         String eventId = value(event.getEventId());
+        OrderCommandProjectionTarget target = orderCommandProjectionTarget(event);
         String entityKey = key(
                 event.getProvider(),
                 event.getEnvironment(),
                 event.getAccount(),
                 event.getMarket(),
                 event.getSymbol(),
-                event.getClientOrderId()
+                target.clientOrderId()
         );
+        OrderState current = orders.get(entityKey);
         OrderState state = new OrderState(
                 value(event.getProvider()),
                 value(event.getEnvironment()),
@@ -457,17 +460,17 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getMarket()),
                 value(event.getSymbol()),
                 value(event.getCommandId()),
-                value(event.getClientOrderId()),
-                null,
+                target.clientOrderId(),
+                firstText(target.exchangeOrderId(), current == null ? null : current.exchangeOrderId()),
                 "COMMAND_RECEIVED",
-                null,
-                value(event.getPrice()),
-                value(event.getQuantity()),
-                null,
-                null,
-                null,
+                current == null ? null : current.exchangeStatus(),
+                firstText(value(event.getPrice()), current == null ? null : current.price()),
+                firstText(value(event.getQuantity()), current == null ? null : current.originalQuantity()),
+                current == null ? null : current.executedQuantity(),
+                current == null ? null : current.averagePrice(),
+                current == null ? null : current.cumulativeQuote(),
                 "ORDER_COMMAND",
-                null,
+                action(event).name(),
                 true,
                 false,
                 null,
@@ -475,6 +478,35 @@ public final class TradingStateProjection implements TradingEventHandler {
                 eventId
         );
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), orders, state);
+    }
+
+    private OrderCommandProjectionTarget orderCommandProjectionTarget(OrderCommandEvent event) {
+        String commandClientOrderId = value(event.getClientOrderId());
+        if (action(event) == OrderCommandAction.NEW) {
+            return new OrderCommandProjectionTarget(commandClientOrderId, null);
+        }
+        String targetClientOrderId = value(event.getTargetClientOrderId());
+        String targetExchangeOrderId = value(event.getTargetExchangeOrderId());
+        if (targetClientOrderId != null) {
+            return new OrderCommandProjectionTarget(targetClientOrderId, targetExchangeOrderId);
+        }
+        if (targetExchangeOrderId == null) {
+            return new OrderCommandProjectionTarget(commandClientOrderId, null);
+        }
+        return orderByExchangeOrderId(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                value(event.getSymbol()),
+                targetExchangeOrderId
+        )
+                .map(order -> new OrderCommandProjectionTarget(order.clientOrderId(), targetExchangeOrderId))
+                .orElseGet(() -> new OrderCommandProjectionTarget(commandClientOrderId, targetExchangeOrderId));
+    }
+
+    private OrderCommandAction action(OrderCommandEvent event) {
+        return event.getAction() == null ? OrderCommandAction.NEW : event.getAction();
     }
 
     private ProjectionUpdate applyOrderResult(TradingEventEnvelope<?> envelope, OrderResultEvent event) {
@@ -1083,6 +1115,12 @@ public final class TradingStateProjection implements TradingEventHandler {
             boolean managedByBot,
             boolean externalIntervention,
             String reason
+    ) {
+    }
+
+    private record OrderCommandProjectionTarget(
+            String clientOrderId,
+            String exchangeOrderId
     ) {
     }
 
