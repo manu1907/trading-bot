@@ -117,7 +117,8 @@ public record ExecutionProperties(
             ManualIntervention manualIntervention,
             UnknownOrderStatus unknownOrderStatus,
             PendingOrderCommand pendingOrderCommand,
-            OrderLimit orderLimit
+            OrderLimit orderLimit,
+            TargetOrder targetOrder
     ) {
 
         @ConstructorBinding
@@ -128,14 +129,15 @@ public record ExecutionProperties(
             unknownOrderStatus = unknownOrderStatus == null ? UnknownOrderStatus.defaults() : unknownOrderStatus;
             pendingOrderCommand = pendingOrderCommand == null ? PendingOrderCommand.defaults() : pendingOrderCommand;
             orderLimit = orderLimit == null ? OrderLimit.defaults() : orderLimit;
+            targetOrder = targetOrder == null ? TargetOrder.defaults() : targetOrder;
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation) {
-            this(enabled, reconciliation, null, null, null, null);
+            this(enabled, reconciliation, null, null, null, null, null);
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation, ManualIntervention manualIntervention) {
-            this(enabled, reconciliation, manualIntervention, null, null, null);
+            this(enabled, reconciliation, manualIntervention, null, null, null, null);
         }
 
         public RiskGate(
@@ -144,7 +146,7 @@ public record ExecutionProperties(
                 ManualIntervention manualIntervention,
                 UnknownOrderStatus unknownOrderStatus
         ) {
-            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, null, null);
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, null, null, null);
         }
 
         public RiskGate(
@@ -154,7 +156,18 @@ public record ExecutionProperties(
                 UnknownOrderStatus unknownOrderStatus,
                 PendingOrderCommand pendingOrderCommand
         ) {
-            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, pendingOrderCommand, null);
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, pendingOrderCommand, null, null);
+        }
+
+        public RiskGate(
+                Boolean enabled,
+                Reconciliation reconciliation,
+                ManualIntervention manualIntervention,
+                UnknownOrderStatus unknownOrderStatus,
+                PendingOrderCommand pendingOrderCommand,
+                OrderLimit orderLimit
+        ) {
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, pendingOrderCommand, orderLimit, null);
         }
 
         static RiskGate defaults() {
@@ -164,7 +177,8 @@ public record ExecutionProperties(
                     ManualIntervention.defaults(),
                     UnknownOrderStatus.defaults(),
                     PendingOrderCommand.defaults(),
-                    OrderLimit.defaults()
+                    OrderLimit.defaults(),
+                    TargetOrder.defaults()
             );
         }
     }
@@ -353,6 +367,32 @@ public record ExecutionProperties(
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException(field + " must be a decimal number", e);
             }
+        }
+    }
+
+    public record TargetOrder(
+            Boolean enabled,
+            Boolean requireTargetClientOrderId,
+            Boolean requireProjectedTarget,
+            Boolean requireManagedTarget,
+            Boolean rejectClosedTarget,
+            Boolean rejectExternalIntervention,
+            InterventionAction action
+    ) {
+
+        @ConstructorBinding
+        public TargetOrder {
+            enabled = enabled == null || enabled;
+            requireTargetClientOrderId = requireTargetClientOrderId == null || requireTargetClientOrderId;
+            requireProjectedTarget = requireProjectedTarget == null || requireProjectedTarget;
+            requireManagedTarget = requireManagedTarget == null || requireManagedTarget;
+            rejectClosedTarget = rejectClosedTarget == null || rejectClosedTarget;
+            rejectExternalIntervention = rejectExternalIntervention == null || rejectExternalIntervention;
+            action = action == null ? InterventionAction.MANUAL_REVIEW : action;
+        }
+
+        static TargetOrder defaults() {
+            return new TargetOrder(true, true, true, true, true, true, InterventionAction.MANUAL_REVIEW);
         }
     }
 

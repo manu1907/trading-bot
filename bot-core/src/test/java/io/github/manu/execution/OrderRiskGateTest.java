@@ -3,6 +3,7 @@ package io.github.manu.execution;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandSide;
 import io.github.manu.events.v1.OrderCommandType;
@@ -462,6 +463,103 @@ class OrderRiskGateTest {
                 .containsEntry("order_limit_action", "MANUAL_REVIEW");
     }
 
+    @Test
+    void requires_manual_review_for_cancel_without_target_client_order_id() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties()).evaluate(cancelCommand(null));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_target:missing_client_order_id");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_policy_enabled", "true")
+                .containsEntry("target_order_action", "MANUAL_REVIEW");
+    }
+
+    @Test
+    void requires_manual_review_for_cancel_when_projected_target_is_missing() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties()).evaluate(cancelCommand("tb-lfa-open"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_target:not_projected");
+        assertThat(decision.getAttributes()).containsEntry("target_client_order_id", "tb-lfa-open");
+    }
+
+    @Test
+    void approves_cancel_for_projected_managed_open_target_order() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithTargetOrder(
+                "tb-lfa-open",
+                OrderResultStatus.ACCEPTED.name(),
+                true,
+                false
+        )).evaluate(cancelCommand("tb-lfa-open"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes())
+                .containsEntry("target_client_order_id", "tb-lfa-open")
+                .containsEntry("target_order_status", "ACCEPTED")
+                .containsEntry("target_order_managed_by_bot", "true");
+    }
+
+    @Test
+    void requires_manual_review_for_modify_when_projected_target_is_closed() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithTargetOrder(
+                "tb-lfa-closed",
+                OrderResultStatus.CANCELED.name(),
+                true,
+                false
+        )).evaluate(modifyCommand("tb-lfa-closed"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_target:closed");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_client_order_id", "tb-lfa-closed")
+                .containsEntry("target_order_status", "CANCELED");
+    }
+
+    @Test
+    void rejects_cancel_for_unmanaged_projected_target_when_configured_to_reject() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                null,
+                null,
+                null,
+                new ExecutionProperties.TargetOrder(
+                        true,
+                        true,
+                        true,
+                        true,
+                        true,
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithTargetOrder(
+                "manual-client-1",
+                OrderResultStatus.ACCEPTED.name(),
+                false,
+                false
+        )).evaluate(cancelCommand("manual-client-1"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_target:not_managed");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_action", "REJECT_NEW_COMMANDS")
+                .containsEntry("target_order_managed_by_bot", "false");
+    }
+
     private OrderRiskGate gate(ExecutionProperties properties) {
         return new OrderRiskGate(properties, reconciliationTracker, clock);
     }
@@ -683,6 +781,46 @@ class OrderRiskGateTest {
         return projection;
     }
 
+    private TradingStateProjection projectionWithTargetOrder(
+            String clientOrderId,
+            String status,
+            boolean managedByBot,
+            boolean externalIntervention
+    ) {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        "cmd-target",
+                        clientOrderId,
+                        "12345",
+                        status,
+                        "NEW",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "ORDER_RESULT",
+                        null,
+                        managedByBot,
+                        externalIntervention,
+                        externalIntervention ? "external_order_observed" : null,
+                        NOW,
+                        "evt-target-order"
+                )),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
     private OrderCommandEvent command() {
         return OrderCommandEvent.newBuilder()
                 .setEventId("evt-command-001")
@@ -717,6 +855,26 @@ class OrderRiskGateTest {
         return OrderCommandEvent.newBuilder(command())
                 .setPrice(null)
                 .setQuoteOrderQuantity(null)
+                .build();
+    }
+
+    private OrderCommandEvent cancelCommand(String targetClientOrderId) {
+        return OrderCommandEvent.newBuilder(command())
+                .setAction(OrderCommandAction.CANCEL)
+                .setCommandId("cmd-cancel-001")
+                .setClientOrderId("tb-cancel-001")
+                .setTargetClientOrderId(targetClientOrderId)
+                .build();
+    }
+
+    private OrderCommandEvent modifyCommand(String targetClientOrderId) {
+        return OrderCommandEvent.newBuilder(command())
+                .setAction(OrderCommandAction.MODIFY)
+                .setCommandId("cmd-modify-001")
+                .setClientOrderId("tb-modify-001")
+                .setTargetClientOrderId(targetClientOrderId)
+                .setQuantity("0.002")
+                .setPrice("50100.00")
                 .build();
     }
 }

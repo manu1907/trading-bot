@@ -3,6 +3,7 @@ package io.github.manu.execution;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
@@ -43,6 +44,11 @@ public final class OrderRiskGate {
     private static final String MAX_QUANTITY_REASON = "order_limit:max_quantity";
     private static final String MAX_NOTIONAL_REASON = "order_limit:max_notional";
     private static final String UNBOUNDED_NOTIONAL_REASON = "order_limit:unbounded_notional";
+    private static final String MISSING_TARGET_CLIENT_ORDER_ID_REASON = "order_target:missing_client_order_id";
+    private static final String PROJECTED_TARGET_MISSING_REASON = "order_target:not_projected";
+    private static final String PROJECTED_TARGET_UNMANAGED_REASON = "order_target:not_managed";
+    private static final String PROJECTED_TARGET_CLOSED_REASON = "order_target:closed";
+    private static final String PROJECTED_TARGET_EXTERNAL_INTERVENTION_REASON = "order_target:external_intervention";
     private static final BigDecimal ZERO = BigDecimal.ZERO;
 
     private final ExecutionProperties properties;
@@ -121,23 +127,27 @@ public final class OrderRiskGate {
                     pendingOrderCommandDecision(properties.riskGate().pendingOrderCommand(), command);
             ProjectionIdempotencyDecision projectionIdempotencyDecision = projectionIdempotencyDecision(command);
             OrderLimitDecision orderLimitDecision = orderLimitDecision(properties.riskGate().orderLimit(), command);
+            TargetOrderDecision targetOrderDecision = targetOrderDecision(properties.riskGate().targetOrder(), command);
             reasons.addAll(reconciliationReasons);
             reasons.addAll(manualInterventionDecision.reasons());
             reasons.addAll(unknownOrderStatusDecision.reasons());
             reasons.addAll(pendingOrderCommandDecision.reasons());
             reasons.addAll(projectionIdempotencyDecision.reasons());
             reasons.addAll(orderLimitDecision.reasons());
+            reasons.addAll(targetOrderDecision.reasons());
             if (!reconciliationReasons.isEmpty()
                     || manualInterventionDecision.reject()
                     || unknownOrderStatusDecision.reject()
                     || pendingOrderCommandDecision.reject()
                     || projectionIdempotencyDecision.reject()
-                    || orderLimitDecision.reject()) {
+                    || orderLimitDecision.reject()
+                    || targetOrderDecision.reject()) {
                 decision = RiskDecision.REJECTED;
             } else if (manualInterventionDecision.manualReview()
                     || unknownOrderStatusDecision.manualReview()
                     || pendingOrderCommandDecision.manualReview()
-                    || orderLimitDecision.manualReview()) {
+                    || orderLimitDecision.manualReview()
+                    || targetOrderDecision.manualReview()) {
                 decision = RiskDecision.MANUAL_REVIEW;
             } else {
                 reasons.add(APPROVED_REASON);
@@ -157,7 +167,7 @@ public final class OrderRiskGate {
                 .setSymbol(value(command.getSymbol()))
                 .setDecision(decision)
                 .setReasons(List.copyOf(reasons))
-                .setMaxQuantity(decision == RiskDecision.APPROVED ? value(command.getQuantity()) : null)
+                .setMaxQuantity(decision == RiskDecision.APPROVED ? approvedMaxQuantity(command) : null)
                 .setMaxNotional(null)
                 .setDecidedAtMicros(Instant.now(clock))
                 .setAttributes(attributes(command, reconciliationConfidence))
@@ -304,6 +314,9 @@ public final class OrderRiskGate {
         if (!orderLimit.enabled()) {
             return OrderLimitDecision.none();
         }
+        if (action(command) == OrderCommandAction.CANCEL) {
+            return OrderLimitDecision.none();
+        }
         EffectiveOrderLimit effectiveLimit = effectiveOrderLimit(orderLimit, command);
         List<String> reasons = new ArrayList<>();
         boolean reject = false;
@@ -363,6 +376,85 @@ public final class OrderRiskGate {
             }
         }
         return new OrderLimitDecision(List.copyOf(reasons), reject, manualReview);
+    }
+
+    private TargetOrderDecision targetOrderDecision(
+            ExecutionProperties.TargetOrder targetOrder,
+            OrderCommandEvent command
+    ) {
+        if (!targetOrder.enabled() || action(command) == OrderCommandAction.NEW) {
+            return TargetOrderDecision.none();
+        }
+        List<String> reasons = new ArrayList<>();
+        boolean reject = false;
+        boolean manualReview = false;
+        String targetClientOrderId = value(command.getTargetClientOrderId());
+        if (targetOrder.requireTargetClientOrderId() && targetClientOrderId == null) {
+            ManualInterventionDecision decision = decisionFor(targetOrder.action(), MISSING_TARGET_CLIENT_ORDER_ID_REASON);
+            reasons.addAll(decision.reasons());
+            reject = reject || decision.reject();
+            manualReview = manualReview || decision.manualReview();
+            return new TargetOrderDecision(List.copyOf(reasons), reject, manualReview);
+        }
+
+        Optional<TradingStateProjection.OrderState> target = targetClientOrderId == null
+                ? Optional.empty()
+                : tradingStateProjection.order(
+                        value(command.getProvider()),
+                        value(command.getEnvironment()),
+                        value(command.getAccount()),
+                        value(command.getMarket()),
+                        value(command.getSymbol()),
+                        targetClientOrderId
+                );
+        if (targetOrder.requireProjectedTarget() && target.isEmpty()) {
+            ManualInterventionDecision decision = decisionFor(targetOrder.action(), PROJECTED_TARGET_MISSING_REASON);
+            reasons.addAll(decision.reasons());
+            reject = reject || decision.reject();
+            manualReview = manualReview || decision.manualReview();
+            return new TargetOrderDecision(List.copyOf(reasons), reject, manualReview);
+        }
+        if (target.isPresent()) {
+            TradingStateProjection.OrderState state = target.orElseThrow();
+            if (targetOrder.requireManagedTarget() && !state.managedByBot()) {
+                ManualInterventionDecision decision = decisionFor(targetOrder.action(), PROJECTED_TARGET_UNMANAGED_REASON);
+                reasons.addAll(decision.reasons());
+                reject = reject || decision.reject();
+                manualReview = manualReview || decision.manualReview();
+            }
+            if (targetOrder.rejectClosedTarget() && closedOrderStatus(state.status())) {
+                ManualInterventionDecision decision = decisionFor(targetOrder.action(), PROJECTED_TARGET_CLOSED_REASON);
+                reasons.addAll(decision.reasons());
+                reject = reject || decision.reject();
+                manualReview = manualReview || decision.manualReview();
+            }
+            if (targetOrder.rejectExternalIntervention() && state.externalIntervention()) {
+                ManualInterventionDecision decision =
+                        decisionFor(targetOrder.action(), PROJECTED_TARGET_EXTERNAL_INTERVENTION_REASON);
+                reasons.addAll(decision.reasons());
+                reject = reject || decision.reject();
+                manualReview = manualReview || decision.manualReview();
+            }
+        }
+        return new TargetOrderDecision(List.copyOf(reasons), reject, manualReview);
+    }
+
+    private OrderCommandAction action(OrderCommandEvent command) {
+        return command.getAction() == null ? OrderCommandAction.NEW : command.getAction();
+    }
+
+    private String approvedMaxQuantity(OrderCommandEvent command) {
+        return action(command) == OrderCommandAction.CANCEL ? null : value(command.getQuantity());
+    }
+
+    private boolean closedOrderStatus(String status) {
+        if (status == null) {
+            return false;
+        }
+        return switch (status) {
+            case "CANCELED", "EXPIRED", "FILLED", "REJECTED" -> true;
+            default -> false;
+        };
     }
 
     private EffectiveOrderLimit effectiveOrderLimit(
@@ -518,6 +610,7 @@ public final class OrderRiskGate {
         );
         attributes.putAll(projectionIdempotencyDecision(command).attributes());
         attributes.putAll(orderLimitAttributes(command));
+        attributes.putAll(targetOrderAttributes(command));
         return Map.copyOf(attributes);
     }
 
@@ -545,6 +638,43 @@ public final class OrderRiskGate {
             attributes.put("order_limit_computed_notional", decimalText(computedNotional));
         }
         return Map.copyOf(attributes);
+    }
+
+    private Map<CharSequence, CharSequence> targetOrderAttributes(OrderCommandEvent command) {
+        ExecutionProperties.TargetOrder targetOrder = properties.riskGate().targetOrder();
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.put("target_order_policy_enabled", Boolean.toString(targetOrder.enabled()));
+        attributes.put("target_order_action", targetOrder.action().name());
+        attributes.put("target_order_require_client_order_id", Boolean.toString(targetOrder.requireTargetClientOrderId()));
+        attributes.put("target_order_require_projection", Boolean.toString(targetOrder.requireProjectedTarget()));
+        attributes.put("target_order_require_managed", Boolean.toString(targetOrder.requireManagedTarget()));
+        attributes.put("target_order_reject_closed", Boolean.toString(targetOrder.rejectClosedTarget()));
+        attributes.put("target_order_reject_external_intervention", Boolean.toString(targetOrder.rejectExternalIntervention()));
+        String targetClientOrderId = value(command.getTargetClientOrderId());
+        if (targetClientOrderId != null) {
+            attributes.put("target_client_order_id", targetClientOrderId);
+            tradingStateProjection.order(
+                    value(command.getProvider()),
+                    value(command.getEnvironment()),
+                    value(command.getAccount()),
+                    value(command.getMarket()),
+                    value(command.getSymbol()),
+                    targetClientOrderId
+            ).ifPresent(target -> {
+                putIfPresent(attributes, "target_order_status", target.status());
+                putIfPresent(attributes, "target_order_exchange_status", target.exchangeStatus());
+                attributes.put("target_order_managed_by_bot", Boolean.toString(target.managedByBot()));
+                attributes.put("target_order_external_intervention", Boolean.toString(target.externalIntervention()));
+            });
+        }
+        return Map.copyOf(attributes);
+    }
+
+    private void putIfPresent(Map<CharSequence, CharSequence> attributes, String name, String value) {
+        String normalized = value(value);
+        if (normalized != null) {
+            attributes.put(name, normalized);
+        }
     }
 
     private String targetLimitScope(ExecutionProperties.OrderLimit.TargetLimit targetLimit) {
@@ -643,6 +773,17 @@ public final class OrderRiskGate {
 
         private static OrderLimitDecision none() {
             return new OrderLimitDecision(List.of(), false, false);
+        }
+    }
+
+    private record TargetOrderDecision(
+            List<String> reasons,
+            boolean reject,
+            boolean manualReview
+    ) {
+
+        private static TargetOrderDecision none() {
+            return new TargetOrderDecision(List.of(), false, false);
         }
     }
 

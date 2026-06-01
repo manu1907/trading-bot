@@ -64,6 +64,15 @@
           "target_limits": [
 
           ]
+        },
+        "target_order": {
+          "enabled": true,
+          "require_target_client_order_id": true,
+          "require_projected_target": true,
+          "require_managed_target": true,
+          "reject_closed_target": true,
+          "reject_external_intervention": true,
+          "action": "MANUAL_REVIEW"
         }
       }
     },
