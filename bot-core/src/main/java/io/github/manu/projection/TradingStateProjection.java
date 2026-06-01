@@ -1052,12 +1052,14 @@ public final class TradingStateProjection implements TradingEventHandler {
         if (!("USER_DATA".equals(updateSource) || "REST_SNAPSHOT".equals(updateSource))) {
             return PositionIntervention.none();
         }
-        if (hasManagedOrderForSymbol(
+        if (hasManagedFillAfterPositionState(
                 value(event.getProvider()),
                 value(event.getEnvironment()),
                 value(event.getAccount()),
                 value(event.getMarket()),
-                value(event.getSymbol())
+                value(event.getSymbol()),
+                current.updatedAt(),
+                event.getEventTimeMicros()
         )) {
             return PositionIntervention.none();
         }
@@ -1075,18 +1077,45 @@ public final class TradingStateProjection implements TradingEventHandler {
         return "POSITION_UPDATE";
     }
 
-    private boolean hasManagedOrderForSymbol(
+    private boolean hasManagedFillAfterPositionState(
             String provider,
             String environment,
             String account,
             String market,
-            String symbol
+            String symbol,
+            Instant currentPositionUpdatedAt,
+            Instant positionEventTime
     ) {
         String prefix = key(provider, environment, account, market, symbol);
         return orders.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith(prefix + "|"))
                 .map(Map.Entry::getValue)
-                .anyMatch(OrderState::managedByBot);
+                .anyMatch(order -> managedFillExplainsPositionChange(
+                        order,
+                        currentPositionUpdatedAt,
+                        positionEventTime
+                ));
+    }
+
+    private boolean managedFillExplainsPositionChange(
+            OrderState order,
+            Instant currentPositionUpdatedAt,
+            Instant positionEventTime
+    ) {
+        if (!Boolean.TRUE.equals(order.managedByBot())) {
+            return false;
+        }
+        if (!"USER_DATA".equals(order.updateSource()) || !"TRADE".equals(order.executionType())) {
+            return false;
+        }
+        if (!positiveAmount(order.executedQuantity())) {
+            return false;
+        }
+        Instant fillUpdatedAt = order.updatedAt();
+        if (fillUpdatedAt == null || currentPositionUpdatedAt == null || positionEventTime == null) {
+            return false;
+        }
+        return fillUpdatedAt.isAfter(currentPositionUpdatedAt) && !fillUpdatedAt.isAfter(positionEventTime);
     }
 
     private boolean positionAmountChanged(String first, String second) {
@@ -1097,6 +1126,17 @@ public final class TradingStateProjection implements TradingEventHandler {
             return new BigDecimal(first).compareTo(new BigDecimal(second)) != 0;
         } catch (NumberFormatException ignored) {
             return !first.equals(second);
+        }
+    }
+
+    private boolean positiveAmount(String amount) {
+        if (amount == null) {
+            return false;
+        }
+        try {
+            return new BigDecimal(amount).compareTo(BigDecimal.ZERO) > 0;
+        } catch (NumberFormatException ignored) {
+            return false;
         }
     }
 

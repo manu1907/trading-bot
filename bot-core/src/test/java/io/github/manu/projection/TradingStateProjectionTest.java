@@ -119,14 +119,38 @@ class TradingStateProjectionTest {
     }
 
     @Test
-    void does_not_mark_position_amount_change_when_symbol_has_managed_order() {
+    void marks_position_amount_change_when_managed_order_has_no_fill_evidence() {
         projection.apply(position("evt-position-open", "-0.10", timestamp(20), Map.of("rawEventType", "ACCOUNT_UPDATE")));
         projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(21)));
 
         ProjectionUpdate update = projection.apply(position(
-                "evt-position-fill",
+                "evt-position-change",
                 "-0.15",
                 timestamp(22),
+                Map.of("rawEventType", "ACCOUNT_UPDATE")
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.position(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "SHORT"))
+                .get()
+                .satisfies(position -> {
+                    assertThat(position.positionAmount()).isEqualTo("-0.15");
+                    assertThat(position.externalIntervention()).isTrue();
+                    assertThat(position.interventionReason()).isEqualTo("external_position_change");
+                });
+        assertThat(projection.hasExternalPositionInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+    }
+
+    @Test
+    void does_not_mark_position_amount_change_when_recent_managed_fill_observed() {
+        projection.apply(position("evt-position-open", "-0.10", timestamp(20), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(21)));
+        projection.apply(executionReport("evt-fill", "PARTIALLY_FILLED", "0.05", timestamp(22)));
+
+        ProjectionUpdate update = projection.apply(position(
+                "evt-position-fill",
+                "-0.15",
+                timestamp(23),
                 Map.of("rawEventType", "ACCOUNT_UPDATE")
         ));
 
@@ -139,6 +163,31 @@ class TradingStateProjectionTest {
                     assertThat(position.interventionReason()).isNull();
                 });
         assertThat(projection.hasExternalPositionInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+    }
+
+    @Test
+    void marks_position_amount_change_when_only_old_managed_fill_exists() {
+        projection.apply(position("evt-position-open", "-0.10", timestamp(20), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(21)));
+        projection.apply(executionReport("evt-fill", "PARTIALLY_FILLED", "0.05", timestamp(22)));
+        projection.apply(position("evt-position-fill", "-0.15", timestamp(23), Map.of("rawEventType", "ACCOUNT_UPDATE")));
+
+        ProjectionUpdate update = projection.apply(position(
+                "evt-position-manual-close",
+                "0",
+                timestamp(24),
+                Map.of("rawEventType", "ACCOUNT_UPDATE")
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.position(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "SHORT"))
+                .get()
+                .satisfies(position -> {
+                    assertThat(position.positionAmount()).isEqualTo("0");
+                    assertThat(position.externalIntervention()).isTrue();
+                    assertThat(position.interventionReason()).isEqualTo("external_position_change");
+                });
+        assertThat(projection.hasExternalPositionInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
     }
 
     @Test

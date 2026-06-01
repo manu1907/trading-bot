@@ -254,8 +254,12 @@ Implemented Binance foundations:
   intervention detection. Policy actions for those interventions remain a
   future execution-state-machine gap.
 - Core position projection metadata for update source and conservative
-  external/manual position-size change detection when no managed bot order is
-  present for the target/symbol.
+  external/manual position-size change detection when no recent managed-fill
+  evidence is present for the target/symbol. Position changes are attributed to
+  bot activity only when replayed user-data fill evidence for a managed order
+  occurred after the previous position state and no later than the incoming
+  position update, so stale managed orders or old fills cannot mask later
+  manual position changes.
 - Core intervention acknowledgement event for auditable operator review. The
   projection clears matching order and position interventions only through this
   replayable event path.
