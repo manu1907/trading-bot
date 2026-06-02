@@ -15,9 +15,13 @@ class ExecutionConfigurationTest {
         contextRunner
                 .withPropertyValues(
                         "trading.execution.risk-gate.manual-intervention.external-order-action=reject-new-commands",
+                        "trading.execution.risk-gate.manual-intervention.external-order-apply-to-target-commands=true",
                         "trading.execution.risk-gate.manual-intervention.external-position-action=manual-review",
+                        "trading.execution.risk-gate.manual-intervention.external-position-apply-to-target-commands=true",
                         "trading.execution.risk-gate.unknown-order-status.action=reject-new-commands",
+                        "trading.execution.risk-gate.unknown-order-status.apply-to-target-commands=true",
                         "trading.execution.risk-gate.pending-order-command.action=allow-new-commands",
+                        "trading.execution.risk-gate.pending-order-command.apply-to-target-commands=true",
                         "trading.execution.idempotency.reject-projected-duplicates=false"
                 )
                 .run(context -> {
@@ -27,12 +31,16 @@ class ExecutionConfigurationTest {
                             properties.riskGate().manualIntervention();
                     assertThat(manualIntervention.externalOrderAction())
                             .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
+                    assertThat(manualIntervention.externalOrderApplyToTargetCommands()).isTrue();
                     assertThat(manualIntervention.externalPositionAction())
                             .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+                    assertThat(manualIntervention.externalPositionApplyToTargetCommands()).isTrue();
                     assertThat(properties.riskGate().unknownOrderStatus().action())
                             .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
+                    assertThat(properties.riskGate().unknownOrderStatus().applyToTargetCommands()).isTrue();
                     assertThat(properties.riskGate().pendingOrderCommand().action())
                             .isEqualTo(ExecutionProperties.InterventionAction.ALLOW_NEW_COMMANDS);
+                    assertThat(properties.riskGate().pendingOrderCommand().applyToTargetCommands()).isTrue();
                     assertThat(properties.idempotency().rejectProjectedDuplicates()).isFalse();
                 });
     }

@@ -44,15 +44,19 @@
           "reject_external_order_interventions": true,
           "reject_external_position_interventions": true,
           "external_order_action": "MANUAL_REVIEW",
-          "external_position_action": "MANUAL_REVIEW"
+          "external_order_apply_to_target_commands": false,
+          "external_position_action": "MANUAL_REVIEW",
+          "external_position_apply_to_target_commands": false
         },
         "unknown_order_status": {
           "reject_unknown_order_status": true,
-          "action": "MANUAL_REVIEW"
+          "action": "MANUAL_REVIEW",
+          "apply_to_target_commands": false
         },
         "pending_order_command": {
           "reject_unresolved_order_commands": true,
-          "action": "MANUAL_REVIEW"
+          "action": "MANUAL_REVIEW",
+          "apply_to_target_commands": false
         },
         "order_limit": {
           "enabled": true,

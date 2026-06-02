@@ -202,7 +202,9 @@ public final class OrderRiskGate {
         List<String> reasons = new ArrayList<>();
         boolean reject = false;
         boolean manualReview = false;
-        if (tradingStateProjection.hasExternalOrderInterventions(
+        boolean targetCommand = targetCommand(command);
+        if ((!targetCommand || manualIntervention.externalOrderApplyToTargetCommands())
+                && tradingStateProjection.hasExternalOrderInterventions(
                 value(command.getProvider()),
                 value(command.getEnvironment()),
                 value(command.getAccount()),
@@ -216,7 +218,8 @@ public final class OrderRiskGate {
             reject = decision.reject();
             manualReview = decision.manualReview();
         }
-        if (tradingStateProjection.hasExternalPositionInterventions(
+        if ((!targetCommand || manualIntervention.externalPositionApplyToTargetCommands())
+                && tradingStateProjection.hasExternalPositionInterventions(
                         value(command.getProvider()),
                         value(command.getEnvironment()),
                         value(command.getAccount()),
@@ -237,6 +240,9 @@ public final class OrderRiskGate {
             ExecutionProperties.UnknownOrderStatus unknownOrderStatus,
             OrderCommandEvent command
     ) {
+        if (targetCommand(command) && !unknownOrderStatus.applyToTargetCommands()) {
+            return new ManualInterventionDecision(List.of(), false, false);
+        }
         if (!tradingStateProjection.hasUnknownOrderStatuses(
                 value(command.getProvider()),
                 value(command.getEnvironment()),
@@ -252,6 +258,9 @@ public final class OrderRiskGate {
             ExecutionProperties.PendingOrderCommand pendingOrderCommand,
             OrderCommandEvent command
     ) {
+        if (targetCommand(command) && !pendingOrderCommand.applyToTargetCommands()) {
+            return new ManualInterventionDecision(List.of(), false, false);
+        }
         if (!tradingStateProjection.hasUnresolvedOrderCommands(
                 value(command.getProvider()),
                 value(command.getEnvironment()),
@@ -495,6 +504,10 @@ public final class OrderRiskGate {
         return command.getAction() == null ? OrderCommandAction.NEW : command.getAction();
     }
 
+    private boolean targetCommand(OrderCommandEvent command) {
+        return action(command) != OrderCommandAction.NEW;
+    }
+
     private String approvedMaxQuantity(OrderCommandEvent command) {
         return action(command) == OrderCommandAction.CANCEL ? null : value(command.getQuantity());
     }
@@ -645,16 +658,32 @@ public final class OrderRiskGate {
                 properties.riskGate().manualIntervention().externalOrderAction().name()
         );
         attributes.put(
+                "external_order_intervention_apply_to_target_commands",
+                Boolean.toString(properties.riskGate().manualIntervention().externalOrderApplyToTargetCommands())
+        );
+        attributes.put(
                 "external_position_intervention_action",
                 properties.riskGate().manualIntervention().externalPositionAction().name()
+        );
+        attributes.put(
+                "external_position_intervention_apply_to_target_commands",
+                Boolean.toString(properties.riskGate().manualIntervention().externalPositionApplyToTargetCommands())
         );
         attributes.put(
                 "unknown_order_status_action",
                 properties.riskGate().unknownOrderStatus().action().name()
         );
         attributes.put(
+                "unknown_order_status_apply_to_target_commands",
+                Boolean.toString(properties.riskGate().unknownOrderStatus().applyToTargetCommands())
+        );
+        attributes.put(
                 "pending_order_command_action",
                 properties.riskGate().pendingOrderCommand().action().name()
+        );
+        attributes.put(
+                "pending_order_command_apply_to_target_commands",
+                Boolean.toString(properties.riskGate().pendingOrderCommand().applyToTargetCommands())
         );
         attributes.put(
                 "projected_idempotency_reject_duplicates",

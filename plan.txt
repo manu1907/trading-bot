@@ -382,7 +382,10 @@ Implemented Binance foundations:
   non-conflicting projected target identifiers, a non-terminal target status, and
   no projected external intervention; violations require manual review unless
   configured to reject or allow. A stricter client-id-only mode remains
-  configurable.
+  configurable. Account/market-level external-intervention, unknown-status, and
+  pending-command policies now apply to new commands by default, while target
+  cancel/modify remediation remains governed by target-order policy unless the
+  catalog opts those controls into target commands.
 - Core risk gate now performs provider-agnostic order sizing checks before
   provider mapping: invalid numeric fields and non-positive sizing fields are
   rejected, and optional catalog-configured max quantity/max notional caps can
@@ -555,8 +558,7 @@ Binance parity gaps to close before claiming full connector support:
   configurable as manual review, rejection, or explicit allow per order/position
   intervention class, defaulting to manual review. The missing part is the
   remediation orchestrator that executes stand-down, re-plan, hedge, or
-  operator-review workflows; fill-to-position causality for managed orders is
-  also still pending. Manual-review risk decisions are now projected and exposed
+  operator-review workflows. Manual-review risk decisions are now projected and exposed
   by the token-gated operator API, alongside order and position acknowledgement
   event handling and service validation. The API can list order interventions,
   position interventions, and manual-review decisions, but no operator UI or

@@ -204,11 +204,15 @@ public record ExecutionProperties(
             Boolean rejectExternalOrderInterventions,
             Boolean rejectExternalPositionInterventions,
             InterventionAction externalOrderAction,
-            InterventionAction externalPositionAction
+            InterventionAction externalPositionAction,
+            Boolean externalOrderApplyToTargetCommands,
+            Boolean externalPositionApplyToTargetCommands
     ) {
 
         @ConstructorBinding
         public ManualIntervention {
+            externalOrderApplyToTargetCommands = Boolean.TRUE.equals(externalOrderApplyToTargetCommands);
+            externalPositionApplyToTargetCommands = Boolean.TRUE.equals(externalPositionApplyToTargetCommands);
             externalOrderAction = resolveAction(
                     rejectExternalOrderInterventions,
                     externalOrderAction,
@@ -221,6 +225,22 @@ public record ExecutionProperties(
             );
             rejectExternalOrderInterventions = externalOrderAction.blocksNewCommands();
             rejectExternalPositionInterventions = externalPositionAction.blocksNewCommands();
+        }
+
+        public ManualIntervention(
+                Boolean rejectExternalOrderInterventions,
+                Boolean rejectExternalPositionInterventions,
+                InterventionAction externalOrderAction,
+                InterventionAction externalPositionAction
+        ) {
+            this(
+                    rejectExternalOrderInterventions,
+                    rejectExternalPositionInterventions,
+                    externalOrderAction,
+                    externalPositionAction,
+                    null,
+                    null
+            );
         }
 
         public ManualIntervention(
@@ -239,7 +259,9 @@ public record ExecutionProperties(
                     true,
                     true,
                     InterventionAction.MANUAL_REVIEW,
-                    InterventionAction.MANUAL_REVIEW
+                    InterventionAction.MANUAL_REVIEW,
+                    false,
+                    false
             );
         }
 
@@ -263,11 +285,13 @@ public record ExecutionProperties(
 
     public record UnknownOrderStatus(
             Boolean rejectUnknownOrderStatus,
-            InterventionAction action
+            InterventionAction action,
+            Boolean applyToTargetCommands
     ) {
 
         @ConstructorBinding
         public UnknownOrderStatus {
+            applyToTargetCommands = Boolean.TRUE.equals(applyToTargetCommands);
             action = ManualIntervention.resolveAction(
                     rejectUnknownOrderStatus,
                     action,
@@ -276,18 +300,24 @@ public record ExecutionProperties(
             rejectUnknownOrderStatus = action.blocksNewCommands();
         }
 
+        public UnknownOrderStatus(Boolean rejectUnknownOrderStatus, InterventionAction action) {
+            this(rejectUnknownOrderStatus, action, null);
+        }
+
         static UnknownOrderStatus defaults() {
-            return new UnknownOrderStatus(true, InterventionAction.MANUAL_REVIEW);
+            return new UnknownOrderStatus(true, InterventionAction.MANUAL_REVIEW, false);
         }
     }
 
     public record PendingOrderCommand(
             Boolean rejectUnresolvedOrderCommands,
-            InterventionAction action
+            InterventionAction action,
+            Boolean applyToTargetCommands
     ) {
 
         @ConstructorBinding
         public PendingOrderCommand {
+            applyToTargetCommands = Boolean.TRUE.equals(applyToTargetCommands);
             action = ManualIntervention.resolveAction(
                     rejectUnresolvedOrderCommands,
                     action,
@@ -296,8 +326,12 @@ public record ExecutionProperties(
             rejectUnresolvedOrderCommands = action.blocksNewCommands();
         }
 
+        public PendingOrderCommand(Boolean rejectUnresolvedOrderCommands, InterventionAction action) {
+            this(rejectUnresolvedOrderCommands, action, null);
+        }
+
         static PendingOrderCommand defaults() {
-            return new PendingOrderCommand(true, InterventionAction.MANUAL_REVIEW);
+            return new PendingOrderCommand(true, InterventionAction.MANUAL_REVIEW, false);
         }
     }
 

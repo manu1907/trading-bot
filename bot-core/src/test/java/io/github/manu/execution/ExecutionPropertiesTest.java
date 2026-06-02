@@ -16,14 +16,18 @@ class ExecutionPropertiesTest {
         assertThat(manualIntervention.rejectExternalPositionInterventions()).isTrue();
         assertThat(manualIntervention.externalOrderAction())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+        assertThat(manualIntervention.externalOrderApplyToTargetCommands()).isFalse();
         assertThat(manualIntervention.externalPositionAction())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+        assertThat(manualIntervention.externalPositionApplyToTargetCommands()).isFalse();
         assertThat(properties.riskGate().unknownOrderStatus().rejectUnknownOrderStatus()).isTrue();
         assertThat(properties.riskGate().unknownOrderStatus().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+        assertThat(properties.riskGate().unknownOrderStatus().applyToTargetCommands()).isFalse();
         assertThat(properties.riskGate().pendingOrderCommand().rejectUnresolvedOrderCommands()).isTrue();
         assertThat(properties.riskGate().pendingOrderCommand().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.MANUAL_REVIEW);
+        assertThat(properties.riskGate().pendingOrderCommand().applyToTargetCommands()).isFalse();
         assertThat(properties.riskGate().orderLimit().enabled()).isTrue();
         assertThat(properties.riskGate().orderLimit().rejectInvalidNumericFields()).isTrue();
         assertThat(properties.riskGate().orderLimit().rejectUnboundedNotional()).isTrue();

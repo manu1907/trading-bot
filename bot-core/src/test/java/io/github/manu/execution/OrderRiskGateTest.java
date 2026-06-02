@@ -533,6 +533,109 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void approves_cancel_when_other_external_order_intervention_exists_by_default() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithTargetAndExternalIntervention())
+                .evaluate(cancelCommand("tb-lfa-open"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes())
+                .containsEntry("external_order_interventions", "1")
+                .containsEntry("external_order_intervention_apply_to_target_commands", "false")
+                .containsEntry("target_client_order_id", "tb-lfa-open");
+    }
+
+    @Test
+    void requires_manual_review_for_cancel_when_external_order_policy_applies_to_target_commands() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                new ExecutionProperties.ManualIntervention(
+                        true,
+                        true,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW,
+                        true,
+                        false
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithTargetAndExternalIntervention())
+                .evaluate(cancelCommand("tb-lfa-open"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("intervention:external_order");
+        assertThat(decision.getAttributes()).containsEntry("external_order_intervention_apply_to_target_commands", "true");
+    }
+
+    @Test
+    void approves_cancel_when_unknown_or_pending_order_exists_by_default() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent unknownDecision = gate(defaultProperties(), projectionWithTargetAndUnknownOrderStatus())
+                .evaluate(cancelCommand("tb-lfa-open"));
+        RiskDecisionEvent pendingDecision = gate(defaultProperties(), projectionWithTargetAndUnresolvedOrderCommand())
+                .evaluate(cancelCommand("tb-lfa-open"));
+
+        assertThat(unknownDecision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(unknownDecision.getAttributes())
+                .containsEntry("unknown_order_statuses", "1")
+                .containsEntry("unknown_order_status_apply_to_target_commands", "false");
+        assertThat(pendingDecision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(pendingDecision.getAttributes())
+                .containsEntry("unresolved_order_commands", "1")
+                .containsEntry("pending_order_command_apply_to_target_commands", "false");
+    }
+
+    @Test
+    void requires_manual_review_for_cancel_when_unknown_status_policy_applies_to_target_commands() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                new ExecutionProperties.UnknownOrderStatus(
+                        true,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW,
+                        true
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithTargetAndUnknownOrderStatus())
+                .evaluate(cancelCommand("tb-lfa-open"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_status:unknown");
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_status_apply_to_target_commands", "true");
+    }
+
+    @Test
+    void requires_manual_review_for_cancel_when_pending_command_policy_applies_to_target_commands() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                null,
+                new ExecutionProperties.PendingOrderCommand(
+                        true,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW,
+                        true
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithTargetAndUnresolvedOrderCommand())
+                .evaluate(cancelCommand("tb-lfa-open"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_command:unresolved");
+        assertThat(decision.getAttributes()).containsEntry("pending_order_command_apply_to_target_commands", "true");
+    }
+
+    @Test
     void requires_manual_review_when_target_identifiers_conflict_with_projection() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -876,6 +979,111 @@ class OrderRiskGateTest {
                 List.of()
         ));
         return projection;
+    }
+
+    private TradingStateProjection projectionWithTargetAndExternalIntervention() {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(
+                        targetOrderState("tb-lfa-open", "12345", OrderResultStatus.ACCEPTED.name(), true, false),
+                        targetOrderState("manual-client-1", "67890", OrderResultStatus.ACCEPTED.name(), false, true)
+                ),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection projectionWithTargetAndUnknownOrderStatus() {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(
+                        targetOrderState("tb-lfa-open", "12345", OrderResultStatus.ACCEPTED.name(), true, false),
+                        targetOrderState("tb-lfa-unknown", "67890", OrderResultStatus.UNKNOWN.name(), true, false)
+                ),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection projectionWithTargetAndUnresolvedOrderCommand() {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(
+                        targetOrderState("tb-lfa-open", "12345", OrderResultStatus.ACCEPTED.name(), true, false),
+                        unresolvedOrderCommandState()
+                ),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection.OrderState unresolvedOrderCommandState() {
+        return new TradingStateProjection.OrderState(
+                PROVIDER,
+                ENVIRONMENT,
+                ACCOUNT,
+                MARKET,
+                SYMBOL,
+                "cmd-pending",
+                "tb-lfa-pending",
+                null,
+                "COMMAND_RECEIVED",
+                null,
+                "50000.00",
+                "0.001",
+                null,
+                null,
+                null,
+                "ORDER_COMMAND",
+                null,
+                true,
+                false,
+                null,
+                NOW,
+                "evt-pending-order-command"
+        );
+    }
+
+    private TradingStateProjection.OrderState targetOrderState(
+            String clientOrderId,
+            String exchangeOrderId,
+            String status,
+            boolean managedByBot,
+            boolean externalIntervention
+    ) {
+        return new TradingStateProjection.OrderState(
+                PROVIDER,
+                ENVIRONMENT,
+                ACCOUNT,
+                MARKET,
+                SYMBOL,
+                externalIntervention ? null : "cmd-target",
+                clientOrderId,
+                exchangeOrderId,
+                status,
+                "NEW",
+                "50000.00",
+                "0.001",
+                "0",
+                null,
+                null,
+                externalIntervention ? "USER_DATA" : "ORDER_RESULT",
+                externalIntervention ? "NEW" : null,
+                managedByBot,
+                externalIntervention,
+                externalIntervention ? "external_order_observed" : null,
+                NOW,
+                externalIntervention ? "evt-external-order" : "evt-target-order"
+        );
     }
 
     private OrderCommandEvent command() {
