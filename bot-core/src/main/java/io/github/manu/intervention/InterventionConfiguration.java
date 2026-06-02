@@ -19,4 +19,9 @@ public class InterventionConfiguration {
     ) {
         return new InterventionAcknowledgementService(eventBus, projection);
     }
+
+    @Bean
+    InterventionRemediationAdvisor interventionRemediationAdvisor(TradingStateProjection projection) {
+        return new InterventionRemediationAdvisor(projection);
+    }
 }

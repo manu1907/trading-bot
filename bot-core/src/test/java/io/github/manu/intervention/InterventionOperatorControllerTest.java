@@ -33,8 +33,10 @@ class InterventionOperatorControllerTest {
             Clock.fixed(NOW, ZoneOffset.UTC),
             () -> "ack-001"
     );
+    private final InterventionRemediationAdvisor remediationAdvisor = new InterventionRemediationAdvisor(projection);
     private final InterventionOperatorController controller = new InterventionOperatorController(
             service,
+            remediationAdvisor,
             projection,
             new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"))
     );
@@ -213,6 +215,62 @@ class InterventionOperatorControllerTest {
         client.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/internal/interventions/manual-reviews")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+    }
+
+    @Test
+    void lists_remediation_recommendations_when_token_matches() {
+        restoreManualReviewDecision();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/remediation")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.count")
+                .isEqualTo(2)
+                .jsonPath("$.recommendations[0].scope")
+                .isEqualTo("ORDER")
+                .jsonPath("$.recommendations[0].action")
+                .isEqualTo("OPERATOR_REVIEW")
+                .jsonPath("$.recommendations[0].clientOrderId")
+                .isEqualTo("client-1")
+                .jsonPath("$.recommendations[0].reasons[0]")
+                .isEqualTo("intervention:external_order_observed")
+                .jsonPath("$.recommendations[1].scope")
+                .isEqualTo("MANUAL_REVIEW")
+                .jsonPath("$.recommendations[1].action")
+                .isEqualTo("OPERATOR_REVIEW")
+                .jsonPath("$.recommendations[1].attributes.decision_id")
+                .isEqualTo("risk-decision:cmd-1");
+    }
+
+    @Test
+    void rejects_remediation_recommendation_listing_when_token_is_invalid() {
+        restoreManualReviewDecision();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/remediation")
                         .queryParam("provider", "binance")
                         .queryParam("environment", "demo")
                         .queryParam("account", "main")

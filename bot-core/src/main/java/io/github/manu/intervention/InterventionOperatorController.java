@@ -29,15 +29,18 @@ public final class InterventionOperatorController {
     static final String OPERATOR_TOKEN_HEADER = "X-Operator-Token";
 
     private final InterventionAcknowledgementService acknowledgementService;
+    private final InterventionRemediationAdvisor remediationAdvisor;
     private final TradingStateProjection projection;
     private final String operatorToken;
 
     public InterventionOperatorController(
             InterventionAcknowledgementService acknowledgementService,
+            InterventionRemediationAdvisor remediationAdvisor,
             TradingStateProjection projection,
             InterventionProperties properties
     ) {
         this.acknowledgementService = Objects.requireNonNull(acknowledgementService, "acknowledgementService");
+        this.remediationAdvisor = Objects.requireNonNull(remediationAdvisor, "remediationAdvisor");
         this.projection = Objects.requireNonNull(projection, "projection");
         InterventionProperties.OperatorApi operatorApi = Objects.requireNonNull(properties, "properties").operatorApi();
         this.operatorToken = requireText(operatorApi.operatorToken(), "operatorToken");
@@ -119,6 +122,34 @@ public final class InterventionOperatorController {
                     .map(ManualReviewDecisionResponse::from)
                     .toList();
             return Mono.just(ResponseEntity.ok(new ManualReviewDecisionsResponse(decisions.size(), decisions)));
+        } catch (IllegalArgumentException exception) {
+            return badRequest(exception);
+        }
+    }
+
+    @GetMapping("/remediation")
+    public Mono<ResponseEntity<?>> remediationRecommendations(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestParam("provider") String provider,
+            @RequestParam("environment") String environment,
+            @RequestParam("account") String account,
+            @RequestParam("market") String market
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        try {
+            List<InterventionRemediationAdvisor.RemediationRecommendation> recommendations =
+                    remediationAdvisor.recommendations(
+                            requireText(provider, "provider"),
+                            requireText(environment, "environment"),
+                            requireText(account, "account"),
+                            requireText(market, "market")
+                    );
+            return Mono.just(ResponseEntity.ok(new RemediationRecommendationsResponse(
+                    recommendations.size(),
+                    recommendations
+            )));
         } catch (IllegalArgumentException exception) {
             return badRequest(exception);
         }
@@ -243,6 +274,12 @@ public final class InterventionOperatorController {
     }
 
     record ManualReviewDecisionsResponse(int count, List<ManualReviewDecisionResponse> decisions) {
+    }
+
+    record RemediationRecommendationsResponse(
+            int count,
+            List<InterventionRemediationAdvisor.RemediationRecommendation> recommendations
+    ) {
     }
 
     record PositionAcknowledgementHttpRequest(
