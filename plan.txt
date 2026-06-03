@@ -277,6 +277,10 @@ Implemented Binance foundations:
   token-gated operator API can list deterministic remediation recommendations
   for unresolved order interventions, position interventions, and manual-review
   decisions without placing orders or clearing projection state automatically.
+- Auditable remediation decision event and operator service. Operators can
+  publish a remediation decision only when it still matches the current
+  projection-backed recommendation, creating replayable evidence for later
+  orchestration without executing orders automatically.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
 - Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL
@@ -562,12 +566,13 @@ Binance parity gaps to close before claiming full connector support:
   configurable as manual review, rejection, or explicit allow per order/position
   intervention class, defaulting to manual review. The missing part is the
   remediation orchestrator that executes stand-down, re-plan, hedge, or
-  operator-review workflows from the read-only recommendations. Manual-review
-  risk decisions are now projected and exposed by the token-gated operator API,
-  alongside order and position acknowledgement event handling and service
-  validation. The API can list order interventions, position interventions,
-  manual-review decisions, and remediation recommendations, but no operator UI
-  or multi-order/position acknowledgement workflow exists yet.
+  operator-review workflows from the read-only recommendations and journaled
+  remediation decisions. Manual-review risk decisions are now projected and
+  exposed by the token-gated operator API, alongside order and position
+  acknowledgement event handling and service validation. The API can list order
+  interventions, position interventions, manual-review decisions, remediation
+  recommendations, and publish remediation decisions, but no operator UI or
+  multi-order/position acknowledgement workflow exists yet.
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, Spot order-list placement, cancel-replace replacement,
   futures modify, Spot amend, Spot SOR, and Spot WebSocket API order-placement

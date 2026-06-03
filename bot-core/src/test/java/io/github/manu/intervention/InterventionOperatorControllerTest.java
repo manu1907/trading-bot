@@ -34,8 +34,16 @@ class InterventionOperatorControllerTest {
             () -> "ack-001"
     );
     private final InterventionRemediationAdvisor remediationAdvisor = new InterventionRemediationAdvisor(projection);
+    private final InterventionRemediationDecisionService remediationDecisionService =
+            new InterventionRemediationDecisionService(
+                    eventBus,
+                    remediationAdvisor,
+                    Clock.fixed(NOW, ZoneOffset.UTC),
+                    () -> "remediation-001"
+            );
     private final InterventionOperatorController controller = new InterventionOperatorController(
             service,
+            remediationDecisionService,
             remediationAdvisor,
             projection,
             new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"))
@@ -286,6 +294,72 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
+    void accepts_remediation_decision_when_token_matches_current_recommendation() {
+        restoreManualReviewDecision();
+
+        client.post()
+                .uri("/internal/interventions/remediation/decisions")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(remediationDecisionRequest())
+                .exchange()
+                .expectStatus()
+                .isAccepted()
+                .expectBody()
+                .jsonPath("$.status")
+                .isEqualTo("accepted")
+                .jsonPath("$.eventType")
+                .isEqualTo("REMEDIATION_DECISION");
+
+        assertThat(eventBus.envelope).isNotNull();
+        assertThat(eventBus.envelope.eventType()).isEqualTo(TradingEventType.REMEDIATION_DECISION);
+    }
+
+    @Test
+    void maps_stale_remediation_decision_to_conflict() {
+        restoreManualReviewDecision();
+
+        client.post()
+                .uri("/internal/interventions/remediation/decisions")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(Map.of(
+                        "provider", "binance",
+                        "environment", "demo",
+                        "account", "main",
+                        "market", "usd_m_futures",
+                        "symbol", "BTCUSDT",
+                        "scope", "ORDER",
+                        "action", "HEDGE_OR_REPLAN",
+                        "clientOrderId", "client-1",
+                        "decidedBy", "operator",
+                        "decisionReason", "wrong action"
+                ))
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("conflict")
+                .jsonPath("$.message")
+                .isEqualTo("No matching remediation recommendation exists");
+    }
+
+    @Test
+    void rejects_remediation_decision_when_token_is_invalid() {
+        restoreManualReviewDecision();
+
+        client.post()
+                .uri("/internal/interventions/remediation/decisions")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .bodyValue(remediationDecisionRequest())
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+    }
+
+    @Test
     void accepts_position_acknowledgement_when_token_matches_projection() {
         restorePositionIntervention("external_position_change", true);
 
@@ -389,6 +463,22 @@ class InterventionOperatorControllerTest {
                 "acknowledgedBy", "operator",
                 "acknowledgementReason", "reviewed in exchange console",
                 "attributes", Map.of("ticket", "ops-456")
+        );
+    }
+
+    private Map<String, Object> remediationDecisionRequest() {
+        return Map.ofEntries(
+                Map.entry("provider", "binance"),
+                Map.entry("environment", "demo"),
+                Map.entry("account", "main"),
+                Map.entry("market", "usd_m_futures"),
+                Map.entry("symbol", "BTCUSDT"),
+                Map.entry("scope", "ORDER"),
+                Map.entry("action", "OPERATOR_REVIEW"),
+                Map.entry("clientOrderId", "client-1"),
+                Map.entry("decidedBy", "operator"),
+                Map.entry("decisionReason", "reviewed current projection"),
+                Map.entry("attributes", Map.of("ticket", "ops-789"))
         );
     }
 

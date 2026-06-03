@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "name": "RemediationDecisionEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Operator-selected remediation decision for an unresolved intervention or manual review.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "remediationId", "type": "string" },
+    { "name": "provider", "type": "string" },
+    { "name": "environment", "type": "string" },
+    { "name": "account", "type": "string" },
+    { "name": "market", "type": "string" },
+    { "name": "symbol", "type": ["null", "string"], "default": null },
+    { "name": "scope", "type": "string" },
+    { "name": "action", "type": "string" },
+    { "name": "clientOrderId", "type": ["null", "string"], "default": null },
+    { "name": "positionSide", "type": ["null", "string"], "default": null },
+    { "name": "interventionReason", "type": ["null", "string"], "default": null },
+    { "name": "reasons", "type": { "type": "array", "items": "string" }, "default": [] },
+    { "name": "decidedBy", "type": "string" },
+    { "name": "decisionReason", "type": "string" },
+    { "name": "decidedAtMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

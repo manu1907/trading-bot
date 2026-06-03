@@ -21,6 +21,15 @@ public class InterventionConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(TradingEventBus.class)
+    InterventionRemediationDecisionService interventionRemediationDecisionService(
+            TradingEventBus eventBus,
+            InterventionRemediationAdvisor remediationAdvisor
+    ) {
+        return new InterventionRemediationDecisionService(eventBus, remediationAdvisor);
+    }
+
+    @Bean
     InterventionRemediationAdvisor interventionRemediationAdvisor(TradingStateProjection projection) {
         return new InterventionRemediationAdvisor(projection);
     }

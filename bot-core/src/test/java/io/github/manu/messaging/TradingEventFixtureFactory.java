@@ -16,6 +16,7 @@ import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
@@ -54,6 +55,7 @@ final class TradingEventFixtureFactory {
         envelopes.put(TradingEventType.RISK_UPDATE, riskUpdate());
         envelopes.put(TradingEventType.RISK_DECISION, riskDecision());
         envelopes.put(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT, interventionAcknowledgement());
+        envelopes.put(TradingEventType.REMEDIATION_DECISION, remediationDecision());
         envelopes.put(TradingEventType.STRATEGY_SIGNAL, strategySignal());
         envelopes.put(TradingEventType.CONFIG_CHANGE, configChange());
         return Map.copyOf(envelopes);
@@ -226,6 +228,31 @@ final class TradingEventFixtureFactory {
                 .setAttributes(Map.of())
                 .build();
         return TradingEventEnvelope.of(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT, key, event);
+    }
+
+    private static TradingEventEnvelope<RemediationDecisionEvent> remediationDecision() {
+        TradingEventKey key = orderKey(TradingEventType.REMEDIATION_DECISION);
+        RemediationDecisionEvent event = RemediationDecisionEvent.newBuilder()
+                .setEventId("evt-remediation")
+                .setSchemaVersion(1)
+                .setRemediationId("remediation-001")
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setScope("ORDER")
+                .setAction("OPERATOR_REVIEW")
+                .setClientOrderId(CLIENT_ORDER_ID)
+                .setPositionSide(null)
+                .setInterventionReason("external_order_observed")
+                .setReasons(List.of("intervention:external_order_observed"))
+                .setDecidedBy("operator")
+                .setDecisionReason("reviewed current projection")
+                .setDecidedAtMicros(TIMESTAMP)
+                .setAttributes(Map.of())
+                .build();
+        return TradingEventEnvelope.of(TradingEventType.REMEDIATION_DECISION, key, event);
     }
 
     private static TradingEventEnvelope<BalanceUpdateEvent> balanceUpdate() {

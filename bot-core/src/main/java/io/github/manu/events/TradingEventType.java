@@ -8,6 +8,7 @@ import io.github.manu.events.v1.MarketDataEvent;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.events.v1.StrategySignalEvent;
@@ -30,6 +31,11 @@ public enum TradingEventType {
             TradingEventSchema.INTERVENTION_ACKNOWLEDGEMENT,
             InterventionAcknowledgementEvent.class,
             "intervention-acknowledgement"
+    ),
+    REMEDIATION_DECISION(
+            TradingEventSchema.REMEDIATION_DECISION,
+            RemediationDecisionEvent.class,
+            "remediation-decision"
     ),
     STRATEGY_SIGNAL(TradingEventSchema.STRATEGY_SIGNAL, StrategySignalEvent.class, "strategy-signal"),
     CONFIG_CHANGE(TradingEventSchema.CONFIG_CHANGE, ConfigChangeEvent.class, "config-change");

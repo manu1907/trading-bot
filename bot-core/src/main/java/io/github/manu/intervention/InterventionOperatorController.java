@@ -29,17 +29,20 @@ public final class InterventionOperatorController {
     static final String OPERATOR_TOKEN_HEADER = "X-Operator-Token";
 
     private final InterventionAcknowledgementService acknowledgementService;
+    private final InterventionRemediationDecisionService remediationDecisionService;
     private final InterventionRemediationAdvisor remediationAdvisor;
     private final TradingStateProjection projection;
     private final String operatorToken;
 
     public InterventionOperatorController(
             InterventionAcknowledgementService acknowledgementService,
+            InterventionRemediationDecisionService remediationDecisionService,
             InterventionRemediationAdvisor remediationAdvisor,
             TradingStateProjection projection,
             InterventionProperties properties
     ) {
         this.acknowledgementService = Objects.requireNonNull(acknowledgementService, "acknowledgementService");
+        this.remediationDecisionService = Objects.requireNonNull(remediationDecisionService, "remediationDecisionService");
         this.remediationAdvisor = Objects.requireNonNull(remediationAdvisor, "remediationAdvisor");
         this.projection = Objects.requireNonNull(projection, "projection");
         InterventionProperties.OperatorApi operatorApi = Objects.requireNonNull(properties, "properties").operatorApi();
@@ -155,6 +158,22 @@ public final class InterventionOperatorController {
         }
     }
 
+    @PostMapping("/remediation/decisions")
+    public Mono<ResponseEntity<?>> decideRemediation(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestBody Mono<RemediationDecisionHttpRequest> request
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        Mono<ResponseEntity<?>> response = request
+                .flatMap(this::decide)
+                .map(published -> accepted(published));
+        return response
+                .onErrorResume(IllegalArgumentException.class, this::badRequest)
+                .onErrorResume(IllegalStateException.class, this::conflict);
+    }
+
     @PostMapping("/orders/acknowledgements")
     public Mono<ResponseEntity<?>> acknowledgeOrder(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
@@ -193,6 +212,10 @@ public final class InterventionOperatorController {
 
     private Mono<PublishedTradingEvent> acknowledge(PositionAcknowledgementHttpRequest request) {
         return Mono.fromFuture(acknowledgementService.acknowledgePosition(request.toServiceRequest()));
+    }
+
+    private Mono<PublishedTradingEvent> decide(RemediationDecisionHttpRequest request) {
+        return Mono.fromFuture(remediationDecisionService.decide(request.toServiceRequest()));
     }
 
     private ResponseEntity<AcknowledgementAcceptedResponse> accepted(PublishedTradingEvent published) {
@@ -280,6 +303,43 @@ public final class InterventionOperatorController {
             int count,
             List<InterventionRemediationAdvisor.RemediationRecommendation> recommendations
     ) {
+    }
+
+    record RemediationDecisionHttpRequest(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String scope,
+            String action,
+            String clientOrderId,
+            String positionSide,
+            String decidedBy,
+            String decisionReason,
+            Map<CharSequence, CharSequence> attributes
+    ) {
+
+        RemediationDecisionHttpRequest {
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+
+        InterventionRemediationDecisionService.RemediationDecisionRequest toServiceRequest() {
+            return new InterventionRemediationDecisionService.RemediationDecisionRequest(
+                    provider,
+                    environment,
+                    account,
+                    market,
+                    symbol,
+                    scope,
+                    action,
+                    clientOrderId,
+                    positionSide,
+                    decidedBy,
+                    decisionReason,
+                    attributes
+            );
+        }
     }
 
     record PositionAcknowledgementHttpRequest(
