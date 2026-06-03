@@ -9,6 +9,7 @@ import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.messaging.TradingEventHandler;
 import io.github.manu.projection.TradingStateProjection;
 
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -23,6 +24,8 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
     private final TradingEventBus eventBus;
     private final TradingStateProjection projection;
     private final InterventionProperties.RemediationOrchestrator properties;
+    private final LinkedHashSet<String> orchestratedRemediationIds = new LinkedHashSet<>();
+    private final Object lock = new Object();
 
     public InterventionRemediationOrchestrator(
             TradingEventBus eventBus,
@@ -78,10 +81,14 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
                 )
                 .orElseThrow(() -> new IllegalStateException("No projected order exists for remediation"));
         if (!order.externalIntervention()) {
-            throw new IllegalStateException("Projected order has no unresolved intervention");
+            return CompletableFuture.completedFuture(null);
         }
         if (!interventionReason.equals(order.interventionReason())) {
             throw new IllegalStateException("Projected order intervention reason does not match remediation");
+        }
+        String remediationId = requireText(event.getRemediationId(), "remediationId");
+        if (!admit(remediationId)) {
+            return CompletableFuture.completedFuture(null);
         }
         InterventionAcknowledgementEvent acknowledgement = acknowledgementBuilder(event)
                 .setProvider(provider)
@@ -106,6 +113,7 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
                         ),
                         acknowledgement
                 ))
+                .whenComplete((ignored, failure) -> forgetOnFailure(remediationId, failure))
                 .thenApply(ignored -> null);
     }
 
@@ -127,10 +135,14 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
                 )
                 .orElseThrow(() -> new IllegalStateException("No projected position exists for remediation"));
         if (!position.externalIntervention()) {
-            throw new IllegalStateException("Projected position has no unresolved intervention");
+            return CompletableFuture.completedFuture(null);
         }
         if (!interventionReason.equals(position.interventionReason())) {
             throw new IllegalStateException("Projected position intervention reason does not match remediation");
+        }
+        String remediationId = requireText(event.getRemediationId(), "remediationId");
+        if (!admit(remediationId)) {
+            return CompletableFuture.completedFuture(null);
         }
         InterventionAcknowledgementEvent acknowledgement = acknowledgementBuilder(event)
                 .setProvider(provider)
@@ -154,7 +166,29 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
                         ),
                         acknowledgement
                 ))
+                .whenComplete((ignored, failure) -> forgetOnFailure(remediationId, failure))
                 .thenApply(ignored -> null);
+    }
+
+    private boolean admit(String remediationId) {
+        synchronized (lock) {
+            if (!orchestratedRemediationIds.add(remediationId)) {
+                return false;
+            }
+            while (orchestratedRemediationIds.size() > properties.maxTrackedDecisionIds()) {
+                orchestratedRemediationIds.remove(orchestratedRemediationIds.getFirst());
+            }
+            return true;
+        }
+    }
+
+    private void forgetOnFailure(String remediationId, Throwable failure) {
+        if (failure == null) {
+            return;
+        }
+        synchronized (lock) {
+            orchestratedRemediationIds.remove(remediationId);
+        }
     }
 
     private InterventionAcknowledgementEvent.Builder acknowledgementBuilder(RemediationDecisionEvent event) {

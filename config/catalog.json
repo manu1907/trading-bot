@@ -88,7 +88,8 @@
       },
       "remediation_orchestrator": {
         "enabled": false,
-        "operator_review_acknowledgement_enabled": true
+        "operator_review_acknowledgement_enabled": true,
+        "max_tracked_decision_ids": 100000
       }
     }
   },

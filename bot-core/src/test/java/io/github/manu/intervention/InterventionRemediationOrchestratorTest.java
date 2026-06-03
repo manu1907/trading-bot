@@ -62,6 +62,25 @@ class InterventionRemediationOrchestratorTest {
     }
 
     @Test
+    void suppresses_duplicate_live_order_decisions_after_acknowledgement_publish() {
+        restoreOrderIntervention();
+
+        orchestrator.handle(envelope(orderDecision())).join();
+        orchestrator.handle(envelope(orderDecision())).join();
+
+        assertThat(eventBus.envelopes).hasSize(1);
+    }
+
+    @Test
+    void ignores_order_decision_when_intervention_is_already_resolved() {
+        restoreOrderIntervention("external_order_observed", false);
+
+        orchestrator.handle(envelope(orderDecision())).join();
+
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void publishes_position_acknowledgement_for_operator_review_decision() {
         restorePositionIntervention();
 
@@ -79,6 +98,25 @@ class InterventionRemediationOrchestratorTest {
                     .containsEntry("remediation_scope", "POSITION")
                     .containsEntry("remediation_action", "OPERATOR_REVIEW");
         });
+    }
+
+    @Test
+    void suppresses_duplicate_live_position_decisions_after_acknowledgement_publish() {
+        restorePositionIntervention();
+
+        orchestrator.handle(envelope(positionDecision())).join();
+        orchestrator.handle(envelope(positionDecision())).join();
+
+        assertThat(eventBus.envelopes).hasSize(1);
+    }
+
+    @Test
+    void ignores_position_decision_when_intervention_is_already_resolved() {
+        restorePositionIntervention(false);
+
+        orchestrator.handle(envelope(positionDecision())).join();
+
+        assertThat(eventBus.envelopes).isEmpty();
     }
 
     @Test
@@ -203,6 +241,10 @@ class InterventionRemediationOrchestratorTest {
     }
 
     private void restorePositionIntervention() {
+        restorePositionIntervention(true);
+    }
+
+    private void restorePositionIntervention(boolean externalIntervention) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(new TradingStateProjection.PositionState(
@@ -217,7 +259,7 @@ class InterventionRemediationOrchestratorTest {
                         "50010.00",
                         "0",
                         "USER_DATA",
-                        true,
+                        externalIntervention,
                         "external_position_change",
                         NOW.minusSeconds(1),
                         "evt-position-intervention"
@@ -231,7 +273,7 @@ class InterventionRemediationOrchestratorTest {
     private InterventionProperties properties(boolean enabled, boolean operatorReviewAcknowledgementEnabled) {
         return new InterventionProperties(
                 InterventionProperties.OperatorApi.disabled(),
-                new InterventionProperties.RemediationOrchestrator(enabled, operatorReviewAcknowledgementEnabled)
+                new InterventionProperties.RemediationOrchestrator(enabled, operatorReviewAcknowledgementEnabled, 100_000)
         );
     }
 
