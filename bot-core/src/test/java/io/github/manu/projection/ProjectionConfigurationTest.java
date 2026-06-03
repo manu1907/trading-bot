@@ -48,11 +48,16 @@ class ProjectionConfigurationTest {
                             TradingEventType.EXECUTION_REPORT,
                             TradingEventType.RISK_UPDATE,
                             TradingEventType.RISK_DECISION,
-                            TradingEventType.INTERVENTION_ACKNOWLEDGEMENT
+                            TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                            TradingEventType.REMEDIATION_DECISION
                     );
                     assertThat(context.getBean("orderCommandProjectionHandler", TradingEventHandlerRegistration.class).live())
                             .isFalse();
                     assertThat(context.getBean("orderCommandProjectionHandler", TradingEventHandlerRegistration.class).replay())
+                            .isTrue();
+                    assertThat(context.getBean("remediationDecisionProjectionHandler", TradingEventHandlerRegistration.class).live())
+                            .isTrue();
+                    assertThat(context.getBean("remediationDecisionProjectionHandler", TradingEventHandlerRegistration.class).replay())
                             .isTrue();
                 });
     }

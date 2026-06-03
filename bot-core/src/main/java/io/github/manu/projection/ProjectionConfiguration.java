@@ -89,4 +89,9 @@ public class ProjectionConfiguration {
     TradingEventHandlerRegistration interventionAcknowledgementProjectionHandler(TradingStateProjection projection) {
         return new TradingEventHandlerRegistration(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT, projection);
     }
+
+    @Bean
+    TradingEventHandlerRegistration remediationDecisionProjectionHandler(TradingStateProjection projection) {
+        return new TradingEventHandlerRegistration(TradingEventType.REMEDIATION_DECISION, projection);
+    }
 }

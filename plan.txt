@@ -282,8 +282,9 @@ Implemented Binance foundations:
   projection-backed recommendation, creating replayable evidence for later
   orchestration without executing orders automatically.
 - Projected remediation decisions for replay-safe operator audit. The core
-  projection and durable snapshot stores retain published remediation decisions,
-  and the token-gated operator API can list them after restart.
+  projection, live/replay handler registration, and durable snapshot stores
+  retain published remediation decisions, and the token-gated operator API can
+  list them after restart.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
 - Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL
