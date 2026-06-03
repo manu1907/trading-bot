@@ -1,8 +1,11 @@
 package io.github.manu.intervention;
 
+import io.github.manu.events.TradingEventType;
+import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,5 +35,32 @@ public class InterventionConfiguration {
     @Bean
     InterventionRemediationAdvisor interventionRemediationAdvisor(TradingStateProjection projection) {
         return new InterventionRemediationAdvisor(projection);
+    }
+
+    @Bean
+    @ConditionalOnBean(TradingEventBus.class)
+    @ConditionalOnProperty(
+            prefix = "trading.intervention.remediation-orchestrator",
+            name = "enabled",
+            havingValue = "true"
+    )
+    InterventionRemediationOrchestrator interventionRemediationOrchestrator(
+            TradingEventBus eventBus,
+            TradingStateProjection projection,
+            InterventionProperties properties
+    ) {
+        return new InterventionRemediationOrchestrator(eventBus, projection, properties);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "trading.intervention.remediation-orchestrator",
+            name = "enabled",
+            havingValue = "true"
+    )
+    TradingEventHandlerRegistration interventionRemediationOrchestratorHandler(
+            InterventionRemediationOrchestrator orchestrator
+    ) {
+        return TradingEventHandlerRegistration.liveOnly(TradingEventType.REMEDIATION_DECISION, orchestrator);
     }
 }

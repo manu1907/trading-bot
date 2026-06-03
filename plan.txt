@@ -285,6 +285,11 @@ Implemented Binance foundations:
   projection, live/replay handler registration, and durable snapshot stores
   retain published remediation decisions, and the token-gated operator API can
   list them after restart.
+- Disabled-by-default live remediation orchestrator for the conservative
+  operator-review workflow. When explicitly enabled, an `OPERATOR_REVIEW`
+  remediation decision for a matching unresolved order or position intervention
+  publishes a deterministic acknowledgement event; the handler is live-only so
+  journal replay does not re-run workflow side effects.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
 - Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL
@@ -570,14 +575,12 @@ Binance parity gaps to close before claiming full connector support:
   configurable as manual review, rejection, or explicit allow per order/position
   intervention class, defaulting to manual review. The missing part is the
   remediation orchestrator that executes stand-down, re-plan, hedge, or
-  operator-review workflows from the read-only recommendations and projected
-  remediation decisions. Manual-review risk decisions and remediation decisions
-  are now projected and exposed by the token-gated operator API, alongside order
-  and position acknowledgement event handling and service validation. The API
-  can list order interventions, position interventions, manual-review decisions,
-  remediation recommendations, publish remediation decisions, and list published
-  remediation decisions, but no operator UI or multi-order/position
-  acknowledgement workflow exists yet.
+  fully automated workflows from the read-only recommendations and projected
+  remediation decisions. The first conservative operator-review workflow can
+  publish deterministic acknowledgement events for matching order/position
+  interventions when explicitly enabled, but re-plan, stand-down, hedge, no-op
+  expiry, operator UI, and multi-order/position acknowledgement workflows remain
+  open.
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, Spot order-list placement, cancel-replace replacement,
   futures modify, Spot amend, Spot SOR, and Spot WebSocket API order-placement

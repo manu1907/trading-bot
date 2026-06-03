@@ -1,8 +1,10 @@
 package io.github.manu.intervention;
 
+import io.github.manu.events.TradingEventType;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
+import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
 import org.apache.avro.specific.SpecificRecord;
@@ -25,6 +27,7 @@ class InterventionConfigurationTest {
         contextRunner.run(context -> assertThat(context)
                 .hasSingleBean(InterventionProperties.class)
                 .hasSingleBean(InterventionAcknowledgementService.class)
+                .doesNotHaveBean(InterventionRemediationOrchestrator.class)
                 .doesNotHaveBean(InterventionOperatorController.class));
     }
 
@@ -48,6 +51,20 @@ class InterventionConfigurationTest {
                         .hasFailed()
                         .getFailure()
                         .hasRootCauseMessage("operatorToken is required"));
+    }
+
+    @Test
+    void creates_live_only_remediation_orchestrator_when_enabled() {
+        contextRunner
+                .withPropertyValues("trading.intervention.remediation-orchestrator.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(InterventionRemediationOrchestrator.class);
+                    TradingEventHandlerRegistration registration =
+                            context.getBean("interventionRemediationOrchestratorHandler", TradingEventHandlerRegistration.class);
+                    assertThat(registration.eventType()).isEqualTo(TradingEventType.REMEDIATION_DECISION);
+                    assertThat(registration.live()).isTrue();
+                    assertThat(registration.replay()).isFalse();
+                });
     }
 
     private static final class NoopTradingEventBus implements TradingEventBus {
