@@ -279,8 +279,11 @@ Implemented Binance foundations:
   decisions without placing orders or clearing projection state automatically.
 - Auditable remediation decision event and operator service. Operators can
   publish a remediation decision only when it still matches the current
-  projection-backed recommendation, creating replayable evidence for later
-  orchestration without executing orders automatically.
+  projection-backed recommendation. Manual-review remediation decisions must
+  identify the current queue item with `command_id` or `decision_id`, avoiding
+  accidental selection when several reviews share the same account/symbol. The
+  event creates replayable evidence for later orchestration without executing
+  orders automatically.
 - Projected remediation decisions for replay-safe operator audit. The core
   projection, live/replay handler registration, and durable snapshot stores
   retain published remediation decisions, and the token-gated operator API can

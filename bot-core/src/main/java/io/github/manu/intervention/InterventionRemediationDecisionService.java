@@ -59,7 +59,8 @@ public final class InterventionRemediationDecisionService {
                 action,
                 text(request.symbol()),
                 text(request.clientOrderId()),
-                text(request.positionSide())
+                text(request.positionSide()),
+                request.attributes()
         );
 
         String remediationId = "remediation:" + requireText(idSupplier.get(), "generated remediation id");
@@ -95,8 +96,10 @@ public final class InterventionRemediationDecisionService {
             String action,
             String symbol,
             String clientOrderId,
-            String positionSide
+            String positionSide,
+            Map<CharSequence, CharSequence> attributes
     ) {
+        ManualReviewIdentity manualReviewIdentity = manualReviewIdentity(scope, attributes);
         return remediationAdvisor.recommendations(provider, environment, account, market)
                 .stream()
                 .filter(recommendation -> scope.equals(recommendation.scope()))
@@ -104,8 +107,36 @@ public final class InterventionRemediationDecisionService {
                 .filter(recommendation -> matches(symbol, recommendation.symbol()))
                 .filter(recommendation -> matches(clientOrderId, recommendation.clientOrderId()))
                 .filter(recommendation -> matches(positionSide, recommendation.positionSide()))
+                .filter(manualReviewIdentity::matches)
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No matching remediation recommendation exists"));
+    }
+
+    private ManualReviewIdentity manualReviewIdentity(
+            String scope,
+            Map<CharSequence, CharSequence> attributes
+    ) {
+        if (!"MANUAL_REVIEW".equals(scope)) {
+            return ManualReviewIdentity.notRequired();
+        }
+        String commandId = attribute(attributes, "command_id");
+        String decisionId = attribute(attributes, "decision_id");
+        if (commandId == null && decisionId == null) {
+            throw new IllegalArgumentException("manual review remediation requires command_id or decision_id attribute");
+        }
+        return new ManualReviewIdentity(commandId, decisionId);
+    }
+
+    private String attribute(Map<CharSequence, CharSequence> attributes, String key) {
+        if (attributes == null || attributes.isEmpty()) {
+            return null;
+        }
+        for (Map.Entry<CharSequence, CharSequence> entry : attributes.entrySet()) {
+            if (key.equals(text(entry.getKey()))) {
+                return text(entry.getValue());
+            }
+        }
+        return null;
     }
 
     private boolean matches(String requested, String projected) {
@@ -192,11 +223,30 @@ public final class InterventionRemediationDecisionService {
         return text;
     }
 
-    private String text(String value) {
-        if (value == null || value.isBlank()) {
+    private String text(CharSequence value) {
+        if (value == null || value.toString().isBlank()) {
             return null;
         }
-        return value.trim();
+        return value.toString().trim();
+    }
+
+    private record ManualReviewIdentity(
+            String commandId,
+            String decisionId
+    ) {
+
+        private static ManualReviewIdentity notRequired() {
+            return new ManualReviewIdentity(null, null);
+        }
+
+        private boolean matches(InterventionRemediationAdvisor.RemediationRecommendation recommendation) {
+            return matches(commandId, recommendation.attributes().get("command_id"))
+                    && matches(decisionId, recommendation.attributes().get("decision_id"));
+        }
+
+        private boolean matches(String requested, String projected) {
+            return requested == null || requested.equals(projected);
+        }
     }
 
     public record RemediationDecisionRequest(
