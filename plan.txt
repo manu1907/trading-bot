@@ -284,7 +284,9 @@ Implemented Binance foundations:
 - Projected remediation decisions for replay-safe operator audit. The core
   projection, live/replay handler registration, and durable snapshot stores
   retain published remediation decisions, and the token-gated operator API can
-  list them after restart.
+  list them after restart. A `MANUAL_REVIEW` / `OPERATOR_REVIEW` remediation
+  decision clears the matching projected manual-review queue item through replay
+  when its `command_id` still matches the current manual-review state.
 - Disabled-by-default live remediation orchestrator for the conservative
   operator-review workflow. When explicitly enabled, an `OPERATOR_REVIEW`
   remediation decision for a matching unresolved order or position intervention

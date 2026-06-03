@@ -855,7 +855,37 @@ public final class TradingStateProjection implements TradingEventHandler {
                 event.getDecidedAtMicros(),
                 eventId
         );
-        return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), remediationDecisions, state);
+        synchronized (lock) {
+            if (!rememberEventId(eventId)) {
+                return ProjectionUpdate.duplicate(envelope.eventType(), entityKey, eventId);
+            }
+            RemediationDecisionState current = remediationDecisions.get(entityKey);
+            if (current != null && state.updatedAt().isBefore(current.updatedAt())) {
+                return ProjectionUpdate.stale(envelope.eventType(), entityKey, eventId);
+            }
+            remediationDecisions.put(entityKey, state);
+            clearManualReviewDecision(state);
+            return ProjectionUpdate.applied(envelope.eventType(), entityKey, eventId);
+        }
+    }
+
+    private void clearManualReviewDecision(RemediationDecisionState state) {
+        if (!"MANUAL_REVIEW".equals(state.scope()) || !"OPERATOR_REVIEW".equals(state.action())) {
+            return;
+        }
+        String commandId = state.attributes().get("command_id");
+        if (commandId == null) {
+            return;
+        }
+        String entityKey = key(state.provider(), state.environment(), state.account(), state.market(), commandId);
+        ManualReviewDecisionState current = manualReviewDecisions.get(entityKey);
+        if (current == null) {
+            return;
+        }
+        if (state.updatedAt().isBefore(current.updatedAt())) {
+            return;
+        }
+        manualReviewDecisions.remove(entityKey);
     }
 
     private ProjectionUpdate applyOrderInterventionAcknowledgement(

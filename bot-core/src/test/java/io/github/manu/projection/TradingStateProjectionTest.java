@@ -797,6 +797,60 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void remediation_decision_clears_matching_manual_review_decision() {
+        projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(40)));
+        projection.apply(riskDecision(
+                "evt-risk-decision-review",
+                RiskDecision.MANUAL_REVIEW,
+                timestamp(43),
+                List.of("order_status:unknown"),
+                Map.of("unknown_order_status_action", "MANUAL_REVIEW")
+        ));
+
+        ProjectionUpdate update = projection.apply(manualReviewRemediationDecision(
+                "evt-remediation-decision",
+                "remediation-1",
+                timestamp(44)
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isEmpty();
+        assertThat(projection.remediationDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.scope()).isEqualTo("MANUAL_REVIEW");
+                    assertThat(decision.action()).isEqualTo("OPERATOR_REVIEW");
+                    assertThat(decision.attributes()).containsEntry("command_id", "cmd-1");
+                });
+    }
+
+    @Test
+    void stale_remediation_decision_does_not_clear_newer_manual_review_decision() {
+        projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(40)));
+        projection.apply(riskDecision(
+                "evt-risk-decision-review",
+                RiskDecision.MANUAL_REVIEW,
+                timestamp(45),
+                List.of("order_status:unknown"),
+                Map.of("unknown_order_status_action", "MANUAL_REVIEW")
+        ));
+
+        ProjectionUpdate update = projection.apply(manualReviewRemediationDecision(
+                "evt-remediation-decision",
+                "remediation-1",
+                timestamp(44)
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> assertThat(decision.commandId()).isEqualTo("cmd-1"));
+        assertThat(projection.remediationDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> assertThat(decision.remediationId()).isEqualTo("remediation-1"));
+    }
+
+    @Test
     void can_be_used_as_event_handler_for_journal_replay() {
         projection.handle(balance("evt-balance", "1000", "950", timestamp(10))).join();
 
@@ -1024,6 +1078,50 @@ class TradingStateProjectionTest {
                         MARKET,
                         SYMBOL,
                         "client-1"
+                ),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<RemediationDecisionEvent> manualReviewRemediationDecision(
+            String eventId,
+            String remediationId,
+            Instant decidedAt
+    ) {
+        RemediationDecisionEvent event = RemediationDecisionEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setRemediationId(remediationId)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setScope("MANUAL_REVIEW")
+                .setAction("OPERATOR_REVIEW")
+                .setClientOrderId(null)
+                .setPositionSide(null)
+                .setInterventionReason(null)
+                .setReasons(List.of("order_status:unknown"))
+                .setDecidedBy("operator")
+                .setDecisionReason("reviewed current projection")
+                .setDecidedAtMicros(decidedAt)
+                .setAttributes(Map.of(
+                        "command_id",
+                        "cmd-1",
+                        "decision_id",
+                        "risk-decision:cmd-1"
+                ))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.REMEDIATION_DECISION,
+                TradingEventKeys.symbol(
+                        TradingEventType.REMEDIATION_DECISION,
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL
                 ),
                 event
         );
