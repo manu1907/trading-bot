@@ -8,6 +8,7 @@ public record TradingStateSnapshot(
         List<TradingStateProjection.OrderState> orders,
         List<TradingStateProjection.RiskState> risks,
         List<TradingStateProjection.ManualReviewDecisionState> manualReviewDecisions,
+        List<TradingStateProjection.RemediationDecisionState> remediationDecisions,
         List<String> appliedEventIds
 ) {
 
@@ -17,6 +18,7 @@ public record TradingStateSnapshot(
         orders = orders == null ? List.of() : List.copyOf(orders);
         risks = risks == null ? List.of() : List.copyOf(risks);
         manualReviewDecisions = manualReviewDecisions == null ? List.of() : List.copyOf(manualReviewDecisions);
+        remediationDecisions = remediationDecisions == null ? List.of() : List.copyOf(remediationDecisions);
         appliedEventIds = appliedEventIds == null ? List.of() : List.copyOf(appliedEventIds);
     }
 
@@ -27,10 +29,21 @@ public record TradingStateSnapshot(
             List<TradingStateProjection.RiskState> risks,
             List<String> appliedEventIds
     ) {
-        this(balances, positions, orders, risks, List.of(), appliedEventIds);
+        this(balances, positions, orders, risks, List.of(), List.of(), appliedEventIds);
+    }
+
+    public TradingStateSnapshot(
+            List<TradingStateProjection.BalanceState> balances,
+            List<TradingStateProjection.PositionState> positions,
+            List<TradingStateProjection.OrderState> orders,
+            List<TradingStateProjection.RiskState> risks,
+            List<TradingStateProjection.ManualReviewDecisionState> manualReviewDecisions,
+            List<String> appliedEventIds
+    ) {
+        this(balances, positions, orders, risks, manualReviewDecisions, List.of(), appliedEventIds);
     }
 
     public static TradingStateSnapshot empty() {
-        return new TradingStateSnapshot(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        return new TradingStateSnapshot(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
     }
 }

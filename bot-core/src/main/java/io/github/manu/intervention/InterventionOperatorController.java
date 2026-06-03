@@ -158,6 +158,33 @@ public final class InterventionOperatorController {
         }
     }
 
+    @GetMapping("/remediation/decisions")
+    public Mono<ResponseEntity<?>> remediationDecisions(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestParam("provider") String provider,
+            @RequestParam("environment") String environment,
+            @RequestParam("account") String account,
+            @RequestParam("market") String market
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        try {
+            List<RemediationDecisionResponse> decisions = projection.remediationDecisionStates(
+                            requireText(provider, "provider"),
+                            requireText(environment, "environment"),
+                            requireText(account, "account"),
+                            requireText(market, "market")
+                    )
+                    .stream()
+                    .map(RemediationDecisionResponse::from)
+                    .toList();
+            return Mono.just(ResponseEntity.ok(new RemediationDecisionsResponse(decisions.size(), decisions)));
+        } catch (IllegalArgumentException exception) {
+            return badRequest(exception);
+        }
+    }
+
     @PostMapping("/remediation/decisions")
     public Mono<ResponseEntity<?>> decideRemediation(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
@@ -305,6 +332,9 @@ public final class InterventionOperatorController {
     ) {
     }
 
+    record RemediationDecisionsResponse(int count, List<RemediationDecisionResponse> decisions) {
+    }
+
     record RemediationDecisionHttpRequest(
             String provider,
             String environment,
@@ -450,6 +480,49 @@ public final class InterventionOperatorController {
     }
 
     record PositionInterventionsResponse(int count, List<PositionInterventionResponse> interventions) {
+    }
+
+    record RemediationDecisionResponse(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String remediationId,
+            String scope,
+            String action,
+            String clientOrderId,
+            String positionSide,
+            String interventionReason,
+            List<String> reasons,
+            String decidedBy,
+            String decisionReason,
+            Map<String, String> attributes,
+            Instant updatedAt,
+            String eventId
+    ) {
+
+        static RemediationDecisionResponse from(TradingStateProjection.RemediationDecisionState state) {
+            return new RemediationDecisionResponse(
+                    state.provider(),
+                    state.environment(),
+                    state.account(),
+                    state.market(),
+                    state.symbol(),
+                    state.remediationId(),
+                    state.scope(),
+                    state.action(),
+                    state.clientOrderId(),
+                    state.positionSide(),
+                    state.interventionReason(),
+                    state.reasons(),
+                    state.decidedBy(),
+                    state.decisionReason(),
+                    state.attributes(),
+                    state.updatedAt(),
+                    state.eventId()
+            );
+        }
     }
 
     record PositionInterventionResponse(

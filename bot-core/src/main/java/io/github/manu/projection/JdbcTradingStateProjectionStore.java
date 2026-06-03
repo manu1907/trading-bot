@@ -52,6 +52,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                     loadOrders(connection),
                     loadRisks(connection),
                     loadManualReviewDecisions(connection),
+                    loadRemediationDecisions(connection),
                     loadAppliedEventIds(connection)
             );
             if (snapshot.balances().isEmpty()
@@ -59,6 +60,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                     && snapshot.orders().isEmpty()
                     && snapshot.risks().isEmpty()
                     && snapshot.manualReviewDecisions().isEmpty()
+                    && snapshot.remediationDecisions().isEmpty()
                     && snapshot.appliedEventIds().isEmpty()) {
                 return Optional.empty();
             }
@@ -81,6 +83,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                 saveOrders(connection, snapshot.orders());
                 saveRisks(connection, snapshot.risks());
                 saveManualReviewDecisions(connection, snapshot.manualReviewDecisions());
+                saveRemediationDecisions(connection, snapshot.remediationDecisions());
                 saveAppliedEventIds(connection, snapshot.appliedEventIds());
                 connection.commit();
             } catch (SQLException ex) {
@@ -104,6 +107,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
     private void clear(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate("delete from " + table("applied_event_ids"));
+            statement.executeUpdate("delete from " + table("remediation_decisions"));
             statement.executeUpdate("delete from " + table("manual_review_decisions"));
             statement.executeUpdate("delete from " + table("risks"));
             statement.executeUpdate("delete from " + table("orders"));
@@ -261,6 +265,41 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         rows.getString("strategy_id"),
                         rows.getString("decision_id"),
                         split(rows.getString("reasons")),
+                        splitMap(rows.getString("attributes")),
+                        instant(rows.getString("updated_at")),
+                        rows.getString("event_id")
+                ));
+            }
+        }
+        return List.copyOf(states);
+    }
+
+    private List<TradingStateProjection.RemediationDecisionState> loadRemediationDecisions(
+            Connection connection
+    ) throws SQLException {
+        String sql = "select provider, environment, account, market, symbol, remediation_id, scope, action,"
+                + " client_order_id, position_side, intervention_reason, reasons, decided_by, decision_reason,"
+                + " attributes, updated_at, event_id from "
+                + table("remediation_decisions")
+                + " order by state_key";
+        List<TradingStateProjection.RemediationDecisionState> states = new ArrayList<>();
+        try (Statement statement = connection.createStatement(); ResultSet rows = statement.executeQuery(sql)) {
+            while (rows.next()) {
+                states.add(new TradingStateProjection.RemediationDecisionState(
+                        rows.getString("provider"),
+                        rows.getString("environment"),
+                        rows.getString("account"),
+                        rows.getString("market"),
+                        rows.getString("symbol"),
+                        rows.getString("remediation_id"),
+                        rows.getString("scope"),
+                        rows.getString("action"),
+                        rows.getString("client_order_id"),
+                        rows.getString("position_side"),
+                        rows.getString("intervention_reason"),
+                        split(rows.getString("reasons")),
+                        rows.getString("decided_by"),
+                        rows.getString("decision_reason"),
                         splitMap(rows.getString("attributes")),
                         instant(rows.getString("updated_at")),
                         rows.getString("event_id")
@@ -472,6 +511,49 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
         }
     }
 
+    private void saveRemediationDecisions(
+            Connection connection,
+            List<TradingStateProjection.RemediationDecisionState> states
+    ) throws SQLException {
+        String sql = "insert into "
+                + table("remediation_decisions")
+                + " (state_key, provider, environment, account, market, symbol, remediation_id, scope, action,"
+                + " client_order_id, position_side, intervention_reason, reasons, decided_by, decision_reason,"
+                + " attributes, updated_at, event_id)"
+                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (TradingStateProjection.RemediationDecisionState state : states) {
+                int index = 1;
+                statement.setString(index++, key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.remediationId()
+                ));
+                statement.setString(index++, state.provider());
+                statement.setString(index++, state.environment());
+                statement.setString(index++, state.account());
+                statement.setString(index++, state.market());
+                statement.setString(index++, state.symbol());
+                statement.setString(index++, state.remediationId());
+                statement.setString(index++, state.scope());
+                statement.setString(index++, state.action());
+                statement.setString(index++, state.clientOrderId());
+                statement.setString(index++, state.positionSide());
+                statement.setString(index++, state.interventionReason());
+                statement.setString(index++, join(state.reasons()));
+                statement.setString(index++, state.decidedBy());
+                statement.setString(index++, state.decisionReason());
+                statement.setString(index++, joinMap(state.attributes()));
+                statement.setString(index++, string(state.updatedAt()));
+                statement.setString(index, state.eventId());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+    }
+
     private void saveAppliedEventIds(Connection connection, List<String> eventIds) throws SQLException {
         String sql = "insert into " + table("applied_event_ids") + " (sequence_number, event_id) values (?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -528,6 +610,14 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         + "signal_id varchar(512), strategy_id varchar(256), decision_id varchar(512),"
                         + "reasons varchar(2048), attributes varchar(4096), updated_at varchar(64) not null,"
                         + "event_id varchar(512))",
+                "create table if not exists " + table("remediation_decisions") + " ("
+                        + "state_key varchar(512) primary key, provider varchar(64) not null,"
+                        + "environment varchar(64) not null, account varchar(128) not null,"
+                        + "market varchar(128) not null, symbol varchar(128), remediation_id varchar(512) not null,"
+                        + "scope varchar(128) not null, action varchar(128) not null, client_order_id varchar(512),"
+                        + "position_side varchar(128), intervention_reason varchar(512), reasons varchar(2048),"
+                        + "decided_by varchar(256), decision_reason varchar(2048), attributes varchar(4096),"
+                        + "updated_at varchar(64) not null, event_id varchar(512))",
                 "create table if not exists " + table("applied_event_ids") + " ("
                         + "sequence_number integer primary key, event_id varchar(512) not null unique)"
         );

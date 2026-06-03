@@ -50,8 +50,24 @@ class JdbcTradingStateProjectionStoreTest {
                     assertThat(decision.reasons()).containsExactly("intervention:external_order");
                     assertThat(decision.attributes()).containsEntry("external_order_intervention_action", "MANUAL_REVIEW");
                 });
+        assertThat(loaded.get().remediationDecisions()).singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.remediationId()).isEqualTo("remediation-1");
+                    assertThat(decision.scope()).isEqualTo("ORDER");
+                    assertThat(decision.action()).isEqualTo("OPERATOR_REVIEW");
+                    assertThat(decision.clientOrderId()).isEqualTo("client-1");
+                    assertThat(decision.reasons()).containsExactly("intervention:external_order_observed");
+                    assertThat(decision.attributes()).containsEntry("ticket", "ops-789");
+                });
         assertThat(loaded.get().appliedEventIds())
-                .containsExactly("evt-balance", "evt-position", "evt-order", "evt-risk", "evt-risk-decision");
+                .containsExactly(
+                        "evt-balance",
+                        "evt-position",
+                        "evt-order",
+                        "evt-risk",
+                        "evt-risk-decision",
+                        "evt-remediation-decision"
+                );
     }
 
     @Test
@@ -165,7 +181,33 @@ class JdbcTradingStateProjectionStoreTest {
                         now.plusSeconds(4),
                         "evt-risk-decision"
                 )),
-                List.of("evt-balance", "evt-position", "evt-order", "evt-risk", "evt-risk-decision")
+                List.of(new TradingStateProjection.RemediationDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "options",
+                        "BTC-251123-126000-C",
+                        "remediation-1",
+                        "ORDER",
+                        "OPERATOR_REVIEW",
+                        "client-1",
+                        null,
+                        "external_order_observed",
+                        List.of("intervention:external_order_observed"),
+                        "operator",
+                        "reviewed current projection",
+                        Map.of("ticket", "ops-789"),
+                        now.plusSeconds(5),
+                        "evt-remediation-decision"
+                )),
+                List.of(
+                        "evt-balance",
+                        "evt-position",
+                        "evt-order",
+                        "evt-risk",
+                        "evt-risk-decision",
+                        "evt-remediation-decision"
+                )
         );
     }
 }

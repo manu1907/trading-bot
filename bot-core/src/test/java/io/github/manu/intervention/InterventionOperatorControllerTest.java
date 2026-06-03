@@ -294,6 +294,39 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
+    void lists_remediation_decisions_when_token_matches() {
+        restoreRemediationDecision();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/remediation/decisions")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.count")
+                .isEqualTo(1)
+                .jsonPath("$.decisions[0].remediationId")
+                .isEqualTo("remediation-1")
+                .jsonPath("$.decisions[0].scope")
+                .isEqualTo("ORDER")
+                .jsonPath("$.decisions[0].action")
+                .isEqualTo("OPERATOR_REVIEW")
+                .jsonPath("$.decisions[0].clientOrderId")
+                .isEqualTo("client-1")
+                .jsonPath("$.decisions[0].decidedBy")
+                .isEqualTo("operator")
+                .jsonPath("$.decisions[0].attributes.ticket")
+                .isEqualTo("ops-789");
+    }
+
+    @Test
     void accepts_remediation_decision_when_token_matches_current_recommendation() {
         restoreManualReviewDecision();
 
@@ -586,6 +619,36 @@ class InterventionOperatorControllerTest {
                         "evt-risk-decision-review"
                 )),
                 List.of()
+        ));
+    }
+
+    private void restoreRemediationDecision() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.RemediationDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "remediation-1",
+                        "ORDER",
+                        "OPERATOR_REVIEW",
+                        "client-1",
+                        null,
+                        "external_order_observed",
+                        List.of("intervention:external_order_observed"),
+                        "operator",
+                        "reviewed current projection",
+                        Map.of("ticket", "ops-789"),
+                        NOW.minusSeconds(1),
+                        "evt-remediation-decision"
+                )),
+                List.of("evt-remediation-decision")
         ));
     }
 

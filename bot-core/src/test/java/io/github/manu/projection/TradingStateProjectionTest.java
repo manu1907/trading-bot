@@ -13,6 +13,7 @@ import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
@@ -771,6 +772,31 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void projects_remediation_decisions_for_operator_audit() {
+        ProjectionUpdate update = projection.apply(remediationDecision(
+                "evt-remediation-decision",
+                "remediation-1",
+                timestamp(52)
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.remediationDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.remediationId()).isEqualTo("remediation-1");
+                    assertThat(decision.scope()).isEqualTo("ORDER");
+                    assertThat(decision.action()).isEqualTo("OPERATOR_REVIEW");
+                    assertThat(decision.clientOrderId()).isEqualTo("client-1");
+                    assertThat(decision.interventionReason()).isEqualTo("external_order_observed");
+                    assertThat(decision.reasons()).containsExactly("intervention:external_order_observed");
+                    assertThat(decision.decidedBy()).isEqualTo("operator");
+                    assertThat(decision.decisionReason()).isEqualTo("reviewed current projection");
+                    assertThat(decision.attributes()).containsEntry("ticket", "ops-789");
+                    assertThat(decision.updatedAt()).isEqualTo(timestamp(52));
+                });
+    }
+
+    @Test
     void can_be_used_as_event_handler_for_journal_replay() {
         projection.handle(balance("evt-balance", "1000", "950", timestamp(10))).join();
 
@@ -784,6 +810,7 @@ class TradingStateProjectionTest {
         projection.apply(executionReport("evt-external", "NEW", "0", timestamp(12)));
         projection.apply(risk("evt-risk", "-0.01304097", timestamp(13)));
         projection.apply(riskDecision("evt-risk-decision-review", RiskDecision.MANUAL_REVIEW, timestamp(14)));
+        projection.apply(remediationDecision("evt-remediation-decision", "remediation-1", timestamp(15)));
 
         TradingStateSnapshot snapshot = projection.snapshot();
         TradingStateProjection restored = new TradingStateProjection();
@@ -804,6 +831,9 @@ class TradingStateProjectionTest {
         assertThat(restored.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
                 .singleElement()
                 .satisfies(decision -> assertThat(decision.commandId()).isEqualTo("cmd-1"));
+        assertThat(restored.remediationDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(decision -> assertThat(decision.remediationId()).isEqualTo("remediation-1"));
         assertThat(restored.apply(balance("evt-balance", "1001", "951", timestamp(14))).status())
                 .isEqualTo(ProjectionUpdateStatus.DUPLICATE);
     }
@@ -955,6 +985,46 @@ class TradingStateProjectionTest {
         return TradingEventEnvelope.of(
                 TradingEventType.RISK_DECISION,
                 TradingEventKeys.symbol(TradingEventType.RISK_DECISION, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<RemediationDecisionEvent> remediationDecision(
+            String eventId,
+            String remediationId,
+            Instant decidedAt
+    ) {
+        RemediationDecisionEvent event = RemediationDecisionEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setRemediationId(remediationId)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setScope("ORDER")
+                .setAction("OPERATOR_REVIEW")
+                .setClientOrderId("client-1")
+                .setPositionSide(null)
+                .setInterventionReason("external_order_observed")
+                .setReasons(List.of("intervention:external_order_observed"))
+                .setDecidedBy("operator")
+                .setDecisionReason("reviewed current projection")
+                .setDecidedAtMicros(decidedAt)
+                .setAttributes(Map.of("ticket", "ops-789"))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.REMEDIATION_DECISION,
+                TradingEventKeys.order(
+                        TradingEventType.REMEDIATION_DECISION,
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        "client-1"
+                ),
                 event
         );
     }

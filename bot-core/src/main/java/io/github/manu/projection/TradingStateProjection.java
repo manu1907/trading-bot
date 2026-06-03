@@ -9,6 +9,7 @@ import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
+import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
@@ -38,6 +39,7 @@ public final class TradingStateProjection implements TradingEventHandler {
     private final Map<String, OrderState> orders = new ConcurrentHashMap<>();
     private final Map<String, RiskState> risks = new ConcurrentHashMap<>();
     private final Map<String, ManualReviewDecisionState> manualReviewDecisions = new ConcurrentHashMap<>();
+    private final Map<String, RemediationDecisionState> remediationDecisions = new ConcurrentHashMap<>();
     private final LinkedHashSet<String> appliedEventIds = new LinkedHashSet<>();
     private final int maxAppliedEventIds;
     private final Object lock = new Object();
@@ -72,6 +74,10 @@ public final class TradingStateProjection implements TradingEventHandler {
             case INTERVENTION_ACKNOWLEDGEMENT -> applyInterventionAcknowledgement(
                     envelope,
                     cast(envelope.value(), InterventionAcknowledgementEvent.class)
+            );
+            case REMEDIATION_DECISION -> applyRemediationDecision(
+                    envelope,
+                    cast(envelope.value(), RemediationDecisionEvent.class)
             );
             default -> ProjectionUpdate.ignored(envelope.eventType(), null);
         };
@@ -310,6 +316,20 @@ public final class TradingStateProjection implements TradingEventHandler {
         );
     }
 
+    public List<RemediationDecisionState> remediationDecisionStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        String prefix = key(provider, environment, account, market);
+        return remediationDecisions.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .toList();
+    }
+
     public TradingStateSnapshot snapshot() {
         synchronized (lock) {
             return new TradingStateSnapshot(
@@ -318,6 +338,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                     valuesByKey(orders),
                     valuesByKey(risks),
                     valuesByKey(manualReviewDecisions),
+                    valuesByKey(remediationDecisions),
                     List.copyOf(appliedEventIds)
             );
         }
@@ -331,6 +352,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             orders.clear();
             risks.clear();
             manualReviewDecisions.clear();
+            remediationDecisions.clear();
             appliedEventIds.clear();
             for (BalanceState state : snapshot.balances()) {
                 balances.put(key(state.provider(), state.environment(), state.account(), state.market(), state.asset()), state);
@@ -376,6 +398,15 @@ public final class TradingStateProjection implements TradingEventHandler {
                         state.account(),
                         state.market(),
                         state.commandId()
+                ), state);
+            }
+            for (RemediationDecisionState state : snapshot.remediationDecisions()) {
+                remediationDecisions.put(key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.remediationId()
                 ), state);
             }
             for (String eventId : snapshot.appliedEventIds()) {
@@ -790,6 +821,41 @@ public final class TradingStateProjection implements TradingEventHandler {
             return applyPositionInterventionAcknowledgement(envelope, event);
         }
         return applyOrderInterventionAcknowledgement(envelope, event);
+    }
+
+    private ProjectionUpdate applyRemediationDecision(
+            TradingEventEnvelope<?> envelope,
+            RemediationDecisionEvent event
+    ) {
+        String eventId = value(event.getEventId());
+        String remediationId = value(event.getRemediationId());
+        String entityKey = key(
+                event.getProvider(),
+                event.getEnvironment(),
+                event.getAccount(),
+                event.getMarket(),
+                remediationId
+        );
+        RemediationDecisionState state = new RemediationDecisionState(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                value(event.getSymbol()),
+                remediationId,
+                value(event.getScope()),
+                value(event.getAction()),
+                value(event.getClientOrderId()),
+                value(event.getPositionSide()),
+                value(event.getInterventionReason()),
+                stringList(event.getReasons()),
+                value(event.getDecidedBy()),
+                value(event.getDecisionReason()),
+                stringMap(event.getAttributes()),
+                event.getDecidedAtMicros(),
+                eventId
+        );
+        return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), remediationDecisions, state);
     }
 
     private ProjectionUpdate applyOrderInterventionAcknowledgement(
@@ -1296,6 +1362,32 @@ public final class TradingStateProjection implements TradingEventHandler {
     ) implements TimedState {
 
         public ManualReviewDecisionState {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+    }
+
+    public record RemediationDecisionState(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String remediationId,
+            String scope,
+            String action,
+            String clientOrderId,
+            String positionSide,
+            String interventionReason,
+            List<String> reasons,
+            String decidedBy,
+            String decisionReason,
+            Map<String, String> attributes,
+            Instant updatedAt,
+            String eventId
+    ) implements TimedState {
+
+        public RemediationDecisionState {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
             attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
         }
