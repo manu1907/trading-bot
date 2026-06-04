@@ -27,7 +27,19 @@ final class BinanceRestSnapshotEventMapper {
         Context normalized = Objects.requireNonNull(context, "context").normalize();
         List<TradingEventEnvelope<OrderResultEvent>> envelopes = new ArrayList<>();
         for (BinanceOrderResult order : Objects.requireNonNull(orders, "orders")) {
-            envelopes.add(orderResult(order, normalized));
+            envelopes.add(orderResult(order, normalized, "open_orders"));
+        }
+        return List.copyOf(envelopes);
+    }
+
+    List<TradingEventEnvelope<OrderResultEvent>> orderHistory(
+            List<BinanceOrderResult> orders,
+            Context context
+    ) {
+        Context normalized = Objects.requireNonNull(context, "context").normalize();
+        List<TradingEventEnvelope<OrderResultEvent>> envelopes = new ArrayList<>();
+        for (BinanceOrderResult order : Objects.requireNonNull(orders, "orders")) {
+            envelopes.add(orderResult(order, normalized, "order_history"));
         }
         return List.copyOf(envelopes);
     }
@@ -180,7 +192,11 @@ final class BinanceRestSnapshotEventMapper {
         return List.copyOf(envelopes);
     }
 
-    private TradingEventEnvelope<OrderResultEvent> orderResult(BinanceOrderResult order, Context context) {
+    private TradingEventEnvelope<OrderResultEvent> orderResult(
+            BinanceOrderResult order,
+            Context context,
+            String snapshotType
+    ) {
         String symbol = requireText(order.symbol(), "symbol");
         String clientOrderId = requireText(order.clientOrderId(), "clientOrderId");
         OrderResultEvent value = OrderResultEvent.newBuilder()
@@ -205,7 +221,7 @@ final class BinanceRestSnapshotEventMapper {
                 .setObservedAtMicros(context.observedAt())
                 .setRejectCode(null)
                 .setRejectMessage(null)
-                .setAttributes(attributes("open_orders",
+                .setAttributes(attributes(snapshotType,
                         "side", order.side(),
                         "orderType", order.type(),
                         "positionSide", order.positionSide()

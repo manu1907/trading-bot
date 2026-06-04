@@ -160,6 +160,19 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
                 }
             }
         }
+        if (Boolean.TRUE.equals(reconciliation.orderHistoryEnabled())) {
+            for (String symbol : reconciliation.orderHistorySymbols()) {
+                envelopes.addAll(publisher.mapOrderHistory(orderSnapshots.allOrders(new BinanceOrderHistoryQuery(
+                        symbol,
+                        null,
+                        null,
+                        null,
+                        null,
+                        reconciliation.orderHistoryLimit(),
+                        null
+                ))));
+            }
+        }
         if (Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())) {
             envelopes.addAll(publisher.mapFuturesBalances(futuresSnapshots.balances()));
         }
@@ -277,6 +290,17 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         if (Boolean.TRUE.equals(reconciliation.openOrdersEnabled()) && orderSnapshots == null) {
             throw new IllegalArgumentException("open order reconciliation requires order snapshots");
         }
+        if (Boolean.TRUE.equals(reconciliation.orderHistoryEnabled())) {
+            if (orderSnapshots == null) {
+                throw new IllegalArgumentException("order history reconciliation requires order snapshots");
+            }
+            if (reconciliation.orderHistorySymbols().isEmpty()) {
+                throw new IllegalArgumentException("order history reconciliation requires configured symbols");
+            }
+            if (reconciliation.orderHistoryLimit() == null || reconciliation.orderHistoryLimit() <= 0) {
+                throw new IllegalArgumentException("order history reconciliation requires a positive limit");
+            }
+        }
         if ((Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())
                 || Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())
                 || Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled())) && futuresSnapshots == null) {
@@ -356,6 +380,8 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
     interface OrderSnapshots {
 
         List<BinanceOrderResult> openOrders(String symbol);
+
+        List<BinanceOrderResult> allOrders(BinanceOrderHistoryQuery query);
     }
 
     interface FuturesSnapshots {

@@ -307,6 +307,11 @@ Implemented Binance foundations:
 - Binance REST snapshot projection comparison for balances, positions, orders,
   and risk state, with catalog-backed `projection_comparison_enabled` and
   `fail_on_projection_mismatch` controls.
+- Binance order-history REST reconciliation source, disabled by default, with
+  catalog-backed explicit symbols and limit. The source reuses the existing
+  order-result reconciliation mapper so documented Binance all-orders/history
+  endpoints, including options `/eapi/v1/historyOrders`, become projection
+  evidence without broad unbounded history scans.
 - Core projection treats REST open-order snapshots as reconciliation evidence,
   not submit evidence: known bot orders keep their original command identity,
   while previously unknown snapshot orders are marked as external order
@@ -562,9 +567,13 @@ Binance parity gaps to close before claiming full connector support:
   Binance documents endpoints for them.
 - Options: `/eapi` order request parameter naming, post-only handling, read-only
   margin-account/position snapshots, MMP get/set/reset request coverage,
-  order-history/open-order/account-trade reconciliation inputs, commission
-  reads, exercise-record reads, and core execution/balance/position/risk
-  user-data stream mappings are covered, but options parity is not complete.
+  open-order and order-history reconciliation inputs, commission reads,
+  exercise-record reads, and core execution/balance/position/risk user-data
+  stream mappings are covered, but options parity is not complete.
+  Account-trade reconciliation remains a gap because REST trade records do not
+  carry client-order identity by themselves; they must be correlated with
+  projected order state or order-history snapshots before being safely mapped
+  into core execution events.
   Keep real options trading disabled unless REST snapshot comparison is backed
   by durable projection state and projection-backed ordering is fully
   implemented and tested against current Binance documentation.

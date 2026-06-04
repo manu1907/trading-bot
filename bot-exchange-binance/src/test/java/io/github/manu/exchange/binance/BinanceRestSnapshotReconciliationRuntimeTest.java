@@ -4,6 +4,7 @@ import io.github.manu.config.properties.provider.binance.BinanceProperties;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
@@ -65,6 +66,58 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
         assertThat(published).hasSize(2);
         assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
                 .containsExactly(TradingEventType.ORDER_RESULT, TradingEventType.ORDER_RESULT);
+        assertThat(eventBus.envelopes)
+                .extracting(envelope -> ((OrderResultEvent) envelope.value()).getAttributes().get("snapshotType"))
+                .containsExactly("open_orders", "open_orders");
+    }
+
+    @Test
+    void runs_configured_order_history_snapshots_and_publishes_events() {
+        FakeOrderSnapshots orders = new FakeOrderSnapshots();
+        BinanceRestSnapshotReconciliationRuntime runtime = runtime(
+                new BinanceProperties.Reconciliation(
+                        false,
+                        60,
+                        10_000,
+                        true,
+                        false,
+                        false,
+                        List.of(),
+                        true,
+                        List.of("BTC-251123-126000-C", "ETH-251123-5000-P"),
+                        500,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        List.of(),
+                        false,
+                        false,
+                        List.of()
+                ),
+                orders,
+                null,
+                null,
+                null,
+                "options"
+        );
+
+        List<PublishedTradingEvent> published = runtime.runOnce();
+
+        assertThat(orders.symbols).isEmpty();
+        assertThat(orders.historyQueries)
+                .extracting(BinanceOrderHistoryQuery::symbol)
+                .containsExactly("BTC-251123-126000-C", "ETH-251123-5000-P");
+        assertThat(orders.historyQueries)
+                .extracting(BinanceOrderHistoryQuery::limit)
+                .containsExactly(500, 500);
+        assertThat(published).hasSize(2);
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.ORDER_RESULT, TradingEventType.ORDER_RESULT);
+        assertThat(eventBus.envelopes)
+                .extracting(envelope -> ((OrderResultEvent) envelope.value()).getAttributes().get("snapshotType"))
+                .containsExactly("order_history", "order_history");
     }
 
     @Test
@@ -119,6 +172,9 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
                         false,
                         false,
                         List.of(),
+                        false,
+                        List.of(),
+                        1000,
                         false,
                         false,
                         false,
@@ -254,6 +310,9 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
                         true,
                         false,
                         List.of(),
+                        false,
+                        List.of(),
+                        1000,
                         true,
                         false,
                         false,
@@ -294,6 +353,9 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
                         false,
                         false,
                         List.of(),
+                        false,
+                        List.of(),
+                        1000,
                         true,
                         false,
                         false,
@@ -352,6 +414,35 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
         assertThatThrownBy(() -> runtime(reconciliation, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("futures snapshots");
+    }
+
+    @Test
+    void rejects_order_history_reconciliation_without_symbols() {
+        BinanceProperties.Reconciliation reconciliation = new BinanceProperties.Reconciliation(
+                false,
+                60,
+                10_000,
+                true,
+                false,
+                false,
+                List.of(),
+                true,
+                List.of(),
+                500,
+                false,
+                false,
+                false,
+                false,
+                false,
+                List.of(),
+                false,
+                false,
+                List.of()
+        );
+
+        assertThatThrownBy(() -> runtime(reconciliation, new FakeOrderSnapshots(), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("configured symbols");
     }
 
     private BinanceRestSnapshotReconciliationRuntime runtime(
@@ -728,11 +819,18 @@ class BinanceRestSnapshotReconciliationRuntimeTest {
     private final class FakeOrderSnapshots implements BinanceRestSnapshotReconciliationRuntime.OrderSnapshots {
 
         private final List<String> symbols = new ArrayList<>();
+        private final List<BinanceOrderHistoryQuery> historyQueries = new ArrayList<>();
 
         @Override
         public List<BinanceOrderResult> openOrders(String symbol) {
             symbols.add(symbol);
             return List.of(order(symbol));
+        }
+
+        @Override
+        public List<BinanceOrderResult> allOrders(BinanceOrderHistoryQuery query) {
+            historyQueries.add(query);
+            return List.of(order(query.symbol()));
         }
     }
 

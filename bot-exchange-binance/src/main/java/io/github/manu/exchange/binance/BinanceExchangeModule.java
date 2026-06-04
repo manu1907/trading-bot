@@ -449,7 +449,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         )
                 : httpTransportOverride;
         BinanceRestSnapshotReconciliationRuntime.OrderSnapshots orderSnapshots = null;
-        if (Boolean.TRUE.equals(reconciliation.openOrdersEnabled())) {
+        if (requiresOrderSnapshots(reconciliation)) {
             BinanceOrderClient orderClient = new BinanceOrderClient(
                     binance,
                     binance.credentials().apiKey(),
@@ -459,7 +459,17 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                     httpTransport,
                     JsonMapperFactory.create()
             );
-            orderSnapshots = orderClient::openOrders;
+            orderSnapshots = new BinanceRestSnapshotReconciliationRuntime.OrderSnapshots() {
+                @Override
+                public List<BinanceOrderResult> openOrders(String symbol) {
+                    return orderClient.openOrders(symbol);
+                }
+
+                @Override
+                public List<BinanceOrderResult> allOrders(BinanceOrderHistoryQuery query) {
+                    return orderClient.allOrders(query);
+                }
+            };
         }
         BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots = null;
         if (requiresFuturesSnapshots(reconciliation)) {
@@ -583,6 +593,11 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
     private boolean requiresOptionsSnapshots(BinanceProperties.Reconciliation reconciliation) {
         return Boolean.TRUE.equals(reconciliation.optionsAccountEnabled())
                 || Boolean.TRUE.equals(reconciliation.optionsPositionsEnabled());
+    }
+
+    private boolean requiresOrderSnapshots(BinanceProperties.Reconciliation reconciliation) {
+        return Boolean.TRUE.equals(reconciliation.openOrdersEnabled())
+                || Boolean.TRUE.equals(reconciliation.orderHistoryEnabled());
     }
 
     private List<String> recentReconciliationEventIds(BinanceProperties.Reconciliation reconciliation) {

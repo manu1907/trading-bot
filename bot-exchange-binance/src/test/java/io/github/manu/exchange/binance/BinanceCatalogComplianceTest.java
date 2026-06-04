@@ -98,6 +98,11 @@ class BinanceCatalogComplianceTest {
                 assertThat(markets.required(market).required("trading")
                         .required("enforce_exchange_filters").asBoolean())
                         .isTrue();
+                JsonNode reconciliation = markets.required(market).required("reconciliation");
+                assertThat(reconciliation.required("order_history_enabled").asBoolean()).isFalse();
+                assertThat(reconciliation.required("order_history_symbols").isArray()).isTrue();
+                assertThat(reconciliation.required("order_history_symbols")).isEmpty();
+                assertThat(reconciliation.required("order_history_limit").asInt()).isEqualTo(1000);
             }
         }
     }

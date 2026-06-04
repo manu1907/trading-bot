@@ -36,6 +36,10 @@ final class BinanceRestSnapshotEventPublisher {
         return publishEnvelopes(mapOpenOrders(orders));
     }
 
+    CompletableFuture<List<PublishedTradingEvent>> publishOrderHistory(List<BinanceOrderResult> orders) {
+        return publishEnvelopes(mapOrderHistory(orders));
+    }
+
     CompletableFuture<List<PublishedTradingEvent>> publishFuturesBalances(List<BinanceFuturesBalance> balances) {
         return publishEnvelopes(mapFuturesBalances(balances));
     }
@@ -76,6 +80,10 @@ final class BinanceRestSnapshotEventPublisher {
 
     List<TradingEventEnvelope<OrderResultEvent>> mapOpenOrders(List<BinanceOrderResult> orders) {
         return mapper.openOrders(orders, mapperContext());
+    }
+
+    List<TradingEventEnvelope<OrderResultEvent>> mapOrderHistory(List<BinanceOrderResult> orders) {
+        return mapper.orderHistory(orders, mapperContext());
     }
 
     List<TradingEventEnvelope<BalanceUpdateEvent>> mapFuturesBalances(List<BinanceFuturesBalance> balances) {

@@ -652,6 +652,9 @@ public record BinanceProperties(
             Boolean failOnProjectionMismatch,
             Boolean openOrdersEnabled,
             @NotNull List<String> openOrderSymbols,
+            Boolean orderHistoryEnabled,
+            @NotNull List<String> orderHistorySymbols,
+            Integer orderHistoryLimit,
             Boolean futuresBalancesEnabled,
             Boolean futuresAccountEnabled,
             Boolean futuresPositionsEnabled,
@@ -664,6 +667,7 @@ public record BinanceProperties(
     ) {
         public Reconciliation {
             openOrderSymbols = openOrderSymbols == null ? List.of() : List.copyOf(openOrderSymbols);
+            orderHistorySymbols = orderHistorySymbols == null ? List.of() : List.copyOf(orderHistorySymbols);
             isolatedMarginSymbols = isolatedMarginSymbols == null ? List.of() : List.copyOf(isolatedMarginSymbols);
             optionsPositionSymbols = optionsPositionSymbols == null ? List.of() : List.copyOf(optionsPositionSymbols);
         }
@@ -689,6 +693,9 @@ public record BinanceProperties(
                     false,
                     openOrdersEnabled,
                     openOrderSymbols,
+                    false,
+                    List.of(),
+                    1000,
                     futuresBalancesEnabled,
                     futuresAccountEnabled,
                     futuresPositionsEnabled,
@@ -721,6 +728,9 @@ public record BinanceProperties(
                     false,
                     openOrdersEnabled,
                     openOrderSymbols,
+                    false,
+                    List.of(),
+                    1000,
                     futuresBalancesEnabled,
                     futuresAccountEnabled,
                     futuresPositionsEnabled,
@@ -742,6 +752,9 @@ public record BinanceProperties(
                     false,
                     false,
                     List.of(),
+                    false,
+                    List.of(),
+                    1000,
                     false,
                     false,
                     false,

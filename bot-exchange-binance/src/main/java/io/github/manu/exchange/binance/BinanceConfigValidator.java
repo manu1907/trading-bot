@@ -133,6 +133,8 @@ final class BinanceConfigValidator {
         requireNotNull(path + ".projection_comparison_enabled", reconciliation.projectionComparisonEnabled(), errors);
         requireNotNull(path + ".fail_on_projection_mismatch", reconciliation.failOnProjectionMismatch(), errors);
         requireNotNull(path + ".open_order_symbols", reconciliation.openOrderSymbols(), errors);
+        requireNotNull(path + ".order_history_symbols", reconciliation.orderHistorySymbols(), errors);
+        requireOptionalPositive(path + ".order_history_limit", reconciliation.orderHistoryLimit(), errors);
         requireNotNull(path + ".isolated_margin_symbols", reconciliation.isolatedMarginSymbols(), errors);
         requireNotNull(path + ".options_position_symbols", reconciliation.optionsPositionSymbols(), errors);
         if (!Boolean.TRUE.equals(reconciliation.runtimeEnabled())) {
@@ -140,6 +142,7 @@ final class BinanceConfigValidator {
         }
 
         if (!Boolean.TRUE.equals(reconciliation.openOrdersEnabled())
+                && !Boolean.TRUE.equals(reconciliation.orderHistoryEnabled())
                 && !Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())
                 && !Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())
                 && !Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled())
@@ -148,6 +151,13 @@ final class BinanceConfigValidator {
                 && !Boolean.TRUE.equals(reconciliation.optionsAccountEnabled())
                 && !Boolean.TRUE.equals(reconciliation.optionsPositionsEnabled())) {
             errors.add(path + " must enable at least one snapshot source when runtime_enabled is true");
+        }
+        if (Boolean.TRUE.equals(reconciliation.orderHistoryEnabled())
+                && reconciliation.orderHistorySymbols().isEmpty()) {
+            errors.add(path + ".order_history_symbols must not be empty when order_history_enabled is true");
+        }
+        if (Boolean.TRUE.equals(reconciliation.orderHistoryEnabled())) {
+            requirePositive(path + ".order_history_limit", reconciliation.orderHistoryLimit(), errors);
         }
         if (!marketType.futures()
                 && (Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())
