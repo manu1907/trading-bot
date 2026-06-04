@@ -434,6 +434,20 @@ final class BinanceOrderRequestFactory {
         ), privateCredential);
     }
 
+    BinanceSignedRequest cancelAllOpenOrdersByUnderlying(String underlying, String privateCredential) {
+        requireOptionsMarket("cancelAllOpenOrdersByUnderlying");
+        requireConfiguredPath(
+                "cancelAllOpenOrdersByUnderlyingPath",
+                binance.trading().cancelAllOpenOrdersByUnderlyingPath()
+        );
+        if (!hasText(underlying)) {
+            throw new IllegalArgumentException("underlying is required");
+        }
+        return restRequestFactory.signedUri(binance.trading().cancelAllOpenOrdersByUnderlyingPath(), List.of(
+                BinanceRequestParameter.of("underlying", underlying)
+        ), privateCredential);
+    }
+
     BinanceSignedRequest cancelMultipleOrders(BinanceCancelMultipleOrdersQuery query, String privateCredential) {
         requireConfiguredPath("cancelMultipleOrdersPath", binance.trading().cancelMultipleOrdersPath());
         validateCancelMultipleOrdersQuery(query);

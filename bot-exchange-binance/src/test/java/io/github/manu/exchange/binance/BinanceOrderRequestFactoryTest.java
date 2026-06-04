@@ -372,6 +372,7 @@ class BinanceOrderRequestFactoryTest {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
 
         BinanceSignedRequest cancelAll = factory.cancelAllOpenOrders("BTC-240628-70000-C", "test-secret");
+        BinanceSignedRequest cancelByUnderlying = factory.cancelAllOpenOrdersByUnderlying("BTCUSDT", "test-secret");
         BinanceSignedRequest byOrderIds = factory.cancelMultipleOrders(
                 new BinanceCancelMultipleOrdersQuery("BTC-240628-70000-C", List.of(4611875134427365377L, 4611875134427365378L), List.of()),
                 "test-secret"
@@ -384,6 +385,9 @@ class BinanceOrderRequestFactoryTest {
         assertThat(cancelAll.payload())
                 .isEqualTo("symbol=BTC-240628-70000-C&timestamp=1499827319559&recvWindow=5000");
         assertThat(cancelAll.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/allOpenOrders?");
+        assertThat(cancelByUnderlying.payload()).isEqualTo("underlying=BTCUSDT&timestamp=1499827319559&recvWindow=5000");
+        assertThat(cancelByUnderlying.uri().toString())
+                .startsWith("https://eapi.binance.com/eapi/v1/allOpenOrdersByUnderlying?");
         assertThat(byOrderIds.payload())
                 .isEqualTo("symbol=BTC-240628-70000-C&orderIds=%5B4611875134427365377%2C4611875134427365378%5D"
                         + "&timestamp=1499827319559&recvWindow=5000");
@@ -2518,6 +2522,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 "/eapi/v1/batchOrders",
                 "/eapi/v1/allOpenOrders",
+                "/eapi/v1/allOpenOrdersByUnderlying",
                 null,
                 "/eapi/v1/exerciseRecord",
                 List.of("BUY", "SELL"),

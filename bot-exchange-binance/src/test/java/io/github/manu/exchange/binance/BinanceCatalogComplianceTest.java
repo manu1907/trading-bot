@@ -69,6 +69,9 @@ class BinanceCatalogComplianceTest {
                     .isEqualTo("/eapi/v1/commission");
             assertThat(markets.required("options").required("trading").required("exercise_record_path").asString())
                     .isEqualTo("/eapi/v1/exerciseRecord");
+            assertThat(markets.required("options").required("trading")
+                    .required("cancel_all_open_orders_by_underlying_path").asString())
+                    .isEqualTo("/eapi/v1/allOpenOrdersByUnderlying");
             assertThat(markets.required("options").required("options_account").required("margin_account_path").asString())
                     .isEqualTo("/eapi/v1/marginAccount");
             assertThat(markets.required("options").required("options_account").required("position_path").asString())

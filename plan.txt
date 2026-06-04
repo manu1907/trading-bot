@@ -582,7 +582,8 @@ Binance parity gaps to close before claiming full connector support:
   not exposed in the current Binance margin docs; do not claim them until
   Binance documents endpoints for them.
 - Options: `/eapi` order request parameter naming, batch order placement,
-  cancel-all and cancel-multiple order routing, post-only handling, read-only
+  cancel-all, cancel-by-underlying, and cancel-multiple order routing,
+  post-only handling, read-only
   margin-account/position snapshots, MMP get/set/reset request coverage,
   open-order, order-history, and order-history-correlated account-trade
   reconciliation inputs, commission reads, exercise-record reads, and core

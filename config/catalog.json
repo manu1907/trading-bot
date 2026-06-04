@@ -1321,6 +1321,7 @@
                       "batch_orders_path": "/eapi/v1/batchOrders",
                       "cancel_multiple_orders_path": "/eapi/v1/batchOrders",
                       "cancel_all_open_orders_path": "/eapi/v1/allOpenOrders",
+                      "cancel_all_open_orders_by_underlying_path": "/eapi/v1/allOpenOrdersByUnderlying",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -2619,6 +2620,7 @@
                       "batch_orders_path": "/eapi/v1/batchOrders",
                       "cancel_multiple_orders_path": "/eapi/v1/batchOrders",
                       "cancel_all_open_orders_path": "/eapi/v1/allOpenOrders",
+                      "cancel_all_open_orders_by_underlying_path": "/eapi/v1/allOpenOrdersByUnderlying",
                       "supported_sides": [
                         "BUY",
                         "SELL"

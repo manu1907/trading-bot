@@ -323,6 +323,11 @@ final class BinanceOrderClient {
         return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
     }
 
+    BinanceOrderAck cancelAllOpenOrdersByUnderlying(String underlying) {
+        JsonNode root = readJson(send(requestFactory.cancelAllOpenOrdersByUnderlying(underlying, privateCredential), "DELETE"));
+        return new BinanceOrderAck(root.required("code").asInt(), text(root, "msg"));
+    }
+
     List<BinanceOrderResult> cancelMultipleOrders(BinanceCancelMultipleOrdersQuery query) {
         return parseOrderArray(send(requestFactory.cancelMultipleOrders(query, privateCredential), "DELETE"), "cancel multiple orders");
     }

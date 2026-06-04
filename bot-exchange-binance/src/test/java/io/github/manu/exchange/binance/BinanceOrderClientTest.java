@@ -503,6 +503,26 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void cancels_options_orders_by_underlying() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                {
+                  "code": 200,
+                  "msg": "The operation of cancel all open order is done."
+                }
+                """));
+        BinanceOrderClient client = optionsClient(transport);
+
+        BinanceOrderAck ack = client.cancelAllOpenOrdersByUnderlying("BTCUSDT");
+
+        assertThat(ack.code()).isEqualTo(200);
+        assertThat(transport.calls()).extracting(FakeCall::method).containsExactly("DELETE");
+        assertThat(transport.calls()).extracting(FakeCall::uri)
+                .singleElement()
+                .satisfies(uri -> assertThat(uri)
+                        .contains("/eapi/v1/allOpenOrdersByUnderlying?underlying=BTCUSDT"));
+    }
+
+    @Test
     void queries_spot_commission_rates() {
         FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
                 {
@@ -2433,6 +2453,7 @@ class BinanceOrderClientTest {
                 null,
                 null,
                 null,
+                "/eapi/v1/allOpenOrdersByUnderlying",
                 null,
                 "/eapi/v1/exerciseRecord",
                 List.of("BUY", "SELL"),
@@ -2462,6 +2483,7 @@ class BinanceOrderClientTest {
                 false,
                 false,
                 false,
+                true,
                 true
         );
     }

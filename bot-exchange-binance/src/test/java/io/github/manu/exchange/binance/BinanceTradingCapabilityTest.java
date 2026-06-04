@@ -113,6 +113,7 @@ class BinanceTradingCapabilityTest {
         assertThat(options.modifyOrderHistoryPath()).isNull();
         assertThat(options.cancelMultipleOrdersPath()).isEqualTo("/eapi/v1/batchOrders");
         assertThat(options.cancelAllOpenOrdersPath()).isEqualTo("/eapi/v1/allOpenOrders");
+        assertThat(options.cancelAllOpenOrdersByUnderlyingPath()).isEqualTo("/eapi/v1/allOpenOrdersByUnderlying");
         assertThat(options.countdownCancelAllPath()).isNull();
         assertThat(options.exerciseRecordPath()).isEqualTo("/eapi/v1/exerciseRecord");
     }

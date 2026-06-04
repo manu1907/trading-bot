@@ -377,6 +377,12 @@ final class BinanceConfigValidator {
                 errors
         );
         requireConfiguredPath(
+                path + ".cancel_all_open_orders_by_underlying_path",
+                trading.cancelAllOpenOrdersByUnderlyingPath(),
+                expected.cancelAllOpenOrdersByUnderlyingPath(),
+                errors
+        );
+        requireConfiguredPath(
                 path + ".countdown_cancel_all_path",
                 trading.countdownCancelAllPath(),
                 expected.countdownCancelAllPath(),

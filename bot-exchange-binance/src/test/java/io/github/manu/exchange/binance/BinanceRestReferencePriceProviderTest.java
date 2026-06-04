@@ -258,6 +258,7 @@ class BinanceRestReferencePriceProviderTest {
                 "/fapi/v1/orderAmendment",
                 "/fapi/v1/batchOrders",
                 "/fapi/v1/allOpenOrders",
+                null,
                 "/fapi/v1/countdownCancelAll",
                 null,
                 referencePricePath,
