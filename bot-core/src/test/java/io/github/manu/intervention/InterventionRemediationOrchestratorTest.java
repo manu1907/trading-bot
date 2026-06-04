@@ -133,6 +133,20 @@ class InterventionRemediationOrchestratorTest {
     }
 
     @Test
+    void ignores_operator_review_decision_when_orchestrator_is_disabled() {
+        restoreOrderIntervention();
+        InterventionRemediationOrchestrator disabled = new InterventionRemediationOrchestrator(
+                eventBus,
+                projection,
+                properties(false, true)
+        );
+
+        disabled.handle(envelope(orderDecision())).join();
+
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void ignores_non_operator_review_actions() {
         restoreOrderIntervention();
 

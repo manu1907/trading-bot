@@ -617,9 +617,10 @@ Binance parity gaps to close before claiming full connector support:
   fully automated workflows from the read-only recommendations and projected
   remediation decisions. The first conservative operator-review workflow can
   publish deterministic acknowledgement events for matching order/position
-  interventions when explicitly enabled, but re-plan, stand-down, hedge, no-op
-  expiry, operator UI, and multi-order/position acknowledgement workflows remain
-  open.
+  interventions when explicitly enabled, and the orchestrator now honors its
+  top-level disabled flag at runtime as well as through bean wiring. Re-plan,
+  stand-down, hedge, no-op expiry, operator UI, and multi-order/position
+  acknowledgement workflows remain open.
 - All products: extend exchange-filter enforcement beyond first new-order,
   batch-placement, Spot order-list placement, cancel-replace replacement,
   futures modify, Spot amend, Spot SOR, and Spot WebSocket API order-placement

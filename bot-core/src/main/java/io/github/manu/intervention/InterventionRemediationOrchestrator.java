@@ -48,7 +48,7 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
 
     public CompletableFuture<Void> orchestrate(RemediationDecisionEvent event) {
         Objects.requireNonNull(event, "event");
-        if (!properties.operatorReviewAcknowledgementEnabled()) {
+        if (!properties.enabled() || !properties.operatorReviewAcknowledgementEnabled()) {
             return CompletableFuture.completedFuture(null);
         }
         String action = requireText(event.getAction(), "action");
