@@ -341,6 +341,33 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_options_batch_orders_with_options_parameter_names() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.batchOrders(List.of(
+                optionsLimitCommand("BTC-240628-70000-C", "BUY", "option-batch-1", "100.00", "1.000"),
+                optionsLimitCommand("BTC-240628-71000-C", "SELL", "option-batch-2", "90.00", "2.000")
+        ), "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("batchOrders=%5B%7B%22symbol%22%3A%22BTC-240628-70000-C%22"
+                        + "%2C%22side%22%3A%22BUY%22%2C%22type%22%3A%22LIMIT%22"
+                        + "%2C%22timeInForce%22%3A%22GTC%22%2C%22newOrderRespType%22%3A%22RESULT%22"
+                        + "%2C%22selfTradePreventionMode%22%3A%22EXPIRE_TAKER%22"
+                        + "%2C%22clientOrderId%22%3A%22option-batch-1%22%2C%22quantity%22%3A%221%22"
+                        + "%2C%22price%22%3A%22100%22%2C%22postOnly%22%3A%22true%22"
+                        + "%2C%22isMmp%22%3A%22true%22%7D%2C%7B%22symbol%22%3A%22BTC-240628-71000-C%22"
+                        + "%2C%22side%22%3A%22SELL%22%2C%22type%22%3A%22LIMIT%22"
+                        + "%2C%22timeInForce%22%3A%22GTC%22%2C%22newOrderRespType%22%3A%22RESULT%22"
+                        + "%2C%22selfTradePreventionMode%22%3A%22EXPIRE_TAKER%22"
+                        + "%2C%22clientOrderId%22%3A%22option-batch-2%22%2C%22quantity%22%3A%222%22"
+                        + "%2C%22price%22%3A%2290%22%2C%22postOnly%22%3A%22true%22"
+                        + "%2C%22isMmp%22%3A%22true%22%7D%5D"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/batchOrders?");
+    }
+
+    @Test
     void builds_open_orders_request_with_optional_symbol() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
 
@@ -1535,6 +1562,41 @@ class BinanceOrderRequestFactoryTest {
         );
     }
 
+    private BinanceOrderCommand optionsLimitCommand(String symbol, String side, String clientOrderId, String price, String quantity) {
+        return new BinanceOrderCommand(
+                symbol,
+                side,
+                "LIMIT",
+                "GTC",
+                null,
+                "RESULT",
+                "EXPIRE_TAKER",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                clientOrderId,
+                null,
+                quantity == null ? null : new BigDecimal(quantity),
+                null,
+                price == null ? null : new BigDecimal(price),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                true
+        );
+    }
+
     private BinanceOrderCommand spotLimitCommand(String symbol, String side, String clientOrderId, String price, String quantity) {
         return new BinanceOrderCommand(
                 symbol,
@@ -2423,7 +2485,7 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
-                null,
+                "/eapi/v1/batchOrders",
                 null,
                 null,
                 null,

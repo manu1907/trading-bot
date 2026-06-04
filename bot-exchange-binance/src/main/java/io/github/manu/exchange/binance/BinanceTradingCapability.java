@@ -397,7 +397,7 @@ record BinanceTradingCapability(
                 null,
                 null,
                 null,
-                null,
+                "/eapi/v1/batchOrders",
                 null,
                 null,
                 null,

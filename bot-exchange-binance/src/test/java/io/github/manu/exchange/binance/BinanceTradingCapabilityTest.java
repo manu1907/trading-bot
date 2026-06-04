@@ -107,7 +107,7 @@ class BinanceTradingCapabilityTest {
         assertThat(options.orderListOtocoPath()).isNull();
         assertThat(options.orderListOpoPath()).isNull();
         assertThat(options.orderListOpocoPath()).isNull();
-        assertThat(options.batchOrdersPath()).isNull();
+        assertThat(options.batchOrdersPath()).isEqualTo("/eapi/v1/batchOrders");
         assertThat(options.modifyOrderPath()).isNull();
         assertThat(options.modifyMultipleOrdersPath()).isNull();
         assertThat(options.modifyOrderHistoryPath()).isNull();
