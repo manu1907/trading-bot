@@ -162,6 +162,28 @@ class OrderExecutionPipelineTest {
     }
 
     @Test
+    void publishes_attribute_target_identity_on_gateway_failure_for_target_order_commands() {
+        ExecutionProperties properties = targetCommandProperties();
+
+        pipeline(properties, List.of(new ThrowingGateway()))
+                .handleOrderCommand(cancelCommandWithAttributeTargets())
+                .join();
+
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.RISK_DECISION, TradingEventType.ORDER_RESULT);
+        OrderResultEvent result = (OrderResultEvent) eventBus.envelopes.get(1).value();
+        assertThat(result.getEventId()).isEqualTo("order-result:cmd-cancel-attr-001:tb-lfa-open:gateway_failure");
+        assertThat(result.getClientOrderId()).isEqualTo("tb-lfa-open");
+        assertThat(result.getExchangeOrderId()).isEqualTo("123456");
+        assertThat(result.getStatus()).isEqualTo(OrderResultStatus.UNKNOWN);
+        assertThat(result.getAttributes())
+                .containsEntry("command_client_order_id", "tb-cancel-attr-001")
+                .containsEntry("target_client_order_id", "tb-lfa-open")
+                .containsEntry("target_exchange_order_id", "123456")
+                .containsEntry("gateway_failure", "true");
+    }
+
+    @Test
     void publishes_unknown_order_result_when_gateway_future_fails() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -208,6 +230,24 @@ class OrderExecutionPipelineTest {
 
         pipeline(properties, List.of(new MismatchedTargetExchangeOrderGateway()))
                 .handleOrderCommand(cancelCommand())
+                .join();
+
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.RISK_DECISION, TradingEventType.ORDER_RESULT);
+        OrderResultEvent result = (OrderResultEvent) eventBus.envelopes.get(1).value();
+        assertThat(result.getClientOrderId()).isEqualTo("tb-lfa-open");
+        assertThat(result.getExchangeOrderId()).isEqualTo("123456");
+        assertThat(result.getRejectMessage())
+                .isEqualTo("Order execution gateway returned mismatched result identity: exchangeOrderId expected 123456 but was 999999");
+        assertThat(result.getAttributes()).containsEntry("gateway_failure", "true");
+    }
+
+    @Test
+    void rejects_gateway_result_when_attribute_target_exchange_order_identity_mismatches() {
+        ExecutionProperties properties = targetCommandProperties();
+
+        pipeline(properties, List.of(new MismatchedAttributeTargetExchangeOrderGateway()))
+                .handleOrderCommand(cancelCommandWithAttributeTargets())
                 .join();
 
         assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
@@ -303,6 +343,18 @@ class OrderExecutionPipelineTest {
                 .setClientOrderId("tb-cancel-001")
                 .setTargetClientOrderId("tb-lfa-open")
                 .setTargetExchangeOrderId("123456")
+                .build();
+    }
+
+    private OrderCommandEvent cancelCommandWithAttributeTargets() {
+        return OrderCommandEvent.newBuilder(command("cmd-cancel-attr-001", "idem-cancel-attr-001"))
+                .setAction(OrderCommandAction.CANCEL)
+                .setClientOrderId("tb-cancel-attr-001")
+                .setAttributes(Map.of(
+                        "signal_id", "sig-001",
+                        "target_client_order_id", "tb-lfa-open",
+                        "target_exchange_order_id", "123456"
+                ))
                 .build();
     }
 
@@ -476,6 +528,23 @@ class OrderExecutionPipelineTest {
         public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
             OrderResultEvent result = OrderResultEvent.newBuilder(acceptedResult(command))
                     .setClientOrderId(command.getTargetClientOrderId())
+                    .setExchangeOrderId("999999")
+                    .build();
+            return CompletableFuture.completedFuture(resultEnvelope(result));
+        }
+    }
+
+    private final class MismatchedAttributeTargetExchangeOrderGateway implements OrderExecutionGateway {
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            OrderResultEvent result = OrderResultEvent.newBuilder(acceptedResult(command))
+                    .setClientOrderId("tb-lfa-open")
                     .setExchangeOrderId("999999")
                     .build();
             return CompletableFuture.completedFuture(resultEnvelope(result));

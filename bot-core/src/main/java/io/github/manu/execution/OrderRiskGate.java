@@ -399,8 +399,8 @@ public final class OrderRiskGate {
         List<String> reasons = new ArrayList<>();
         boolean reject = false;
         boolean manualReview = false;
-        String targetClientOrderId = value(command.getTargetClientOrderId());
-        String targetExchangeOrderId = value(command.getTargetExchangeOrderId());
+        String targetClientOrderId = targetClientOrderId(command);
+        String targetExchangeOrderId = targetExchangeOrderId(command);
         if (targetOrder.requireTargetOrderId() && targetClientOrderId == null && targetExchangeOrderId == null) {
             ManualInterventionDecision decision = decisionFor(targetOrder.action(), MISSING_TARGET_ORDER_ID_REASON);
             reasons.addAll(decision.reasons());
@@ -732,8 +732,8 @@ public final class OrderRiskGate {
         attributes.put("target_order_require_managed", Boolean.toString(targetOrder.requireManagedTarget()));
         attributes.put("target_order_reject_closed", Boolean.toString(targetOrder.rejectClosedTarget()));
         attributes.put("target_order_reject_external_intervention", Boolean.toString(targetOrder.rejectExternalIntervention()));
-        String targetClientOrderId = value(command.getTargetClientOrderId());
-        String targetExchangeOrderId = value(command.getTargetExchangeOrderId());
+        String targetClientOrderId = targetClientOrderId(command);
+        String targetExchangeOrderId = targetExchangeOrderId(command);
         if (targetClientOrderId != null || targetExchangeOrderId != null) {
             putIfPresent(attributes, "target_client_order_id", targetClientOrderId);
             putIfPresent(attributes, "target_exchange_order_id", targetExchangeOrderId);
@@ -883,6 +883,35 @@ public final class OrderRiskGate {
             return null;
         }
         return value(command.getAttributes().get("signal_id"));
+    }
+
+    private String targetClientOrderId(OrderCommandEvent command) {
+        String target = value(command.getTargetClientOrderId());
+        if (target != null) {
+            return target;
+        }
+        return attribute(command, "target_client_order_id");
+    }
+
+    private String targetExchangeOrderId(OrderCommandEvent command) {
+        String target = value(command.getTargetExchangeOrderId());
+        if (target != null) {
+            return target;
+        }
+        return attribute(command, "target_exchange_order_id");
+    }
+
+    private String attribute(OrderCommandEvent command, String... names) {
+        if (command.getAttributes() == null) {
+            return null;
+        }
+        for (String name : names) {
+            String candidate = value(command.getAttributes().get(name));
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private String value(CharSequence value) {

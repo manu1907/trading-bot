@@ -196,12 +196,12 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
         if (action(command) == OrderCommandAction.NEW) {
             return value(command.getClientOrderId());
         }
-        String targetClientOrderId = value(command.getTargetClientOrderId());
+        String targetClientOrderId = targetClientOrderId(command);
         return targetClientOrderId == null ? null : targetClientOrderId;
     }
 
     private String expectedResultExchangeOrderId(OrderCommandEvent command) {
-        return action(command) == OrderCommandAction.NEW ? null : value(command.getTargetExchangeOrderId());
+        return action(command) == OrderCommandAction.NEW ? null : targetExchangeOrderId(command);
     }
 
     private Optional<OrderExecutionGateway> gatewayFor(OrderCommandEvent command) {
@@ -313,12 +313,12 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
         attributes.put("gateway_failure", "true");
         attributes.put("gateway_failure_type", causeType);
         putIfPresent(attributes, "command_client_order_id", value(command.getClientOrderId()));
-        putIfPresent(attributes, "target_client_order_id", value(command.getTargetClientOrderId()));
-        putIfPresent(attributes, "target_exchange_order_id", value(command.getTargetExchangeOrderId()));
+        putIfPresent(attributes, "target_client_order_id", targetClientOrderId(command));
+        putIfPresent(attributes, "target_exchange_order_id", targetExchangeOrderId(command));
         String resultClientOrderId = gatewayFailureClientOrderId(command);
         String resultExchangeOrderId = action(command) == OrderCommandAction.NEW
                 ? null
-                : value(command.getTargetExchangeOrderId());
+                : targetExchangeOrderId(command);
         OrderResultEvent result = OrderResultEvent.newBuilder()
                 .setEventId("order-result:"
                         + value(command.getCommandId())
@@ -354,12 +354,41 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
         if (action(command) == OrderCommandAction.NEW) {
             return value(command.getClientOrderId());
         }
-        String targetClientOrderId = value(command.getTargetClientOrderId());
+        String targetClientOrderId = targetClientOrderId(command);
         return targetClientOrderId == null ? value(command.getClientOrderId()) : targetClientOrderId;
     }
 
     private OrderCommandAction action(OrderCommandEvent command) {
         return command.getAction() == null ? OrderCommandAction.NEW : command.getAction();
+    }
+
+    private String targetClientOrderId(OrderCommandEvent command) {
+        String target = value(command.getTargetClientOrderId());
+        if (target != null) {
+            return target;
+        }
+        return attribute(command, "target_client_order_id");
+    }
+
+    private String targetExchangeOrderId(OrderCommandEvent command) {
+        String target = value(command.getTargetExchangeOrderId());
+        if (target != null) {
+            return target;
+        }
+        return attribute(command, "target_exchange_order_id");
+    }
+
+    private String attribute(OrderCommandEvent command, String... names) {
+        if (command.getAttributes() == null) {
+            return null;
+        }
+        for (String name : names) {
+            String candidate = value(command.getAttributes().get(name));
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private void putIfPresent(Map<CharSequence, CharSequence> attributes, String key, String value) {
