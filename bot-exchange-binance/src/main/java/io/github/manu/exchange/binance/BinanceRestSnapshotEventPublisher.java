@@ -2,6 +2,7 @@ package io.github.manu.exchange.binance;
 
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
@@ -10,6 +11,7 @@ import io.github.manu.messaging.TradingEventBus;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -38,6 +40,13 @@ final class BinanceRestSnapshotEventPublisher {
 
     CompletableFuture<List<PublishedTradingEvent>> publishOrderHistory(List<BinanceOrderResult> orders) {
         return publishEnvelopes(mapOrderHistory(orders));
+    }
+
+    CompletableFuture<List<PublishedTradingEvent>> publishAccountTrades(
+            List<BinanceAccountTrade> trades,
+            Map<Long, BinanceOrderResult> ordersById
+    ) {
+        return publishEnvelopes(mapAccountTrades(trades, ordersById));
     }
 
     CompletableFuture<List<PublishedTradingEvent>> publishFuturesBalances(List<BinanceFuturesBalance> balances) {
@@ -84,6 +93,13 @@ final class BinanceRestSnapshotEventPublisher {
 
     List<TradingEventEnvelope<OrderResultEvent>> mapOrderHistory(List<BinanceOrderResult> orders) {
         return mapper.orderHistory(orders, mapperContext());
+    }
+
+    List<TradingEventEnvelope<ExecutionReportEvent>> mapAccountTrades(
+            List<BinanceAccountTrade> trades,
+            Map<Long, BinanceOrderResult> ordersById
+    ) {
+        return mapper.accountTrades(trades, ordersById, mapperContext());
     }
 
     List<TradingEventEnvelope<BalanceUpdateEvent>> mapFuturesBalances(List<BinanceFuturesBalance> balances) {

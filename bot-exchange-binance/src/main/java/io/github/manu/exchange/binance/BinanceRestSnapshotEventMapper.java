@@ -4,6 +4,7 @@ import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
@@ -40,6 +41,23 @@ final class BinanceRestSnapshotEventMapper {
         List<TradingEventEnvelope<OrderResultEvent>> envelopes = new ArrayList<>();
         for (BinanceOrderResult order : Objects.requireNonNull(orders, "orders")) {
             envelopes.add(orderResult(order, normalized, "order_history"));
+        }
+        return List.copyOf(envelopes);
+    }
+
+    List<TradingEventEnvelope<ExecutionReportEvent>> accountTrades(
+            List<BinanceAccountTrade> trades,
+            Map<Long, BinanceOrderResult> ordersById,
+            Context context
+    ) {
+        Context normalized = Objects.requireNonNull(context, "context").normalize();
+        Map<Long, BinanceOrderResult> checkedOrders = Objects.requireNonNull(ordersById, "ordersById");
+        List<TradingEventEnvelope<ExecutionReportEvent>> envelopes = new ArrayList<>();
+        for (BinanceAccountTrade trade : Objects.requireNonNull(trades, "trades")) {
+            BinanceOrderResult order = checkedOrders.get(trade.orderId());
+            if (order != null) {
+                envelopes.add(accountTrade(trade, order, normalized));
+            }
         }
         return List.copyOf(envelopes);
     }
@@ -231,6 +249,74 @@ final class BinanceRestSnapshotEventMapper {
                 TradingEventType.ORDER_RESULT,
                 TradingEventKeys.order(
                         TradingEventType.ORDER_RESULT,
+                        context.provider(),
+                        context.environment(),
+                        context.account(),
+                        context.market(),
+                        symbol,
+                        clientOrderId
+                ),
+                value
+        );
+    }
+
+    private TradingEventEnvelope<ExecutionReportEvent> accountTrade(
+            BinanceAccountTrade trade,
+            BinanceOrderResult order,
+            Context context
+    ) {
+        String symbol = requireText(firstText(trade.symbol(), order.symbol()), "symbol");
+        String clientOrderId = requireText(order.clientOrderId(), "clientOrderId");
+        String exchangeOrderId = requireText(string(firstNonNull(trade.orderId(), order.orderId())), "exchangeOrderId");
+        String tradeId = string(firstNonNull(trade.tradeId(), trade.id()));
+        ExecutionReportEvent value = ExecutionReportEvent.newBuilder()
+                .setEventId(eventId(context, "ACCOUNT_TRADE_RECONCILIATION", symbol, clientOrderId, exchangeOrderId, tradeId, string(trade.time())))
+                .setSchemaVersion(1)
+                .setProvider(context.provider())
+                .setEnvironment(context.environment())
+                .setAccount(context.account())
+                .setMarket(context.market())
+                .setSymbol(symbol)
+                .setClientOrderId(clientOrderId)
+                .setExchangeOrderId(exchangeOrderId)
+                .setExecutionId(null)
+                .setTradeId(tradeId)
+                .setSide(requireText(firstText(trade.side(), order.side()), "side"))
+                .setOrderType(requireText(order.type(), "orderType"))
+                .setOrderStatus(requireText(order.status(), "orderStatus"))
+                .setExecutionType("TRADE")
+                .setLastExecutedQuantity(requireText(decimal(trade.quantity()), "lastExecutedQuantity"))
+                .setLastExecutedPrice(requireText(decimal(trade.price()), "lastExecutedPrice"))
+                .setCumulativeFilledQuantity(requireText(
+                        decimal(firstNonNull(order.executedQuantity(), trade.quantity())),
+                        "cumulativeFilledQuantity"
+                ))
+                .setCumulativeQuoteQuantity(decimal(firstNonNull(order.cumulativeQuote(), trade.quoteQuantity(), trade.baseQuantity())))
+                .setCommissionAsset(firstText(trade.commissionAsset(), trade.marginAsset()))
+                .setCommissionAmount(decimal(trade.commission()))
+                .setMaker(trade.maker())
+                .setEventTimeMicros(instant(trade.time(), context))
+                .setTransactionTimeMicros(instant(trade.time(), context))
+                .setAttributes(attributes("account_trades",
+                        "positionSide", firstText(trade.positionSide(), order.positionSide()),
+                        "liquidity", trade.liquidity(),
+                        "realizedPnl", decimal(trade.realizedPnl()),
+                        "quoteQuantity", decimal(trade.quoteQuantity()),
+                        "baseQuantity", decimal(trade.baseQuantity()),
+                        "orderListId", string(trade.orderListId()),
+                        "pair", trade.pair(),
+                        "priceScale", string(trade.priceScale()),
+                        "quantityScale", string(trade.quantityScale()),
+                        "optionSide", trade.optionSide(),
+                        "quoteAsset", trade.quoteAsset(),
+                        "buyer", string(trade.buyer()),
+                        "bestMatch", string(trade.bestMatch())
+                ))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.EXECUTION_REPORT,
+                TradingEventKeys.order(
+                        TradingEventType.EXECUTION_REPORT,
                         context.provider(),
                         context.environment(),
                         context.account(),
@@ -534,6 +620,25 @@ final class BinanceRestSnapshotEventMapper {
 
     private String string(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    @SafeVarargs
+    private final <T> T firstNonNull(T... values) {
+        for (T value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String firstText(String... values) {
+        for (String value : values) {
+            if (hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 
     private String eventId(Context context, String eventType, String... parts) {

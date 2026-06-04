@@ -469,6 +469,11 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                 public List<BinanceOrderResult> allOrders(BinanceOrderHistoryQuery query) {
                     return orderClient.allOrders(query);
                 }
+
+                @Override
+                public List<BinanceAccountTrade> accountTrades(BinanceTradeHistoryQuery query) {
+                    return orderClient.accountTrades(query);
+                }
             };
         }
         BinanceRestSnapshotReconciliationRuntime.FuturesSnapshots futuresSnapshots = null;
@@ -597,7 +602,8 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
 
     private boolean requiresOrderSnapshots(BinanceProperties.Reconciliation reconciliation) {
         return Boolean.TRUE.equals(reconciliation.openOrdersEnabled())
-                || Boolean.TRUE.equals(reconciliation.orderHistoryEnabled());
+                || Boolean.TRUE.equals(reconciliation.orderHistoryEnabled())
+                || Boolean.TRUE.equals(reconciliation.accountTradesEnabled());
     }
 
     private List<String> recentReconciliationEventIds(BinanceProperties.Reconciliation reconciliation) {

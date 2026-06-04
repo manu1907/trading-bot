@@ -103,6 +103,11 @@ class BinanceCatalogComplianceTest {
                 assertThat(reconciliation.required("order_history_symbols").isArray()).isTrue();
                 assertThat(reconciliation.required("order_history_symbols")).isEmpty();
                 assertThat(reconciliation.required("order_history_limit").asInt()).isEqualTo(1000);
+                assertThat(reconciliation.required("account_trades_enabled").asBoolean()).isFalse();
+                assertThat(reconciliation.required("account_trade_symbols").isArray()).isTrue();
+                assertThat(reconciliation.required("account_trade_symbols")).isEmpty();
+                assertThat(reconciliation.required("account_trade_limit").asInt()).isEqualTo(1000);
+                assertThat(reconciliation.required("account_trade_order_history_limit").asInt()).isEqualTo(1000);
             }
         }
     }

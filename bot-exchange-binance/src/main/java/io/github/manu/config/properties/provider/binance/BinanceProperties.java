@@ -655,6 +655,10 @@ public record BinanceProperties(
             Boolean orderHistoryEnabled,
             @NotNull List<String> orderHistorySymbols,
             Integer orderHistoryLimit,
+            Boolean accountTradesEnabled,
+            @NotNull List<String> accountTradeSymbols,
+            Integer accountTradeLimit,
+            Integer accountTradeOrderHistoryLimit,
             Boolean futuresBalancesEnabled,
             Boolean futuresAccountEnabled,
             Boolean futuresPositionsEnabled,
@@ -668,6 +672,7 @@ public record BinanceProperties(
         public Reconciliation {
             openOrderSymbols = openOrderSymbols == null ? List.of() : List.copyOf(openOrderSymbols);
             orderHistorySymbols = orderHistorySymbols == null ? List.of() : List.copyOf(orderHistorySymbols);
+            accountTradeSymbols = accountTradeSymbols == null ? List.of() : List.copyOf(accountTradeSymbols);
             isolatedMarginSymbols = isolatedMarginSymbols == null ? List.of() : List.copyOf(isolatedMarginSymbols);
             optionsPositionSymbols = optionsPositionSymbols == null ? List.of() : List.copyOf(optionsPositionSymbols);
         }
@@ -696,6 +701,10 @@ public record BinanceProperties(
                     false,
                     List.of(),
                     1000,
+                    false,
+                    List.of(),
+                    1000,
+                    1000,
                     futuresBalancesEnabled,
                     futuresAccountEnabled,
                     futuresPositionsEnabled,
@@ -731,6 +740,10 @@ public record BinanceProperties(
                     false,
                     List.of(),
                     1000,
+                    false,
+                    List.of(),
+                    1000,
+                    1000,
                     futuresBalancesEnabled,
                     futuresAccountEnabled,
                     futuresPositionsEnabled,
@@ -754,6 +767,10 @@ public record BinanceProperties(
                     List.of(),
                     false,
                     List.of(),
+                    1000,
+                    false,
+                    List.of(),
+                    1000,
                     1000,
                     false,
                     false,

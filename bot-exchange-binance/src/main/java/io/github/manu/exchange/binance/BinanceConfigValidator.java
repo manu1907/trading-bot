@@ -135,6 +135,9 @@ final class BinanceConfigValidator {
         requireNotNull(path + ".open_order_symbols", reconciliation.openOrderSymbols(), errors);
         requireNotNull(path + ".order_history_symbols", reconciliation.orderHistorySymbols(), errors);
         requireOptionalPositive(path + ".order_history_limit", reconciliation.orderHistoryLimit(), errors);
+        requireNotNull(path + ".account_trade_symbols", reconciliation.accountTradeSymbols(), errors);
+        requireOptionalPositive(path + ".account_trade_limit", reconciliation.accountTradeLimit(), errors);
+        requireOptionalPositive(path + ".account_trade_order_history_limit", reconciliation.accountTradeOrderHistoryLimit(), errors);
         requireNotNull(path + ".isolated_margin_symbols", reconciliation.isolatedMarginSymbols(), errors);
         requireNotNull(path + ".options_position_symbols", reconciliation.optionsPositionSymbols(), errors);
         if (!Boolean.TRUE.equals(reconciliation.runtimeEnabled())) {
@@ -143,6 +146,7 @@ final class BinanceConfigValidator {
 
         if (!Boolean.TRUE.equals(reconciliation.openOrdersEnabled())
                 && !Boolean.TRUE.equals(reconciliation.orderHistoryEnabled())
+                && !Boolean.TRUE.equals(reconciliation.accountTradesEnabled())
                 && !Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())
                 && !Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())
                 && !Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled())
@@ -158,6 +162,18 @@ final class BinanceConfigValidator {
         }
         if (Boolean.TRUE.equals(reconciliation.orderHistoryEnabled())) {
             requirePositive(path + ".order_history_limit", reconciliation.orderHistoryLimit(), errors);
+        }
+        if (Boolean.TRUE.equals(reconciliation.accountTradesEnabled())
+                && reconciliation.accountTradeSymbols().isEmpty()) {
+            errors.add(path + ".account_trade_symbols must not be empty when account_trades_enabled is true");
+        }
+        if (Boolean.TRUE.equals(reconciliation.accountTradesEnabled())) {
+            requirePositive(path + ".account_trade_limit", reconciliation.accountTradeLimit(), errors);
+            requirePositive(
+                    path + ".account_trade_order_history_limit",
+                    reconciliation.accountTradeOrderHistoryLimit(),
+                    errors
+            );
         }
         if (!marketType.futures()
                 && (Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())

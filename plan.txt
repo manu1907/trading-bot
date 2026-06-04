@@ -312,6 +312,12 @@ Implemented Binance foundations:
   order-result reconciliation mapper so documented Binance all-orders/history
   endpoints, including options `/eapi/v1/historyOrders`, become projection
   evidence without broad unbounded history scans.
+- Binance account-trade REST reconciliation source, disabled by default, with
+  catalog-backed explicit symbols, trade limit, and correlation order-history
+  limit. The runtime fetches same-symbol order history first and only maps
+  account-trade rows into core execution reports when the exchange `orderId`
+  resolves to a documented order-history row with a client order id; unmatched
+  rows are skipped rather than fabricating identity.
 - Core projection treats REST open-order snapshots as reconciliation evidence,
   not submit evidence: known bot orders keep their original command identity,
   while previously unknown snapshot orders are marked as external order
@@ -567,13 +573,10 @@ Binance parity gaps to close before claiming full connector support:
   Binance documents endpoints for them.
 - Options: `/eapi` order request parameter naming, post-only handling, read-only
   margin-account/position snapshots, MMP get/set/reset request coverage,
-  open-order and order-history reconciliation inputs, commission reads,
-  exercise-record reads, and core execution/balance/position/risk user-data
-  stream mappings are covered, but options parity is not complete.
-  Account-trade reconciliation remains a gap because REST trade records do not
-  carry client-order identity by themselves; they must be correlated with
-  projected order state or order-history snapshots before being safely mapped
-  into core execution events.
+  open-order, order-history, and order-history-correlated account-trade
+  reconciliation inputs, commission reads, exercise-record reads, and core
+  execution/balance/position/risk user-data stream mappings are covered, but
+  options parity is not complete.
   Keep real options trading disabled unless REST snapshot comparison is backed
   by durable projection state and projection-backed ordering is fully
   implemented and tested against current Binance documentation.

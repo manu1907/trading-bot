@@ -3,6 +3,7 @@ package io.github.manu.exchange.binance;
 import io.github.manu.config.properties.provider.binance.BinanceProperties;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.v1.BalanceUpdateEvent;
+import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
@@ -13,8 +14,10 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -173,6 +176,42 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
                 ))));
             }
         }
+        if (Boolean.TRUE.equals(reconciliation.accountTradesEnabled())) {
+            for (String symbol : reconciliation.accountTradeSymbols()) {
+                List<BinanceOrderResult> orders = orderSnapshots.allOrders(new BinanceOrderHistoryQuery(
+                        symbol,
+                        null,
+                        null,
+                        null,
+                        null,
+                        reconciliation.accountTradeOrderHistoryLimit(),
+                        null
+                ));
+                List<BinanceAccountTrade> trades = orderSnapshots.accountTrades(new BinanceTradeHistoryQuery(
+                        symbol,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        reconciliation.accountTradeLimit(),
+                        null
+                ));
+                List<TradingEventEnvelope<ExecutionReportEvent>> mapped = publisher.mapAccountTrades(
+                        trades,
+                        ordersByExchangeOrderId(orders)
+                );
+                int unmatched = trades.size() - mapped.size();
+                if (unmatched > 0) {
+                    log.warn(
+                            "Skipping {} Binance account-trade reconciliation rows without correlated order history for symbol {}",
+                            unmatched,
+                            symbol
+                    );
+                }
+                envelopes.addAll(mapped);
+            }
+        }
         if (Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())) {
             envelopes.addAll(publisher.mapFuturesBalances(futuresSnapshots.balances()));
         }
@@ -301,6 +340,21 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
                 throw new IllegalArgumentException("order history reconciliation requires a positive limit");
             }
         }
+        if (Boolean.TRUE.equals(reconciliation.accountTradesEnabled())) {
+            if (orderSnapshots == null) {
+                throw new IllegalArgumentException("account trade reconciliation requires order snapshots");
+            }
+            if (reconciliation.accountTradeSymbols().isEmpty()) {
+                throw new IllegalArgumentException("account trade reconciliation requires configured symbols");
+            }
+            if (reconciliation.accountTradeLimit() == null || reconciliation.accountTradeLimit() <= 0) {
+                throw new IllegalArgumentException("account trade reconciliation requires a positive trade limit");
+            }
+            if (reconciliation.accountTradeOrderHistoryLimit() == null
+                    || reconciliation.accountTradeOrderHistoryLimit() <= 0) {
+                throw new IllegalArgumentException("account trade reconciliation requires a positive order history limit");
+            }
+        }
         if ((Boolean.TRUE.equals(reconciliation.futuresBalancesEnabled())
                 || Boolean.TRUE.equals(reconciliation.futuresAccountEnabled())
                 || Boolean.TRUE.equals(reconciliation.futuresPositionsEnabled())) && futuresSnapshots == null) {
@@ -368,6 +422,9 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         if (value instanceof BalanceUpdateEvent event) {
             return event.getEventId().toString();
         }
+        if (value instanceof ExecutionReportEvent event) {
+            return event.getEventId().toString();
+        }
         if (value instanceof PositionUpdateEvent event) {
             return event.getEventId().toString();
         }
@@ -377,11 +434,23 @@ final class BinanceRestSnapshotReconciliationRuntime implements AutoCloseable {
         throw new IllegalArgumentException("Unsupported reconciliation event type: " + envelope.eventType());
     }
 
+    private Map<Long, BinanceOrderResult> ordersByExchangeOrderId(List<BinanceOrderResult> orders) {
+        Map<Long, BinanceOrderResult> ordersById = new LinkedHashMap<>();
+        for (BinanceOrderResult order : orders) {
+            if (order.orderId() != null) {
+                ordersById.put(order.orderId(), order);
+            }
+        }
+        return Map.copyOf(ordersById);
+    }
+
     interface OrderSnapshots {
 
         List<BinanceOrderResult> openOrders(String symbol);
 
         List<BinanceOrderResult> allOrders(BinanceOrderHistoryQuery query);
+
+        List<BinanceAccountTrade> accountTrades(BinanceTradeHistoryQuery query);
     }
 
     interface FuturesSnapshots {
