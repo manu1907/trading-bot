@@ -187,6 +187,39 @@ class OrderExecutionPipelineTest {
         );
     }
 
+    @Test
+    void publishes_unknown_order_result_when_gateway_returns_mismatched_new_order_identity() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        pipeline(List.of(new MismatchedClientOrderGateway())).handleOrderCommand(command()).join();
+
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.RISK_DECISION, TradingEventType.ORDER_RESULT);
+        assertUnknownGatewayFailure(
+                eventBus.envelopes.get(1),
+                "IllegalStateException",
+                "Order execution gateway returned mismatched result identity: clientOrderId expected tb-lfa-cmd-001 but was tb-other"
+        );
+    }
+
+    @Test
+    void publishes_unknown_order_result_when_gateway_returns_mismatched_target_order_identity() {
+        ExecutionProperties properties = targetCommandProperties();
+
+        pipeline(properties, List.of(new MismatchedTargetExchangeOrderGateway()))
+                .handleOrderCommand(cancelCommand())
+                .join();
+
+        assertThat(eventBus.envelopes).extracting(TradingEventEnvelope::eventType)
+                .containsExactly(TradingEventType.RISK_DECISION, TradingEventType.ORDER_RESULT);
+        OrderResultEvent result = (OrderResultEvent) eventBus.envelopes.get(1).value();
+        assertThat(result.getClientOrderId()).isEqualTo("tb-lfa-open");
+        assertThat(result.getExchangeOrderId()).isEqualTo("123456");
+        assertThat(result.getRejectMessage())
+                .isEqualTo("Order execution gateway returned mismatched result identity: exchangeOrderId expected 123456 but was 999999");
+        assertThat(result.getAttributes()).containsEntry("gateway_failure", "true");
+    }
+
     private OrderExecutionPipeline pipeline(List<OrderExecutionGateway> gateways) {
         return pipeline(new ExecutionProperties(null), gateways);
     }
@@ -317,6 +350,22 @@ class OrderExecutionPipelineTest {
         );
     }
 
+    private TradingEventEnvelope<OrderResultEvent> resultEnvelope(OrderResultEvent result) {
+        return TradingEventEnvelope.of(
+                TradingEventType.ORDER_RESULT,
+                TradingEventKeys.order(
+                        TradingEventType.ORDER_RESULT,
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        result.getClientOrderId().toString()
+                ),
+                result
+        );
+    }
+
     private void assertUnknownGatewayFailure(
             TradingEventEnvelope<? extends SpecificRecord> envelope,
             String failureType,
@@ -397,6 +446,39 @@ class OrderExecutionPipelineTest {
         @Override
         public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
             return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    private final class MismatchedClientOrderGateway implements OrderExecutionGateway {
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            OrderResultEvent result = OrderResultEvent.newBuilder(acceptedResult(command))
+                    .setClientOrderId("tb-other")
+                    .build();
+            return CompletableFuture.completedFuture(resultEnvelope(result));
+        }
+    }
+
+    private final class MismatchedTargetExchangeOrderGateway implements OrderExecutionGateway {
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            OrderResultEvent result = OrderResultEvent.newBuilder(acceptedResult(command))
+                    .setClientOrderId(command.getTargetClientOrderId())
+                    .setExchangeOrderId("999999")
+                    .build();
+            return CompletableFuture.completedFuture(resultEnvelope(result));
         }
     }
 

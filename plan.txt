@@ -332,6 +332,12 @@ Implemented Binance foundations:
 - Configurable core order execution pipeline under
   `trading.execution.pipeline`; disabled by default until the runtime profile
   explicitly enables order-command handling.
+- Core order execution pipeline validates gateway result identity before
+  publishing provider output. A result must match the command
+  provider/environment/account/market/symbol/command identity, and must match
+  the expected client order id or target exchange order id when the command can
+  assert them; mismatches become auditable `UNKNOWN` gateway-failure results
+  instead of silently updating the wrong projected order.
 - Configurable core in-memory order idempotency under
   `trading.execution.idempotency`; enabled by default and bounded by
   `max_tracked_keys` in the catalog. It rejects duplicate command IDs or

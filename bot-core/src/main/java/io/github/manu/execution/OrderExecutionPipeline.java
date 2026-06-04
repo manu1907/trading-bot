@@ -139,11 +139,69 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
                                     new IllegalStateException("Order execution gateway returned no result envelope")
                             );
                         }
+                        Optional<String> identityMismatch = gatewayResultIdentityMismatch(command, envelope.value());
+                        if (identityMismatch.isPresent()) {
+                            return gatewayFailureEnvelope(
+                                    command,
+                                    new IllegalStateException("Order execution gateway returned mismatched result identity: "
+                                            + identityMismatch.orElseThrow())
+                            );
+                        }
                         return envelope;
                     });
         } catch (RuntimeException e) {
             return CompletableFuture.completedFuture(gatewayFailureEnvelope(command, e));
         }
+    }
+
+    private Optional<String> gatewayResultIdentityMismatch(OrderCommandEvent command, OrderResultEvent result) {
+        return firstMismatch(
+                mismatch("provider", value(command.getProvider()), value(result.getProvider()), true),
+                mismatch("environment", value(command.getEnvironment()), value(result.getEnvironment()), true),
+                mismatch("account", value(command.getAccount()), value(result.getAccount()), true),
+                mismatch("market", value(command.getMarket()), value(result.getMarket()), true),
+                mismatch("symbol", value(command.getSymbol()), value(result.getSymbol()), true),
+                mismatch("commandId", value(command.getCommandId()), value(result.getCommandId()), true),
+                mismatch("clientOrderId", expectedResultClientOrderId(command), value(result.getClientOrderId()), true),
+                mismatch("exchangeOrderId", expectedResultExchangeOrderId(command), value(result.getExchangeOrderId()), false)
+        );
+    }
+
+    @SafeVarargs
+    private final Optional<String> firstMismatch(Optional<String>... mismatches) {
+        for (Optional<String> mismatch : mismatches) {
+            if (mismatch.isPresent()) {
+                return mismatch;
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> mismatch(String field, String expected, String actual, boolean required) {
+        if (expected == null) {
+            return Optional.empty();
+        }
+        if (actual == null) {
+            return required
+                    ? Optional.of(field + " expected " + expected + " but was missing")
+                    : Optional.empty();
+        }
+        if (!expected.equals(actual)) {
+            return Optional.of(field + " expected " + expected + " but was " + actual);
+        }
+        return Optional.empty();
+    }
+
+    private String expectedResultClientOrderId(OrderCommandEvent command) {
+        if (action(command) == OrderCommandAction.NEW) {
+            return value(command.getClientOrderId());
+        }
+        String targetClientOrderId = value(command.getTargetClientOrderId());
+        return targetClientOrderId == null ? null : targetClientOrderId;
+    }
+
+    private String expectedResultExchangeOrderId(OrderCommandEvent command) {
+        return action(command) == OrderCommandAction.NEW ? null : value(command.getTargetExchangeOrderId());
     }
 
     private Optional<OrderExecutionGateway> gatewayFor(OrderCommandEvent command) {
