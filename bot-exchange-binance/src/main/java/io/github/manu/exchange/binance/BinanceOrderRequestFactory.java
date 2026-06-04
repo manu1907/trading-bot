@@ -440,10 +440,10 @@ final class BinanceOrderRequestFactory {
         List<BinanceRequestParameter> parameters = new ArrayList<>();
         add(parameters, "symbol", query.symbol());
         if (!query.orderIds().isEmpty()) {
-            add(parameters, "orderIdList", longList(query.orderIds()));
+            add(parameters, orderIdsParameterName(), longList(query.orderIds()));
         }
         if (!query.originalClientOrderIds().isEmpty()) {
-            add(parameters, "origClientOrderIdList", stringList(query.originalClientOrderIds()));
+            add(parameters, clientOrderIdsParameterName(), stringList(query.originalClientOrderIds()));
         }
         return restRequestFactory.signedUri(binance.trading().cancelMultipleOrdersPath(), parameters, privateCredential);
     }
@@ -1412,6 +1412,14 @@ final class BinanceOrderRequestFactory {
 
     private String clientOrderIdParameterName() {
         return isOptionsMarket() ? "clientOrderId" : "origClientOrderId";
+    }
+
+    private String orderIdsParameterName() {
+        return isOptionsMarket() ? "orderIds" : "orderIdList";
+    }
+
+    private String clientOrderIdsParameterName() {
+        return isOptionsMarket() ? "clientOrderIds" : "origClientOrderIdList";
     }
 
     private String marketMakerProtectionParameterName() {

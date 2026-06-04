@@ -1319,6 +1319,8 @@
                       "commission_rates_path": "/eapi/v1/commission",
                       "exercise_record_path": "/eapi/v1/exerciseRecord",
                       "batch_orders_path": "/eapi/v1/batchOrders",
+                      "cancel_multiple_orders_path": "/eapi/v1/batchOrders",
+                      "cancel_all_open_orders_path": "/eapi/v1/allOpenOrders",
                       "supported_sides": [
                         "BUY",
                         "SELL"
@@ -2615,6 +2617,8 @@
                       "commission_rates_path": "/eapi/v1/commission",
                       "exercise_record_path": "/eapi/v1/exerciseRecord",
                       "batch_orders_path": "/eapi/v1/batchOrders",
+                      "cancel_multiple_orders_path": "/eapi/v1/batchOrders",
+                      "cancel_all_open_orders_path": "/eapi/v1/allOpenOrders",
                       "supported_sides": [
                         "BUY",
                         "SELL"

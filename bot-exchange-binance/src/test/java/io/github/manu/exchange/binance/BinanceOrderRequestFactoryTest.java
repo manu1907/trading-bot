@@ -368,6 +368,33 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_options_cancel_all_and_cancel_multiple_with_options_parameter_names() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest cancelAll = factory.cancelAllOpenOrders("BTC-240628-70000-C", "test-secret");
+        BinanceSignedRequest byOrderIds = factory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTC-240628-70000-C", List.of(4611875134427365377L, 4611875134427365378L), List.of()),
+                "test-secret"
+        );
+        BinanceSignedRequest byClientOrderIds = factory.cancelMultipleOrders(
+                new BinanceCancelMultipleOrdersQuery("BTC-240628-70000-C", List.of(), List.of("option_1", "option_2")),
+                "test-secret"
+        );
+
+        assertThat(cancelAll.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&timestamp=1499827319559&recvWindow=5000");
+        assertThat(cancelAll.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/allOpenOrders?");
+        assertThat(byOrderIds.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&orderIds=%5B4611875134427365377%2C4611875134427365378%5D"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(byOrderIds.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/batchOrders?");
+        assertThat(byClientOrderIds.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&clientOrderIds=%5B%22option_1%22%2C%22option_2%22%5D"
+                        + "&timestamp=1499827319559&recvWindow=5000");
+        assertThat(byClientOrderIds.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/batchOrders?");
+    }
+
+    @Test
     void builds_open_orders_request_with_optional_symbol() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
 
@@ -2489,8 +2516,8 @@ class BinanceOrderRequestFactoryTest {
                 null,
                 null,
                 null,
-                null,
-                null,
+                "/eapi/v1/batchOrders",
+                "/eapi/v1/allOpenOrders",
                 null,
                 "/eapi/v1/exerciseRecord",
                 List.of("BUY", "SELL"),
