@@ -645,6 +645,14 @@ class BinanceExchangeModuleTest {
             assertThat(value.getStatus()).isEqualTo(OrderResultStatus.UNKNOWN);
             assertThat(value.getRejectCode()).isEqualTo("-1000");
             assertThat(value.getRejectMessage()).contains("Unknown error");
+            assertThat(value.getAttributes())
+                    .containsEntry("http_reject", "true")
+                    .containsEntry("http_status_code", "503")
+                    .containsEntry("exchange_code", "-1000")
+                    .containsEntry("retryable", "true")
+                    .containsEntry("reconcile_before_retry", "true")
+                    .containsEntry("unknown_execution_status", "true")
+                    .containsEntry("retry_backoff_millis", "200");
         });
     }
 

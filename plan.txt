@@ -354,7 +354,11 @@ Implemented Binance foundations:
 - Binance `OrderExecutionGateway` adapter for new-order submission, including
   core-to-Binance command mapping, Binance-specific command attributes,
   normalized `OrderResultEvent` output, validation rejection mapping, and
-  configured unknown-execution-status mapping.
+  configured unknown-execution-status mapping. Binance API failures now retain
+  retry-policy metadata on the order result (`retryable`,
+  `reconcile_before_retry`, `unknown_execution_status`, HTTP/exchange codes,
+  and backoff), so downstream reconciliation/remediation can distinguish
+  definitive rejects from exchange-state-unknown outcomes.
 - Binance new-order gateway pre-submit exchangeInfo validation for symbol
   trading status, symbol order-type/time-in-force permissions, price tick
   filters, lot-size filters, and explicit notional filters when current

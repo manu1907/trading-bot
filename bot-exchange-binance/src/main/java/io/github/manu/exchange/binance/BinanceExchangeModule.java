@@ -231,15 +231,40 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(toEnvelope(command, null, "VALIDATION", e.getMessage(), OrderResultStatus.REJECTED));
         } catch (BinanceApiException e) {
-            OrderResultStatus status = new BinanceRetryPolicy(binance.rest())
-                    .decide(e.httpStatusCode(), e.exchangeMessage())
-                    .reconcileBeforeRetry()
+            BinanceRetryPolicy.RetryDecision retryDecision = new BinanceRetryPolicy(binance.rest())
+                    .decide(e.httpStatusCode(), e.exchangeMessage());
+            OrderResultStatus status = retryDecision.reconcileBeforeRetry()
                     ? OrderResultStatus.UNKNOWN
                     : OrderResultStatus.REJECTED;
             String rejectCode = e.exchangeCode() == null ? "HTTP_" + e.httpStatusCode() : e.exchangeCode().toString();
-            return CompletableFuture.completedFuture(toEnvelope(command, null, rejectCode, e.exchangeMessage(), status));
+            return CompletableFuture.completedFuture(toEnvelope(
+                    command,
+                    null,
+                    rejectCode,
+                    e.exchangeMessage(),
+                    status,
+                    apiFailureAttributes(e, retryDecision)
+            ));
         }
         return CompletableFuture.completedFuture(toEnvelope(command, result, null, null, null));
+    }
+
+    private Map<CharSequence, CharSequence> apiFailureAttributes(
+            BinanceApiException exception,
+            BinanceRetryPolicy.RetryDecision retryDecision
+    ) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.put("http_status_code", Integer.toString(exception.httpStatusCode()));
+        if (exception.exchangeCode() != null) {
+            attributes.put("exchange_code", exception.exchangeCode().toString());
+        }
+        attributes.put("retryable", Boolean.toString(retryDecision.retryable()));
+        attributes.put("reconcile_before_retry", Boolean.toString(retryDecision.reconcileBeforeRetry()));
+        attributes.put("retry_backoff_millis", Integer.toString(retryDecision.backoffMillis()));
+        if (retryDecision.reconcileBeforeRetry()) {
+            attributes.put("unknown_execution_status", "true");
+        }
+        return Map.copyOf(attributes);
     }
 
     private BinanceOrderResult executeOrderCommand(
@@ -724,7 +749,25 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
             String rejectMessage,
             OrderResultStatus fallbackStatus
     ) {
-        OrderResultEvent event = orderResultEvent(command, result, rejectCode, rejectMessage, fallbackStatus);
+        return toEnvelope(command, result, rejectCode, rejectMessage, fallbackStatus, Map.of());
+    }
+
+    private TradingEventEnvelope<OrderResultEvent> toEnvelope(
+            OrderCommandEvent command,
+            BinanceOrderResult result,
+            String rejectCode,
+            String rejectMessage,
+            OrderResultStatus fallbackStatus,
+            Map<CharSequence, CharSequence> extraAttributes
+    ) {
+        OrderResultEvent event = orderResultEvent(
+                command,
+                result,
+                rejectCode,
+                rejectMessage,
+                fallbackStatus,
+                extraAttributes
+        );
         return TradingEventEnvelope.of(
                 TradingEventType.ORDER_RESULT,
                 TradingEventKeys.order(
@@ -745,7 +788,8 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
             BinanceOrderResult result,
             String rejectCode,
             String rejectMessage,
-            OrderResultStatus fallbackStatus
+            OrderResultStatus fallbackStatus,
+            Map<CharSequence, CharSequence> extraAttributes
     ) {
         boolean rejected = result == null;
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
@@ -753,6 +797,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         if (rejected) {
             attributes.put("http_reject", "true");
         }
+        attributes.putAll(extraAttributes);
         String exchangeStatus = rejected ? null : result.status();
         return OrderResultEvent.newBuilder()
                 .setEventId("order-result:" + value(command.getCommandId()) + ":" + value(command.getClientOrderId()))
