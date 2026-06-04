@@ -409,6 +409,17 @@ class BinanceOrderRequestFactoryTest {
     }
 
     @Test
+    void builds_options_open_orders_request_with_documented_symbol_parameter() {
+        BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(optionsBinance(), FIXED_CLOCK, 0);
+
+        BinanceSignedRequest request = factory.openOrders("BTC-240628-70000-C", "test-secret");
+
+        assertThat(request.payload())
+                .isEqualTo("symbol=BTC-240628-70000-C&timestamp=1499827319559&recvWindow=5000");
+        assertThat(request.uri().toString()).startsWith("https://eapi.binance.com/eapi/v1/openOrders?");
+    }
+
+    @Test
     void builds_futures_cancel_all_and_countdown_cancel_all_requests() {
         BinanceOrderRequestFactory factory = new BinanceOrderRequestFactory(binance(), FIXED_CLOCK, 0);
 

@@ -343,6 +343,47 @@ class BinanceOrderClientTest {
     }
 
     @Test
+    void reads_options_open_orders() {
+        FakeTransport transport = new FakeTransport(new BinanceHttpResponse(200, """
+                [
+                  {
+                    "symbol": "BTC-240628-70000-C",
+                    "orderId": 4611875134427365377,
+                    "clientOrderId": "option_open_1",
+                    "price": "1000",
+                    "quantity": "1",
+                    "executedQty": "0",
+                    "fee": "0",
+                    "side": "BUY",
+                    "type": "LIMIT",
+                    "timeInForce": "GTC",
+                    "reduceOnly": false,
+                    "postOnly": true,
+                    "createTime": 1656400617000,
+                    "updateTime": 1656400617000,
+                    "status": "ACCEPTED",
+                    "avgPrice": "0",
+                    "source": "API"
+                  }
+                ]
+                """));
+        BinanceOrderClient client = optionsClient(transport);
+
+        List<BinanceOrderResult> orders = client.openOrders("BTC-240628-70000-C");
+
+        assertThat(orders).singleElement().satisfies(order -> {
+            assertThat(order.symbol()).isEqualTo("BTC-240628-70000-C");
+            assertThat(order.clientOrderId()).isEqualTo("option_open_1");
+            assertThat(order.status()).isEqualTo("ACCEPTED");
+            assertThat(order.originalQuantity()).isEqualByComparingTo("1");
+        });
+        assertThat(transport.calls()).singleElement().satisfies(call -> {
+            assertThat(call.method()).isEqualTo("GET");
+            assertThat(call.uri()).contains("/eapi/v1/openOrders?symbol=BTC-240628-70000-C");
+        });
+    }
+
+    @Test
     void queries_order_and_trade_history_for_reconciliation() {
         FakeTransport transport = new FakeTransport(
                 new BinanceHttpResponse(200, "[" + orderResponseBody("HISTORY", "FILLED") + "]"),

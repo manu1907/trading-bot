@@ -586,9 +586,10 @@ Binance parity gaps to close before claiming full connector support:
   post-only handling, read-only
   margin-account/position snapshots, MMP get/set/reset request coverage,
   open-order, order-history, and order-history-correlated account-trade
-  reconciliation inputs, commission reads, exercise-record reads, and core
-  execution/balance/position/risk user-data stream mappings are covered, but
-  options parity is not complete.
+  reconciliation inputs, commission reads, and exercise-record reads are
+  covered by catalog-backed REST clients and tests. Core execution, balance,
+  position, and risk user-data stream mappings are covered, but options parity
+  is not complete.
   Keep real options trading disabled unless REST snapshot comparison is backed
   by durable projection state and projection-backed ordering is fully
   implemented and tested against current Binance documentation.
