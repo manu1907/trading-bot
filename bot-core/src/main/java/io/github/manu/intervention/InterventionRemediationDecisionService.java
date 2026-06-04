@@ -50,6 +50,13 @@ public final class InterventionRemediationDecisionService {
         String market = requireText(request.market(), "market");
         String scope = requireText(request.scope(), "scope");
         String action = requireText(request.action(), "action");
+        RemediationTargetIdentity targetIdentity = targetIdentity(
+                scope,
+                text(request.symbol()),
+                text(request.clientOrderId()),
+                text(request.positionSide()),
+                request.attributes()
+        );
         InterventionRemediationAdvisor.RemediationRecommendation recommendation = matchingRecommendation(
                 provider,
                 environment,
@@ -57,10 +64,7 @@ public final class InterventionRemediationDecisionService {
                 market,
                 scope,
                 action,
-                text(request.symbol()),
-                text(request.clientOrderId()),
-                text(request.positionSide()),
-                request.attributes()
+                targetIdentity
         );
 
         String remediationId = "remediation:" + requireText(idSupplier.get(), "generated remediation id");
@@ -94,37 +98,54 @@ public final class InterventionRemediationDecisionService {
             String market,
             String scope,
             String action,
+            RemediationTargetIdentity targetIdentity
+    ) {
+        return remediationAdvisor.recommendations(provider, environment, account, market)
+                .stream()
+                .filter(recommendation -> scope.equals(recommendation.scope()))
+                .filter(recommendation -> action.equals(recommendation.action()))
+                .filter(targetIdentity::matches)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No matching remediation recommendation exists"));
+    }
+
+    private RemediationTargetIdentity targetIdentity(
+            String scope,
             String symbol,
             String clientOrderId,
             String positionSide,
             Map<CharSequence, CharSequence> attributes
     ) {
-        ManualReviewIdentity manualReviewIdentity = manualReviewIdentity(scope, attributes);
-        return remediationAdvisor.recommendations(provider, environment, account, market)
-                .stream()
-                .filter(recommendation -> scope.equals(recommendation.scope()))
-                .filter(recommendation -> action.equals(recommendation.action()))
-                .filter(recommendation -> matches(symbol, recommendation.symbol()))
-                .filter(recommendation -> matches(clientOrderId, recommendation.clientOrderId()))
-                .filter(recommendation -> matches(positionSide, recommendation.positionSide()))
-                .filter(manualReviewIdentity::matches)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No matching remediation recommendation exists"));
+        return switch (scope) {
+            case "ORDER" -> new RemediationTargetIdentity(
+                    requireText(symbol, "symbol"),
+                    requireText(clientOrderId, "clientOrderId"),
+                    null,
+                    null,
+                    null
+            );
+            case "POSITION" -> new RemediationTargetIdentity(
+                    requireText(symbol, "symbol"),
+                    null,
+                    requireText(positionSide, "positionSide"),
+                    null,
+                    null
+            );
+            case "MANUAL_REVIEW" -> manualReviewIdentity(symbol, attributes);
+            default -> new RemediationTargetIdentity(symbol, clientOrderId, positionSide, null, null);
+        };
     }
 
-    private ManualReviewIdentity manualReviewIdentity(
-            String scope,
+    private RemediationTargetIdentity manualReviewIdentity(
+            String symbol,
             Map<CharSequence, CharSequence> attributes
     ) {
-        if (!"MANUAL_REVIEW".equals(scope)) {
-            return ManualReviewIdentity.notRequired();
-        }
         String commandId = attribute(attributes, "command_id");
         String decisionId = attribute(attributes, "decision_id");
         if (commandId == null && decisionId == null) {
             throw new IllegalArgumentException("manual review remediation requires command_id or decision_id attribute");
         }
-        return new ManualReviewIdentity(commandId, decisionId);
+        return new RemediationTargetIdentity(symbol, null, null, commandId, decisionId);
     }
 
     private String attribute(Map<CharSequence, CharSequence> attributes, String key) {
@@ -137,10 +158,6 @@ public final class InterventionRemediationDecisionService {
             }
         }
         return null;
-    }
-
-    private boolean matches(String requested, String projected) {
-        return requested == null || requested.equals(projected);
     }
 
     private TradingEventEnvelope<RemediationDecisionEvent> envelope(RemediationDecisionEvent event) {
@@ -230,17 +247,19 @@ public final class InterventionRemediationDecisionService {
         return value.toString().trim();
     }
 
-    private record ManualReviewIdentity(
+    private record RemediationTargetIdentity(
+            String symbol,
+            String clientOrderId,
+            String positionSide,
             String commandId,
             String decisionId
     ) {
 
-        private static ManualReviewIdentity notRequired() {
-            return new ManualReviewIdentity(null, null);
-        }
-
         private boolean matches(InterventionRemediationAdvisor.RemediationRecommendation recommendation) {
-            return matches(commandId, recommendation.attributes().get("command_id"))
+            return matches(symbol, recommendation.symbol())
+                    && matches(clientOrderId, recommendation.clientOrderId())
+                    && matches(positionSide, recommendation.positionSide())
+                    && matches(commandId, recommendation.attributes().get("command_id"))
                     && matches(decisionId, recommendation.attributes().get("decision_id"));
         }
 

@@ -85,6 +85,75 @@ class InterventionRemediationDecisionServiceTest {
     }
 
     @Test
+    void rejects_order_remediation_without_complete_order_identity() {
+        restoreOrderIntervention();
+
+        InterventionRemediationDecisionService.RemediationDecisionRequest missingClientOrderId =
+                new InterventionRemediationDecisionService.RemediationDecisionRequest(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "ORDER",
+                        "OPERATOR_REVIEW",
+                        null,
+                        null,
+                        "operator",
+                        "reviewed current projection",
+                        Map.of()
+                );
+
+        assertThatThrownBy(() -> service.decide(missingClientOrderId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("clientOrderId is required");
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
+    void publishes_position_remediation_decision_when_request_matches_current_recommendation() {
+        restorePositionIntervention();
+
+        service.decide(positionRequest()).join();
+
+        assertThat(eventBus.envelope).isNotNull();
+        assertThat(eventBus.envelope.eventType()).isEqualTo(TradingEventType.REMEDIATION_DECISION);
+        RemediationDecisionEvent event = (RemediationDecisionEvent) eventBus.envelope.value();
+        assertThat(event.getScope()).isEqualTo("POSITION");
+        assertThat(event.getAction()).isEqualTo("HEDGE_OR_REPLAN");
+        assertThat(event.getSymbol()).isEqualTo("BTCUSDT");
+        assertThat(event.getPositionSide()).isEqualTo("BOTH");
+        assertThat(event.getReasons()).containsExactly("intervention:external_position_change");
+        assertThat(event.getAttributes()).containsEntry("position_amount", "0.01");
+    }
+
+    @Test
+    void rejects_position_remediation_without_complete_position_identity() {
+        restorePositionIntervention();
+
+        InterventionRemediationDecisionService.RemediationDecisionRequest missingPositionSide =
+                new InterventionRemediationDecisionService.RemediationDecisionRequest(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "POSITION",
+                        "HEDGE_OR_REPLAN",
+                        null,
+                        null,
+                        "operator",
+                        "reviewed current projection",
+                        Map.of()
+                );
+
+        assertThatThrownBy(() -> service.decide(missingPositionSide))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("positionSide is required");
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
     void publishes_manual_review_remediation_for_requested_decision_identity() {
         restoreManualReviewDecisions();
 
@@ -146,6 +215,23 @@ class InterventionRemediationDecisionServiceTest {
         );
     }
 
+    private InterventionRemediationDecisionService.RemediationDecisionRequest positionRequest() {
+        return new InterventionRemediationDecisionService.RemediationDecisionRequest(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                "BTCUSDT",
+                "POSITION",
+                "HEDGE_OR_REPLAN",
+                null,
+                "BOTH",
+                "operator",
+                "reviewed current projection",
+                Map.of("ticket", "ops-790")
+        );
+    }
+
     private InterventionRemediationDecisionService.RemediationDecisionRequest manualReviewRequest(
             Map<CharSequence, CharSequence> attributes
     ) {
@@ -193,6 +279,32 @@ class InterventionRemediationDecisionServiceTest {
                         NOW.minusSeconds(1),
                         "evt-order-intervention"
                 )),
+                List.of(),
+                List.of()
+        ));
+    }
+
+    private void restorePositionIntervention() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(new TradingStateProjection.PositionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "BOTH",
+                        "0.01",
+                        "50000.00",
+                        "50010.00",
+                        "1.10",
+                        "USER_DATA",
+                        true,
+                        "external_position_change",
+                        NOW.minusSeconds(1),
+                        "evt-position-intervention"
+                )),
+                List.of(),
                 List.of(),
                 List.of()
         ));
