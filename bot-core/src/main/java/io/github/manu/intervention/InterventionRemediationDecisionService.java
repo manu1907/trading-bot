@@ -122,6 +122,9 @@ public final class InterventionRemediationDecisionService {
                     requireText(clientOrderId, "clientOrderId"),
                     null,
                     null,
+                    null,
+                    null,
+                    null,
                     null
             );
             case "POSITION" -> new RemediationTargetIdentity(
@@ -129,23 +132,45 @@ public final class InterventionRemediationDecisionService {
                     null,
                     requireText(positionSide, "positionSide"),
                     null,
+                    null,
+                    null,
+                    null,
                     null
             );
-            case "MANUAL_REVIEW" -> manualReviewIdentity(symbol, attributes);
-            default -> new RemediationTargetIdentity(symbol, clientOrderId, positionSide, null, null);
+            case "MANUAL_REVIEW" -> manualReviewIdentity(symbol, clientOrderId, attributes);
+            default -> new RemediationTargetIdentity(symbol, clientOrderId, positionSide, null, null, null, null, null);
         };
     }
 
     private RemediationTargetIdentity manualReviewIdentity(
             String symbol,
+            String clientOrderId,
             Map<CharSequence, CharSequence> attributes
     ) {
         String commandId = attribute(attributes, "command_id");
         String decisionId = attribute(attributes, "decision_id");
-        if (commandId == null && decisionId == null) {
-            throw new IllegalArgumentException("manual review remediation requires command_id or decision_id attribute");
+        String affectedCommandId = attribute(attributes, "affected_order_command_id");
+        String affectedExchangeOrderId = attribute(attributes, "affected_exchange_order_id");
+        if (commandId == null
+                && decisionId == null
+                && clientOrderId == null
+                && affectedCommandId == null
+                && affectedExchangeOrderId == null) {
+            throw new IllegalArgumentException(
+                    "manual review remediation requires command_id, decision_id, clientOrderId, "
+                            + "affected_order_command_id, or affected_exchange_order_id"
+            );
         }
-        return new RemediationTargetIdentity(symbol, null, null, commandId, decisionId);
+        return new RemediationTargetIdentity(
+                symbol,
+                null,
+                null,
+                commandId,
+                decisionId,
+                affectedCommandId,
+                clientOrderId,
+                affectedExchangeOrderId
+        );
     }
 
     private String attribute(Map<CharSequence, CharSequence> attributes, String key) {
@@ -252,7 +277,10 @@ public final class InterventionRemediationDecisionService {
             String clientOrderId,
             String positionSide,
             String commandId,
-            String decisionId
+            String decisionId,
+            String affectedCommandId,
+            String affectedClientOrderId,
+            String affectedExchangeOrderId
     ) {
 
         private boolean matches(InterventionRemediationAdvisor.RemediationRecommendation recommendation) {
@@ -260,11 +288,59 @@ public final class InterventionRemediationDecisionService {
                     && matches(clientOrderId, recommendation.clientOrderId())
                     && matches(positionSide, recommendation.positionSide())
                     && matches(commandId, recommendation.attributes().get("command_id"))
-                    && matches(decisionId, recommendation.attributes().get("decision_id"));
+                    && matches(decisionId, recommendation.attributes().get("decision_id"))
+                    && matchesAny(
+                            affectedCommandId,
+                            recommendation.attributes(),
+                            "unknown_order_command_ids",
+                            "unresolved_order_command_ids"
+                    )
+                    && matchesAny(
+                            affectedClientOrderId,
+                            recommendation.attributes(),
+                            "unknown_order_client_order_ids",
+                            "unresolved_order_client_order_ids",
+                            "target_client_order_id"
+                    )
+                    && matchesAny(
+                            affectedExchangeOrderId,
+                            recommendation.attributes(),
+                            "unknown_order_exchange_order_ids",
+                            "unresolved_order_exchange_order_ids",
+                            "target_exchange_order_id"
+                    );
         }
 
         private boolean matches(String requested, String projected) {
             return requested == null || requested.equals(projected);
+        }
+
+        private boolean matchesAny(
+                String requested,
+                Map<String, String> attributes,
+                String... keys
+        ) {
+            if (requested == null) {
+                return true;
+            }
+            for (String key : keys) {
+                if (contains(attributes.get(key), requested)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean contains(String projected, String requested) {
+            if (projected == null) {
+                return false;
+            }
+            for (String value : projected.split(",")) {
+                if (requested.equals(value.trim())) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

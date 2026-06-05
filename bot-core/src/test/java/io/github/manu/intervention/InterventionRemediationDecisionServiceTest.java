@@ -179,12 +179,56 @@ class InterventionRemediationDecisionServiceTest {
     }
 
     @Test
+    void publishes_manual_review_remediation_for_affected_client_order_identity() {
+        restoreManualReviewDecisions();
+
+        service.decide(manualReviewRequest(
+                "blocked-client-cmd-2",
+                Map.of("ticket", "ops-457")
+        )).join();
+
+        assertThat(eventBus.envelope).isNotNull();
+        RemediationDecisionEvent event = (RemediationDecisionEvent) eventBus.envelope.value();
+        assertThat(event.getScope()).isEqualTo("MANUAL_REVIEW");
+        assertThat(event.getClientOrderId()).isNull();
+        assertThat(event.getAttributes())
+                .containsEntry("command_id", "cmd-2")
+                .containsEntry("unknown_order_client_order_ids", "blocked-client-cmd-2")
+                .containsEntry("ticket", "ops-457")
+                .containsEntry("recommendation_event_id", "evt-review-2");
+    }
+
+    @Test
+    void publishes_manual_review_remediation_for_affected_exchange_order_identity() {
+        restoreManualReviewDecisions();
+
+        service.decide(manualReviewRequest(Map.of(
+                "affected_exchange_order_id",
+                "blocked-exchange-cmd-2",
+                "ticket",
+                "ops-458"
+        ))).join();
+
+        assertThat(eventBus.envelope).isNotNull();
+        RemediationDecisionEvent event = (RemediationDecisionEvent) eventBus.envelope.value();
+        assertThat(event.getScope()).isEqualTo("MANUAL_REVIEW");
+        assertThat(event.getAttributes())
+                .containsEntry("command_id", "cmd-2")
+                .containsEntry("unknown_order_exchange_order_ids", "blocked-exchange-cmd-2")
+                .containsEntry("affected_exchange_order_id", "blocked-exchange-cmd-2")
+                .containsEntry("recommendation_event_id", "evt-review-2");
+    }
+
+    @Test
     void rejects_manual_review_remediation_without_decision_identity() {
         restoreManualReviewDecisions();
 
         assertThatThrownBy(() -> service.decide(manualReviewRequest(Map.of("ticket", "ops-456"))))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("manual review remediation requires command_id or decision_id attribute");
+                .hasMessage(
+                        "manual review remediation requires command_id, decision_id, clientOrderId, "
+                                + "affected_order_command_id, or affected_exchange_order_id"
+                );
         assertThat(eventBus.envelope).isNull();
     }
 
@@ -235,6 +279,13 @@ class InterventionRemediationDecisionServiceTest {
     private InterventionRemediationDecisionService.RemediationDecisionRequest manualReviewRequest(
             Map<CharSequence, CharSequence> attributes
     ) {
+        return manualReviewRequest(null, attributes);
+    }
+
+    private InterventionRemediationDecisionService.RemediationDecisionRequest manualReviewRequest(
+            String clientOrderId,
+            Map<CharSequence, CharSequence> attributes
+    ) {
         return new InterventionRemediationDecisionService.RemediationDecisionRequest(
                 "binance",
                 "demo",
@@ -243,7 +294,7 @@ class InterventionRemediationDecisionServiceTest {
                 "BTCUSDT",
                 "MANUAL_REVIEW",
                 "OPERATOR_REVIEW",
-                null,
+                clientOrderId,
                 null,
                 "operator",
                 "reviewed current projection",
@@ -363,7 +414,16 @@ class InterventionRemediationDecisionServiceTest {
                 "lfa",
                 decisionId,
                 List.of("order_status:unknown"),
-                Map.of("unknown_order_status_action", "MANUAL_REVIEW"),
+                Map.of(
+                        "unknown_order_status_action",
+                        "MANUAL_REVIEW",
+                        "unknown_order_command_ids",
+                        "blocked-" + commandId,
+                        "unknown_order_client_order_ids",
+                        "blocked-client-" + commandId,
+                        "unknown_order_exchange_order_ids",
+                        "blocked-exchange-" + commandId
+                ),
                 NOW.minusSeconds(1),
                 eventId
         );

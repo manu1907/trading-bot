@@ -101,7 +101,9 @@ The bot is not professional-execution-ready until these gaps are closed:
   available only through explicit config. This is a stop-the-line guard, not a
   full remediation policy. Manual-review risk decisions are now projected into
   a replayable operator-review queue keyed by command id and remain queryable
-  while their underlying intervention reason is unresolved. Operator
+  while their underlying intervention reason is unresolved. Operator remediation
+  can target a manual-review decision by decision identity or by the affected
+  blocked order identities carried in the decision attributes. Operator
   acknowledgement is now an Avro event that clears a matching order or position
   intervention through the replayable projection path.
 - No durable idempotent order-command lifecycle from strategy signal through
