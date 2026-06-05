@@ -1,0 +1,16 @@
+title = "trading-bot gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Documentation-only placeholder credentials from the demo manual"
+condition = "AND"
+paths = [
+    '''docs/demo-usdm-futures-user-manual\.md''',
+]
+regexes = [
+    '''your-demo-api-key''',
+    '''your-demo-api-secret''',
+    '''change-this-token''',
+]

@@ -152,16 +152,16 @@ EXCHANGE_API_SECRET
 Use direct environment variables:
 
 ```bash
-export BINANCE_DEMO_API_KEY="your-demo-api-key"
-export BINANCE_DEMO_API_SECRET="your-demo-api-secret"
+export BINANCE_DEMO_API_KEY="<demo-api-key-from-binance>"
+export BINANCE_DEMO_API_SECRET="<demo-api-secret-from-binance>"
 ```
 
 Or create a local ignored `api.env` file at the repository root for the smoke
 test tasks:
 
 ```text
-BINANCE_DEMO_API_KEY=your-demo-api-key
-BINANCE_DEMO_API_SECRET=your-demo-api-secret
+BINANCE_DEMO_API_KEY=<demo-api-key-from-binance>
+BINANCE_DEMO_API_SECRET=<demo-api-secret-from-binance>
 ```
 
 Never commit `api.env`.
@@ -197,8 +197,8 @@ Start the Spring Boot application:
 With credentials in the same shell:
 
 ```bash
-BINANCE_DEMO_API_KEY="your-demo-api-key" \
-BINANCE_DEMO_API_SECRET="your-demo-api-secret" \
+BINANCE_DEMO_API_KEY="<demo-api-key-from-binance>" \
+BINANCE_DEMO_API_SECRET="<demo-api-secret-from-binance>" \
 ./gradlew :bot-core:bootRun
 ```
 
@@ -498,7 +498,7 @@ Example config shape:
     "intervention": {
       "operator_api": {
         "enabled": true,
-        "operator_token": "change-this-token"
+        "operator_token": "<operator-token>"
       }
     }
   }
@@ -508,41 +508,41 @@ Example config shape:
 All requests require the token header:
 
 ```text
-X-Operator-Token: change-this-token
+X-Operator-Token: <operator-token>
 ```
 
 List external order interventions:
 
 ```bash
-curl -H 'X-Operator-Token: change-this-token' \
+curl -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/orders?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
 List external position interventions:
 
 ```bash
-curl -H 'X-Operator-Token: change-this-token' \
+curl -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/positions?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
 List manual-review decisions:
 
 ```bash
-curl -H 'X-Operator-Token: change-this-token' \
+curl -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/manual-reviews?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
 List remediation recommendations:
 
 ```bash
-curl -H 'X-Operator-Token: change-this-token' \
+curl -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/remediation?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
 List remediation decisions:
 
 ```bash
-curl -H 'X-Operator-Token: change-this-token' \
+curl -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/remediation/decisions?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
@@ -551,7 +551,7 @@ Acknowledge an order intervention:
 ```bash
 curl -X POST \
   -H 'Content-Type: application/json' \
-  -H 'X-Operator-Token: change-this-token' \
+  -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/orders/acknowledgements' \
   -d '{
     "provider": "binance",
@@ -572,7 +572,7 @@ Acknowledge a position intervention:
 ```bash
 curl -X POST \
   -H 'Content-Type: application/json' \
-  -H 'X-Operator-Token: change-this-token' \
+  -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/positions/acknowledgements' \
   -d '{
     "provider": "binance",
@@ -593,7 +593,7 @@ Submit a remediation decision:
 ```bash
 curl -X POST \
   -H 'Content-Type: application/json' \
-  -H 'X-Operator-Token: change-this-token' \
+  -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/remediation/decisions' \
   -d '{
     "provider": "binance",

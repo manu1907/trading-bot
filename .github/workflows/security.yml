@@ -117,6 +117,7 @@ jobs:
           ghcr.io/gitleaks/gitleaks:v8.30.0
           detect
           --source /repo
+          --config /repo/.gitleaks.toml
           --no-banner
           --redact
           --verbose
