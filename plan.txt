@@ -311,10 +311,12 @@ Implemented Binance foundations:
 - Disabled-by-default live remediation orchestrator for the conservative
   operator-review workflow. When explicitly enabled, an `OPERATOR_REVIEW`
   remediation decision for a matching unresolved order or position intervention
-  publishes a deterministic acknowledgement event; the handler is live-only so
-  journal replay does not re-run workflow side effects. The orchestrator keeps a
-  configurable bounded set of remediated decision IDs to suppress duplicate live
-  deliveries before publishing another acknowledgement.
+  publishes a deterministic acknowledgement event, including `MANUAL_REVIEW`
+  remediation decisions whose risk-decision attributes identify the affected
+  external order or position; the handler is live-only so journal replay does
+  not re-run workflow side effects. The orchestrator keeps a configurable
+  bounded set of remediated decision IDs to suppress duplicate live deliveries
+  before publishing another acknowledgement.
 - Opt-in durable file snapshot store for the core trading-state projection,
   loaded before journal replay and saved at lifecycle stop.
 - Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL

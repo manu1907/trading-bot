@@ -11,6 +11,7 @@ import io.github.manu.projection.TradingStateProjection;
 
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -19,6 +20,7 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
 
     private static final String SCOPE_ORDER = "ORDER";
     private static final String SCOPE_POSITION = "POSITION";
+    private static final String SCOPE_MANUAL_REVIEW = "MANUAL_REVIEW";
     private static final String ACTION_OPERATOR_REVIEW = "OPERATOR_REVIEW";
 
     private final TradingEventBus eventBus;
@@ -59,6 +61,7 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
         return switch (scope) {
             case SCOPE_ORDER -> acknowledgeOrder(event);
             case SCOPE_POSITION -> acknowledgePosition(event);
+            case SCOPE_MANUAL_REVIEW -> acknowledgeManualReview(event);
             default -> CompletableFuture.completedFuture(null);
         };
     }
@@ -110,6 +113,141 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
                                 market,
                                 symbol,
                                 clientOrderId
+                        ),
+                        acknowledgement
+                ))
+                .whenComplete((ignored, failure) -> forgetOnFailure(remediationId, failure))
+                .thenApply(ignored -> null);
+    }
+
+    private CompletableFuture<Void> acknowledgeManualReview(RemediationDecisionEvent event) {
+        if (hasReason(event, "intervention:external_order")) {
+            return acknowledgeManualReviewOrder(event);
+        }
+        if (hasReason(event, "intervention:external_position")) {
+            return acknowledgeManualReviewPosition(event);
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
+    private CompletableFuture<Void> acknowledgeManualReviewOrder(RemediationDecisionEvent event) {
+        String provider = requireText(event.getProvider(), "provider");
+        String environment = requireText(event.getEnvironment(), "environment");
+        String account = requireText(event.getAccount(), "account");
+        String market = requireText(event.getMarket(), "market");
+        String symbol = requireText(event.getSymbol(), "symbol");
+        TradingStateProjection.OrderState order = manualReviewOrder(event, provider, environment, account, market, symbol);
+        if (!order.externalIntervention()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String remediationId = requireText(event.getRemediationId(), "remediationId");
+        if (!admit(remediationId)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String interventionReason = requireText(order.interventionReason(), "interventionReason");
+        InterventionAcknowledgementEvent acknowledgement = acknowledgementBuilder(event)
+                .setProvider(provider)
+                .setEnvironment(environment)
+                .setAccount(account)
+                .setMarket(market)
+                .setSymbol(symbol)
+                .setClientOrderId(order.clientOrderId())
+                .setInterventionReason(interventionReason)
+                .setAttributes(attributes(event, null))
+                .build();
+        return eventBus.publish(TradingEventEnvelope.of(
+                        TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                        TradingEventKeys.order(
+                                TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                                provider,
+                                environment,
+                                account,
+                                market,
+                                symbol,
+                                order.clientOrderId()
+                        ),
+                        acknowledgement
+                ))
+                .whenComplete((ignored, failure) -> forgetOnFailure(remediationId, failure))
+                .thenApply(ignored -> null);
+    }
+
+    private TradingStateProjection.OrderState manualReviewOrder(
+            RemediationDecisionEvent event,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        String clientOrderId = firstText(
+                attribute(event, "affected_order_client_order_id"),
+                singleAttribute(event, "external_order_client_order_ids")
+        );
+        if (clientOrderId != null) {
+            return projection.order(provider, environment, account, market, symbol, clientOrderId)
+                    .orElseThrow(() -> new IllegalStateException("No projected order exists for remediation"));
+        }
+        String exchangeOrderId = firstText(
+                attribute(event, "affected_exchange_order_id"),
+                singleAttribute(event, "external_order_exchange_order_ids")
+        );
+        if (exchangeOrderId == null) {
+            throw new IllegalArgumentException("manual review external order identity is required");
+        }
+        return projection.orderByExchangeOrderId(provider, environment, account, market, symbol, exchangeOrderId)
+                .orElseThrow(() -> new IllegalStateException("No projected order exists for remediation"));
+    }
+
+    private CompletableFuture<Void> acknowledgeManualReviewPosition(RemediationDecisionEvent event) {
+        String provider = requireText(event.getProvider(), "provider");
+        String environment = requireText(event.getEnvironment(), "environment");
+        String account = requireText(event.getAccount(), "account");
+        String market = requireText(event.getMarket(), "market");
+        String symbol = requireText(event.getSymbol(), "symbol");
+        String positionSide = firstText(
+                attribute(event, "affected_position_side"),
+                singleAttribute(event, "external_position_sides")
+        );
+        if (positionSide == null) {
+            throw new IllegalArgumentException("manual review external position side is required");
+        }
+        TradingStateProjection.PositionState position = projection.position(
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        positionSide
+                )
+                .orElseThrow(() -> new IllegalStateException("No projected position exists for remediation"));
+        if (!position.externalIntervention()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String remediationId = requireText(event.getRemediationId(), "remediationId");
+        if (!admit(remediationId)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String interventionReason = requireText(position.interventionReason(), "interventionReason");
+        InterventionAcknowledgementEvent acknowledgement = acknowledgementBuilder(event)
+                .setProvider(provider)
+                .setEnvironment(environment)
+                .setAccount(account)
+                .setMarket(market)
+                .setSymbol(symbol)
+                .setClientOrderId(null)
+                .setInterventionReason(interventionReason)
+                .setAttributes(attributes(event, positionSide))
+                .build();
+        return eventBus.publish(TradingEventEnvelope.of(
+                        TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                        TradingEventKeys.symbol(
+                                TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                                provider,
+                                environment,
+                                account,
+                                market,
+                                symbol
                         ),
                         acknowledgement
                 ))
@@ -219,6 +357,44 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
         if (value != null) {
             attributes.put(key, value);
         }
+    }
+
+    private boolean hasReason(RemediationDecisionEvent event, String reason) {
+        if (event.getReasons() == null) {
+            return false;
+        }
+        for (CharSequence value : event.getReasons()) {
+            if (reason.equals(value(value))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String attribute(RemediationDecisionEvent event, String key) {
+        if (event.getAttributes() == null || event.getAttributes().isEmpty()) {
+            return null;
+        }
+        return value(event.getAttributes().get(key));
+    }
+
+    private String singleAttribute(RemediationDecisionEvent event, String key) {
+        String value = attribute(event, key);
+        if (value == null) {
+            return null;
+        }
+        List<String> values = List.of(value.split(",")).stream()
+                .map(this::value)
+                .filter(Objects::nonNull)
+                .toList();
+        if (values.size() > 1) {
+            throw new IllegalArgumentException(key + " must identify exactly one intervention target");
+        }
+        return values.isEmpty() ? null : values.getFirst();
+    }
+
+    private String firstText(String first, String second) {
+        return first == null ? second : first;
     }
 
     private <T> T cast(Object value, Class<T> expectedType) {

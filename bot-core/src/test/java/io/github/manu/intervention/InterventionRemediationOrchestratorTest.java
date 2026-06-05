@@ -101,6 +101,54 @@ class InterventionRemediationOrchestratorTest {
     }
 
     @Test
+    void publishes_order_acknowledgement_for_manual_review_external_order_decision() {
+        restoreOrderIntervention();
+
+        orchestrator.handle(envelope(manualReviewOrderDecision())).join();
+
+        assertThat(eventBus.envelopes).singleElement().satisfies(envelope -> {
+            assertThat(envelope.eventType()).isEqualTo(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT);
+            assertThat(envelope.key().getPartitionKey().toString())
+                    .isEqualTo("intervention_acknowledgement|order|binance|demo|main|usd_m_futures|btcusdt|client-1");
+            InterventionAcknowledgementEvent event = (InterventionAcknowledgementEvent) envelope.value();
+            assertThat(event.getClientOrderId()).hasToString("client-1");
+            assertThat(event.getInterventionReason()).hasToString("external_order_observed");
+            assertThat(event.getAttributes())
+                    .containsEntry("external_order_client_order_ids", "client-1")
+                    .containsEntry("remediation_scope", "MANUAL_REVIEW")
+                    .containsEntry("remediation_action", "OPERATOR_REVIEW");
+        });
+    }
+
+    @Test
+    void publishes_position_acknowledgement_for_manual_review_external_position_decision() {
+        restorePositionIntervention();
+
+        orchestrator.handle(envelope(manualReviewPositionDecision())).join();
+
+        assertThat(eventBus.envelopes).singleElement().satisfies(envelope -> {
+            assertThat(envelope.eventType()).isEqualTo(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT);
+            InterventionAcknowledgementEvent event = (InterventionAcknowledgementEvent) envelope.value();
+            assertThat(event.getClientOrderId()).isNull();
+            assertThat(event.getInterventionReason()).hasToString("external_position_change");
+            assertThat(event.getAttributes())
+                    .containsEntry("external_position_sides", "BOTH")
+                    .containsEntry("position_side", "BOTH")
+                    .containsEntry("remediation_scope", "MANUAL_REVIEW")
+                    .containsEntry("remediation_action", "OPERATOR_REVIEW");
+        });
+    }
+
+    @Test
+    void ignores_manual_review_decision_without_external_intervention_reason() {
+        restoreOrderIntervention();
+
+        orchestrator.handle(envelope(manualReviewUnknownOrderDecision())).join();
+
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void suppresses_duplicate_live_position_decisions_after_acknowledgement_publish() {
         restorePositionIntervention();
 
@@ -199,6 +247,48 @@ class InterventionRemediationOrchestratorTest {
                 .setPositionSide("BOTH")
                 .setInterventionReason("external_position_change")
                 .setReasons(List.of("intervention:external_position_change"))
+                .build();
+    }
+
+    private RemediationDecisionEvent manualReviewOrderDecision() {
+        return RemediationDecisionEvent.newBuilder(orderDecision())
+                .setScope("MANUAL_REVIEW")
+                .setClientOrderId(null)
+                .setPositionSide(null)
+                .setInterventionReason(null)
+                .setReasons(List.of("intervention:external_order"))
+                .setAttributes(Map.of(
+                        "external_order_client_order_ids", "client-1",
+                        "ticket", "ops-789"
+                ))
+                .build();
+    }
+
+    private RemediationDecisionEvent manualReviewPositionDecision() {
+        return RemediationDecisionEvent.newBuilder(orderDecision())
+                .setScope("MANUAL_REVIEW")
+                .setClientOrderId(null)
+                .setPositionSide(null)
+                .setInterventionReason(null)
+                .setReasons(List.of("intervention:external_position"))
+                .setAttributes(Map.of(
+                        "external_position_sides", "BOTH",
+                        "ticket", "ops-790"
+                ))
+                .build();
+    }
+
+    private RemediationDecisionEvent manualReviewUnknownOrderDecision() {
+        return RemediationDecisionEvent.newBuilder(orderDecision())
+                .setScope("MANUAL_REVIEW")
+                .setClientOrderId(null)
+                .setPositionSide(null)
+                .setInterventionReason(null)
+                .setReasons(List.of("order_status:unknown"))
+                .setAttributes(Map.of(
+                        "unknown_order_client_order_ids", "client-1",
+                        "ticket", "ops-791"
+                ))
                 .build();
     }
 
