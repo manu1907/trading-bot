@@ -292,12 +292,14 @@ public final class InterventionRemediationDecisionService {
                     && matchesAny(
                             affectedCommandId,
                             recommendation.attributes(),
+                            "external_order_command_ids",
                             "unknown_order_command_ids",
                             "unresolved_order_command_ids"
                     )
                     && matchesAny(
                             affectedClientOrderId,
                             recommendation.attributes(),
+                            "external_order_client_order_ids",
                             "unknown_order_client_order_ids",
                             "unresolved_order_client_order_ids",
                             "target_client_order_id"
@@ -305,6 +307,7 @@ public final class InterventionRemediationDecisionService {
                     && matchesAny(
                             affectedExchangeOrderId,
                             recommendation.attributes(),
+                            "external_order_exchange_order_ids",
                             "unknown_order_exchange_order_ids",
                             "unresolved_order_exchange_order_ids",
                             "target_exchange_order_id"

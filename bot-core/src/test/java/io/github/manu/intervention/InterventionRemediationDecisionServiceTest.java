@@ -220,6 +220,48 @@ class InterventionRemediationDecisionServiceTest {
     }
 
     @Test
+    void publishes_manual_review_remediation_for_external_order_client_identity() {
+        restoreExternalOrderManualReviewDecision();
+
+        service.decide(manualReviewRequest(
+                "manual-client-1",
+                Map.of("ticket", "ops-459")
+        )).join();
+
+        assertThat(eventBus.envelope).isNotNull();
+        RemediationDecisionEvent event = (RemediationDecisionEvent) eventBus.envelope.value();
+        assertThat(event.getScope()).isEqualTo("MANUAL_REVIEW");
+        assertThat(event.getReasons()).containsExactly("intervention:external_order");
+        assertThat(event.getAttributes())
+                .containsEntry("command_id", "cmd-external-review")
+                .containsEntry("external_order_client_order_ids", "manual-client-1")
+                .containsEntry("external_order_exchange_order_ids", "98765")
+                .containsEntry("ticket", "ops-459")
+                .containsEntry("recommendation_event_id", "evt-external-review");
+    }
+
+    @Test
+    void publishes_manual_review_remediation_for_external_order_exchange_identity() {
+        restoreExternalOrderManualReviewDecision();
+
+        service.decide(manualReviewRequest(Map.of(
+                "affected_exchange_order_id",
+                "98765",
+                "ticket",
+                "ops-460"
+        ))).join();
+
+        assertThat(eventBus.envelope).isNotNull();
+        RemediationDecisionEvent event = (RemediationDecisionEvent) eventBus.envelope.value();
+        assertThat(event.getScope()).isEqualTo("MANUAL_REVIEW");
+        assertThat(event.getAttributes())
+                .containsEntry("command_id", "cmd-external-review")
+                .containsEntry("external_order_exchange_order_ids", "98765")
+                .containsEntry("affected_exchange_order_id", "98765")
+                .containsEntry("recommendation_event_id", "evt-external-review");
+    }
+
+    @Test
     void rejects_manual_review_remediation_without_decision_identity() {
         restoreManualReviewDecisions();
 
@@ -394,6 +436,61 @@ class InterventionRemediationDecisionServiceTest {
                         manualReviewDecision("cmd-1", "risk-decision:cmd-1", "evt-review-1"),
                         manualReviewDecision("cmd-2", "risk-decision:cmd-2", "evt-review-2")
                 ),
+                List.of()
+        ));
+    }
+
+    private void restoreExternalOrderManualReviewDecision() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        null,
+                        "manual-client-1",
+                        "98765",
+                        "ACCEPTED",
+                        "NEW",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "USER_DATA",
+                        "NEW",
+                        false,
+                        true,
+                        "external_order_observed",
+                        NOW.minusSeconds(2),
+                        "evt-external-order"
+                )),
+                List.of(),
+                List.of(new TradingStateProjection.ManualReviewDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "cmd-external-review",
+                        "sig-1",
+                        "lfa",
+                        "risk-decision:cmd-external-review",
+                        List.of("intervention:external_order"),
+                        Map.of(
+                                "external_order_intervention_action",
+                                "MANUAL_REVIEW",
+                                "external_order_client_order_ids",
+                                "manual-client-1",
+                                "external_order_exchange_order_ids",
+                                "98765"
+                        ),
+                        NOW.minusSeconds(1),
+                        "evt-external-review"
+                )),
                 List.of()
         ));
     }
