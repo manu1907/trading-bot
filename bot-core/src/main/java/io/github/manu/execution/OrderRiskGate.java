@@ -625,20 +625,24 @@ public final class OrderRiskGate {
         if (confidence.observedAt() != null) {
             attributes.put("reconciliation_observed_at", confidence.observedAt().toString());
         }
-        long interventions = tradingStateProjection.externalOrderInterventions(
-                value(command.getProvider()),
-                value(command.getEnvironment()),
-                value(command.getAccount()),
-                value(command.getMarket())
-        );
-        attributes.put("external_order_interventions", Long.toString(interventions));
-        long positionInterventions = tradingStateProjection.externalPositionInterventions(
-                value(command.getProvider()),
-                value(command.getEnvironment()),
-                value(command.getAccount()),
-                value(command.getMarket())
-        );
-        attributes.put("external_position_interventions", Long.toString(positionInterventions));
+        List<TradingStateProjection.OrderState> externalOrderInterventionStates =
+                tradingStateProjection.externalOrderInterventionStates(
+                        value(command.getProvider()),
+                        value(command.getEnvironment()),
+                        value(command.getAccount()),
+                        value(command.getMarket())
+                );
+        attributes.put("external_order_interventions", Integer.toString(externalOrderInterventionStates.size()));
+        putOrderIdentities(attributes, "external_order", externalOrderInterventionStates);
+        List<TradingStateProjection.PositionState> externalPositionInterventionStates =
+                tradingStateProjection.externalPositionInterventionStates(
+                        value(command.getProvider()),
+                        value(command.getEnvironment()),
+                        value(command.getAccount()),
+                        value(command.getMarket())
+                );
+        attributes.put("external_position_interventions", Integer.toString(externalPositionInterventionStates.size()));
+        putPositionIdentities(attributes, "external_position", externalPositionInterventionStates);
         List<TradingStateProjection.OrderState> unknownOrderStatusStates = tradingStateProjection.unknownOrderStatusStates(
                 value(command.getProvider()),
                 value(command.getEnvironment()),
@@ -710,6 +714,19 @@ public final class OrderRiskGate {
                 .toList()));
         putIfPresent(attributes, prefix + "_exchange_order_ids", joined(states.stream()
                 .map(TradingStateProjection.OrderState::exchangeOrderId)
+                .toList()));
+    }
+
+    private void putPositionIdentities(
+            Map<CharSequence, CharSequence> attributes,
+            String prefix,
+            List<TradingStateProjection.PositionState> states
+    ) {
+        putIfPresent(attributes, prefix + "_symbols", joined(states.stream()
+                .map(TradingStateProjection.PositionState::symbol)
+                .toList()));
+        putIfPresent(attributes, prefix + "_sides", joined(states.stream()
+                .map(TradingStateProjection.PositionState::positionSide)
                 .toList()));
     }
 

@@ -103,7 +103,9 @@ The bot is not professional-execution-ready until these gaps are closed:
   `external_order_action` and `external_position_action`; the default is
   `MANUAL_REVIEW`, with `REJECT_NEW_COMMANDS` and `ALLOW_NEW_COMMANDS`
   available only through explicit config. This is a stop-the-line guard, not a
-  full remediation policy. Manual-review risk decisions are now projected into
+  full remediation policy. Risk decisions include affected external order and
+  position identities for operator review. Manual-review risk decisions are now
+  projected into
   a replayable operator-review queue keyed by command id and remain queryable
   while their underlying intervention reason is unresolved. Operator remediation
   can target a manual-review decision by decision identity or by the affected

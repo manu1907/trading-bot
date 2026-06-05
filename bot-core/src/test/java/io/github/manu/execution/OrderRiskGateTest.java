@@ -90,6 +90,8 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("intervention:external_order");
         assertThat(decision.getMaxQuantity()).isNull();
         assertThat(decision.getAttributes()).containsEntry("external_order_interventions", "1");
+        assertThat(decision.getAttributes()).containsEntry("external_order_client_order_ids", "manual-client-1");
+        assertThat(decision.getAttributes()).containsEntry("external_order_exchange_order_ids", "12345");
         assertThat(decision.getAttributes()).containsEntry("external_order_intervention_action", "MANUAL_REVIEW");
     }
 
@@ -103,6 +105,8 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("intervention:external_position");
         assertThat(decision.getMaxQuantity()).isNull();
         assertThat(decision.getAttributes()).containsEntry("external_position_interventions", "1");
+        assertThat(decision.getAttributes()).containsEntry("external_position_symbols", SYMBOL);
+        assertThat(decision.getAttributes()).containsEntry("external_position_sides", "BOTH");
         assertThat(decision.getAttributes()).containsEntry("external_position_intervention_action", "MANUAL_REVIEW");
     }
 
