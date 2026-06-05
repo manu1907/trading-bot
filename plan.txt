@@ -78,7 +78,8 @@ The bot is not professional-execution-ready until these gaps are closed:
   event journal and projection have an auditable recovery marker instead of a
   silent pipeline failure. The risk gate now treats unresolved `UNKNOWN` order
   status as a configurable stop condition, defaulting to manual review until a
-  later order/user-data/reconciliation event resolves the order state.
+  later order/user-data/reconciliation event resolves the order state, and risk
+  decisions include the affected unknown-order identities for operator review.
   Projection-backed idempotency now rejects commands that reuse an already
   projected command ID or client order ID after restart, when enabled by the
   catalog idempotency policy. Journal recovery now separates replay-safe
@@ -86,11 +87,12 @@ The bot is not professional-execution-ready until these gaps are closed:
   projected order identity without resubmitting through the execution pipeline.
   Replayed order commands without a later result are treated as unresolved
   command state and stop new automation by configurable action, defaulting to
-  manual review. Target-order command identity for cancel/modify now normalizes
-  typed target IDs and provider-agnostic target ID attributes consistently
-  across risk-gate checks, replayed order-command projection, gateway result
-  identity validation, execution rejection diagnostics, and conservative
-  gateway-failure order results.
+  manual review; risk decisions include the unresolved command/order identities
+  behind that stop condition. Target-order command identity for cancel/modify
+  now normalizes typed target IDs and provider-agnostic target ID attributes
+  consistently across risk-gate checks, replayed order-command projection,
+  gateway result identity validation, execution rejection diagnostics, and
+  conservative gateway-failure order results.
 - The risk gate now conservatively stops new order commands when the target
   projection has unresolved external or unplanned order intervention. Manual
   intervention handling is configurable per order/position intervention through

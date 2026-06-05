@@ -639,20 +639,22 @@ public final class OrderRiskGate {
                 value(command.getMarket())
         );
         attributes.put("external_position_interventions", Long.toString(positionInterventions));
-        long unknownOrderStatuses = tradingStateProjection.unknownOrderStatuses(
+        List<TradingStateProjection.OrderState> unknownOrderStatusStates = tradingStateProjection.unknownOrderStatusStates(
                 value(command.getProvider()),
                 value(command.getEnvironment()),
                 value(command.getAccount()),
                 value(command.getMarket())
         );
-        attributes.put("unknown_order_statuses", Long.toString(unknownOrderStatuses));
-        long unresolvedOrderCommands = tradingStateProjection.unresolvedOrderCommands(
+        attributes.put("unknown_order_statuses", Integer.toString(unknownOrderStatusStates.size()));
+        putOrderIdentities(attributes, "unknown_order", unknownOrderStatusStates);
+        List<TradingStateProjection.OrderState> unresolvedOrderCommandStates = tradingStateProjection.unresolvedOrderCommandStates(
                 value(command.getProvider()),
                 value(command.getEnvironment()),
                 value(command.getAccount()),
                 value(command.getMarket())
         );
-        attributes.put("unresolved_order_commands", Long.toString(unresolvedOrderCommands));
+        attributes.put("unresolved_order_commands", Integer.toString(unresolvedOrderCommandStates.size()));
+        putOrderIdentities(attributes, "unresolved_order", unresolvedOrderCommandStates);
         attributes.put(
                 "external_order_intervention_action",
                 properties.riskGate().manualIntervention().externalOrderAction().name()
@@ -693,6 +695,30 @@ public final class OrderRiskGate {
         attributes.putAll(orderLimitAttributes(command));
         attributes.putAll(targetOrderAttributes(command));
         return Map.copyOf(attributes);
+    }
+
+    private void putOrderIdentities(
+            Map<CharSequence, CharSequence> attributes,
+            String prefix,
+            List<TradingStateProjection.OrderState> states
+    ) {
+        putIfPresent(attributes, prefix + "_command_ids", joined(states.stream()
+                .map(TradingStateProjection.OrderState::commandId)
+                .toList()));
+        putIfPresent(attributes, prefix + "_client_order_ids", joined(states.stream()
+                .map(TradingStateProjection.OrderState::clientOrderId)
+                .toList()));
+        putIfPresent(attributes, prefix + "_exchange_order_ids", joined(states.stream()
+                .map(TradingStateProjection.OrderState::exchangeOrderId)
+                .toList()));
+    }
+
+    private String joined(List<String> values) {
+        List<String> normalized = values.stream()
+                .map(this::value)
+                .filter(Objects::nonNull)
+                .toList();
+        return normalized.isEmpty() ? null : String.join(",", normalized);
     }
 
     private Map<CharSequence, CharSequence> orderLimitAttributes(OrderCommandEvent command) {

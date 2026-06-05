@@ -116,6 +116,8 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("order_status:unknown");
         assertThat(decision.getMaxQuantity()).isNull();
         assertThat(decision.getAttributes()).containsEntry("unknown_order_statuses", "1");
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_command_ids", "cmd-unknown");
+        assertThat(decision.getAttributes()).containsEntry("unknown_order_client_order_ids", "tb-lfa-unknown");
         assertThat(decision.getAttributes()).containsEntry("unknown_order_status_action", "MANUAL_REVIEW");
     }
 
@@ -129,6 +131,8 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("order_command:unresolved");
         assertThat(decision.getMaxQuantity()).isNull();
         assertThat(decision.getAttributes()).containsEntry("unresolved_order_commands", "1");
+        assertThat(decision.getAttributes()).containsEntry("unresolved_order_command_ids", "cmd-pending");
+        assertThat(decision.getAttributes()).containsEntry("unresolved_order_client_order_ids", "tb-lfa-pending");
         assertThat(decision.getAttributes()).containsEntry("pending_order_command_action", "MANUAL_REVIEW");
     }
 
