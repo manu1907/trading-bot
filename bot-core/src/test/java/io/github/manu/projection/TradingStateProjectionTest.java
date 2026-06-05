@@ -563,6 +563,41 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void terminal_no_fill_rest_snapshot_resolves_external_order_intervention() {
+        projection.apply(restSnapshotOrderResult(
+                "evt-rest-open",
+                "reconciliation:manual-client-1",
+                "manual-client-1",
+                "98765",
+                OrderResultStatus.ACCEPTED,
+                "NEW",
+                timestamp(34)
+        ));
+
+        ProjectionUpdate update = projection.apply(restSnapshotOrderResult(
+                "evt-rest-canceled",
+                "reconciliation:manual-client-1",
+                "manual-client-1",
+                "98765",
+                OrderResultStatus.CANCELED,
+                "CANCELED",
+                timestamp(35)
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "manual-client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.managedByBot()).isFalse();
+                    assertThat(order.externalIntervention()).isFalse();
+                    assertThat(order.interventionReason()).isNull();
+                    assertThat(order.status()).isEqualTo("CANCELED");
+                    assertThat(order.updateSource()).isEqualTo("REST_SNAPSHOT");
+                });
+    }
+
+    @Test
     void rest_snapshot_preserves_known_bot_command_identity() {
         projection.apply(orderCommand("evt-command", timestamp(33)));
 
@@ -633,6 +668,57 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void terminal_no_fill_user_data_resolves_external_order_intervention() {
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
+
+        ProjectionUpdate update = projection.apply(executionReport(
+                "evt-external-canceled",
+                "CANCELED",
+                "CANCELED",
+                "0",
+                timestamp(41),
+                Map.of()
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.managedByBot()).isFalse();
+                    assertThat(order.externalIntervention()).isFalse();
+                    assertThat(order.interventionReason()).isNull();
+                    assertThat(order.status()).isEqualTo("CANCELED");
+                    assertThat(order.executedQuantity()).isEqualTo("0");
+                });
+    }
+
+    @Test
+    void terminal_user_data_with_fill_keeps_external_order_intervention() {
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
+
+        ProjectionUpdate update = projection.apply(executionReport(
+                "evt-external-filled",
+                "FILLED",
+                "TRADE",
+                "0.05",
+                timestamp(41),
+                Map.of()
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+        assertThat(projection.externalOrderInterventionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.externalIntervention()).isTrue();
+                    assertThat(order.interventionReason()).isEqualTo("external_order_observed");
+                    assertThat(order.status()).isEqualTo("FILLED");
+                    assertThat(order.executedQuantity()).isEqualTo("0.05");
+                });
+    }
+
+    @Test
     void marks_unplanned_cancel_or_modify_of_managed_order_for_review() {
         projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(50)));
 
@@ -653,6 +739,40 @@ class TradingStateProjectionTest {
                     assertThat(order.externalIntervention()).isTrue();
                     assertThat(order.interventionReason()).isEqualTo("unplanned_managed_order_change");
                     assertThat(order.commandId()).isEqualTo("cmd-1");
+                });
+    }
+
+    @Test
+    void terminal_no_fill_rest_snapshot_preserves_unplanned_managed_order_intervention() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(50)));
+        projection.apply(executionReport(
+                "evt-cancel",
+                "CANCELED",
+                "CANCELED",
+                "0",
+                timestamp(51),
+                Map.of()
+        ));
+
+        ProjectionUpdate update = projection.apply(restSnapshotOrderResult(
+                "evt-rest-canceled",
+                "reconciliation:client-1",
+                "client-1",
+                "12345",
+                OrderResultStatus.CANCELED,
+                "CANCELED",
+                timestamp(52)
+        ));
+
+        assertThat(update.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.managedByBot()).isTrue();
+                    assertThat(order.externalIntervention()).isTrue();
+                    assertThat(order.interventionReason()).isEqualTo("unplanned_managed_order_change");
+                    assertThat(order.status()).isEqualTo("CANCELED");
                 });
     }
 

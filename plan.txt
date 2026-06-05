@@ -93,6 +93,10 @@ The bot is not professional-execution-ready until these gaps are closed:
   consistently across risk-gate checks, replayed order-command projection,
   gateway result identity validation, execution rejection diagnostics, and
   conservative gateway-failure order results.
+  External-order interventions now resolve automatically when newer user-data
+  or REST reconciliation evidence proves the external order reached a no-fill
+  terminal state such as canceled, expired, or rejected; filled external order
+  evidence still remains blocked for operator review.
 - The risk gate now conservatively stops new order commands when the target
   projection has unresolved external or unplanned order intervention. Manual
   intervention handling is configurable per order/position intervention through

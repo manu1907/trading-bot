@@ -611,6 +611,14 @@ public final class TradingStateProjection implements TradingEventHandler {
         if (!isRestSnapshot(event)) {
             return new OrderIntervention(true, false, null);
         }
+        if (current != null
+                && current.externalIntervention()
+                && !"external_order_observed".equals(current.interventionReason())) {
+            return new OrderIntervention(current.managedByBot(), true, current.interventionReason());
+        }
+        if (resolvedNoFillExternalOrder(event)) {
+            return new OrderIntervention(current != null && current.managedByBot(), false, null);
+        }
         if (current == null) {
             return new OrderIntervention(false, true, "external_order_observed");
         }
@@ -695,9 +703,15 @@ public final class TradingStateProjection implements TradingEventHandler {
 
     private OrderIntervention orderIntervention(OrderState current, ExecutionReportEvent event) {
         if (current == null) {
+            if (resolvedNoFillExternalOrder(event)) {
+                return new OrderIntervention(false, false, null);
+            }
             return new OrderIntervention(false, true, "external_order_observed");
         }
         if (Boolean.TRUE.equals(current.externalIntervention())) {
+            if (resolvedNoFillExternalOrder(event) && "external_order_observed".equals(current.interventionReason())) {
+                return new OrderIntervention(Boolean.TRUE.equals(current.managedByBot()), false, null);
+            }
             return new OrderIntervention(
                     Boolean.TRUE.equals(current.managedByBot()),
                     true,
@@ -727,6 +741,28 @@ public final class TradingStateProjection implements TradingEventHandler {
         return switch (pendingAction == null ? "" : pendingAction) {
             case "CANCEL" -> "CANCELED".equals(executionType) || "CANCELED".equals(orderStatus);
             case "MODIFY" -> "AMENDMENT".equals(executionType) || "REPLACED".equals(executionType);
+            default -> false;
+        };
+    }
+
+    private boolean resolvedNoFillExternalOrder(OrderResultEvent event) {
+        String status = event.getStatus() == null ? null : event.getStatus().name();
+        return noFillTerminalOrder(status, value(event.getExecutedQuantity()));
+    }
+
+    private boolean resolvedNoFillExternalOrder(ExecutionReportEvent event) {
+        return noFillTerminalOrder(
+                value(event.getOrderStatus()),
+                value(event.getCumulativeFilledQuantity())
+        );
+    }
+
+    private boolean noFillTerminalOrder(String status, String executedQuantity) {
+        if (!zeroAmount(executedQuantity)) {
+            return false;
+        }
+        return switch (status == null ? "" : status) {
+            case "CANCELED", "EXPIRED", "REJECTED" -> true;
             default -> false;
         };
     }
@@ -1254,6 +1290,17 @@ public final class TradingStateProjection implements TradingEventHandler {
         }
         try {
             return new BigDecimal(amount).compareTo(BigDecimal.ZERO) > 0;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private boolean zeroAmount(String amount) {
+        if (amount == null) {
+            return false;
+        }
+        try {
+            return new BigDecimal(amount).compareTo(BigDecimal.ZERO) == 0;
         } catch (NumberFormatException ignored) {
             return false;
         }
