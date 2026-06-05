@@ -130,6 +130,49 @@ class OrderExecutionPipelineTest {
     }
 
     @Test
+    void publishes_target_identity_when_duplicate_target_command_is_rejected() {
+        ExecutionProperties properties = targetCommandProperties();
+        FakeGateway gateway = new FakeGateway(eventBus);
+        OrderExecutionPipeline pipeline = pipeline(properties, List.of(gateway));
+
+        pipeline.handleOrderCommand(cancelCommand()).join();
+        pipeline.handleOrderCommand(OrderCommandEvent.newBuilder(cancelCommand())
+                .setIdempotencyKey("idem-cancel-002")
+                .build()).join();
+
+        assertThat(gateway.submissions).isEqualTo(1);
+        RiskDecisionEvent duplicateDecision = (RiskDecisionEvent) eventBus.envelopes.get(2).value();
+        assertThat(duplicateDecision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(duplicateDecision.getReasons()).containsExactly("execution:duplicate_command_id");
+        assertThat(duplicateDecision.getAttributes())
+                .containsEntry("command_action", "CANCEL")
+                .containsEntry("command_client_order_id", "tb-cancel-001")
+                .containsEntry("target_client_order_id", "tb-lfa-open")
+                .containsEntry("target_exchange_order_id", "123456")
+                .containsEntry("duplicate_command_id", "cmd-cancel-001");
+    }
+
+    @Test
+    void publishes_target_identity_when_target_command_has_no_gateway() {
+        ExecutionProperties properties = targetCommandProperties();
+
+        pipeline(properties, List.of()).handleOrderCommand(cancelCommand()).join();
+
+        assertThat(eventBus.envelopes).singleElement().satisfies(envelope -> {
+            assertThat(envelope.eventType()).isEqualTo(TradingEventType.RISK_DECISION);
+            RiskDecisionEvent decision = (RiskDecisionEvent) envelope.value();
+            assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+            assertThat(decision.getReasons()).containsExactly("execution:no_gateway");
+            assertThat(decision.getAttributes())
+                    .containsEntry("command_action", "CANCEL")
+                    .containsEntry("command_client_order_id", "tb-cancel-001")
+                    .containsEntry("target_client_order_id", "tb-lfa-open")
+                    .containsEntry("target_exchange_order_id", "123456")
+                    .containsEntry("execution_provider", PROVIDER);
+        });
+    }
+
+    @Test
     void publishes_unknown_order_result_when_gateway_submit_throws() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 

@@ -89,7 +89,8 @@ The bot is not professional-execution-ready until these gaps are closed:
   manual review. Target-order command identity for cancel/modify now normalizes
   typed target IDs and provider-agnostic target ID attributes consistently
   across risk-gate checks, replayed order-command projection, gateway result
-  identity validation, and conservative gateway-failure order results.
+  identity validation, execution rejection diagnostics, and conservative
+  gateway-failure order results.
 - The risk gate now conservatively stops new order commands when the target
   projection has unresolved external or unplanned order intervention. Manual
   intervention handling is configurable per order/position intervention through
@@ -606,7 +607,7 @@ Binance parity gaps to close before claiming full connector support:
   unknown execution status. Target cancel/modify identity is now normalized
   from typed command fields plus provider-agnostic target attributes before
   risk, replayed order-command projection, gateway identity checks, and
-  gateway-failure recovery results.
+  pre-gateway rejection and gateway-failure recovery results.
 - All products: add policy handling for manual/external order and position
   intervention. Unknown external orders, unplanned managed-order cancel/modify,
   and manual position closes or size changes now stop blind new-order

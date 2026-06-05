@@ -274,6 +274,8 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
     ) {
         List<String> reasons = new ArrayList<>();
         reasons.add(reason);
+        Map<CharSequence, CharSequence> decisionAttributes = commandIdentityAttributes(command);
+        decisionAttributes.putAll(attributes);
         String decisionId = "risk-decision:"
                 + value(command.getCommandId())
                 + ":"
@@ -295,8 +297,17 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
                 .setMaxQuantity(null)
                 .setMaxNotional(null)
                 .setDecidedAtMicros(Instant.now(clock))
-                .setAttributes(Map.copyOf(attributes))
+                .setAttributes(Map.copyOf(decisionAttributes))
                 .build();
+    }
+
+    private Map<CharSequence, CharSequence> commandIdentityAttributes(OrderCommandEvent command) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        putIfPresent(attributes, "command_action", action(command).name());
+        putIfPresent(attributes, "command_client_order_id", value(command.getClientOrderId()));
+        putIfPresent(attributes, "target_client_order_id", targetClientOrderId(command));
+        putIfPresent(attributes, "target_exchange_order_id", targetExchangeOrderId(command));
+        return attributes;
     }
 
     private TradingEventEnvelope<OrderResultEvent> gatewayFailureEnvelope(
