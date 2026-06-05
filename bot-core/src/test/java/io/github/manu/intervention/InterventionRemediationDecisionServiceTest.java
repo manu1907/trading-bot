@@ -262,6 +262,29 @@ class InterventionRemediationDecisionServiceTest {
     }
 
     @Test
+    void publishes_manual_review_remediation_for_external_position_identity() {
+        restoreExternalPositionManualReviewDecision();
+
+        service.decide(manualReviewRequest(
+                null,
+                "BOTH",
+                Map.of("ticket", "ops-461")
+        )).join();
+
+        assertThat(eventBus.envelope).isNotNull();
+        RemediationDecisionEvent event = (RemediationDecisionEvent) eventBus.envelope.value();
+        assertThat(event.getScope()).isEqualTo("MANUAL_REVIEW");
+        assertThat(event.getReasons()).containsExactly("intervention:external_position");
+        assertThat(event.getPositionSide()).isNull();
+        assertThat(event.getAttributes())
+                .containsEntry("command_id", "cmd-position-review")
+                .containsEntry("external_position_symbols", "BTCUSDT")
+                .containsEntry("external_position_sides", "BOTH")
+                .containsEntry("ticket", "ops-461")
+                .containsEntry("recommendation_event_id", "evt-position-review");
+    }
+
+    @Test
     void rejects_manual_review_remediation_without_decision_identity() {
         restoreManualReviewDecisions();
 
@@ -269,7 +292,7 @@ class InterventionRemediationDecisionServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage(
                         "manual review remediation requires command_id, decision_id, clientOrderId, "
-                                + "affected_order_command_id, or affected_exchange_order_id"
+                                + "positionSide, affected_order_command_id, or affected_exchange_order_id"
                 );
         assertThat(eventBus.envelope).isNull();
     }
@@ -328,6 +351,14 @@ class InterventionRemediationDecisionServiceTest {
             String clientOrderId,
             Map<CharSequence, CharSequence> attributes
     ) {
+        return manualReviewRequest(clientOrderId, null, attributes);
+    }
+
+    private InterventionRemediationDecisionService.RemediationDecisionRequest manualReviewRequest(
+            String clientOrderId,
+            String positionSide,
+            Map<CharSequence, CharSequence> attributes
+    ) {
         return new InterventionRemediationDecisionService.RemediationDecisionRequest(
                 "binance",
                 "demo",
@@ -337,7 +368,7 @@ class InterventionRemediationDecisionServiceTest {
                 "MANUAL_REVIEW",
                 "OPERATOR_REVIEW",
                 clientOrderId,
-                null,
+                positionSide,
                 "operator",
                 "reviewed current projection",
                 attributes
@@ -490,6 +521,54 @@ class InterventionRemediationDecisionServiceTest {
                         ),
                         NOW.minusSeconds(1),
                         "evt-external-review"
+                )),
+                List.of()
+        ));
+    }
+
+    private void restoreExternalPositionManualReviewDecision() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(new TradingStateProjection.PositionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "BOTH",
+                        "0.01",
+                        "50000.00",
+                        "50010.00",
+                        "1.10",
+                        "USER_DATA",
+                        true,
+                        "external_position_change",
+                        NOW.minusSeconds(2),
+                        "evt-external-position"
+                )),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.ManualReviewDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "cmd-position-review",
+                        "sig-1",
+                        "lfa",
+                        "risk-decision:cmd-position-review",
+                        List.of("intervention:external_position"),
+                        Map.of(
+                                "external_position_intervention_action",
+                                "MANUAL_REVIEW",
+                                "external_position_symbols",
+                                "BTCUSDT",
+                                "external_position_sides",
+                                "BOTH"
+                        ),
+                        NOW.minusSeconds(1),
+                        "evt-position-review"
                 )),
                 List.of()
         ));

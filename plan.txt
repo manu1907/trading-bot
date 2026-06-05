@@ -298,10 +298,10 @@ Implemented Binance foundations:
   orders, `symbol` plus `positionSide` for positions); manual-review remediation
   decisions must identify the current queue item with `command_id` or
   `decision_id`, or target an affected external, unknown, unresolved, or target
-  order identity from the risk-decision attributes, avoiding accidental
-  selection when several reviews share the same account/symbol. The event
-  creates replayable evidence for later orchestration without executing orders
-  automatically.
+  order identity or affected external position side from the risk-decision
+  attributes, avoiding accidental selection when several reviews share the same
+  account/symbol. The event creates replayable evidence for later orchestration
+  without executing orders automatically.
 - Projected remediation decisions for replay-safe operator audit. The core
   projection, live/replay handler registration, and durable snapshot stores
   retain published remediation decisions, and the token-gated operator API can

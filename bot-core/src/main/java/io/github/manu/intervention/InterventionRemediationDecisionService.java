@@ -125,6 +125,7 @@ public final class InterventionRemediationDecisionService {
                     null,
                     null,
                     null,
+                    null,
                     null
             );
             case "POSITION" -> new RemediationTargetIdentity(
@@ -135,16 +136,18 @@ public final class InterventionRemediationDecisionService {
                     null,
                     null,
                     null,
+                    null,
                     null
             );
-            case "MANUAL_REVIEW" -> manualReviewIdentity(symbol, clientOrderId, attributes);
-            default -> new RemediationTargetIdentity(symbol, clientOrderId, positionSide, null, null, null, null, null);
+            case "MANUAL_REVIEW" -> manualReviewIdentity(symbol, clientOrderId, positionSide, attributes);
+            default -> new RemediationTargetIdentity(symbol, clientOrderId, positionSide, null, null, null, null, null, null);
         };
     }
 
     private RemediationTargetIdentity manualReviewIdentity(
             String symbol,
             String clientOrderId,
+            String positionSide,
             Map<CharSequence, CharSequence> attributes
     ) {
         String commandId = attribute(attributes, "command_id");
@@ -154,11 +157,12 @@ public final class InterventionRemediationDecisionService {
         if (commandId == null
                 && decisionId == null
                 && clientOrderId == null
+                && positionSide == null
                 && affectedCommandId == null
                 && affectedExchangeOrderId == null) {
             throw new IllegalArgumentException(
                     "manual review remediation requires command_id, decision_id, clientOrderId, "
-                            + "affected_order_command_id, or affected_exchange_order_id"
+                            + "positionSide, affected_order_command_id, or affected_exchange_order_id"
             );
         }
         return new RemediationTargetIdentity(
@@ -169,7 +173,8 @@ public final class InterventionRemediationDecisionService {
                 decisionId,
                 affectedCommandId,
                 clientOrderId,
-                affectedExchangeOrderId
+                affectedExchangeOrderId,
+                positionSide
         );
     }
 
@@ -280,7 +285,8 @@ public final class InterventionRemediationDecisionService {
             String decisionId,
             String affectedCommandId,
             String affectedClientOrderId,
-            String affectedExchangeOrderId
+            String affectedExchangeOrderId,
+            String affectedPositionSide
     ) {
 
         private boolean matches(InterventionRemediationAdvisor.RemediationRecommendation recommendation) {
@@ -311,6 +317,11 @@ public final class InterventionRemediationDecisionService {
                             "unknown_order_exchange_order_ids",
                             "unresolved_order_exchange_order_ids",
                             "target_exchange_order_id"
+                    )
+                    && matchesAny(
+                            affectedPositionSide,
+                            recommendation.attributes(),
+                            "external_position_sides"
                     );
         }
 
