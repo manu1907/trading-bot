@@ -299,7 +299,9 @@ Implemented Binance foundations:
   decisions must identify the current queue item with `command_id` or
   `decision_id`, or target an affected external, unknown, unresolved, or target
   order identity or affected external position side from the risk-decision
-  attributes, avoiding accidental selection when several reviews share the same
+  attributes. The emitted remediation event normalizes selected affected order
+  or position identities into singular attributes for later orchestration,
+  avoiding accidental selection when several reviews share the same
   account/symbol. The event creates replayable evidence for later orchestration
   without executing orders automatically.
 - Projected remediation decisions for replay-safe operator audit. The core

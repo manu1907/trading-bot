@@ -194,6 +194,7 @@ class InterventionRemediationDecisionServiceTest {
         assertThat(event.getAttributes())
                 .containsEntry("command_id", "cmd-2")
                 .containsEntry("unknown_order_client_order_ids", "blocked-client-cmd-2")
+                .containsEntry("affected_order_client_order_id", "blocked-client-cmd-2")
                 .containsEntry("ticket", "ops-457")
                 .containsEntry("recommendation_event_id", "evt-review-2");
     }
@@ -235,6 +236,7 @@ class InterventionRemediationDecisionServiceTest {
         assertThat(event.getAttributes())
                 .containsEntry("command_id", "cmd-external-review")
                 .containsEntry("external_order_client_order_ids", "manual-client-1")
+                .containsEntry("affected_order_client_order_id", "manual-client-1")
                 .containsEntry("external_order_exchange_order_ids", "98765")
                 .containsEntry("ticket", "ops-459")
                 .containsEntry("recommendation_event_id", "evt-external-review");
@@ -280,6 +282,7 @@ class InterventionRemediationDecisionServiceTest {
                 .containsEntry("command_id", "cmd-position-review")
                 .containsEntry("external_position_symbols", "BTCUSDT")
                 .containsEntry("external_position_sides", "BOTH")
+                .containsEntry("affected_position_side", "BOTH")
                 .containsEntry("ticket", "ops-461")
                 .containsEntry("recommendation_event_id", "evt-position-review");
     }

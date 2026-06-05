@@ -86,7 +86,7 @@ public final class InterventionRemediationDecisionService {
                 .setDecidedBy(requireText(request.decidedBy(), "decidedBy"))
                 .setDecisionReason(requireText(request.decisionReason(), "decisionReason"))
                 .setDecidedAtMicros(Instant.now(clock))
-                .setAttributes(decisionAttributes(recommendation, request.attributes()))
+                .setAttributes(decisionAttributes(recommendation, request))
                 .build();
         return eventBus.publish(envelope(event));
     }
@@ -235,12 +235,17 @@ public final class InterventionRemediationDecisionService {
 
     private Map<CharSequence, CharSequence> decisionAttributes(
             InterventionRemediationAdvisor.RemediationRecommendation recommendation,
-            Map<CharSequence, CharSequence> requestAttributes
+            RemediationDecisionRequest request
     ) {
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         recommendation.attributes().forEach(attributes::put);
+        Map<CharSequence, CharSequence> requestAttributes = request.attributes();
         if (requestAttributes != null) {
             attributes.putAll(requestAttributes);
+        }
+        if ("MANUAL_REVIEW".equals(recommendation.scope())) {
+            put(attributes, "affected_order_client_order_id", request.clientOrderId());
+            put(attributes, "affected_position_side", request.positionSide());
         }
         put(attributes, "recommendation_event_id", recommendation.eventId());
         if (recommendation.updatedAt() != null) {
