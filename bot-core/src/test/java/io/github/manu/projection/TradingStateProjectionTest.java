@@ -20,6 +20,7 @@ import io.github.manu.events.v1.RiskUpdateEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -294,10 +295,59 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void projects_replayed_target_order_command_from_target_identity_attributes() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+
+        ProjectionUpdate commandUpdate = projection.apply(cancelOrderCommandWithTargetAttributes(
+                "evt-cancel-command",
+                "cmd-cancel",
+                "cancel-client-1",
+                "client-1",
+                null,
+                timestamp(35)
+        ));
+
+        assertThat(commandUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "cancel-client-1")).isEmpty();
+        assertThat(projection.unresolvedOrderCommandStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.exchangeOrderId()).isEqualTo("12345");
+                    assertThat(order.commandId()).isEqualTo("cmd-cancel");
+                    assertThat(order.executionType()).isEqualTo("CANCEL");
+                    assertThat(order.unresolvedCommand()).isTrue();
+                });
+    }
+
+    @Test
     void projects_replayed_target_order_command_by_exchange_order_id_when_known() {
         projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
 
         projection.apply(cancelOrderCommand(
+                "evt-cancel-command",
+                "cmd-cancel",
+                "cancel-client-1",
+                null,
+                "12345",
+                timestamp(35)
+        ));
+
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "cancel-client-1")).isEmpty();
+        assertThat(projection.unresolvedOrderCommandStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(order -> {
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.exchangeOrderId()).isEqualTo("12345");
+                    assertThat(order.commandId()).isEqualTo("cmd-cancel");
+                });
+    }
+
+    @Test
+    void projects_replayed_target_order_command_from_target_exchange_id_attribute_when_known() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+
+        projection.apply(cancelOrderCommandWithTargetAttributes(
                 "evt-cancel-command",
                 "cmd-cancel",
                 "cancel-client-1",
@@ -1171,6 +1221,37 @@ class TradingStateProjectionTest {
                 .setTargetClientOrderId(targetClientOrderId)
                 .setTargetExchangeOrderId(targetExchangeOrderId)
                 .setIdempotencyKey(commandId + ":idem")
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.ORDER_COMMAND,
+                TradingEventKeys.order(TradingEventType.ORDER_COMMAND, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, clientOrderId),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<OrderCommandEvent> cancelOrderCommandWithTargetAttributes(
+            String eventId,
+            String commandId,
+            String clientOrderId,
+            String targetClientOrderId,
+            String targetExchangeOrderId,
+            Instant requestedAt
+    ) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        if (targetClientOrderId != null) {
+            attributes.put("target_client_order_id", targetClientOrderId);
+        }
+        if (targetExchangeOrderId != null) {
+            attributes.put("target_exchange_order_id", targetExchangeOrderId);
+        }
+        OrderCommandEvent event = OrderCommandEvent.newBuilder(orderCommand(eventId, requestedAt).value())
+                .setAction(OrderCommandAction.CANCEL)
+                .setCommandId(commandId)
+                .setClientOrderId(clientOrderId)
+                .setTargetClientOrderId(null)
+                .setTargetExchangeOrderId(null)
+                .setIdempotencyKey(commandId + ":idem")
+                .setAttributes(Map.copyOf(attributes))
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.ORDER_COMMAND,

@@ -516,8 +516,8 @@ public final class TradingStateProjection implements TradingEventHandler {
         if (action(event) == OrderCommandAction.NEW) {
             return new OrderCommandProjectionTarget(commandClientOrderId, null);
         }
-        String targetClientOrderId = value(event.getTargetClientOrderId());
-        String targetExchangeOrderId = value(event.getTargetExchangeOrderId());
+        String targetClientOrderId = targetClientOrderId(event);
+        String targetExchangeOrderId = targetExchangeOrderId(event);
         if (targetClientOrderId != null) {
             return new OrderCommandProjectionTarget(targetClientOrderId, targetExchangeOrderId);
         }
@@ -534,6 +534,22 @@ public final class TradingStateProjection implements TradingEventHandler {
         )
                 .map(order -> new OrderCommandProjectionTarget(order.clientOrderId(), targetExchangeOrderId))
                 .orElseGet(() -> new OrderCommandProjectionTarget(commandClientOrderId, targetExchangeOrderId));
+    }
+
+    private String targetClientOrderId(OrderCommandEvent event) {
+        String target = value(event.getTargetClientOrderId());
+        if (target != null) {
+            return target;
+        }
+        return attribute(event, "target_client_order_id");
+    }
+
+    private String targetExchangeOrderId(OrderCommandEvent event) {
+        String target = value(event.getTargetExchangeOrderId());
+        if (target != null) {
+            return target;
+        }
+        return attribute(event, "target_exchange_order_id");
     }
 
     private OrderCommandAction action(OrderCommandEvent event) {
@@ -1119,6 +1135,13 @@ public final class TradingStateProjection implements TradingEventHandler {
     }
 
     private String attribute(OrderResultEvent event, String key) {
+        if (event.getAttributes() == null) {
+            return null;
+        }
+        return value(event.getAttributes().get(key));
+    }
+
+    private String attribute(OrderCommandEvent event, String key) {
         if (event.getAttributes() == null) {
             return null;
         }
