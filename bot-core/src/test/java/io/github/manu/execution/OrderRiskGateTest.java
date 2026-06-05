@@ -107,6 +107,12 @@ class OrderRiskGateTest {
         assertThat(decision.getAttributes()).containsEntry("external_position_interventions", "1");
         assertThat(decision.getAttributes()).containsEntry("external_position_symbols", SYMBOL);
         assertThat(decision.getAttributes()).containsEntry("external_position_sides", "BOTH");
+        assertThat(decision.getAttributes()).containsEntry("external_position_amounts", "0");
+        assertThat(decision.getAttributes()).containsEntry("external_position_update_sources", "USER_DATA");
+        assertThat(decision.getAttributes()).containsEntry(
+                "external_position_intervention_reasons",
+                "external_position_change"
+        );
         assertThat(decision.getAttributes()).containsEntry("external_position_intervention_action", "MANUAL_REVIEW");
     }
 

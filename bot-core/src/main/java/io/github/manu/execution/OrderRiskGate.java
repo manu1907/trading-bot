@@ -728,6 +728,15 @@ public final class OrderRiskGate {
         putIfPresent(attributes, prefix + "_sides", joined(states.stream()
                 .map(TradingStateProjection.PositionState::positionSide)
                 .toList()));
+        putIfPresent(attributes, prefix + "_amounts", joined(states.stream()
+                .map(TradingStateProjection.PositionState::positionAmount)
+                .toList()));
+        putIfPresent(attributes, prefix + "_update_sources", joined(states.stream()
+                .map(TradingStateProjection.PositionState::updateSource)
+                .toList()));
+        putIfPresent(attributes, prefix + "_intervention_reasons", joined(states.stream()
+                .map(TradingStateProjection.PositionState::interventionReason)
+                .toList()));
     }
 
     private String joined(List<String> values) {
