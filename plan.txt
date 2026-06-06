@@ -1,1144 +1,148 @@
 # Trading Bot Delivery Plan
 
-This plan is the working roadmap. Each phase should end with a focused commit,
-green tests, corrected warnings, and a short review of what changed.
-
-## Engineering Rules
-
-- `bot-core` is the only application module.
-- Each exchange provider gets one module, starting with `bot-exchange-binance`.
-- Each strategy gets one module, starting with `bot-strategy-lfa`.
-- Demo and real trading use the same execution code. The difference is config,
-  account, credentials, and deployment target only.
-- Bot defaults, Binance capability defaults, execution/risk limits, and
-  strategy defaults belong in `config/catalog.json` as much as possible.
-  Environment files and runtime overrides select or narrow those defaults; they
-  must not create a second implementation path.
-- Strategy modules explain why to trade by emitting provider-agnostic intents.
-  Core decides how to trade by combining those intents with risk budgets,
-  portfolio allocation, market/account projections, latency constraints, and
-  provider capability catalogs. Provider modules declare and validate what an
-  exchange allows and execute concrete provider commands; they must not embed
-  strategy logic.
-- A future execution planner/smart order router in core must score available
-  provider features by expected utility: edge, fees, spread/slippage, funding
-  or borrow cost, fill probability, queue/latency risk, inventory and margin
-  risk, rate-limit cost, and reconciliation confidence. It must support one or
-  many strategies by normalizing signals, resolving conflicts, netting exposure
-  where appropriate, and rejecting commands that exceed configured risk.
-- Local `api.env` may provide smoke-test credentials, but it must stay ignored
-  and must not be used as source-controlled configuration.
-- No dry-run or toy execution path should be introduced as a substitute for the
-  real engine. Backtest/simulation is a separate runtime mode.
-- Every phase must include pertinent unit tests and integration tests with clear
-  input data and expected output.
-- Before commit: run the relevant Gradle tasks, keep tests green, fix warnings
-  rather than suppressing them, and avoid unused imports or dead code.
-- `:bot-core:check` runs tests, Spotless, Checkstyle, and SpotBugs for core
-  changes. Use affected module checks for provider/strategy changes, and use
-  `./gradlew check` before broad cross-module pushes.
-- After every push, check GitHub Actions for the pushed commit and wait for the
-  run to finish before marking the slice complete.
-- Do not hide tracked working files behind `.gitignore`. If tracked local
-  notes are intentionally changed, either commit them explicitly or keep them
-  out of staged slices deliberately.
-- Comments should be sparse and useful: explain non-obvious decisions, not
-  obvious line-by-line behavior.
-
-## Current Seriousness Review
-
-The current codebase has serious foundations, but it is not yet a complete
-professional trading bot. The strong parts are:
-
-- Layered config with active runtime target, override validation, schema
-  versioning, and atomic runtime writes.
-- Provider/strategy module boundaries.
-- Binance config validation, request signing, server-time sync, exchangeInfo
-  parsing, rate-limit header tracking, basic order REST calls, user-data stream
-  lifecycle, and WebSocket endpoint planning.
-- Schema-first Avro events, Redpanda routing, Schema Registry encoding,
-  consumer/dead-letter flow, Chronicle journaling, startup recovery, restart
-  recovery coverage, and deterministic archive object naming.
-- CI security gates and local quality gates.
-
-The bot is not professional-execution-ready until these gaps are closed:
-
-- No complete risk-gated execution state machine yet. Core now has a
-  provider-agnostic order risk gate and order-command pipeline. The pipeline
-  publishes a risk decision first and can only submit through an
-  `OrderExecutionGateway` after approval. It also has configurable in-runtime
-  idempotency for command IDs and idempotency keys so duplicate commands cannot
-  blindly submit twice in one process. Binance has a first order gateway for
-  new-order submission. The core order projection tracks whether an order is
-  bot-managed, whether the latest update came from submit result or user-data,
-  and whether user-data exposed an external or unplanned order change. Retries,
-  cancel/replace, durable unknown-status recovery, manual-intervention policy,
-  and final order state transitions are not complete. Gateway submit failures
-  after risk approval now publish conservative `UNKNOWN` order results so the
-  event journal and projection have an auditable recovery marker instead of a
-  silent pipeline failure. The risk gate now treats unresolved `UNKNOWN` order
-  status as a configurable stop condition, defaulting to manual review until a
-  later order/user-data/reconciliation event resolves the order state, and risk
-  decisions include the affected unknown-order identities for operator review.
-  Projection-backed idempotency now rejects commands that reuse an already
-  projected command ID or client order ID after restart, when enabled by the
-  catalog idempotency policy. Journal recovery now separates replay-safe
-  handlers from live side-effect handlers, so old order commands can rebuild
-  projected order identity without resubmitting through the execution pipeline.
-  Replayed order commands without a later result are treated as unresolved
-  command state and stop new automation by configurable action, defaulting to
-  manual review; risk decisions include the unresolved command/order identities
-  behind that stop condition. Target-order command identity for cancel/modify
-  now normalizes typed target IDs and provider-agnostic target ID attributes
-  consistently across risk-gate checks, replayed order-command projection,
-  gateway result identity validation, execution rejection diagnostics, and
-  conservative gateway-failure order results.
-  External-order interventions now resolve automatically when newer user-data
-  or REST reconciliation evidence proves the external order reached a no-fill
-  terminal state such as canceled, expired, or rejected; filled external order
-  evidence still remains blocked for operator review.
-- The risk gate now conservatively stops new order commands when the target
-  projection has unresolved external or unplanned order intervention. Manual
-  intervention handling is configurable per order/position intervention through
-  `external_order_action` and `external_position_action`; the default is
-  `MANUAL_REVIEW`, with `REJECT_NEW_COMMANDS` and `ALLOW_NEW_COMMANDS`
-  available only through explicit config. This is a stop-the-line guard, not a
-  full remediation policy. Risk decisions include affected external order and
-  position identities for operator review. Manual-review risk decisions are now
-  projected into
-  a replayable operator-review queue keyed by command id and remain queryable
-  while their underlying intervention reason is unresolved. Operator remediation
-  can target a manual-review decision by decision identity or by the affected
-  blocked order identities carried in the decision attributes. Operator
-  acknowledgement is now an Avro event that clears a matching order or position
-  intervention through the replayable projection path.
-- No durable idempotent order-command lifecycle from strategy signal through
-  exchange result, user-stream execution report, reconciliation, restart, and
-  final position state.
-- Manual position changes are not yet policy-complete. Position projection now
-  records update source and conservatively flags user-data or REST position-size
-  changes as external interventions when no managed bot order exists for the
-  same target/symbol. The risk gate sends new order commands to manual review
-  while such position interventions are unresolved by default, and those manual
-  reviews are queryable through the operator API. Operator acknowledgement can
-  clear a matching projected position intervention through replay, but later
-  position work must bind fills to position deltas and decide whether to stand
-  down, re-hedge, re-open, or require operator review.
-- Core has an in-memory account/order/position/risk projection that can be
-  rebuilt from events and rejects stale per-entity updates. Binance
-  reconciliation can compare REST snapshots against that projection and record
-  provider-agnostic reconciliation confidence for matched, missing, and
-  mismatched state. The projection has opt-in durable file and
-  PostgreSQL-compatible JDBC snapshot stores for restart snapshots. Core order
-  risk decisions and the order-command pipeline consume reconciliation
-  confidence; Binance order submission now uses that gateway boundary.
-- No TimescaleDB hypertable tuning or production database migration runner.
-- No GCS uploader/archive worker; only the object layout exists.
-- User-data payload mapping, stream publishing, market-data mapping, REST
-  snapshot reconciliation, core state projection, and REST-vs-projection
-  comparison are wired at foundation level, but durable reconciliation-backed
-  action gating and risk-gated execution are not yet complete.
-- No LFA strategy lifecycle, feature calculations, or signal tests.
-- No deterministic backtest runtime.
-- No production secrets integration, metrics, alerts, deployment manifests, or
-  runbooks.
-
-Each future phase should close one of these gaps without weakening the already
-established safety boundaries.
-
-## Binance Documentation Parity Review
-
-Source-of-truth docs checked during this review:
-
-- Spot REST API:
-  `https://developers.binance.com/docs/binance-spot-api-docs/rest-api`
-- Spot user data stream:
-  `https://developers.binance.com/docs/binance-spot-api-docs/user-data-stream`
-- Margin new order:
-  `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-Order`
-- Margin new OCO order list:
-  `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-OCO`
-- Margin new OTO order list:
-  `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-OTO`
-- Margin new OTOCO order list:
-  `https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-OTOCO`
-- Margin borrow/repay:
-  `https://developers.binance.com/docs/margin_trading/borrow-and-repay/Margin-Account-Borrow-Repay`
-- Margin transfer history:
-  `https://developers.binance.com/docs/margin_trading/transfer/Get-Cross-Margin-Transfer-History`
-- Margin max transfer-out amount:
-  `https://developers.binance.com/docs/margin_trading/transfer/Query-Max-Transfer-Out-Amount`
-- Margin account summary/risk bars:
-  `https://developers.binance.com/docs/margin_trading/account/Get-Summary-Of-Margin-Account`
-- Cross margin account details:
-  `https://developers.binance.com/docs/margin_trading/account/Query-Cross-Margin-Account-Details`
-- Isolated margin account info:
-  `https://developers.binance.com/docs/margin_trading/account/Query-Isolated-Margin-Account-Info`
-- Isolated margin account limit:
-  `https://developers.binance.com/docs/margin_trading/account/Query-Enabled-Isolated-Margin-Account-Limit`
-- Margin prevented matches:
-  `https://developers.binance.com/docs/margin_trading/trade/Query-Margin-Prevented-Matches`
-- Margin special-key list:
-  `https://developers.binance.com/docs/margin_trading/trade/Query-Special-Key-List-of-Low-Latency-Trading`
-- Margin special-key query:
-  `https://developers.binance.com/docs/margin_trading/trade/Query-Special-Key-of-Low-Latency-Trading`
-- Margin special-key creation:
-  `https://developers.binance.com/docs/margin_trading/trade/Create-Special-Key-of-Low-Latency-Trading`
-- Margin special-key IP edit:
-  `https://developers.binance.com/docs/margin_trading/trade/Edit-ip-for-Special-Key-of-Low-Latency-Trading`
-- Margin special-key deletion:
-  `https://developers.binance.com/docs/margin_trading/trade/Delete-Special-Key-of-Low-Latency-Trading`
-- Margin special-key mode exit:
-  `https://developers.binance.com/docs/margin_trading/trade/Exit-Special-Key-Mode`
-- USD-M futures new order:
-  `https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Order`
-- COIN-M futures new order:
-  `https://developers.binance.com/docs/derivatives/coin-margined-futures/trade/rest-api/New-Order`
-- USD-M and COIN-M futures listen-key keepalive/close pages under
-  `https://developers.binance.com/docs/derivatives/.../user-data-streams/`
-- USD-M futures user-data order and account-update events:
-  `https://developers.binance.com/docs/derivatives/usds-margined-futures/user-data-streams/Event-Order-Update`
-  and
-  `https://developers.binance.com/docs/derivatives/usds-margined-futures/user-data-streams/Event-Balance-and-Position-Update`
-- COIN-M futures user-data order and account-update events:
-  `https://developers.binance.com/docs/derivatives/coin-margined-futures/user-data-streams/Event-Order-Update`
-  and
-  `https://developers.binance.com/docs/derivatives/coin-margined-futures/user-data-streams/Event-Balance-and-Position-Update`
-- Options order history:
-  `https://developers.binance.com/docs/derivatives/options-trading/trade/Query-Option-Order-History`
-- Options open orders:
-  `https://developers.binance.com/docs/derivatives/options-trading/trade/Query-Current-Open-Option-Orders`
-- Options account trade list:
-  `https://developers.binance.com/docs/derivatives/options-trading/trade/Account-Trade-List`
-- Options user commission:
-  `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Commission`
-- Options exercise records:
-  `https://developers.binance.com/docs/derivatives/options-trading/trade/User-Exercise-Record`
-- Options new order:
-  `https://developers.binance.com/docs/derivatives/options-trading/trade/New-Order`
-- Options user-data stream risk-level, order, account, balance/position, and
-  greek events:
-  `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Risk-level-change`,
-  `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Order-update`,
-  `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Account-data`,
-  `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Balance-and-Position-Update`,
-  and
-  `https://developers.binance.com/docs/derivatives/options-trading/user-data-streams/Event-Greek-Update`
-- Options auto-cancel kill-switch config and heartbeat:
-  `https://developers.binance.com/docs/derivatives/options-trading/market-maker-endpoints/Get-Auto-Cancel-All-Open-Orders-Config`,
-  `https://developers.binance.com/docs/derivatives/options-trading/market-maker-endpoints/Set-Auto-Cancel-All-Open-Orders-Config`,
-  and
-  `https://developers.binance.com/docs/derivatives/options-trading/market-maker-endpoints/Auto-Cancel-All-Open-Orders-Heartbeat`
-
-Implemented Binance foundations:
-
-- Product family modeling for Spot, Cross Margin, Isolated Margin, USD-M
-  Futures, COIN-M Futures, and Options.
-- Options `/eapi/v1/order` request construction uses the documented
-  `clientOrderId`, `isMmp`, and `postOnly` parameter names for new/query/cancel
-  order workflows instead of Spot/Futures client-order and post-only
-  conventions.
-- Options margin-account and position snapshot clients with catalog-backed
-  `/eapi/v1/marginAccount` and `/eapi/v1/position` paths and typed parsing for
-  account balances, account Greeks, and option positions.
-- Options market-maker protection config clients for `/eapi/v1/mmp`,
-  `/eapi/v1/mmpSet`, and `/eapi/v1/mmpReset`, with documented MMP window
-  validation and catalog-disabled mutations by default.
-- Options auto-cancel kill-switch config and heartbeat clients for
-  `/eapi/v1/countdownCancelAll` and
-  `/eapi/v1/countdownCancelAllHeartBeat`, with documented countdown bounds,
-  comma-separated heartbeat underlyings, and catalog-disabled mutations by
-  default.
-- Options user-data mapping for documented `ORDER_TRADE_UPDATE`,
-  `ACCOUNT_UPDATE`, `BALANCE_POSITION_UPDATE`, `GREEK_UPDATE`, and
-  `RISK_LEVEL_CHANGE` payloads into core execution, balance, position, and
-  risk-update envelopes, including the `/private` stream `data` wrapper used by
-  options account-data examples.
-- Options REST snapshot reconciliation sources for margin account and positions
-  with catalog-backed `options_account_enabled`, `options_positions_enabled`,
-  and `options_position_symbols` controls, mapped into core balance, position,
-  and risk-update envelopes for account assets, option positions, and account
-  Greeks.
-- Core trading-state projection for order, execution, balance, position, and
-  risk-update events with event-ID dedupe, stale per-entity update rejection,
-  journal-replay compatible event-handler registration, and target-scoped open
-  position checks.
-- Core order projection metadata for bot-managed order identity, submit-result
-  versus user-data update source, execution type, and external/unplanned order
-  intervention detection. Policy actions for those interventions remain a
-  future execution-state-machine gap.
-- Core position projection metadata for update source and conservative
-  external/manual position-size change detection when no recent managed-fill
-  evidence is present for the target/symbol. Position changes are attributed to
-  bot activity only when replayed user-data fill evidence for a managed order
-  occurred after the previous position state and no later than the incoming
-  position update, so stale managed orders or old fills cannot mask later
-  manual position changes.
-- Core intervention acknowledgement event for auditable operator review. The
-  projection clears matching order and position interventions only through this
-  replayable event path.
-- Core acknowledgement service that validates order-level and position-level
-  operator review requests against the current projection before publishing
-  through `TradingEventBus`, so blind or mismatched acknowledgements cannot
-  clear the wrong intervention and normal event routing captures the audit
-  trail.
-- Disabled-by-default operator HTTP API for listing unresolved order and
-  position interventions and publishing order or position intervention
-  acknowledgements,
-  guarded by `trading.intervention.operator-api.enabled` and
-  `trading.intervention.operator-api.operator-token`.
-- Read-only intervention remediation advisor for operator review. The
-  token-gated operator API can list deterministic remediation recommendations
-  for unresolved order interventions, position interventions, and manual-review
-  decisions without placing orders or clearing projection state automatically.
-- Auditable remediation decision event and operator service. Operators can
-  publish a remediation decision only when it still matches the current
-  projection-backed recommendation. Order and position remediation decisions
-  must identify their exact projected target (`symbol` plus `clientOrderId` for
-  orders, `symbol` plus `positionSide` for positions); manual-review remediation
-  decisions must identify the current queue item with `command_id` or
-  `decision_id`, or target an affected external, unknown, unresolved, or target
-  order identity or affected external position side from the risk-decision
-  attributes. The emitted remediation event normalizes selected affected order
-  or position identities into singular attributes for later orchestration,
-  avoiding accidental selection when several reviews share the same
-  account/symbol. The event creates replayable evidence for later orchestration
-  without executing orders automatically.
-- Projected remediation decisions for replay-safe operator audit. The core
-  projection, live/replay handler registration, and durable snapshot stores
-  retain published remediation decisions, and the token-gated operator API can
-  list them after restart. A `MANUAL_REVIEW` / `OPERATOR_REVIEW` remediation
-  decision clears the matching projected manual-review queue item through replay
-  when its `command_id` still matches the current manual-review state.
-- Disabled-by-default live remediation orchestrator for the conservative
-  operator-review workflow. When explicitly enabled, an `OPERATOR_REVIEW`
-  remediation decision for a matching unresolved order or position intervention
-  publishes a deterministic acknowledgement event, including `MANUAL_REVIEW`
-  remediation decisions whose risk-decision attributes identify the affected
-  external order or position; the handler is live-only so journal replay does
-  not re-run workflow side effects. The orchestrator keeps a configurable
-  bounded set of remediated decision IDs to suppress duplicate live deliveries
-  before publishing another acknowledgement.
-- Opt-in durable file snapshot store for the core trading-state projection,
-  loaded before journal replay and saved at lifecycle stop.
-- Opt-in PostgreSQL-compatible JDBC projection snapshot store with explicit SQL
-  schema, configurable JDBC URL/credentials/table prefix, and H2 coverage in
-  PostgreSQL mode.
-- Binance REST snapshot projection comparison for balances, positions, orders,
-  and risk state, with catalog-backed `projection_comparison_enabled` and
-  `fail_on_projection_mismatch` controls.
-- Binance order-history REST reconciliation source, disabled by default, with
-  catalog-backed explicit symbols and limit. The source reuses the existing
-  order-result reconciliation mapper so documented Binance all-orders/history
-  endpoints, including options `/eapi/v1/historyOrders`, become projection
-  evidence without broad unbounded history scans.
-- Binance account-trade REST reconciliation source, disabled by default, with
-  catalog-backed explicit symbols, trade limit, and correlation order-history
-  limit. The runtime fetches same-symbol order history first and only maps
-  account-trade rows into core execution reports when the exchange `orderId`
-  resolves to a documented order-history row with a client order id; unmatched
-  rows are skipped rather than fabricating identity.
-- Core projection treats REST open-order snapshots as reconciliation evidence,
-  not submit evidence: known bot orders keep their original command identity,
-  while previously unknown snapshot orders are marked as external order
-  interventions instead of becoming bot-managed by default.
-- Provider-agnostic reconciliation confidence tracking for latest
-  REST-vs-projection observations per provider/environment/account/market,
-  event type, and entity key.
-- Configurable core order risk gate under `trading.execution.risk-gate`, with
-  conservative catalog defaults that reject order commands when reconciliation
-  confidence has no observations or is degraded, or when projected order state
-  has unresolved external/unplanned order intervention.
-- Configurable core order execution pipeline under
-  `trading.execution.pipeline`; disabled by default until the runtime profile
-  explicitly enables order-command handling.
-- Core order execution pipeline validates gateway result identity before
-  publishing provider output. A result must match the command
-  provider/environment/account/market/symbol/command identity, and must match
-  the expected client order id or target exchange order id when the command can
-  assert them; mismatches become auditable `UNKNOWN` gateway-failure results
-  instead of silently updating the wrong projected order.
-- Configurable core in-memory order idempotency under
-  `trading.execution.idempotency`; enabled by default and bounded by
-  `max_tracked_keys` in the catalog. It rejects duplicate command IDs or
-  idempotency keys for the same provider/environment/account/market before a
-  gateway submit can happen. The risk gate also checks replayed projection
-  state for duplicate command IDs and client order IDs after restart when
-  `reject_projected_duplicates` is enabled. `ORDER_COMMAND` events are
-  projected only during replay, closing the pre-result restart window without
-  racing live execution. Unresolved replayed commands now remain visible to the
-  risk gate until a newer order result, user-data event, or reconciliation
-  snapshot resolves them. Remaining durable lifecycle work includes explicit
-  command state transitions, retries, cancel/replace, and
-  reconciliation-driven remediation for unknown exchange status.
-- Binance `OrderExecutionGateway` adapter for new-order submission, including
-  core-to-Binance command mapping, Binance-specific command attributes,
-  normalized `OrderResultEvent` output, validation rejection mapping, and
-  configured unknown-execution-status mapping. Binance API failures now retain
-  retry-policy metadata on the order result (`retryable`,
-  `reconcile_before_retry`, `unknown_execution_status`, HTTP/exchange codes,
-  and backoff), so downstream reconciliation/remediation can distinguish
-  definitive rejects from exchange-state-unknown outcomes.
-- Binance new-order gateway pre-submit exchangeInfo validation for symbol
-  trading status, symbol order-type/time-in-force permissions, price tick
-  filters, lot-size filters, and explicit notional filters when current
-  exchange metadata is available. Catalog defaults now enable this validation
-  for every configured Binance market so the bot does not treat exchange
-  rejections as the normal validation layer. The same client-level guard now
-  covers Binance batch new-order placement when exchange-filter enforcement is
-  enabled, so lower-level batch clients cannot bypass the single-order gateway
-  validation path. Spot cancel-replace replacement orders now use the same
-  guard before the cancel-replace request is sent. Futures modify-order and
-  modify-multiple-order commands now validate explicit price, quantity, and
-  notional fields against exchangeInfo before any modify request is sent. Spot
-  amend-keep-priority requests now validate the new quantity against
-  exchangeInfo lot-size filters before any amend request is sent. Spot
-  OCO/OTO/OTOCO/OPO/OPOCO order-list placement now validates explicit
-  quantities, iceberg quantities, prices, and computable notionals against
-  exchangeInfo before any order-list request is sent. Spot SOR order and
-  SOR test-order placement now use the same exchangeInfo validation before
-  any signed SOR request is sent. Spot WebSocket API `order.place` now uses
-  the same exchangeInfo validation before opening a WebSocket API connection.
-  Percent-price and percent-price-by-side filters can now be enforced for
-  new-order, modify, SOR, WebSocket API order placement, cancel-replace
-  replacement, and Spot order-list explicit price fields when the catalog-backed
-  `enforce_percent_price_filters` flag is enabled and a weighted-average
-  reference-price provider is supplied. Binance runtime startup now supplies a
-  REST-backed reference-price provider when that flag is enabled, using
-  catalog-backed public reference-price paths, response fields, cache TTLs,
-  source timestamp fields, and max-age policies; catalog defaults keep
-  percent-price enforcement disabled until explicitly enabled.
-- Core order execution pipeline converts synchronous, asynchronous, and null
-  gateway submission failures into conservative `UNKNOWN` `OrderResultEvent`
-  records for journal/projection recovery.
-- Core strategy-signal planner can translate provider-agnostic strategy
-  signals into provider-agnostic order commands using catalog-backed default
-  target/provider selection, deterministic command/client ids, order type and
-  time-in-force selection, configurable feature profiles for scoped
-  provider-feature attributes, and pass-through feature attributes for later
-  provider-specific mapping. HOLD/CANCEL signals do not create new-order
-  commands; cancel/remediation orchestration remains separate.
-- Binance order submission maps both the bot's snake_case feature attributes
-  and Binance-native REST parameter names such as `priceMatch`,
-  `newOrderRespType`, and `selfTradePreventionMode` into the same validated
-  provider command before signing/submission, so catalog profiles can align
-  closely with Binance documentation without bypassing capability checks.
-- Core order commands now carry an explicit provider-agnostic action
-  (`NEW`, `CANCEL`, `MODIFY`) plus target order identifiers. Strategy-generated
-  commands are marked `NEW`, and the Binance execution gateway routes
-  `CANCEL` commands through the existing signed cancel-order endpoint using
-  either target exchange order id or target client order id, and `MODIFY`
-  commands through the configured futures modify-order endpoint using target
-  client/order ids plus the replacement side, quantity, price, or `priceMatch`
-  fields. Replay projection now attaches target-order commands to the target
-  order identity rather than the command's own client id when the target client
-  id or a known target exchange order id is available, so cancel/modify results
-  can resolve the same projected command after restart. Gateway-failure
-  `UNKNOWN` results also carry target identifiers and projection uses them to
-  resolve the affected target order while leaving the unknown status visible to
-  the risk gate. Planned cancel/modify user-data outcomes are no longer
-  classified as external interventions; unmanaged orders and unplanned managed
-  order cancel/replace/amendment events remain manual-review evidence.
-- Core risk gate consumes projected unknown order statuses and blocks new
-  automation by configurable action, with catalog defaults set to manual
-  review.
-- Core risk gate now applies catalog-backed target-order policy for cancel and
-  modify commands before provider mapping. By default, cancel/modify commands
-  require a target order identity, accepting either target exchange order id or
-  target client order id, plus a projected target order, bot-managed ownership,
-  non-conflicting projected target identifiers, a non-terminal target status, and
-  no projected external intervention; violations require manual review unless
-  configured to reject or allow. A stricter client-id-only mode remains
-  configurable. Account/market-level external-intervention, unknown-status, and
-  pending-command policies now apply to new commands by default, while target
-  cancel/modify remediation remains governed by target-order policy unless the
-  catalog opts those controls into target commands.
-- Core risk gate now performs provider-agnostic order sizing checks before
-  provider mapping: invalid numeric fields and non-positive sizing fields are
-  rejected, and optional catalog-configured max quantity/max notional caps can
-  reject or require manual review before any connector receives the command.
-  Those caps can be overridden per provider/environment/account/market/symbol
-  target through catalog-backed `order_limit.target_limits`.
-- HMAC SHA-256, RSA SHA-256 PKCS#8, and Ed25519 signing.
-- Timestamp/recvWindow handling, server-time offset, and deterministic
-  signature payload construction.
-- `exchangeInfo` fetch/parse for symbol metadata, filters, rate limits, order
-  types, time-in-force, trigger protection, precision fields, percent-price
-  average-price windows, and side-specific percent-price multipliers.
-- Basic order create/query/open/cancel endpoints.
-- Spot pegged-order command fields, validation, and request construction.
-- Margin `sideEffectType` and `autoRepayAtCancel` command fields, validation,
-  and request construction.
-- Margin borrow/repay client with catalog-backed path, cross/isolated
-  validation, and typed transaction-result parsing.
-- Margin transfer history and max-transferable clients with catalog-backed
-  paths, documented transfer-history query limits, and typed parsing for
-  transfer rows and transferable amount.
-- Margin OCO, OTO, and OTOCO order-list placement with catalog-backed paths,
-  documented margin controls, legacy OCO parameter mapping, and typed
-  order-list parsing.
-- Margin cross-account, isolated-account, isolated-account-limit, and
-  trade-coefficient risk reads with catalog-backed paths, documented isolated
-  symbol limits, and typed parsing.
-- Margin prevented-match history with catalog-backed path, documented
-  `isIsolated` handling, margin-specific pagination constraints, and shared
-  typed parsing.
-- Margin read-only special-key list/query support with catalog-backed paths and
-  typed parsing. State-changing special-key create/edit/delete/exit workflows
-  remain separate because they mutate account/API-key state.
-- Margin special-key create, IP-edit, delete, and exit-special-key-mode signed
-  requests with catalog-backed paths, documented IP and permission-mode
-  validation, typed creation parsing, and explicit config guards. Catalog
-  defaults keep special-key mutations and exit disabled.
-- Futures `workingType` and `priceProtect` command fields, validation, and
-  request construction.
-- Futures position-mode, margin-type, initial-leverage, and USD-M multi-assets
-  mode request clients with catalog-backed paths, enums, and leverage bounds.
-- Standard USD-M and COIN-M futures config rejects portfolio-margin accounts
-  instead of routing `/papi` semantics through the standard futures connector.
-- Spot, margin, USD-M futures, and COIN-M futures all-orders and account-trade
-  history clients with catalog-backed paths for later reconciliation.
-- Spot commission-rate client with catalog-backed path and typed parsing for
-  standard, special, tax, and BNB-discount commission fields.
-- Spot prevented-match history client with catalog-backed path, documented
-  query-shape validation, and typed STP match parsing.
-- Spot amend-keep-priority client with catalog-backed path, documented
-  identity/new-quantity validation, and typed amended-order parsing.
-- Spot cancel-replace client with catalog-backed path, reused replacement-order
-  validation, documented cancel mode/restriction validation, and typed
-  success/partial-failure parsing.
-- Spot SOR order and SOR test-order clients with catalog-backed paths,
-  SOR-specific request validation, typed SOR fill parsing, and optional
-  commission-rate test parsing.
-- Spot OCO order-list client with catalog-backed path, documented leg-shape
-  validation, and typed order-list/order-report parsing.
-- Spot OTO order-list client with catalog-backed path, documented working and
-  pending order validation, and shared typed order-list/order-report parsing.
-- Spot OTOCO order-list client with catalog-backed path, documented working
-  order and pending OCO-pair validation, and shared typed order-list parsing.
-- Spot OPO order-list client with catalog-backed path, documented working
-  order and pending order validation, and typed order-list parsing.
-- USD-M and COIN-M futures cancel-all and countdown-cancel-all clients with
-  catalog-backed paths for outage and emergency-order cleanup workflows.
-- USD-M and COIN-M futures batch-order placement clients with catalog-backed
-  paths, max-5 batch validation, reused new-order validation, and per-item
-  error parsing.
-- USD-M and COIN-M futures modify-order clients with catalog-backed paths,
-  documented order-id/client-order-id identity, LIMIT modification fields, and
-  price-match collision validation.
-- USD-M and COIN-M futures modify-multiple-orders clients with catalog-backed
-  paths, max-5 batch validation, reused modify-order validation, and per-item
-  error parsing.
-- USD-M and COIN-M futures modify-history clients with catalog-backed paths,
-  documented order-id/client-order-id query shape, max-100 limit validation,
-  and amendment before/after parsing.
-- USD-M and COIN-M futures cancel-multiple-orders clients with catalog-backed
-  paths and documented order-id/client-order-id batch-shape validation.
-- USD-M and COIN-M futures balance, account-information, and position-risk
-  snapshot clients with catalog-backed paths for risk and reconciliation.
-- USD-M and COIN-M futures ADL quantile and force-order history clients with
-  catalog-backed paths for liquidation/ADL risk monitoring.
-- USD-M and COIN-M futures income-history and funding-rate-history clients
-  with catalog-backed paths for funding-cost and realized-PnL reconciliation.
-- Catalog-backed order feature defaults for price-match, futures trigger
-  controls, pegged-order, and margin side-effect controls.
-- REST rate-limit header observation.
-- User-data listen-key/listen-token lifecycle where configured.
-- Public WebSocket stream URI planning and reconnect/rollover policy.
-- Spot OPOCO order-list placement with catalog-backed path, documented working
-  order validation, pending OCO-pair validation, and typed order-list parsing.
-- Spot WebSocket API order placement with configurable API endpoint, signed
-  `order.place` request generation, outbound WebSocket transport support, and
-  correlated response/error parsing plus optional exchangeInfo validation before
-  connection/open-send.
-- Binance user-data event mapper for Spot/Margin execution reports and balance
-  updates plus USD-M/COIN-M futures order-trade and account-update payloads
-  into core Avro execution, balance, and position envelopes.
-- Binance user-data event publisher listener that maps private WebSocket text
-  payloads and publishes the resulting core Avro envelopes through the core
-  event bus, preserving provider parsing inside the Binance module.
-- Binance user-data stream runtime component that starts the REST listen-key or
-  listen-token lifecycle, opens a managed private WebSocket supervisor on the
-  returned stream id, schedules renewal, restarts token-style streams that have
-  no keepalive path, and closes REST lifecycle only when Binance exposes a
-  close path.
-- Binance exchange module opt-in wiring for user-data runtime via
-  catalog-backed `user_data.runtime_enabled`. Defaults keep it disabled; when
-  enabled, startup requires an available `TradingEventBus` so private
-  account/order events cannot be silently dropped.
-- Binance market-data event mapper and publisher listener for documented public
-  trade, aggregate trade, book ticker, depth snapshot, depth delta, mark price,
-  and kline stream payloads into core Avro market-data envelopes.
-- Binance market-data stream runtime component that opens configured public
-  raw or combined streams, uses the managed WebSocket supervisor for rollover
-  and reconnects, and publishes normalized core market-data events through the
-  event bus.
-- Binance exchange module opt-in wiring for market-data runtime via
-  catalog-backed `market_data.runtime_enabled`. Defaults keep it disabled with
-  explicit `connection_mode`, `route`, and `streams` parameters; when enabled,
-  startup requires configured streams and an available `TradingEventBus`.
-- Binance REST snapshot event mapper for open-order, futures account/balance,
-  futures position-risk, cross-margin account, and isolated-margin account
-  snapshots into core Avro order-result, balance, and position reconciliation
-  envelopes.
-- Binance REST snapshot event publisher boundary that publishes mapped
-  reconciliation envelopes through the core event bus with fresh observation
-  timestamps.
-- Catalog-backed Binance REST snapshot reconciliation runtime, disabled by
-  default, with configurable interval and snapshot-source toggles for open
-  orders, futures balances/account/positions, and margin account snapshots.
-- Binance reconciliation runs aggregate configured snapshot sources before
-  publishing and suppress duplicate reconciliation event IDs inside a run.
-- Binance reconciliation runtime keeps a catalog-configured bounded in-memory
-  window of recently published event IDs and suppresses repeats across runtime
-  runs.
-- When a core trading-event journal is available, Binance reconciliation
-  startup seeds that bounded event-ID window from journaled REST reconciliation
-  events to reduce duplicate publication after process restart.
-
-Binance parity gaps to close before claiming full connector support:
-
-- Margin: active margin transfer placement and margin OPO/OPOCO placement are
-  not exposed in the current Binance margin docs; do not claim them until
-  Binance documents endpoints for them.
-- Options: `/eapi` order request parameter naming, batch order placement,
-  cancel-all, cancel-by-underlying, and cancel-multiple order routing,
-  post-only handling, read-only
-  margin-account/position snapshots, MMP get/set/reset request coverage,
-  open-order, order-history, and order-history-correlated account-trade
-  reconciliation inputs, commission reads, and exercise-record reads are
-  covered by catalog-backed REST clients and tests. Core execution, balance,
-  position, and risk user-data stream mappings are covered, but options parity
-  is not complete.
-  Keep real options trading disabled unless REST snapshot comparison is backed
-  by durable projection state and projection-backed ordering is fully
-  implemented and tested against current Binance documentation.
-- All products: extend provider `OrderExecutionGateway` adapters beyond
-  new-order submission and initial Binance cancel/modify routing, extend
-  strategy-signal planning beyond deterministic first-order command
-  construction and initial scoped feature profiles into
-  market-condition/provider-feature optimization policies, and extend the
-  reconciliation runtime with durable replay-safe ordering and
-  projection-backed idempotency around stream gaps, process restart, and
-  unknown execution status. Target cancel/modify identity is now normalized
-  from typed command fields plus provider-agnostic target attributes before
-  risk, replayed order-command projection, gateway identity checks, and
-  pre-gateway rejection and gateway-failure recovery results.
-- All products: add policy handling for manual/external order and position
-  intervention. Unknown external orders, unplanned managed-order cancel/modify,
-  and manual position closes or size changes now stop blind new-order
-  automation at the order-risk-gate level for order interventions and
-  conservative no-managed-order position interventions. The stop action is
-  configurable as manual review, rejection, or explicit allow per order/position
-  intervention class, defaulting to manual review. The missing part is the
-  remediation orchestrator that executes stand-down, re-plan, hedge, or
-  fully automated workflows from the read-only recommendations and projected
-  remediation decisions. The first conservative operator-review workflow can
-  publish deterministic acknowledgement events for matching order/position
-  interventions when explicitly enabled, and the orchestrator now honors its
-  top-level disabled flag at runtime as well as through bean wiring. Re-plan,
-  stand-down, hedge, no-op expiry, operator UI, and multi-order/position
-  acknowledgement workflows remain open.
-- All products: extend exchange-filter enforcement beyond first new-order,
-  batch-placement, Spot order-list placement, cancel-replace replacement,
-  futures modify, Spot amend, Spot SOR, and Spot WebSocket API order-placement
-  coverage to any remaining state-changing order endpoints and extend
-  provider-agnostic planner/risk checks beyond the initial sizing/notional guard
-  before provider-specific command mapping.
-
-## Target Stack
-
-- Runtime: Java 25, Spring Boot 4, Gradle 9.5
-- Provider module: Binance first, later one module per exchange
-- Strategy module: LFA first, later one module per strategy
-- Messaging: Redpanda using the Kafka API
-- Serialization: Avro with Schema Registry
-- Journal: Chronicle Queue for critical append-only event history
-- Query storage: PostgreSQL/TimescaleDB or Cloud SQL PostgreSQL
-- Archive storage: Google Cloud Storage
-- Secrets: Google Secret Manager
-- Container runtime: Docker locally, Kubernetes on Google Cloud
-- Deployment: Artifact Registry, Cloud Build, GKE, Cloud Deploy or `gke-deploy`
-- Observability: structured JSON logs, metrics, traces, alerts
-
-## Phase 0: Architecture Baseline
-
-Commit:
-
-```text
-docs(architecture): define production trading bot roadmap
-```
-
-Deliver:
-
-- Document the three-module architecture.
-- Define runtime profiles: `live`, `backtest`.
-- Define exchange environments: `demo`, `real`.
-- Define runtime target identity: `provider/environment/account/market`.
-- Define mutable vs immutable runtime config.
-- Document the testing and warning policy.
-
-Tests:
-
-- Unit tests for module factories.
-- Integration test proving runtime provider/strategy modules are discovered.
-
-Gate:
-
-- The codebase makes it clear what changes between demo and real.
-- `./gradlew build` is green.
-
-## Phase 1: Complete Config Model
-
-Commit:
-
-```text
-feat(config): formalize provider catalog and runtime override model
-```
-
-Deliver:
-
-- Complete catalog schema.
-- Complete Binance connector config outside `exchangeInfo`:
-  REST endpoints, WebSocket endpoints, user-data stream lifecycle, timeouts,
-  retry/backoff, `recvWindow`, timestamp unit, key type, required permissions,
-  order response defaults, and futures account expectations.
-- Add schema/version validation and migration policy.
-- Make runtime override writes atomic.
-- Add watcher debounce or content-hash reload protection.
-
-Tests:
-
-- Config-loader tests using checked-in realistic config.
-- Override precedence tests: runtime > environment > default.
-- Rejection tests for unknown paths, no-op overrides, immutable target changes,
-  missing provider config, disabled environment/account/market.
-
-Gate:
-
-- Config is validated before startup.
-- Unsafe runtime reloads are rejected without replacing the active config.
-
-## Phase 2: Binance Connector Foundation
-
-Commit:
-
-```text
-feat(exchange-binance): implement Binance connector lifecycle
-```
-
-Deliver:
-
-- Signed REST client.
-- Server-time sync.
-- `exchangeInfo` metadata fetch and cache.
-- Rate-limit header tracking.
-- User-data stream create/keepalive/close.
-- WebSocket connect/reconnect and 24-hour rollover policy.
-- Documentation parity register for every enabled Binance product family.
-
-Tests:
-
-- Unit tests for signing, request timestamping, URL construction, and retry
-  decisions.
-- Integration tests against fixture responses for `exchangeInfo`, listen-key,
-  rate-limit headers, and error cases.
-
-Gate:
-
-- Binance demo metadata loads.
-- User-data lifecycle works against demo credentials when enabled.
-- Connector capability flags do not claim request fields that are not actually
-  present in command validation and request construction.
-
-## Phase 2A: Binance Connector Parity Hardening
-
-Commit:
-
-```text
-feat(exchange-binance): close documented Binance capability gaps
-```
-
-Deliver:
-
-- Spot order-list, prevented-match, and commission-rate clients where needed by
-  execution/reconciliation.
-- No additional documented margin trade/account endpoints remain in scope
-  except endpoints Binance has not exposed in the current docs.
-- Keep completed futures batch/modify endpoint support and portfolio-margin
-  boundary checks covered while closing the remaining spot, margin, and
-  all-product gaps.
-- User-data and market-data WebSocket payload mappers to core Avro events.
-  Initial coverage exists; keep extending it when new stream families are wired.
-- REST snapshot reconciliation clients for account, balances, open orders,
-  positions, and recent trades.
-
-Tests:
-
-- Request-factory tests for every documented parameter combination.
-- Fixture parser tests for user-data and market-data stream payloads.
-- Reconciliation tests for REST snapshot plus user-stream event ordering.
-- Live smoke tests remain opt-in. They load the active live target and must
-  require an additional explicit guard before running against real targets.
-
-Gate:
-
-- Every enabled Binance market type has a parity matrix showing implemented,
-  deliberately disabled, and unsupported-by-product features.
-- No execution feature depends on undocumented behavior.
-
-## Phase 3: Trading Event Model
-
-Commit:
-
-```text
-feat(events): add Avro trading event schemas
-```
-
-Deliver:
-
-- Avro schemas for market data, order command, order result, execution report,
-  balance update, position update, risk decision, strategy signal, and config
-  change.
-- Schema compatibility rules.
-- Generated Java classes.
-
-Tests:
-
-- Schema compatibility tests.
-- Serialization round-trip tests with explicit expected records.
-
-Gate:
-
-- Core event flow uses typed schemas, not raw maps or ad hoc strings.
-
-## Phase 4: Redpanda Integration
-
-Commit:
-
-```text
-feat(messaging): integrate Redpanda event bus
-```
-
-Deliver:
-
-- Local Redpanda Docker Compose.
-- Topic naming convention.
-- Producers, consumers, Schema Registry, Avro serialization, dead-letter topics.
-
-Tests:
-
-- Testcontainers integration tests for publish/consume/replay.
-- Dead-letter routing tests.
-
-Gate:
-
-- Lifecycle, metadata, account, order, risk, and strategy events are replayable.
-
-## Phase 5: Journal And Storage
-
-Commit:
-
-```text
-feat(journal): add durable trading event journal
-```
-
-Deliver:
-
-- Chronicle Queue journal for critical events.
-- PostgreSQL-compatible JDBC projection store. TimescaleDB hypertable tuning
-  and a production migration runner remain open.
-- GCS archive layout.
-- Recovery process from journal and Redpanda.
-- Archive uploader worker that reads journaled events and writes outside the
-  hot path.
-- Projection handlers that rebuild account, order, position, risk, config, and
-  strategy views from events.
-
-Tests:
-
-- Journal append/read/replay tests with expected event sequences.
-- Restart recovery integration test.
-
-Gate:
-
-- Runtime state can be rebuilt after restart.
-- Hot-path trading decisions do not block on database writes.
-- GCS/database outages do not block journal append or exchange execution.
-
-## Phase 6: Risk And Execution Core
-
-Commit:
-
-```text
-feat(execution): add risk-gated order execution pipeline
-```
-
-Deliver:
-
-- Order command pipeline.
-- Risk checks before exchange submission.
-- Idempotent client order IDs and configurable in-memory command/idempotency
-  key dedupe, followed by durable projection-backed idempotency.
-- Unknown-status reconciliation.
-- Cancel/replace handling.
-- Reduce-only emergency path.
-- Position/account synchronization.
-- Exchange filter enforcement using parsed `exchangeInfo` metadata.
-- Protective order placement and verification.
-- Explicit order state machine covering pending, accepted, partially filled,
-  filled, canceled, rejected, expired, unknown, and reconciled states.
-
-Tests:
-
-- Unit tests for risk decisions and order ID generation.
-- Integration tests for accepted, rejected, unknown, cancel, replace, and
-  reconciliation flows.
-
-Gate:
-
-- Every order is traceable from strategy signal to exchange/account state.
-- Unknown exchange status cannot cause blind duplicate orders.
-- No strategy can bypass risk, idempotency, or reconciliation.
-
-## Phase 7: Strategy Plugin Boundary
-
-Commit:
-
-```text
-feat(strategy): add strategy module contract
-```
-
-Deliver:
-
-- Strategy lifecycle contract.
-- Market-data subscription model.
-- Signal output schema.
-- Strategy config section.
-- Backtest/live parity boundary.
-
-Tests:
-
-- Unit tests for strategy registration and lifecycle.
-- Integration test proving strategy output reaches risk input.
-
-Gate:
-
-- LFA can be implemented without changing exchange/risk/execution internals.
-
-## Phase 8: LFA Strategy Implementation
-
-Commit:
-
-```text
-feat(strategy-lfa): implement liquidation fragility anticipator
-```
-
-Deliver:
-
-- LFA feature model from `lfa.txt`.
-- Crowding, fragility, trigger, composite score, entry, sizing, and exit logic.
-- Strategy config and validation.
-
-Tests:
-
-- Unit tests for each feature formula using explicit input rows and expected
-  numeric outputs.
-- Integration tests over fixture market windows with expected signals.
-
-Gate:
-
-- Strategy behavior is reproducible from fixture data.
-
-## Phase 9: Backtesting Runtime
-
-Commit:
-
-```text
-feat(backtest): add deterministic backtest runtime
-```
-
-Deliver:
-
-- Historical data ingestion.
-- Deterministic replay clock.
-- Same strategy API as live.
-- Execution assumptions and performance report.
-
-Tests:
-
-- Replay tests with fixed historical slices and expected trades.
-- Stress tests: latency, fees, slippage, stale book, delayed entries.
-
-Gate:
-
-- Strategy can run in backtest without changing strategy code.
-
-## Phase 10: Docker Packaging
-
-Commit:
-
-```text
-build(container): add production Docker image
-```
-
-Deliver:
-
-- Multi-stage Dockerfile.
-- Non-root runtime user.
-- Health/readiness endpoints.
-- Mounted external config.
-- No baked-in secrets.
-
-Tests:
-
-- Container smoke test with external config.
-- Image vulnerability scan.
-
-Gate:
-
-- Container runs locally against demo config.
-
-## Phase 11: CI Pipeline
-
-Commit:
-
-```text
-ci: add build test scan and image publishing pipeline
-```
-
-Deliver:
-
-- Gradle build/test.
-- Dependency vulnerability scan.
-- Container build.
-- Artifact Registry push.
-- Avro compatibility check.
-- Integration-test profile.
-
-Tests:
-
-- CI runs unit, integration, schema, and container smoke tests.
-
-Gate:
-
-- Failed tests, schema breaks, warnings, or critical CVEs block deployment.
-
-## Phase 12: Kubernetes Deployment
-
-Commit:
-
-```text
-deploy(k8s): add GKE manifests and runtime configuration
-```
-
-Deliver:
-
-- Kubernetes manifests or Helm chart.
-- ConfigMap for non-secret config.
-- Secret Manager integration for API keys.
-- Probes, resource requests/limits, disruption policy.
-- Redpanda deployment or managed Redpanda choice.
-
-Tests:
-
-- Manifest validation.
-- GKE demo namespace smoke test.
-
-Gate:
-
-- Bot deploys to GKE demo without manual shell edits.
-
-## Phase 13: Google Cloud Automation
-
-Commit:
-
-```text
-deploy(gcp): automate build and deployment to GKE
-```
-
-Deliver:
-
-- Cloud Build trigger.
-- Artifact Registry image.
-- GKE deployment step.
-- Demo automatic deployment.
-- Manual approval gate before real.
-- Separate service accounts and IAM.
-
-Tests:
-
-- Deployment pipeline dry run.
-- Demo promotion test.
-
-Gate:
-
-- Protected branch deploys demo automatically.
-- Real deployment requires explicit approval.
-
-## Phase 14: Observability And Operations
-
-Commit:
-
-```text
-feat(observability): add metrics traces logs and alerts
-```
-
-Deliver:
-
-- Structured logs and correlation IDs.
-- Exchange latency, order lifecycle, Redpanda lag, risk rejection metrics.
-- Alerts for disconnects, stale data, failed reconciliation, excessive rejects.
-
-Tests:
-
-- Metrics presence tests.
-- Alert rule validation.
-
-Gate:
-
-- We can explain what happened, when, why, and what the bot did.
-
-## Phase 15: Binance Demo Trial
-
-Commit:
-
-```text
-test(binance-demo): run controlled demo execution trial
-```
-
-Deliver:
-
-- Demo account trial checklist.
-- Small controlled order flow.
-- Reconciliation, latency, risk, restart, and reload reports.
-
-Tests:
-
-- Controlled demo account integration run.
-
-Gate:
-
-- Logs, journal, Redpanda events, account state, and exchange state reconcile.
-
-## Phase 16: Real Readiness
-
-Commit:
-
-```text
-chore(release): prepare real trading readiness checklist
-```
-
-Deliver:
-
-- Real account secret setup.
-- API key permission audit.
-- Trading limits.
-- Kill switch.
-- Alert contacts.
-- Rollback procedure.
-- First-real-run playbook.
-
-Gate:
-
-- Real mode is enabled only after demo proves the same code path.
+This file is the durable handoff plan for future chats. Keep it current after every completed phase. It must tell a new chat what exists, what is deliberately blocked, and what to do next.
+
+## Operating Rules
+
+- Demo and real trading must use the same codebase. Switching between them must be done through profile, configuration, credentials, and deployment controls only.
+- The bot is not a toy dry-run engine. Simulation and backtesting are separate runtimes; live/demo trading must exercise the same execution, risk, journal, projection, and reconciliation paths.
+- Source-controlled defaults live in `config/catalog.json`. Runtime environment config should select and narrow behavior, not fork product logic.
+- Provider modules declare and validate exchange capability, translate provider commands, and execute provider operations. Provider modules must not contain strategy logic.
+- Strategy modules emit provider-agnostic intent or signals. Core services handle risk, reconciliation confidence, projection, planning, idempotency, and execution admission.
+- Exchange-side remediation must never bypass `OrderExecutionPipeline`, `OrderRiskGate`, idempotency, the event journal, projection, reconciliation confidence, or the provider gateway.
+- Every phase should run focused tests where relevant, `spotlessApply`, and the full Gradle check before commit.
+- After every push, verify GitHub Actions before treating the phase as complete.
+- Update this file after every meaningful capability change so a new chat can resume without reading commit history.
+
+## Current Implemented Capabilities
+
+### Profile And Configuration
+
+- The runtime profile/config system supports the same application code for demo and real environments.
+- Configuration catalogs include exchange/provider, execution, risk, idempotency, reconciliation, and intervention/remediation defaults.
+- Operator API access can be protected with `X-Operator-Token` when enabled by config.
+- Automated remediation policy is configurable under `trading.intervention.automated-policy`.
+- Conservative remediation defaults are configured: unknown or high-risk intervention types route to operator review or non-executable planning instead of live exchange action.
+
+### Events, Projection, And Recovery
+
+- Core trading state is modeled through persisted events and replayable projections.
+- Order command, risk decision, order result, reconciliation, manual intervention, manual review, remediation recommendation, and remediation decision events are projected.
+- Replay rebuilds the order projection without issuing live side effects.
+- Unknown exchange outcomes are represented as explicit projection markers instead of being treated as successful or failed silently.
+- Projection-backed duplicate detection helps prevent repeated command effects after restart.
+
+### Execution And Risk
+
+- `OrderCommand` execution is routed through an execution pipeline with a risk gate before provider submission.
+- The risk gate evaluates order limits, target order constraints, reconciliation confidence, manual interventions, unresolved command state, and unknown order outcomes.
+- Runtime idempotency tracking exists, with projection-backed checks for restart recovery.
+- Gateway failures publish unknown order result markers so reconciliation can resolve the true exchange state later.
+- Current exchange remediation command plans are intentionally non-executable until executor policy and command-specific safety controls exist.
+
+### Binance Futures Foundations
+
+- Binance provider foundations exist for REST signing, server time handling, exchange information, order gateway behavior, user-data handling, and reconciliation support.
+- Binance USD-M futures demo usage is the current documented target profile.
+- Provider capability and exchange metadata are intended to constrain order construction and validation before any live exchange call.
+
+### Manual Intervention Detection
+
+- External or user-created orders and positions can be projected as interventions.
+- Managed order changes can be detected and surfaced as intervention state.
+- Operator-facing intervention state includes orders, positions, manual review items, recommendations, decisions, and generated command plans.
+- Operator acknowledgement endpoints exist for intervention records.
+
+### Manual Review And Remediation Recommendations
+
+- Manual review decisions can be recorded and projected.
+- The remediation advisor recommends actions for external orders, managed order changes, flat positions, open positions, unknown positions, and manual review outcomes.
+- Supported remediation action labels include `OPERATOR_REVIEW`, `REPLAN_FROM_PROJECTION`, `HEDGE_OR_REPLAN`, `ADOPT`, `AMEND`, `REDUCE`, `CLOSE`, `HEDGE`, `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, and `IGNORE`.
+- Recommendations remain advisory until a decision is recorded.
+
+### Automated Remediation Decisions
+
+- A remediation decision service can publish decisions from current matching recommendations.
+- An automated decision service can scan current recommendations and publish remediation decision events when explicitly enabled.
+- Automated decisions dedupe by recommendation event id.
+- Automated decision batch size is capped by `max_decisions_per_run`.
+- `OPERATOR_REVIEW` is skipped by default for automation unless config explicitly allows publishing review decisions.
+- The operator API can trigger automated decision publication with `POST /internal/interventions/remediation/automated-decisions`.
+- Automated decision publication does not execute exchange operations.
+
+### Remediation Command Planning
+
+- `InterventionRemediationCommandPlanner` converts persisted remediation decisions into internal command plans.
+- Command plan statuses include `READY`, `NO_ACTION`, `NOT_SUPPORTED`, `STALE_PROJECTION`, and `INSUFFICIENT_DATA`.
+- The planner validates that the current projection still matches the decision target before producing a ready plan.
+- The planner refuses stale targets, missing intervention records, invalid position quantities, and unsupported actions.
+- All current command plans have `exchangeExecutable=false`.
+- The operator API exposes generated plans with `GET /internal/interventions/remediation/plans`.
+
+### Operator API Surface
+
+- `GET /internal/interventions/orders` lists projected order interventions.
+- `GET /internal/interventions/positions` lists projected position interventions.
+- `GET /internal/interventions/manual-reviews` lists manual review state.
+- `GET /internal/interventions/remediation` lists remediation recommendations.
+- `GET /internal/interventions/remediation/decisions` lists remediation decisions.
+- `GET /internal/interventions/remediation/plans` lists generated command plans.
+- `POST /internal/interventions/remediation/decisions` records a remediation decision.
+- `POST /internal/interventions/remediation/automated-decisions` triggers automated decision publication when enabled.
+- `POST /internal/interventions/orders/acknowledgements` acknowledges order interventions.
+- `POST /internal/interventions/positions/acknowledgements` acknowledges position interventions.
+
+### Documentation
+
+- Current-state documentation exists for the bot's architecture, supported scenarios, and limitations.
+- A user manual exists for starting and using the bot in the current Binance USD-M futures demo profile.
+- Documentation explicitly states that the current bot can detect, recommend, decide, and plan remediation, but cannot yet execute remediation on the exchange.
+
+## Current Limitations And Explicit Blocks
+
+- The bot is not yet ready for unattended real-money autonomous trading.
+- No remediation executor exists that can turn generated plans into exchange commands.
+- No remediation plan is currently marked `exchangeExecutable=true`.
+- Automated remediation currently publishes decisions only; it does not place, cancel, reduce, hedge, adopt, or amend exchange orders.
+- Automated decision execution is currently triggered through the operator API; there is no scheduled live remediation loop yet.
+- Pause actions are currently labels/plans only. They do not yet block strategy admission or order execution.
+- Position remediation does not yet have a complete bounded sizing policy for close, reduce, or hedge actions.
+- Position remediation does not yet construct reduce-only orders or hedge orders.
+- External order adoption semantics are not yet defined enough for live execution.
+- Managed order amendment semantics are not yet defined enough for live execution.
+- Manual/external positions can be evaluated, but automatic action against them remains blocked until executor policy and sizing rules are implemented.
+- There is no complete production deployment package with secrets management, metrics, alerts, dashboards, or runbooks.
+- There is no deterministic backtest runtime that proves strategy behavior across historical data.
+- The LFA strategy lifecycle, feature calculation, signal generation, and position-management loop are not complete enough to treat it as a production autonomous strategy.
+
+## Current Demo USD-M Futures User Flow
+
+- Start the bot with the demo profile and Binance USD-M futures demo credentials.
+- Use the same application code that would be used for real trading; only profile, credentials, endpoint, and risk/config values should differ.
+- Inspect interventions through the operator API.
+- Inspect remediation recommendations for external orders, changed managed orders, and positions.
+- Record manual remediation decisions through the operator API if desired.
+- Enable automated decision publication only when the configured policy is understood.
+- Trigger automated decision publication through the operator API when enabled.
+- Inspect generated remediation command plans.
+- Treat all generated remediation command plans as non-executable until the remediation executor is implemented.
+
+## Next Work In Dependency Order
+
+1. Add remediation executor policy configuration.
+2. Add a remediation executor service that consumes current command plans but starts in dry-run/report-only mode.
+3. Add an operator dry-run endpoint that explains exactly what each ready plan would do and why it is or is not executable.
+4. Implement the first executable remediation operation: external order `CLOSE` as a cancel command routed through the existing execution pipeline, risk gate, idempotency, event journal, projection, and provider gateway.
+5. Add deterministic remediation command ids and idempotency keys so repeated automation cycles cannot duplicate exchange actions.
+6. Add pause governance state for `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions.
+7. Integrate pause governance into strategy admission and order execution admission.
+8. Add bounded position remediation sizing policy for `REDUCE`, `CLOSE`, and `HEDGE` before any position action can be executable.
+9. Implement position close/reduce planning with reduce-only constraints and provider capability validation.
+10. Implement hedge planning only after hedge sizing, margin mode, leverage, symbol capability, and account risk constraints are explicit.
+11. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
+12. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
+13. Add a scheduled/live automated remediation runner after executor safety and idempotency are in place.
+14. Expand persistence and recovery tests for automated decisions, generated plans, pause state, and executable remediation commands.
+15. Complete production operations work: deployment config, secrets handling, observability, alerting, runbooks, and incident procedures.
+16. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
+17. Keep the user manual and current-state documentation aligned after each capability change.
