@@ -27,6 +27,7 @@ class InterventionConfigurationTest {
         contextRunner.run(context -> assertThat(context)
                 .hasSingleBean(InterventionProperties.class)
                 .hasSingleBean(InterventionAcknowledgementService.class)
+                .hasSingleBean(InterventionRemediationCommandPlanner.class)
                 .doesNotHaveBean(InterventionRemediationOrchestrator.class)
                 .doesNotHaveBean(InterventionOperatorController.class));
     }

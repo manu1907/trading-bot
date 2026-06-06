@@ -1,0 +1,351 @@
+package io.github.manu.intervention;
+
+import io.github.manu.events.v1.RemediationDecisionEvent;
+import io.github.manu.projection.TradingStateProjection;
+
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+public final class InterventionRemediationCommandPlanner {
+
+    private static final String SCOPE_ORDER = "ORDER";
+    private static final String SCOPE_POSITION = "POSITION";
+    private static final String ACTION_OPERATOR_REVIEW = "OPERATOR_REVIEW";
+    private static final String ACTION_REPLAN_FROM_PROJECTION = "REPLAN_FROM_PROJECTION";
+    private static final String ACTION_HEDGE_OR_REPLAN = "HEDGE_OR_REPLAN";
+    private static final String ACTION_ADOPT = "ADOPT";
+    private static final String ACTION_AMEND = "AMEND";
+    private static final String ACTION_REDUCE = "REDUCE";
+    private static final String ACTION_CLOSE = "CLOSE";
+    private static final String ACTION_HEDGE = "HEDGE";
+    private static final String ACTION_PAUSE_SYMBOL = "PAUSE_SYMBOL";
+    private static final String ACTION_PAUSE_ACCOUNT = "PAUSE_ACCOUNT";
+    private static final String ACTION_IGNORE = "IGNORE";
+
+    private final TradingStateProjection projection;
+
+    public InterventionRemediationCommandPlanner(TradingStateProjection projection) {
+        this.projection = Objects.requireNonNull(projection, "projection");
+    }
+
+    public RemediationCommandPlan plan(RemediationDecisionEvent event) {
+        Objects.requireNonNull(event, "event");
+        String action = requireText(event.getAction(), "action");
+        String scope = requireText(event.getScope(), "scope");
+        return switch (scope) {
+            case SCOPE_ORDER -> orderPlan(event, action);
+            case SCOPE_POSITION -> positionPlan(event, action);
+            default -> unsupported(event, Operation.UNSUPPORTED, "remediation:unsupported_scope");
+        };
+    }
+
+    private RemediationCommandPlan orderPlan(RemediationDecisionEvent event, String action) {
+        String provider = requireText(event.getProvider(), "provider");
+        String environment = requireText(event.getEnvironment(), "environment");
+        String account = requireText(event.getAccount(), "account");
+        String market = requireText(event.getMarket(), "market");
+        String symbol = requireText(event.getSymbol(), "symbol");
+        String clientOrderId = requireText(event.getClientOrderId(), "clientOrderId");
+        TradingStateProjection.OrderState order = projection.order(
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        clientOrderId
+                )
+                .orElse(null);
+        if (order == null) {
+            return stale(event, Operation.UNSUPPORTED, "projection:order_missing");
+        }
+        if (!order.externalIntervention()) {
+            return stale(event, Operation.UNSUPPORTED, "projection:order_intervention_resolved");
+        }
+        String interventionReason = text(event.getInterventionReason());
+        if (interventionReason != null && !interventionReason.equals(text(order.interventionReason()))) {
+            return stale(event, Operation.UNSUPPORTED, "projection:order_intervention_reason_mismatch");
+        }
+
+        Map<String, String> attributes = baseAttributes(event);
+        putOrderAttributes(attributes, order);
+        return switch (action) {
+            case ACTION_ADOPT -> ready(event, Operation.ADOPT_ORDER, false, "remediation:adopt_order", attributes);
+            case ACTION_AMEND -> ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
+            case ACTION_CLOSE -> ready(event, Operation.CANCEL_ORDER, false, "remediation:cancel_external_order", attributes);
+            case ACTION_REPLAN_FROM_PROJECTION -> ready(
+                    event,
+                    Operation.REPLAN_FROM_PROJECTION,
+                    false,
+                    "remediation:replan_from_projection",
+                    attributes
+            );
+            case ACTION_PAUSE_SYMBOL -> ready(event, Operation.PAUSE_SYMBOL, false, "remediation:pause_symbol", attributes);
+            case ACTION_PAUSE_ACCOUNT -> ready(event, Operation.PAUSE_ACCOUNT, false, "remediation:pause_account", attributes);
+            case ACTION_IGNORE -> ready(event, Operation.IGNORE, false, "remediation:ignore", attributes);
+            case ACTION_OPERATOR_REVIEW -> unsupported(event, Operation.OPERATOR_REVIEW, "remediation:operator_review_required");
+            default -> unsupported(event, Operation.UNSUPPORTED, "remediation:unsupported_order_action");
+        };
+    }
+
+    private RemediationCommandPlan positionPlan(RemediationDecisionEvent event, String action) {
+        String provider = requireText(event.getProvider(), "provider");
+        String environment = requireText(event.getEnvironment(), "environment");
+        String account = requireText(event.getAccount(), "account");
+        String market = requireText(event.getMarket(), "market");
+        String symbol = requireText(event.getSymbol(), "symbol");
+        String positionSide = requireText(event.getPositionSide(), "positionSide");
+        TradingStateProjection.PositionState position = projection.position(
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        positionSide
+                )
+                .orElse(null);
+        if (position == null) {
+            return stale(event, Operation.UNSUPPORTED, "projection:position_missing");
+        }
+        if (!position.externalIntervention()) {
+            return stale(event, Operation.UNSUPPORTED, "projection:position_intervention_resolved");
+        }
+        String interventionReason = text(event.getInterventionReason());
+        if (interventionReason != null && !interventionReason.equals(text(position.interventionReason()))) {
+            return stale(event, Operation.UNSUPPORTED, "projection:position_intervention_reason_mismatch");
+        }
+
+        Map<String, String> attributes = baseAttributes(event);
+        putPositionAttributes(attributes, position);
+        return switch (action) {
+            case ACTION_ADOPT -> ready(event, Operation.ADOPT_POSITION, false, "remediation:adopt_position", attributes);
+            case ACTION_CLOSE -> positionSizePlan(event, position, Operation.CLOSE_POSITION, "remediation:close_position", attributes);
+            case ACTION_REDUCE -> positionSizePlan(event, position, Operation.REDUCE_POSITION, "remediation:reduce_position", attributes);
+            case ACTION_HEDGE -> positionSizePlan(event, position, Operation.HEDGE_POSITION, "remediation:hedge_position", attributes);
+            case ACTION_HEDGE_OR_REPLAN -> hedgeOrReplanPlan(event, position, attributes);
+            case ACTION_REPLAN_FROM_PROJECTION -> ready(
+                    event,
+                    Operation.REPLAN_FROM_PROJECTION,
+                    false,
+                    "remediation:replan_from_projection",
+                    attributes
+            );
+            case ACTION_PAUSE_SYMBOL -> ready(event, Operation.PAUSE_SYMBOL, false, "remediation:pause_symbol", attributes);
+            case ACTION_PAUSE_ACCOUNT -> ready(event, Operation.PAUSE_ACCOUNT, false, "remediation:pause_account", attributes);
+            case ACTION_IGNORE -> ready(event, Operation.IGNORE, false, "remediation:ignore", attributes);
+            case ACTION_OPERATOR_REVIEW -> unsupported(event, Operation.OPERATOR_REVIEW, "remediation:operator_review_required");
+            default -> unsupported(event, Operation.UNSUPPORTED, "remediation:unsupported_position_action");
+        };
+    }
+
+    private RemediationCommandPlan hedgeOrReplanPlan(
+            RemediationDecisionEvent event,
+            TradingStateProjection.PositionState position,
+            Map<String, String> attributes
+    ) {
+        attributes.put("alternative_operation", Operation.REPLAN_FROM_PROJECTION.name());
+        return positionSizePlan(event, position, Operation.HEDGE_POSITION, "remediation:hedge_or_replan", attributes);
+    }
+
+    private RemediationCommandPlan positionSizePlan(
+            RemediationDecisionEvent event,
+            TradingStateProjection.PositionState position,
+            Operation operation,
+            String reason,
+            Map<String, String> attributes
+    ) {
+        BigDecimal amount = decimal(position.positionAmount());
+        if (amount == null) {
+            return insufficientData(event, operation, "projection:position_amount_invalid", attributes);
+        }
+        if (amount.compareTo(BigDecimal.ZERO) == 0) {
+            return noAction(event, operation, "projection:position_already_flat", attributes);
+        }
+        attributes.put("position_abs_amount", amount.abs().toPlainString());
+        attributes.put("exchange_executable", "false");
+        attributes.put("exchange_execution_blocker", "bounded_position_sizing_policy_missing");
+        return ready(event, operation, false, reason, attributes);
+    }
+
+    private RemediationCommandPlan ready(
+            RemediationDecisionEvent event,
+            Operation operation,
+            boolean exchangeExecutable,
+            String reason,
+            Map<String, String> attributes
+    ) {
+        attributes.put("exchange_executable", Boolean.toString(exchangeExecutable));
+        return plan(event, PlanStatus.READY, operation, exchangeExecutable, List.of(reason), attributes);
+    }
+
+    private RemediationCommandPlan noAction(
+            RemediationDecisionEvent event,
+            Operation operation,
+            String reason,
+            Map<String, String> attributes
+    ) {
+        attributes.put("exchange_executable", "false");
+        return plan(event, PlanStatus.NO_ACTION, operation, false, List.of(reason), attributes);
+    }
+
+    private RemediationCommandPlan stale(RemediationDecisionEvent event, Operation operation, String reason) {
+        return plan(event, PlanStatus.STALE_PROJECTION, operation, false, List.of(reason), baseAttributes(event));
+    }
+
+    private RemediationCommandPlan insufficientData(
+            RemediationDecisionEvent event,
+            Operation operation,
+            String reason,
+            Map<String, String> attributes
+    ) {
+        attributes.put("exchange_executable", "false");
+        return plan(event, PlanStatus.INSUFFICIENT_DATA, operation, false, List.of(reason), attributes);
+    }
+
+    private RemediationCommandPlan unsupported(RemediationDecisionEvent event, Operation operation, String reason) {
+        Map<String, String> attributes = baseAttributes(event);
+        attributes.put("exchange_executable", "false");
+        return plan(event, PlanStatus.NOT_SUPPORTED, operation, false, List.of(reason), attributes);
+    }
+
+    private RemediationCommandPlan plan(
+            RemediationDecisionEvent event,
+            PlanStatus status,
+            Operation operation,
+            boolean exchangeExecutable,
+            List<String> reasons,
+            Map<String, String> attributes
+    ) {
+        return new RemediationCommandPlan(
+                text(event.getRemediationId()),
+                text(event.getScope()),
+                text(event.getAction()),
+                text(event.getProvider()),
+                text(event.getEnvironment()),
+                text(event.getAccount()),
+                text(event.getMarket()),
+                text(event.getSymbol()),
+                text(event.getClientOrderId()),
+                text(event.getPositionSide()),
+                status,
+                operation,
+                exchangeExecutable,
+                reasons,
+                attributes
+        );
+    }
+
+    private Map<String, String> baseAttributes(RemediationDecisionEvent event) {
+        Map<String, String> attributes = new LinkedHashMap<>();
+        put(attributes, "remediation_id", event.getRemediationId());
+        put(attributes, "remediation_event_id", event.getEventId());
+        put(attributes, "remediation_scope", event.getScope());
+        put(attributes, "remediation_action", event.getAction());
+        put(attributes, "intervention_reason", event.getInterventionReason());
+        return attributes;
+    }
+
+    private void putOrderAttributes(Map<String, String> attributes, TradingStateProjection.OrderState order) {
+        put(attributes, "target_client_order_id", order.clientOrderId());
+        put(attributes, "target_exchange_order_id", order.exchangeOrderId());
+        put(attributes, "target_order_status", order.status());
+        put(attributes, "target_exchange_status", order.exchangeStatus());
+        put(attributes, "target_update_source", order.updateSource());
+        put(attributes, "target_event_id", order.eventId());
+        attributes.put("target_managed_by_bot", Boolean.toString(order.managedByBot()));
+    }
+
+    private void putPositionAttributes(Map<String, String> attributes, TradingStateProjection.PositionState position) {
+        put(attributes, "position_side", position.positionSide());
+        put(attributes, "position_amount", position.positionAmount());
+        put(attributes, "entry_price", position.entryPrice());
+        put(attributes, "mark_price", position.markPrice());
+        put(attributes, "unrealized_pnl", position.unrealizedPnl());
+        put(attributes, "target_update_source", position.updateSource());
+        put(attributes, "target_event_id", position.eventId());
+    }
+
+    private void put(Map<String, String> attributes, String key, CharSequence value) {
+        String text = text(value);
+        if (text != null) {
+            attributes.put(key, text);
+        }
+    }
+
+    private BigDecimal decimal(String value) {
+        String text = text(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private String requireText(CharSequence value, String field) {
+        String text = text(value);
+        if (text == null) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return text;
+    }
+
+    private String text(CharSequence value) {
+        if (value == null || value.toString().isBlank()) {
+            return null;
+        }
+        return value.toString().trim();
+    }
+
+    public enum PlanStatus {
+        READY,
+        NO_ACTION,
+        NOT_SUPPORTED,
+        STALE_PROJECTION,
+        INSUFFICIENT_DATA
+    }
+
+    public enum Operation {
+        OPERATOR_REVIEW,
+        REPLAN_FROM_PROJECTION,
+        ADOPT_ORDER,
+        ADOPT_POSITION,
+        AMEND_ORDER,
+        CANCEL_ORDER,
+        REDUCE_POSITION,
+        CLOSE_POSITION,
+        HEDGE_POSITION,
+        PAUSE_SYMBOL,
+        PAUSE_ACCOUNT,
+        IGNORE,
+        UNSUPPORTED
+    }
+
+    public record RemediationCommandPlan(
+            String remediationId,
+            String scope,
+            String action,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String clientOrderId,
+            String positionSide,
+            PlanStatus status,
+            Operation operation,
+            boolean exchangeExecutable,
+            List<String> reasons,
+            Map<String, String> attributes
+    ) {
+
+        public RemediationCommandPlan {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+    }
+}

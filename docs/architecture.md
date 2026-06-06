@@ -542,6 +542,14 @@ code path while using different remediation posture. The current layer emits
 recommendations such as adopt, amend, reduce, close, hedge, pause-symbol, and
 pause-account; a later executor still has to turn those recommendations into
 risk-bounded exchange commands.
+`InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
+turns a remediation decision into a deterministic internal plan, validates that
+the projected order or position still carries the matching intervention, and
+marks the plan as stale or insufficient when the target has changed or lacks
+safe sizing data. Current plans are deliberately `exchangeExecutable=false`:
+order close becomes a cancel intent with target identity, position close/reduce
+or hedge captures projected amount and blockers, and pause/adopt/ignore remain
+governance intents until a bounded exchange command executor is implemented.
 
 ## Redpanda Messaging
 

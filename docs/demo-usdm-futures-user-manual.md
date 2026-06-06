@@ -1000,6 +1000,27 @@ exchange-side action execution yet. Supported recommendation actions are
 values, but real mode should not enable aggressive actions until hard limits,
 reconciliation, journaling, and projection persistence are configured.
 
+Current automated remediation execution state:
+
+- The bot can convert remediation decisions into internal command plans.
+- The planner revalidates the current projection before planning an action.
+- Stale orders or positions are refused as `STALE_PROJECTION`.
+- Invalid or missing position amount data is refused as `INSUFFICIENT_DATA`.
+- Flat position close/reduce/hedge requests become `NO_ACTION`.
+- Order `CLOSE` becomes a non-executable cancel intent with the projected target
+  order identity.
+- Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become
+  non-executable position intents with the projected absolute amount and an
+  execution blocker explaining that bounded sizing policy is still missing.
+- `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `ADOPT`, `IGNORE`, and
+  `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
+  commands yet.
+
+As of this version, every remediation command plan is marked
+`exchangeExecutable=false`. This is intentional: the codebase now has the safety
+boundary needed for automated remediation, but it still does not directly amend,
+cancel, reduce, close, or hedge live exchange state from those plans.
+
 ## Event And Projection Capabilities
 
 The core event model supports normalized envelopes for:

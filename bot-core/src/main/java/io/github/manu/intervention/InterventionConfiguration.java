@@ -41,6 +41,11 @@ public class InterventionConfiguration {
     }
 
     @Bean
+    InterventionRemediationCommandPlanner interventionRemediationCommandPlanner(TradingStateProjection projection) {
+        return new InterventionRemediationCommandPlanner(projection);
+    }
+
+    @Bean
     @ConditionalOnBean(TradingEventBus.class)
     @ConditionalOnProperty(
             prefix = "trading.intervention.remediation-orchestrator",
