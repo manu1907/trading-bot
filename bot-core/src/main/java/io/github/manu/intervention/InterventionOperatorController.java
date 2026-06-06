@@ -1,6 +1,7 @@
 package io.github.manu.intervention;
 
 import io.github.manu.messaging.PublishedTradingEvent;
+import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.projection.TradingStateProjection;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,6 +32,7 @@ public final class InterventionOperatorController {
     private final InterventionAcknowledgementService acknowledgementService;
     private final InterventionRemediationDecisionService remediationDecisionService;
     private final InterventionRemediationAdvisor remediationAdvisor;
+    private final InterventionRemediationCommandPlanner remediationCommandPlanner;
     private final TradingStateProjection projection;
     private final String operatorToken;
 
@@ -38,12 +40,14 @@ public final class InterventionOperatorController {
             InterventionAcknowledgementService acknowledgementService,
             InterventionRemediationDecisionService remediationDecisionService,
             InterventionRemediationAdvisor remediationAdvisor,
+            InterventionRemediationCommandPlanner remediationCommandPlanner,
             TradingStateProjection projection,
             InterventionProperties properties
     ) {
         this.acknowledgementService = Objects.requireNonNull(acknowledgementService, "acknowledgementService");
         this.remediationDecisionService = Objects.requireNonNull(remediationDecisionService, "remediationDecisionService");
         this.remediationAdvisor = Objects.requireNonNull(remediationAdvisor, "remediationAdvisor");
+        this.remediationCommandPlanner = Objects.requireNonNull(remediationCommandPlanner, "remediationCommandPlanner");
         this.projection = Objects.requireNonNull(projection, "projection");
         InterventionProperties.OperatorApi operatorApi = Objects.requireNonNull(properties, "properties").operatorApi();
         this.operatorToken = requireText(operatorApi.operatorToken(), "operatorToken");
@@ -185,6 +189,35 @@ public final class InterventionOperatorController {
         }
     }
 
+    @GetMapping("/remediation/plans")
+    public Mono<ResponseEntity<?>> remediationPlans(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestParam("provider") String provider,
+            @RequestParam("environment") String environment,
+            @RequestParam("account") String account,
+            @RequestParam("market") String market
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        try {
+            List<InterventionRemediationCommandPlanner.RemediationCommandPlan> plans =
+                    projection.remediationDecisionStates(
+                                    requireText(provider, "provider"),
+                                    requireText(environment, "environment"),
+                                    requireText(account, "account"),
+                                    requireText(market, "market")
+                            )
+                            .stream()
+                            .map(this::toDecisionEvent)
+                            .map(remediationCommandPlanner::plan)
+                            .toList();
+            return Mono.just(ResponseEntity.ok(new RemediationCommandPlansResponse(plans.size(), plans)));
+        } catch (IllegalArgumentException exception) {
+            return badRequest(exception);
+        }
+    }
+
     @PostMapping("/remediation/decisions")
     public Mono<ResponseEntity<?>> decideRemediation(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
@@ -243,6 +276,29 @@ public final class InterventionOperatorController {
 
     private Mono<PublishedTradingEvent> decide(RemediationDecisionHttpRequest request) {
         return Mono.fromFuture(remediationDecisionService.decide(request.toServiceRequest()));
+    }
+
+    private RemediationDecisionEvent toDecisionEvent(TradingStateProjection.RemediationDecisionState state) {
+        return RemediationDecisionEvent.newBuilder()
+                .setEventId(state.eventId())
+                .setSchemaVersion(1)
+                .setRemediationId(state.remediationId())
+                .setProvider(state.provider())
+                .setEnvironment(state.environment())
+                .setAccount(state.account())
+                .setMarket(state.market())
+                .setSymbol(state.symbol())
+                .setScope(state.scope())
+                .setAction(state.action())
+                .setClientOrderId(state.clientOrderId())
+                .setPositionSide(state.positionSide())
+                .setInterventionReason(state.interventionReason())
+                .setReasons(List.copyOf(state.reasons()))
+                .setDecidedBy(state.decidedBy())
+                .setDecisionReason(state.decisionReason())
+                .setDecidedAtMicros(state.updatedAt())
+                .setAttributes(Map.copyOf(state.attributes()))
+                .build();
     }
 
     private ResponseEntity<AcknowledgementAcceptedResponse> accepted(PublishedTradingEvent published) {
@@ -333,6 +389,12 @@ public final class InterventionOperatorController {
     }
 
     record RemediationDecisionsResponse(int count, List<RemediationDecisionResponse> decisions) {
+    }
+
+    record RemediationCommandPlansResponse(
+            int count,
+            List<InterventionRemediationCommandPlanner.RemediationCommandPlan> plans
+    ) {
     }
 
     record RemediationDecisionHttpRequest(

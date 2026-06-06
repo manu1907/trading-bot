@@ -546,6 +546,17 @@ curl -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/remediation/decisions?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
+List remediation command plans for persisted remediation decisions:
+
+```bash
+curl -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/interventions/remediation/plans?provider=binance&environment=demo&account=main&market=usdm_futures'
+```
+
+Plan responses include `status`, `operation`, `exchangeExecutable`, `reasons`,
+and target attributes. For now, `exchangeExecutable=false` means the bot has
+classified the action but will not send an exchange command from that plan.
+
 Acknowledge an order intervention:
 
 ```bash

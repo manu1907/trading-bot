@@ -41,10 +41,13 @@ class InterventionOperatorControllerTest {
                     Clock.fixed(NOW, ZoneOffset.UTC),
                     () -> "remediation-001"
             );
+    private final InterventionRemediationCommandPlanner remediationCommandPlanner =
+            new InterventionRemediationCommandPlanner(projection);
     private final InterventionOperatorController controller = new InterventionOperatorController(
             service,
             remediationDecisionService,
             remediationAdvisor,
+            remediationCommandPlanner,
             projection,
             new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null)
     );
@@ -324,6 +327,62 @@ class InterventionOperatorControllerTest {
                 .isEqualTo("operator")
                 .jsonPath("$.decisions[0].attributes.ticket")
                 .isEqualTo("ops-789");
+    }
+
+    @Test
+    void lists_remediation_command_plans_when_token_matches() {
+        restoreCloseRemediationDecisionWithOrder();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/remediation/plans")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.count")
+                .isEqualTo(1)
+                .jsonPath("$.plans[0].remediationId")
+                .isEqualTo("remediation-1")
+                .jsonPath("$.plans[0].status")
+                .isEqualTo("READY")
+                .jsonPath("$.plans[0].operation")
+                .isEqualTo("CANCEL_ORDER")
+                .jsonPath("$.plans[0].exchangeExecutable")
+                .isEqualTo(false)
+                .jsonPath("$.plans[0].reasons[0]")
+                .isEqualTo("remediation:cancel_external_order")
+                .jsonPath("$.plans[0].attributes.target_exchange_order_id")
+                .isEqualTo("12345")
+                .jsonPath("$.plans[0].attributes.exchange_executable")
+                .isEqualTo("false");
+    }
+
+    @Test
+    void rejects_remediation_command_plan_listing_when_token_is_invalid() {
+        restoreCloseRemediationDecisionWithOrder();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/remediation/plans")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
     }
 
     @Test
@@ -645,6 +704,59 @@ class InterventionOperatorControllerTest {
                         "operator",
                         "reviewed current projection",
                         Map.of("ticket", "ops-789"),
+                        NOW.minusSeconds(1),
+                        "evt-remediation-decision"
+                )),
+                List.of("evt-remediation-decision")
+        ));
+    }
+
+    private void restoreCloseRemediationDecisionWithOrder() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        null,
+                        "client-1",
+                        "12345",
+                        "ACCEPTED",
+                        "NEW",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "USER_DATA",
+                        "NEW",
+                        false,
+                        true,
+                        "external_order_observed",
+                        NOW.minusSeconds(1),
+                        "evt-order-intervention"
+                )),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.RemediationDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "remediation-1",
+                        "ORDER",
+                        "CLOSE",
+                        "client-1",
+                        null,
+                        "external_order_observed",
+                        List.of("intervention:external_order_observed"),
+                        "automated_remediation_policy",
+                        "policy action selected",
+                        Map.of("ticket", "ops-790"),
                         NOW.minusSeconds(1),
                         "evt-remediation-decision"
                 )),
