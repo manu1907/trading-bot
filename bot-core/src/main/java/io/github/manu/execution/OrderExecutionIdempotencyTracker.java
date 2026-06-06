@@ -30,10 +30,10 @@ public final class OrderExecutionIdempotencyTracker {
         String commandKey = scopedKey(command, COMMAND_ID_KIND, command.getCommandId());
         String idempotencyKey = scopedKey(command, IDEMPOTENCY_KEY_KIND, command.getIdempotencyKey());
         if (commandKey != null && trackedKeys.containsKey(commandKey)) {
-            return Admission.duplicateCommandId(value(command.getCommandId()));
+            return Admission.duplicateCommandId(value(command.getCommandId()), scope(command));
         }
         if (idempotencyKey != null && trackedKeys.containsKey(idempotencyKey)) {
-            return Admission.duplicateIdempotencyKey(value(command.getIdempotencyKey()));
+            return Admission.duplicateIdempotencyKey(value(command.getIdempotencyKey()), scope(command));
         }
         track(commandKey);
         track(idempotencyKey);
@@ -106,19 +106,27 @@ public final class OrderExecutionIdempotencyTracker {
             return new Admission(Status.ADMITTED, null, Map.of());
         }
 
-        static Admission duplicateCommandId(String commandId) {
+        static Admission duplicateCommandId(String commandId, String scope) {
             return new Admission(
                     Status.DUPLICATE_COMMAND_ID,
                     "execution:duplicate_command_id",
-                    Map.of("duplicate_command_id", commandId)
+                    Map.of(
+                            "duplicate_command_id", commandId,
+                            "duplicate_identity_kind", COMMAND_ID_KIND,
+                            "duplicate_identity_scope", scope
+                    )
             );
         }
 
-        static Admission duplicateIdempotencyKey(String idempotencyKey) {
+        static Admission duplicateIdempotencyKey(String idempotencyKey, String scope) {
             return new Admission(
                     Status.DUPLICATE_IDEMPOTENCY_KEY,
                     "execution:duplicate_idempotency_key",
-                    Map.of("duplicate_idempotency_key", idempotencyKey)
+                    Map.of(
+                            "duplicate_idempotency_key", idempotencyKey,
+                            "duplicate_identity_kind", IDEMPOTENCY_KEY_KIND,
+                            "duplicate_identity_scope", scope
+                    )
             );
         }
     }

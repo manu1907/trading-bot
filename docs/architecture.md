@@ -477,7 +477,9 @@ passes through configurable in-runtime idempotency under
 `trading.execution.idempotency`. The default is enabled with a bounded
 `max_tracked_keys` catalog value. The tracker scopes command IDs and
 idempotency keys by provider/environment/account/market and rejects duplicates
-before risk evaluation or provider submission can happen.
+before risk evaluation or provider submission can happen. Duplicate decisions
+include the duplicate identity kind and runtime scope so operators can audit
+why a command was rejected without reverse-engineering tracker state.
 
 After idempotency admission, the core risk gate evaluates reconciliation
 confidence and publishes a `RiskDecisionEvent`. Only approved commands can be

@@ -110,7 +110,10 @@ class OrderExecutionPipelineTest {
         RiskDecisionEvent duplicateDecision = (RiskDecisionEvent) eventBus.envelopes.get(2).value();
         assertThat(duplicateDecision.getDecision()).isEqualTo(RiskDecision.REJECTED);
         assertThat(duplicateDecision.getReasons()).containsExactly("execution:duplicate_command_id");
-        assertThat(duplicateDecision.getAttributes()).containsEntry("duplicate_command_id", "cmd-001");
+        assertThat(duplicateDecision.getAttributes())
+                .containsEntry("duplicate_command_id", "cmd-001")
+                .containsEntry("duplicate_identity_kind", "command_id")
+                .containsEntry("duplicate_identity_scope", "binance|demo|main|usd_m_futures");
     }
 
     @Test
@@ -126,7 +129,10 @@ class OrderExecutionPipelineTest {
         RiskDecisionEvent duplicateDecision = (RiskDecisionEvent) eventBus.envelopes.get(2).value();
         assertThat(duplicateDecision.getDecision()).isEqualTo(RiskDecision.REJECTED);
         assertThat(duplicateDecision.getReasons()).containsExactly("execution:duplicate_idempotency_key");
-        assertThat(duplicateDecision.getAttributes()).containsEntry("duplicate_idempotency_key", "idem-001");
+        assertThat(duplicateDecision.getAttributes())
+                .containsEntry("duplicate_idempotency_key", "idem-001")
+                .containsEntry("duplicate_identity_kind", "idempotency_key")
+                .containsEntry("duplicate_identity_scope", "binance|demo|main|usd_m_futures");
     }
 
     @Test

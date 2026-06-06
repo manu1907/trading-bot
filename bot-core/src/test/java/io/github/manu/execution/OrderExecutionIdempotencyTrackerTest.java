@@ -24,7 +24,10 @@ class OrderExecutionIdempotencyTrackerTest {
 
         assertThat(duplicate.status()).isEqualTo(OrderExecutionIdempotencyTracker.Status.DUPLICATE_COMMAND_ID);
         assertThat(duplicate.reason()).isEqualTo("execution:duplicate_command_id");
-        assertThat(duplicate.attributes()).containsEntry("duplicate_command_id", "cmd-001");
+        assertThat(duplicate.attributes())
+                .containsEntry("duplicate_command_id", "cmd-001")
+                .containsEntry("duplicate_identity_kind", "command_id")
+                .containsEntry("duplicate_identity_scope", "binance|demo|main|usd_m_futures");
     }
 
     @Test
@@ -37,7 +40,10 @@ class OrderExecutionIdempotencyTrackerTest {
 
         assertThat(duplicate.status()).isEqualTo(OrderExecutionIdempotencyTracker.Status.DUPLICATE_IDEMPOTENCY_KEY);
         assertThat(duplicate.reason()).isEqualTo("execution:duplicate_idempotency_key");
-        assertThat(duplicate.attributes()).containsEntry("duplicate_idempotency_key", "idem-001");
+        assertThat(duplicate.attributes())
+                .containsEntry("duplicate_idempotency_key", "idem-001")
+                .containsEntry("duplicate_identity_kind", "idempotency_key")
+                .containsEntry("duplicate_identity_scope", "binance|demo|main|usd_m_futures");
     }
 
     @Test
