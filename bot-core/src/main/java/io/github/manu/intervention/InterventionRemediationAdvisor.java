@@ -13,13 +13,27 @@ import java.util.Objects;
 public final class InterventionRemediationAdvisor {
 
     static final String ACTION_OPERATOR_REVIEW = "OPERATOR_REVIEW";
-    static final String ACTION_REPLAN_FROM_PROJECTION = "REPLAN_FROM_PROJECTION";
-    static final String ACTION_HEDGE_OR_REPLAN = "HEDGE_OR_REPLAN";
 
     private final TradingStateProjection projection;
+    private final InterventionProperties.AutomatedPolicy automatedPolicy;
 
     public InterventionRemediationAdvisor(TradingStateProjection projection) {
+        this(projection, InterventionProperties.AutomatedPolicy.defaults());
+    }
+
+    public InterventionRemediationAdvisor(
+            TradingStateProjection projection,
+            InterventionProperties properties
+    ) {
+        this(projection, Objects.requireNonNull(properties, "properties").automatedPolicy());
+    }
+
+    InterventionRemediationAdvisor(
+            TradingStateProjection projection,
+            InterventionProperties.AutomatedPolicy automatedPolicy
+    ) {
         this.projection = Objects.requireNonNull(projection, "projection");
+        this.automatedPolicy = Objects.requireNonNull(automatedPolicy, "automatedPolicy");
     }
 
     public List<RemediationRecommendation> recommendations(
@@ -50,9 +64,7 @@ public final class InterventionRemediationAdvisor {
 
     private RemediationRecommendation orderRecommendation(TradingStateProjection.OrderState order) {
         String reason = text(order.interventionReason());
-        String action = "unplanned_managed_order_change".equals(reason)
-                ? ACTION_REPLAN_FROM_PROJECTION
-                : ACTION_OPERATOR_REVIEW;
+        String action = orderAction(reason);
         return new RemediationRecommendation(
                 "ORDER",
                 action,
@@ -114,6 +126,7 @@ public final class InterventionRemediationAdvisor {
 
     private Map<String, String> orderAttributes(TradingStateProjection.OrderState order) {
         Map<String, String> attributes = new LinkedHashMap<>();
+        String reason = text(order.interventionReason());
         put(attributes, "command_id", order.commandId());
         put(attributes, "exchange_order_id", order.exchangeOrderId());
         put(attributes, "status", order.status());
@@ -121,6 +134,13 @@ public final class InterventionRemediationAdvisor {
         put(attributes, "update_source", order.updateSource());
         put(attributes, "execution_type", order.executionType());
         attributes.put("managed_by_bot", Boolean.toString(order.managedByBot()));
+        attributes.put(
+                "order_remediation_policy",
+                "unplanned_managed_order_change".equals(reason)
+                        ? "MANAGED_ORDER_CHANGE"
+                        : "EXTERNAL_ORDER"
+        );
+        attributes.put("automated_policy_action", orderAction(reason));
         return Map.copyOf(attributes);
     }
 
@@ -135,6 +155,7 @@ public final class InterventionRemediationAdvisor {
         attributes.put("position_state", policy.positionState());
         attributes.put("position_remediation_policy", policy.policy());
         attributes.put("position_remediation_policy_reason", policy.reason());
+        attributes.put("automated_policy_action", policy.action());
         return Map.copyOf(attributes);
     }
 
@@ -161,7 +182,7 @@ public final class InterventionRemediationAdvisor {
                     "UNKNOWN",
                     "OPERATOR_REVIEW_REQUIRED",
                     "position_amount_missing",
-                    ACTION_OPERATOR_REVIEW
+                    automatedPolicy.unknownPositionAction().name()
             );
         }
         try {
@@ -170,23 +191,30 @@ public final class InterventionRemediationAdvisor {
                         "CLOSED",
                         "STAND_DOWN_AND_REPLAN",
                         "position_amount_zero",
-                        ACTION_REPLAN_FROM_PROJECTION
+                        automatedPolicy.flatPositionAction().name()
                 );
             }
             return new PositionRemediationPolicy(
                     "OPEN",
                     "REHEDGE_OR_REPLAN",
                     "position_amount_nonzero",
-                    ACTION_HEDGE_OR_REPLAN
+                    automatedPolicy.openPositionAction().name()
             );
         } catch (NumberFormatException ignored) {
             return new PositionRemediationPolicy(
                     "UNKNOWN",
                     "OPERATOR_REVIEW_REQUIRED",
                     "position_amount_invalid",
-                    ACTION_OPERATOR_REVIEW
+                    automatedPolicy.unknownPositionAction().name()
             );
         }
+    }
+
+    private String orderAction(String reason) {
+        if ("unplanned_managed_order_change".equals(reason)) {
+            return automatedPolicy.managedOrderChangeAction().name();
+        }
+        return automatedPolicy.externalOrderAction().name();
     }
 
     private String requireText(String value, String field) {

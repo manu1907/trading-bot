@@ -90,6 +90,13 @@
         "enabled": false,
         "operator_review_acknowledgement_enabled": true,
         "max_tracked_decision_ids": 100000
+      },
+      "automated_policy": {
+        "external_order_action": "OPERATOR_REVIEW",
+        "managed_order_change_action": "REPLAN_FROM_PROJECTION",
+        "flat_position_action": "REPLAN_FROM_PROJECTION",
+        "open_position_action": "HEDGE_OR_REPLAN",
+        "unknown_position_action": "OPERATOR_REVIEW"
       }
     }
   },

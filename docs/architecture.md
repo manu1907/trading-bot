@@ -536,6 +536,12 @@ keeps position remediation conservative: a flat external position recommends
 stand-down/replan, an open external position recommends rehedge/replan, and an
 unparseable position amount requires operator review instead of suggesting an
 automated hedge.
+Those recommendation actions are driven by
+`trading.intervention.automated-policy`, so demo and real can keep the same
+code path while using different remediation posture. The current layer emits
+recommendations such as adopt, amend, reduce, close, hedge, pause-symbol, and
+pause-account; a later executor still has to turn those recommendations into
+risk-bounded exchange commands.
 
 ## Redpanda Messaging
 

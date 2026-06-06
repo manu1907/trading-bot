@@ -67,6 +67,28 @@ class InterventionConfigurationTest {
                 });
     }
 
+    @Test
+    void binds_automated_remediation_policy_actions() {
+        contextRunner
+                .withPropertyValues(
+                        "trading.intervention.automated-policy.external-order-action=ADOPT",
+                        "trading.intervention.automated-policy.managed-order-change-action=AMEND",
+                        "trading.intervention.automated-policy.flat-position-action=IGNORE",
+                        "trading.intervention.automated-policy.open-position-action=HEDGE",
+                        "trading.intervention.automated-policy.unknown-position-action=PAUSE_SYMBOL"
+                )
+                .run(context -> {
+                    InterventionProperties.AutomatedPolicy policy =
+                            context.getBean(InterventionProperties.class).automatedPolicy();
+                    assertThat(policy.externalOrderAction()).isEqualTo(InterventionProperties.RemediationAction.ADOPT);
+                    assertThat(policy.managedOrderChangeAction()).isEqualTo(InterventionProperties.RemediationAction.AMEND);
+                    assertThat(policy.flatPositionAction()).isEqualTo(InterventionProperties.RemediationAction.IGNORE);
+                    assertThat(policy.openPositionAction()).isEqualTo(InterventionProperties.RemediationAction.HEDGE);
+                    assertThat(policy.unknownPositionAction())
+                            .isEqualTo(InterventionProperties.RemediationAction.PAUSE_SYMBOL);
+                });
+    }
+
     private static final class NoopTradingEventBus implements TradingEventBus {
 
         @Override

@@ -974,6 +974,11 @@ Default intervention config:
 - `remediation_orchestrator.enabled`: `false`
 - `operator_review_acknowledgement_enabled`: `true`
 - `max_tracked_decision_ids`: `100000`
+- `automated_policy.external_order_action`: `OPERATOR_REVIEW`
+- `automated_policy.managed_order_change_action`: `REPLAN_FROM_PROJECTION`
+- `automated_policy.flat_position_action`: `REPLAN_FROM_PROJECTION`
+- `automated_policy.open_position_action`: `HEDGE_OR_REPLAN`
+- `automated_policy.unknown_position_action`: `OPERATOR_REVIEW`
 
 The system can track and expose:
 
@@ -986,6 +991,14 @@ The system can track and expose:
 
 The remediation orchestrator is disabled by default, so remediation decisions
 remain operator-controlled unless explicitly enabled.
+
+The automated policy block controls remediation recommendations, not direct
+exchange-side action execution yet. Supported recommendation actions are
+`OPERATOR_REVIEW`, `REPLAN_FROM_PROJECTION`, `HEDGE_OR_REPLAN`, `ADOPT`,
+`AMEND`, `REDUCE`, `CLOSE`, `HEDGE`, `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, and
+`IGNORE`. Demo and real can use the same codebase with different override
+values, but real mode should not enable aggressive actions until hard limits,
+reconciliation, journaling, and projection persistence are configured.
 
 ## Event And Projection Capabilities
 

@@ -111,6 +111,51 @@ class InterventionRemediationAdvisorTest {
     }
 
     @Test
+    void applies_configured_automated_policy_actions_to_external_state_recommendations() {
+        InterventionRemediationAdvisor automatedAdvisor = new InterventionRemediationAdvisor(
+                projection,
+                new InterventionProperties.AutomatedPolicy(
+                        InterventionProperties.RemediationAction.ADOPT,
+                        InterventionProperties.RemediationAction.AMEND,
+                        InterventionProperties.RemediationAction.IGNORE,
+                        InterventionProperties.RemediationAction.HEDGE,
+                        InterventionProperties.RemediationAction.PAUSE_SYMBOL
+                )
+        );
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(
+                        position("BTCUSDT", "0"),
+                        position("ETHUSDT", "0.25"),
+                        position("BNBUSDT", "invalid")
+                ),
+                List.of(
+                        order("external_order_observed", false, "client-1"),
+                        order("unplanned_managed_order_change", true, "client-2")
+                ),
+                List.of(),
+                List.of()
+        ));
+
+        assertThat(automatedAdvisor.recommendations("binance", "demo", "main", "usd_m_futures"))
+                .extracting(
+                        InterventionRemediationAdvisor.RemediationRecommendation::scope,
+                        InterventionRemediationAdvisor.RemediationRecommendation::symbol,
+                        InterventionRemediationAdvisor.RemediationRecommendation::action
+                )
+                .containsExactly(
+                        tuple("ORDER", "BTCUSDT", "ADOPT"),
+                        tuple("ORDER", "BTCUSDT", "AMEND"),
+                        tuple("POSITION", "BNBUSDT", "PAUSE_SYMBOL"),
+                        tuple("POSITION", "BTCUSDT", "IGNORE"),
+                        tuple("POSITION", "ETHUSDT", "HEDGE")
+                );
+        assertThat(automatedAdvisor.recommendations("binance", "demo", "main", "usd_m_futures"))
+                .extracting(recommendation -> recommendation.attributes().get("automated_policy_action"))
+                .containsExactly("ADOPT", "AMEND", "PAUSE_SYMBOL", "IGNORE", "HEDGE");
+    }
+
+    @Test
     void includes_manual_review_decision_as_operator_review_recommendation() {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -169,6 +214,14 @@ class InterventionRemediationAdvisorTest {
     }
 
     private TradingStateProjection.OrderState order(String interventionReason, boolean managedByBot) {
+        return order(interventionReason, managedByBot, "client-1");
+    }
+
+    private TradingStateProjection.OrderState order(
+            String interventionReason,
+            boolean managedByBot,
+            String clientOrderId
+    ) {
         return new TradingStateProjection.OrderState(
                 "binance",
                 "demo",
@@ -176,7 +229,7 @@ class InterventionRemediationAdvisorTest {
                 "usd_m_futures",
                 "BTCUSDT",
                 managedByBot ? "cmd-1" : null,
-                "client-1",
+                clientOrderId,
                 "12345",
                 "CANCELED",
                 "CANCELED",

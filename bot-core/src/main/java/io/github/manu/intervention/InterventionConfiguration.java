@@ -33,8 +33,11 @@ public class InterventionConfiguration {
     }
 
     @Bean
-    InterventionRemediationAdvisor interventionRemediationAdvisor(TradingStateProjection projection) {
-        return new InterventionRemediationAdvisor(projection);
+    InterventionRemediationAdvisor interventionRemediationAdvisor(
+            TradingStateProjection projection,
+            InterventionProperties properties
+    ) {
+        return new InterventionRemediationAdvisor(projection, properties);
     }
 
     @Bean
