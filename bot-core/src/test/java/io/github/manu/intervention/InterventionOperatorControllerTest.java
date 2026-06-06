@@ -411,6 +411,78 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
+    void dry_runs_remediation_executor_reports_when_token_matches() {
+        InterventionOperatorController enabledController = controller(
+                remediationAdvisor,
+                automatedDecisionService,
+                remediationExecutorService(remediationCommandPlanner, enabledDryRunExecutorPolicy())
+        );
+        WebTestClient enabledClient = WebTestClient.bindToController(enabledController).build();
+        restoreCloseRemediationDecisionWithOrder();
+
+        enabledClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/remediation/executor/dry-run")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.enabled")
+                .isEqualTo(true)
+                .jsonPath("$.exchangeExecutionEnabled")
+                .isEqualTo(false)
+                .jsonPath("$.dryRunOnly")
+                .isEqualTo(true)
+                .jsonPath("$.evaluatedCount")
+                .isEqualTo(1)
+                .jsonPath("$.blockedCount")
+                .isEqualTo(1)
+                .jsonPath("$.reports[0].remediationId")
+                .isEqualTo("remediation-1")
+                .jsonPath("$.reports[0].planStatus")
+                .isEqualTo("READY")
+                .jsonPath("$.reports[0].operation")
+                .isEqualTo("CANCEL_ORDER")
+                .jsonPath("$.reports[0].status")
+                .isEqualTo("BLOCKED")
+                .jsonPath("$.reports[0].exchangeExecutable")
+                .isEqualTo(false)
+                .jsonPath("$.reports[0].reasons[1]")
+                .isEqualTo("executor:plan_not_exchange_executable")
+                .jsonPath("$.reports[0].attributes.executor_reason")
+                .isEqualTo("executor:plan_not_exchange_executable")
+                .jsonPath("$.reports[0].plan.operation")
+                .isEqualTo("CANCEL_ORDER");
+    }
+
+    @Test
+    void rejects_remediation_executor_dry_run_when_token_is_invalid() {
+        restoreCloseRemediationDecisionWithOrder();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/remediation/executor/dry-run")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+    }
+
+    @Test
     void accepts_remediation_decision_when_token_matches_current_recommendation() {
         restoreManualReviewDecision();
 
@@ -707,6 +779,14 @@ class InterventionOperatorControllerTest {
             InterventionRemediationAdvisor advisor,
             InterventionAutomatedDecisionService automatedDecisionService
     ) {
+        return controller(advisor, automatedDecisionService, remediationExecutorService);
+    }
+
+    private InterventionOperatorController controller(
+            InterventionRemediationAdvisor advisor,
+            InterventionAutomatedDecisionService automatedDecisionService,
+            InterventionRemediationExecutorService remediationExecutorService
+    ) {
         InterventionRemediationDecisionService decisionService = new InterventionRemediationDecisionService(
                 eventBus,
                 advisor,
@@ -721,6 +801,25 @@ class InterventionOperatorControllerTest {
                 remediationExecutorService,
                 projection,
                 new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null, null)
+        );
+    }
+
+    private InterventionProperties.RemediationExecutorPolicy enabledDryRunExecutorPolicy() {
+        return new InterventionProperties.RemediationExecutorPolicy(
+                true,
+                false,
+                true,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                25,
+                List.of()
         );
     }
 

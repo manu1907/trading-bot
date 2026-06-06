@@ -211,6 +211,26 @@ public final class InterventionOperatorController {
         }
     }
 
+    @GetMapping("/remediation/executor/dry-run")
+    public Mono<ResponseEntity<?>> remediationExecutorDryRun(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestParam("provider") String provider,
+            @RequestParam("environment") String environment,
+            @RequestParam("account") String account,
+            @RequestParam("market") String market
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        try {
+            InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                    remediationExecutorService.dryRun(provider, environment, account, market);
+            return Mono.just(ResponseEntity.ok(batch));
+        } catch (IllegalArgumentException exception) {
+            return badRequest(exception);
+        }
+    }
+
     @PostMapping("/remediation/decisions")
     public Mono<ResponseEntity<?>> decideRemediation(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,

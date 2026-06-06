@@ -557,6 +557,19 @@ Plan responses include `status`, `operation`, `exchangeExecutable`, `reasons`,
 and target attributes. For now, `exchangeExecutable=false` means the bot has
 classified the action but will not send an exchange command from that plan.
 
+Dry-run the remediation executor reports for persisted remediation decisions:
+
+```bash
+curl -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/interventions/remediation/executor/dry-run?provider=binance&environment=demo&account=main&market=usdm_futures'
+```
+
+Dry-run responses include `enabled`, `exchangeExecutionEnabled`, `dryRunOnly`,
+batch counts, and per-plan reports with `planStatus`, `operation`, `status`,
+`reasons`, `attributes`, and the original `plan`. The endpoint does not submit
+exchange commands. It explains whether each plan is blocked, no-action, or
+would remain report-only under the current executor policy.
+
 Acknowledge an order intervention:
 
 ```bash
@@ -1094,8 +1107,8 @@ The current codebase includes a report-only remediation executor service. It
 consumes persisted remediation decisions, regenerates current command plans,
 applies the executor policy gates, caps each batch with `max_plans_per_run`, and
 returns per-plan reports with statuses such as blocked or no-action. It still
-does not turn plans into exchange commands, and there is not yet an operator API
-endpoint for retrieving the dry-run reports.
+does not turn plans into exchange commands. The operator API exposes the reports
+through `GET /internal/interventions/remediation/executor/dry-run`.
 
 ## Event And Projection Capabilities
 
