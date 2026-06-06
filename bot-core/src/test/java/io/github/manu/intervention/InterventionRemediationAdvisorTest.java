@@ -76,6 +76,38 @@ class InterventionRemediationAdvisorTest {
                         tuple("BTCUSDT", "REPLAN_FROM_PROJECTION"),
                         tuple("ETHUSDT", "HEDGE_OR_REPLAN")
                 );
+        assertThat(advisor.recommendations("binance", "demo", "main", "usd_m_futures"))
+                .extracting(
+                        InterventionRemediationAdvisor.RemediationRecommendation::symbol,
+                        recommendation -> recommendation.attributes().get("position_state"),
+                        recommendation -> recommendation.attributes().get("position_remediation_policy"),
+                        recommendation -> recommendation.attributes().get("position_remediation_policy_reason")
+                )
+                .containsExactly(
+                        tuple("BTCUSDT", "CLOSED", "STAND_DOWN_AND_REPLAN", "position_amount_zero"),
+                        tuple("ETHUSDT", "OPEN", "REHEDGE_OR_REPLAN", "position_amount_nonzero")
+                );
+    }
+
+    @Test
+    void requires_operator_review_when_external_position_amount_is_not_parseable() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(position("BTCUSDT", "not-a-number")),
+                List.of(),
+                List.of(),
+                List.of()
+        ));
+
+        assertThat(advisor.recommendations("binance", "demo", "main", "usd_m_futures"))
+                .singleElement()
+                .satisfies(recommendation -> {
+                    assertThat(recommendation.action()).isEqualTo("OPERATOR_REVIEW");
+                    assertThat(recommendation.attributes())
+                            .containsEntry("position_state", "UNKNOWN")
+                            .containsEntry("position_remediation_policy", "OPERATOR_REVIEW_REQUIRED")
+                            .containsEntry("position_remediation_policy_reason", "position_amount_invalid");
+                });
     }
 
     @Test

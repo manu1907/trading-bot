@@ -72,10 +72,10 @@ public final class InterventionRemediationAdvisor {
     }
 
     private RemediationRecommendation positionRecommendation(TradingStateProjection.PositionState position) {
-        String action = zero(position.positionAmount()) ? ACTION_REPLAN_FROM_PROJECTION : ACTION_HEDGE_OR_REPLAN;
+        PositionRemediationPolicy policy = positionRemediationPolicy(position.positionAmount());
         return new RemediationRecommendation(
                 "POSITION",
-                action,
+                policy.action(),
                 position.provider(),
                 position.environment(),
                 position.account(),
@@ -126,11 +126,15 @@ public final class InterventionRemediationAdvisor {
 
     private Map<String, String> positionAttributes(TradingStateProjection.PositionState position) {
         Map<String, String> attributes = new LinkedHashMap<>();
+        PositionRemediationPolicy policy = positionRemediationPolicy(position.positionAmount());
         put(attributes, "position_amount", position.positionAmount());
         put(attributes, "entry_price", position.entryPrice());
         put(attributes, "mark_price", position.markPrice());
         put(attributes, "unrealized_pnl", position.unrealizedPnl());
         put(attributes, "update_source", position.updateSource());
+        attributes.put("position_state", policy.positionState());
+        attributes.put("position_remediation_policy", policy.policy());
+        attributes.put("position_remediation_policy_reason", policy.reason());
         return Map.copyOf(attributes);
     }
 
@@ -150,15 +154,38 @@ public final class InterventionRemediationAdvisor {
         }
     }
 
-    private boolean zero(String value) {
+    private PositionRemediationPolicy positionRemediationPolicy(String value) {
         String text = text(value);
         if (text == null) {
-            return false;
+            return new PositionRemediationPolicy(
+                    "UNKNOWN",
+                    "OPERATOR_REVIEW_REQUIRED",
+                    "position_amount_missing",
+                    ACTION_OPERATOR_REVIEW
+            );
         }
         try {
-            return new BigDecimal(text).compareTo(BigDecimal.ZERO) == 0;
+            if (new BigDecimal(text).compareTo(BigDecimal.ZERO) == 0) {
+                return new PositionRemediationPolicy(
+                        "CLOSED",
+                        "STAND_DOWN_AND_REPLAN",
+                        "position_amount_zero",
+                        ACTION_REPLAN_FROM_PROJECTION
+                );
+            }
+            return new PositionRemediationPolicy(
+                    "OPEN",
+                    "REHEDGE_OR_REPLAN",
+                    "position_amount_nonzero",
+                    ACTION_HEDGE_OR_REPLAN
+            );
         } catch (NumberFormatException ignored) {
-            return false;
+            return new PositionRemediationPolicy(
+                    "UNKNOWN",
+                    "OPERATOR_REVIEW_REQUIRED",
+                    "position_amount_invalid",
+                    ACTION_OPERATOR_REVIEW
+            );
         }
     }
 
@@ -203,5 +230,13 @@ public final class InterventionRemediationAdvisor {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
             attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
         }
+    }
+
+    private record PositionRemediationPolicy(
+            String positionState,
+            String policy,
+            String reason,
+            String action
+    ) {
     }
 }

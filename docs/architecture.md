@@ -528,9 +528,12 @@ position-size changes as external interventions when no managed bot order exists
 for the same target/symbol. The order risk gate stops new commands while such
 position interventions are unresolved unless the configured action is
 `ALLOW_NEW_COMMANDS`.
-Position fill-to-delta causality and remediation policy still need to decide
-whether to stand down, re-hedge, re-open, or require operator review before live
-automation can be called complete.
+Position fill-to-delta causality still needs durable execution-state wiring
+before live automation can be called complete. The remediation advisor now
+keeps position remediation conservative: a flat external position recommends
+stand-down/replan, an open external position recommends rehedge/replan, and an
+unparseable position amount requires operator review instead of suggesting an
+automated hedge.
 
 ## Redpanda Messaging
 
