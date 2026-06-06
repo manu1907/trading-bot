@@ -28,6 +28,7 @@ class InterventionConfigurationTest {
                 .hasSingleBean(InterventionProperties.class)
                 .hasSingleBean(InterventionAcknowledgementService.class)
                 .hasSingleBean(InterventionRemediationCommandPlanner.class)
+                .hasSingleBean(InterventionAutomatedDecisionService.class)
                 .doesNotHaveBean(InterventionRemediationOrchestrator.class)
                 .doesNotHaveBean(InterventionOperatorController.class));
     }
@@ -87,6 +88,27 @@ class InterventionConfigurationTest {
                     assertThat(policy.openPositionAction()).isEqualTo(InterventionProperties.RemediationAction.HEDGE);
                     assertThat(policy.unknownPositionAction())
                             .isEqualTo(InterventionProperties.RemediationAction.PAUSE_SYMBOL);
+                });
+    }
+
+    @Test
+    void binds_automated_decision_service_policy() {
+        contextRunner
+                .withPropertyValues(
+                        "trading.intervention.automated-decision-service.enabled=true",
+                        "trading.intervention.automated-decision-service.include-operator-review-actions=true",
+                        "trading.intervention.automated-decision-service.max-decisions-per-run=7",
+                        "trading.intervention.automated-decision-service.decided-by=auto-policy",
+                        "trading.intervention.automated-decision-service.decision-reason=automated remediation batch"
+                )
+                .run(context -> {
+                    InterventionProperties.AutomatedDecisionService service =
+                            context.getBean(InterventionProperties.class).automatedDecisionService();
+                    assertThat(service.enabled()).isTrue();
+                    assertThat(service.includeOperatorReviewActions()).isTrue();
+                    assertThat(service.maxDecisionsPerRun()).isEqualTo(7);
+                    assertThat(service.decidedBy()).isEqualTo("auto-policy");
+                    assertThat(service.decisionReason()).isEqualTo("automated remediation batch");
                 });
     }
 

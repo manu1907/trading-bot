@@ -6,7 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record InterventionProperties(
         OperatorApi operatorApi,
         RemediationOrchestrator remediationOrchestrator,
-        AutomatedPolicy automatedPolicy
+        AutomatedPolicy automatedPolicy,
+        AutomatedDecisionService automatedDecisionService
 ) {
 
     public InterventionProperties {
@@ -15,6 +16,9 @@ public record InterventionProperties(
                 ? RemediationOrchestrator.disabled()
                 : remediationOrchestrator;
         automatedPolicy = automatedPolicy == null ? AutomatedPolicy.defaults() : automatedPolicy;
+        automatedDecisionService = automatedDecisionService == null
+                ? AutomatedDecisionService.disabled()
+                : automatedDecisionService;
     }
 
     public record OperatorApi(
@@ -89,6 +93,35 @@ public record InterventionProperties(
 
         static AutomatedPolicy defaults() {
             return new AutomatedPolicy(null, null, null, null, null);
+        }
+    }
+
+    public record AutomatedDecisionService(
+            Boolean enabled,
+            Boolean includeOperatorReviewActions,
+            Integer maxDecisionsPerRun,
+            String decidedBy,
+            String decisionReason
+    ) {
+
+        public AutomatedDecisionService {
+            enabled = Boolean.TRUE.equals(enabled);
+            includeOperatorReviewActions = Boolean.TRUE.equals(includeOperatorReviewActions);
+            int normalizedMaxDecisionsPerRun = maxDecisionsPerRun == null ? 100 : maxDecisionsPerRun;
+            if (normalizedMaxDecisionsPerRun <= 0) {
+                throw new IllegalArgumentException("maxDecisionsPerRun must be positive");
+            }
+            maxDecisionsPerRun = normalizedMaxDecisionsPerRun;
+            decidedBy = decidedBy == null || decidedBy.isBlank()
+                    ? "automated_remediation_policy"
+                    : decidedBy.trim();
+            decisionReason = decisionReason == null || decisionReason.isBlank()
+                    ? "automated policy selected remediation action"
+                    : decisionReason.trim();
+        }
+
+        static AutomatedDecisionService disabled() {
+            return new AutomatedDecisionService(false, false, 100, null, null);
         }
     }
 

@@ -990,6 +990,12 @@ Default intervention config:
 - `automated_policy.flat_position_action`: `REPLAN_FROM_PROJECTION`
 - `automated_policy.open_position_action`: `HEDGE_OR_REPLAN`
 - `automated_policy.unknown_position_action`: `OPERATOR_REVIEW`
+- `automated_decision_service.enabled`: `false`
+- `automated_decision_service.include_operator_review_actions`: `false`
+- `automated_decision_service.max_decisions_per_run`: `100`
+- `automated_decision_service.decided_by`: `automated_remediation_policy`
+- `automated_decision_service.decision_reason`: `automated policy selected
+  remediation action`
 
 The system can track and expose:
 
@@ -998,6 +1004,7 @@ The system can track and expose:
 - Manual review decisions.
 - Remediation recommendations.
 - Remediation decisions.
+- Automated remediation decisions.
 - Operator acknowledgements.
 
 The remediation orchestrator is disabled by default, so remediation decisions
@@ -1011,8 +1018,17 @@ exchange-side action execution yet. Supported recommendation actions are
 values, but real mode should not enable aggressive actions until hard limits,
 reconciliation, journaling, and projection persistence are configured.
 
+The automated decision service can publish `REMEDIATION_DECISION` events from
+current recommendations when explicitly enabled. By default it skips
+`OPERATOR_REVIEW`, deduplicates by `recommendation_event_id`, and limits each
+run with `max_decisions_per_run`. It still does not send exchange commands; it
+only records the selected automated decision so the command planner and future
+executor can evaluate it.
+
 Current automated remediation execution state:
 
+- The bot can convert remediation recommendations into remediation decisions
+  when `automated_decision_service.enabled=true`.
 - The bot can convert remediation decisions into internal command plans.
 - The planner revalidates the current projection before planning an action.
 - Stale orders or positions are refused as `STALE_PROJECTION`.

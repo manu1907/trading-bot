@@ -47,6 +47,17 @@ public class InterventionConfiguration {
 
     @Bean
     @ConditionalOnBean(TradingEventBus.class)
+    InterventionAutomatedDecisionService interventionAutomatedDecisionService(
+            TradingEventBus eventBus,
+            InterventionRemediationAdvisor remediationAdvisor,
+            TradingStateProjection projection,
+            InterventionProperties properties
+    ) {
+        return new InterventionAutomatedDecisionService(eventBus, remediationAdvisor, projection, properties);
+    }
+
+    @Bean
+    @ConditionalOnBean(TradingEventBus.class)
     @ConditionalOnProperty(
             prefix = "trading.intervention.remediation-orchestrator",
             name = "enabled",

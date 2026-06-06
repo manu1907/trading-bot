@@ -49,7 +49,7 @@ class InterventionOperatorControllerTest {
             remediationAdvisor,
             remediationCommandPlanner,
             projection,
-            new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null)
+            new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null)
     );
     private final WebTestClient client = WebTestClient.bindToController(controller).build();
 

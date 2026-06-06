@@ -542,6 +542,12 @@ code path while using different remediation posture. The current layer emits
 recommendations such as adopt, amend, reduce, close, hedge, pause-symbol, and
 pause-account; a later executor still has to turn those recommendations into
 risk-bounded exchange commands.
+`InterventionAutomatedDecisionService` is the policy-to-decision bridge. When
+enabled, it publishes auditable `REMEDIATION_DECISION` events from current
+recommendations, skips operator-review recommendations unless explicitly
+allowed, deduplicates by `recommendation_event_id`, and caps each run with
+`maxDecisionsPerRun`. This keeps unattended policy decisions replayable and
+visible before any exchange executor is introduced.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and
