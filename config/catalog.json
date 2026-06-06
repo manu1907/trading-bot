@@ -104,6 +104,24 @@
         "max_decisions_per_run": 100,
         "decided_by": "automated_remediation_policy",
         "decision_reason": "automated policy selected remediation action"
+      },
+      "remediation_executor_policy": {
+        "enabled": false,
+        "exchange_execution_enabled": false,
+        "dry_run_only": true,
+        "allow_real_environment": false,
+        "require_ready_plan": true,
+        "require_fresh_projection_match": true,
+        "require_projection_target_identity": true,
+        "require_managed_execution_pipeline": true,
+        "reject_stale_projection": true,
+        "reject_unsupported_plans": true,
+        "reject_operator_review_plans": true,
+        "reject_insufficient_data_plans": true,
+        "max_plans_per_run": 25,
+        "allowed_operations": [
+
+        ]
       }
     }
   },

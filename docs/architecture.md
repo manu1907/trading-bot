@@ -556,6 +556,13 @@ safe sizing data. Current plans are deliberately `exchangeExecutable=false`:
 order close becomes a cancel intent with target identity, position close/reduce
 or hedge captures projected amount and blockers, and pause/adopt/ignore remain
 governance intents until a bounded exchange command executor is implemented.
+`trading.intervention.remediation-executor-policy` is the explicit future
+executor safety boundary. It is disabled by default, exchange execution is
+disabled separately, dry-run mode is enforced by default, real environments are
+blocked by default, and executable operation names must be allowlisted before a
+future executor may act. Enabling exchange execution requires the ready-plan,
+fresh-projection, target-identity, and managed-pipeline gates to remain enabled,
+so remediation cannot be configured to bypass the normal execution pipeline.
 
 ## Redpanda Messaging
 

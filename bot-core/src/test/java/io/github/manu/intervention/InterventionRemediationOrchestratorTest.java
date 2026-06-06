@@ -379,6 +379,7 @@ class InterventionRemediationOrchestratorTest {
                 InterventionProperties.OperatorApi.disabled(),
                 new InterventionProperties.RemediationOrchestrator(enabled, operatorReviewAcknowledgementEnabled, 100_000),
                 null,
+                null,
                 null
         );
     }

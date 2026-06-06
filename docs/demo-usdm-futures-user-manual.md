@@ -1016,6 +1016,20 @@ Default intervention config:
 - `automated_decision_service.decided_by`: `automated_remediation_policy`
 - `automated_decision_service.decision_reason`: `automated policy selected
   remediation action`
+- `remediation_executor_policy.enabled`: `false`
+- `remediation_executor_policy.exchange_execution_enabled`: `false`
+- `remediation_executor_policy.dry_run_only`: `true`
+- `remediation_executor_policy.allow_real_environment`: `false`
+- `remediation_executor_policy.require_ready_plan`: `true`
+- `remediation_executor_policy.require_fresh_projection_match`: `true`
+- `remediation_executor_policy.require_projection_target_identity`: `true`
+- `remediation_executor_policy.require_managed_execution_pipeline`: `true`
+- `remediation_executor_policy.reject_stale_projection`: `true`
+- `remediation_executor_policy.reject_unsupported_plans`: `true`
+- `remediation_executor_policy.reject_operator_review_plans`: `true`
+- `remediation_executor_policy.reject_insufficient_data_plans`: `true`
+- `remediation_executor_policy.max_plans_per_run`: `25`
+- `remediation_executor_policy.allowed_operations`: empty list
 
 The system can track and expose:
 
@@ -1067,6 +1081,16 @@ As of this version, every remediation command plan is marked
 `exchangeExecutable=false`. This is intentional: the codebase now has the safety
 boundary needed for automated remediation, but it still does not directly amend,
 cancel, reduce, close, or hedge live exchange state from those plans.
+
+The remediation executor policy is the configuration boundary for the future
+executor. It is disabled by default and cannot allow exchange execution unless
+the policy is enabled, `dry_run_only=false`, at least one operation is explicitly
+allowlisted, and the strict ready-plan, fresh-projection, target-identity, and
+managed-pipeline gates remain enabled. `allow_real_environment=false` means a
+future executor must still refuse real-environment exchange execution unless a
+real deployment deliberately overrides that guard. The current codebase binds
+and validates this policy, but it still has no executor service and no endpoint
+that turns plans into exchange commands.
 
 ## Event And Projection Capabilities
 

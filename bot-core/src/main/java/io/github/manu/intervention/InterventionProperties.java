@@ -2,12 +2,15 @@ package io.github.manu.intervention;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.List;
+
 @ConfigurationProperties(prefix = "trading.intervention")
 public record InterventionProperties(
         OperatorApi operatorApi,
         RemediationOrchestrator remediationOrchestrator,
         AutomatedPolicy automatedPolicy,
-        AutomatedDecisionService automatedDecisionService
+        AutomatedDecisionService automatedDecisionService,
+        RemediationExecutorPolicy remediationExecutorPolicy
 ) {
 
     public InterventionProperties {
@@ -19,6 +22,9 @@ public record InterventionProperties(
         automatedDecisionService = automatedDecisionService == null
                 ? AutomatedDecisionService.disabled()
                 : automatedDecisionService;
+        remediationExecutorPolicy = remediationExecutorPolicy == null
+                ? RemediationExecutorPolicy.disabled()
+                : remediationExecutorPolicy;
     }
 
     public record OperatorApi(
@@ -125,6 +131,104 @@ public record InterventionProperties(
         }
     }
 
+    public record RemediationExecutorPolicy(
+            Boolean enabled,
+            Boolean exchangeExecutionEnabled,
+            Boolean dryRunOnly,
+            Boolean allowRealEnvironment,
+            Boolean requireReadyPlan,
+            Boolean requireFreshProjectionMatch,
+            Boolean requireProjectionTargetIdentity,
+            Boolean requireManagedExecutionPipeline,
+            Boolean rejectStaleProjection,
+            Boolean rejectUnsupportedPlans,
+            Boolean rejectOperatorReviewPlans,
+            Boolean rejectInsufficientDataPlans,
+            Integer maxPlansPerRun,
+            List<ExecutableOperation> allowedOperations
+    ) {
+
+        public RemediationExecutorPolicy {
+            enabled = Boolean.TRUE.equals(enabled);
+            exchangeExecutionEnabled = Boolean.TRUE.equals(exchangeExecutionEnabled);
+            dryRunOnly = dryRunOnly == null || Boolean.TRUE.equals(dryRunOnly);
+            allowRealEnvironment = Boolean.TRUE.equals(allowRealEnvironment);
+            requireReadyPlan = requireReadyPlan == null || Boolean.TRUE.equals(requireReadyPlan);
+            requireFreshProjectionMatch = requireFreshProjectionMatch == null
+                    || Boolean.TRUE.equals(requireFreshProjectionMatch);
+            requireProjectionTargetIdentity = requireProjectionTargetIdentity == null
+                    || Boolean.TRUE.equals(requireProjectionTargetIdentity);
+            requireManagedExecutionPipeline = requireManagedExecutionPipeline == null
+                    || Boolean.TRUE.equals(requireManagedExecutionPipeline);
+            rejectStaleProjection = rejectStaleProjection == null || Boolean.TRUE.equals(rejectStaleProjection);
+            rejectUnsupportedPlans = rejectUnsupportedPlans == null || Boolean.TRUE.equals(rejectUnsupportedPlans);
+            rejectOperatorReviewPlans = rejectOperatorReviewPlans == null
+                    || Boolean.TRUE.equals(rejectOperatorReviewPlans);
+            rejectInsufficientDataPlans = rejectInsufficientDataPlans == null
+                    || Boolean.TRUE.equals(rejectInsufficientDataPlans);
+            int normalizedMaxPlansPerRun = maxPlansPerRun == null ? 25 : maxPlansPerRun;
+            if (normalizedMaxPlansPerRun <= 0) {
+                throw new IllegalArgumentException("maxPlansPerRun must be positive");
+            }
+            maxPlansPerRun = normalizedMaxPlansPerRun;
+            if (allowedOperations == null) {
+                allowedOperations = List.of();
+            } else {
+                for (ExecutableOperation operation : allowedOperations) {
+                    if (operation == null) {
+                        throw new IllegalArgumentException("allowedOperations must not contain null values");
+                    }
+                }
+                allowedOperations = List.copyOf(allowedOperations);
+            }
+            if (Boolean.TRUE.equals(exchangeExecutionEnabled)) {
+                if (!Boolean.TRUE.equals(enabled)) {
+                    throw new IllegalArgumentException("exchangeExecutionEnabled requires remediation executor policy to be enabled");
+                }
+                if (Boolean.TRUE.equals(dryRunOnly)) {
+                    throw new IllegalArgumentException("exchangeExecutionEnabled requires dryRunOnly=false");
+                }
+                if (allowedOperations.isEmpty()) {
+                    throw new IllegalArgumentException("exchangeExecutionEnabled requires at least one allowed operation");
+                }
+                if (!Boolean.TRUE.equals(requireReadyPlan)) {
+                    throw new IllegalArgumentException("exchangeExecutionEnabled requires requireReadyPlan=true");
+                }
+                if (!Boolean.TRUE.equals(requireFreshProjectionMatch)) {
+                    throw new IllegalArgumentException("exchangeExecutionEnabled requires requireFreshProjectionMatch=true");
+                }
+                if (!Boolean.TRUE.equals(requireProjectionTargetIdentity)) {
+                    throw new IllegalArgumentException("exchangeExecutionEnabled requires requireProjectionTargetIdentity=true");
+                }
+                if (!Boolean.TRUE.equals(requireManagedExecutionPipeline)) {
+                    throw new IllegalArgumentException("exchangeExecutionEnabled requires requireManagedExecutionPipeline=true");
+                }
+            }
+            if (!Boolean.TRUE.equals(exchangeExecutionEnabled) && Boolean.FALSE.equals(dryRunOnly)) {
+                throw new IllegalArgumentException("dryRunOnly cannot be false unless exchangeExecutionEnabled is true");
+            }
+        }
+
+        static RemediationExecutorPolicy disabled() {
+            return new RemediationExecutorPolicy(
+                    false,
+                    false,
+                    true,
+                    false,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    25,
+                    List.of()
+            );
+        }
+    }
+
     public enum RemediationAction {
         OPERATOR_REVIEW,
         REPLAN_FROM_PROJECTION,
@@ -134,6 +238,20 @@ public record InterventionProperties(
         REDUCE,
         CLOSE,
         HEDGE,
+        PAUSE_SYMBOL,
+        PAUSE_ACCOUNT,
+        IGNORE
+    }
+
+    public enum ExecutableOperation {
+        CANCEL_ORDER,
+        ADOPT_ORDER,
+        AMEND_ORDER,
+        REPLAN_FROM_PROJECTION,
+        CLOSE_POSITION,
+        REDUCE_POSITION,
+        HEDGE_POSITION,
+        ADOPT_POSITION,
         PAUSE_SYMBOL,
         PAUSE_ACCOUNT,
         IGNORE

@@ -112,6 +112,88 @@ class InterventionConfigurationTest {
                 });
     }
 
+    @Test
+    void keeps_remediation_executor_policy_non_executable_by_default() {
+        contextRunner.run(context -> {
+            InterventionProperties.RemediationExecutorPolicy policy =
+                    context.getBean(InterventionProperties.class).remediationExecutorPolicy();
+
+            assertThat(policy.enabled()).isFalse();
+            assertThat(policy.exchangeExecutionEnabled()).isFalse();
+            assertThat(policy.dryRunOnly()).isTrue();
+            assertThat(policy.allowRealEnvironment()).isFalse();
+            assertThat(policy.requireReadyPlan()).isTrue();
+            assertThat(policy.requireFreshProjectionMatch()).isTrue();
+            assertThat(policy.requireProjectionTargetIdentity()).isTrue();
+            assertThat(policy.requireManagedExecutionPipeline()).isTrue();
+            assertThat(policy.rejectStaleProjection()).isTrue();
+            assertThat(policy.rejectUnsupportedPlans()).isTrue();
+            assertThat(policy.rejectOperatorReviewPlans()).isTrue();
+            assertThat(policy.rejectInsufficientDataPlans()).isTrue();
+            assertThat(policy.maxPlansPerRun()).isEqualTo(25);
+            assertThat(policy.allowedOperations()).isEmpty();
+        });
+    }
+
+    @Test
+    void binds_remediation_executor_policy_allowlist() {
+        contextRunner
+                .withPropertyValues(
+                        "trading.intervention.remediation-executor-policy.enabled=true",
+                        "trading.intervention.remediation-executor-policy.exchange-execution-enabled=true",
+                        "trading.intervention.remediation-executor-policy.dry-run-only=false",
+                        "trading.intervention.remediation-executor-policy.allow-real-environment=false",
+                        "trading.intervention.remediation-executor-policy.max-plans-per-run=3",
+                        "trading.intervention.remediation-executor-policy.allowed-operations[0]=CANCEL_ORDER",
+                        "trading.intervention.remediation-executor-policy.allowed-operations[1]=PAUSE_SYMBOL"
+                )
+                .run(context -> {
+                    InterventionProperties.RemediationExecutorPolicy policy =
+                            context.getBean(InterventionProperties.class).remediationExecutorPolicy();
+
+                    assertThat(policy.enabled()).isTrue();
+                    assertThat(policy.exchangeExecutionEnabled()).isTrue();
+                    assertThat(policy.dryRunOnly()).isFalse();
+                    assertThat(policy.allowRealEnvironment()).isFalse();
+                    assertThat(policy.maxPlansPerRun()).isEqualTo(3);
+                    assertThat(policy.allowedOperations())
+                            .containsExactly(
+                                    InterventionProperties.ExecutableOperation.CANCEL_ORDER,
+                                    InterventionProperties.ExecutableOperation.PAUSE_SYMBOL
+                            );
+                });
+    }
+
+    @Test
+    void rejects_exchange_executor_policy_without_explicit_operations() {
+        contextRunner
+                .withPropertyValues(
+                        "trading.intervention.remediation-executor-policy.enabled=true",
+                        "trading.intervention.remediation-executor-policy.exchange-execution-enabled=true",
+                        "trading.intervention.remediation-executor-policy.dry-run-only=false"
+                )
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasRootCauseMessage("exchangeExecutionEnabled requires at least one allowed operation"));
+    }
+
+    @Test
+    void rejects_exchange_executor_policy_when_pipeline_gate_is_disabled() {
+        contextRunner
+                .withPropertyValues(
+                        "trading.intervention.remediation-executor-policy.enabled=true",
+                        "trading.intervention.remediation-executor-policy.exchange-execution-enabled=true",
+                        "trading.intervention.remediation-executor-policy.dry-run-only=false",
+                        "trading.intervention.remediation-executor-policy.require-managed-execution-pipeline=false",
+                        "trading.intervention.remediation-executor-policy.allowed-operations[0]=CANCEL_ORDER"
+                )
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasRootCauseMessage("exchangeExecutionEnabled requires requireManagedExecutionPipeline=true"));
+    }
+
     private static final class NoopTradingEventBus implements TradingEventBus {
 
         @Override
