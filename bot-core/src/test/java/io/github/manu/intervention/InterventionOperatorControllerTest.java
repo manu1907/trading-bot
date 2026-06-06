@@ -3,6 +3,7 @@ package io.github.manu.intervention;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
+import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
@@ -41,11 +42,16 @@ class InterventionOperatorControllerTest {
                     Clock.fixed(NOW, ZoneOffset.UTC),
                     () -> "remediation-001"
             );
+    private final InterventionAutomatedDecisionService automatedDecisionService = automatedDecisionService(
+            remediationAdvisor,
+            new InterventionProperties.AutomatedDecisionService(false, false, 100, null, null)
+    );
     private final InterventionRemediationCommandPlanner remediationCommandPlanner =
             new InterventionRemediationCommandPlanner(projection);
     private final InterventionOperatorController controller = new InterventionOperatorController(
             service,
             remediationDecisionService,
+            automatedDecisionService,
             remediationAdvisor,
             remediationCommandPlanner,
             projection,
@@ -407,6 +413,101 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
+    void triggers_automated_remediation_decisions_when_token_matches() {
+        InterventionRemediationAdvisor automatedAdvisor = new InterventionRemediationAdvisor(
+                projection,
+                new InterventionProperties.AutomatedPolicy(
+                        InterventionProperties.RemediationAction.CLOSE,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
+        InterventionOperatorController enabledController = controller(
+                automatedAdvisor,
+                automatedDecisionService(
+                        automatedAdvisor,
+                        new InterventionProperties.AutomatedDecisionService(true, false, 100, null, null)
+                )
+        );
+        WebTestClient enabledClient = WebTestClient.bindToController(enabledController).build();
+        restoreOrderIntervention("external_order_observed", true);
+
+        enabledClient.post()
+                .uri("/internal/interventions/remediation/automated-decisions")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(automatedDecisionRequest())
+                .exchange()
+                .expectStatus()
+                .isAccepted()
+                .expectBody()
+                .jsonPath("$.enabled")
+                .isEqualTo(true)
+                .jsonPath("$.publishedCount")
+                .isEqualTo(1)
+                .jsonPath("$.skippedCount")
+                .isEqualTo(0)
+                .jsonPath("$.outcomes[0].status")
+                .isEqualTo("PUBLISHED")
+                .jsonPath("$.outcomes[0].action")
+                .isEqualTo("CLOSE")
+                .jsonPath("$.outcomes[0].reason")
+                .isEqualTo("automated_decision:published");
+
+        assertThat(eventBus.envelope).isNotNull();
+        assertThat(eventBus.envelope.eventType()).isEqualTo(TradingEventType.REMEDIATION_DECISION);
+        RemediationDecisionEvent event = (RemediationDecisionEvent) eventBus.envelope.value();
+        assertThat(event.getAction()).hasToString("CLOSE");
+        assertThat(event.getDecidedBy()).hasToString("automated_remediation_policy");
+        assertThat(event.getAttributes())
+                .containsEntry("recommendation_event_id", "evt-order-intervention")
+                .containsEntry("automated_decision_service", "true");
+    }
+
+    @Test
+    void returns_disabled_automated_decision_batch_when_service_is_disabled() {
+        restoreOrderIntervention("external_order_observed", true);
+
+        client.post()
+                .uri("/internal/interventions/remediation/automated-decisions")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(automatedDecisionRequest())
+                .exchange()
+                .expectStatus()
+                .isAccepted()
+                .expectBody()
+                .jsonPath("$.enabled")
+                .isEqualTo(false)
+                .jsonPath("$.publishedCount")
+                .isEqualTo(0)
+                .jsonPath("$.skippedCount")
+                .isEqualTo(0)
+                .jsonPath("$.outcomes.length()")
+                .isEqualTo(0);
+
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
+    void rejects_automated_remediation_decision_trigger_when_token_is_invalid() {
+        restoreOrderIntervention("external_order_observed", true);
+
+        client.post()
+                .uri("/internal/interventions/remediation/automated-decisions")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .bodyValue(automatedDecisionRequest())
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
     void maps_stale_remediation_decision_to_conflict() {
         restoreManualReviewDecision();
 
@@ -571,6 +672,50 @@ class InterventionOperatorControllerTest {
                 Map.entry("decidedBy", "operator"),
                 Map.entry("decisionReason", "reviewed current projection"),
                 Map.entry("attributes", Map.of("ticket", "ops-789"))
+        );
+    }
+
+    private Map<String, Object> automatedDecisionRequest() {
+        return Map.of(
+                "provider", "binance",
+                "environment", "demo",
+                "account", "main",
+                "market", "usd_m_futures"
+        );
+    }
+
+    private InterventionOperatorController controller(
+            InterventionRemediationAdvisor advisor,
+            InterventionAutomatedDecisionService automatedDecisionService
+    ) {
+        InterventionRemediationDecisionService decisionService = new InterventionRemediationDecisionService(
+                eventBus,
+                advisor,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                () -> "remediation-001"
+        );
+        return new InterventionOperatorController(
+                service,
+                decisionService,
+                automatedDecisionService,
+                advisor,
+                remediationCommandPlanner,
+                projection,
+                new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null)
+        );
+    }
+
+    private InterventionAutomatedDecisionService automatedDecisionService(
+            InterventionRemediationAdvisor advisor,
+            InterventionProperties.AutomatedDecisionService properties
+    ) {
+        return new InterventionAutomatedDecisionService(
+                eventBus,
+                advisor,
+                projection,
+                properties,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                () -> "auto-001"
         );
     }
 

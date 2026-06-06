@@ -622,8 +622,28 @@ curl -X POST \
   }'
 ```
 
+Trigger automated remediation decisions for current recommendations:
+
+```bash
+curl -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/interventions/remediation/automated-decisions' \
+  -d '{
+    "provider": "binance",
+    "environment": "demo",
+    "account": "main",
+    "market": "usdm_futures"
+  }'
+```
+
+This endpoint returns a batch result with `enabled`, `publishedCount`,
+`skippedCount`, and per-recommendation outcomes. It only publishes remediation
+decision events when `automated_decision_service.enabled=true`; it does not send
+exchange commands.
+
 Successful POST endpoints return HTTP `202 Accepted` after publishing the
-corresponding event.
+corresponding event or accepting the automated batch trigger.
 
 ## Configuration Sources
 

@@ -31,6 +31,7 @@ public final class InterventionOperatorController {
 
     private final InterventionAcknowledgementService acknowledgementService;
     private final InterventionRemediationDecisionService remediationDecisionService;
+    private final InterventionAutomatedDecisionService automatedDecisionService;
     private final InterventionRemediationAdvisor remediationAdvisor;
     private final InterventionRemediationCommandPlanner remediationCommandPlanner;
     private final TradingStateProjection projection;
@@ -39,6 +40,7 @@ public final class InterventionOperatorController {
     public InterventionOperatorController(
             InterventionAcknowledgementService acknowledgementService,
             InterventionRemediationDecisionService remediationDecisionService,
+            InterventionAutomatedDecisionService automatedDecisionService,
             InterventionRemediationAdvisor remediationAdvisor,
             InterventionRemediationCommandPlanner remediationCommandPlanner,
             TradingStateProjection projection,
@@ -46,6 +48,7 @@ public final class InterventionOperatorController {
     ) {
         this.acknowledgementService = Objects.requireNonNull(acknowledgementService, "acknowledgementService");
         this.remediationDecisionService = Objects.requireNonNull(remediationDecisionService, "remediationDecisionService");
+        this.automatedDecisionService = Objects.requireNonNull(automatedDecisionService, "automatedDecisionService");
         this.remediationAdvisor = Objects.requireNonNull(remediationAdvisor, "remediationAdvisor");
         this.remediationCommandPlanner = Objects.requireNonNull(remediationCommandPlanner, "remediationCommandPlanner");
         this.projection = Objects.requireNonNull(projection, "projection");
@@ -234,6 +237,22 @@ public final class InterventionOperatorController {
                 .onErrorResume(IllegalStateException.class, this::conflict);
     }
 
+    @PostMapping("/remediation/automated-decisions")
+    public Mono<ResponseEntity<?>> decideAutomatedRemediation(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestBody Mono<AutomatedDecisionHttpRequest> request
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        Mono<ResponseEntity<?>> response = request
+                .flatMap(this::decideAutomated)
+                .map(batch -> ResponseEntity.accepted().body(AutomatedDecisionResponse.from(batch)));
+        return response
+                .onErrorResume(IllegalArgumentException.class, this::badRequest)
+                .onErrorResume(IllegalStateException.class, this::conflict);
+    }
+
     @PostMapping("/orders/acknowledgements")
     public Mono<ResponseEntity<?>> acknowledgeOrder(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
@@ -276,6 +295,17 @@ public final class InterventionOperatorController {
 
     private Mono<PublishedTradingEvent> decide(RemediationDecisionHttpRequest request) {
         return Mono.fromFuture(remediationDecisionService.decide(request.toServiceRequest()));
+    }
+
+    private Mono<InterventionAutomatedDecisionService.AutomatedDecisionBatch> decideAutomated(
+            AutomatedDecisionHttpRequest request
+    ) {
+        return Mono.fromFuture(automatedDecisionService.decide(
+                request.provider(),
+                request.environment(),
+                request.account(),
+                request.market()
+        ));
     }
 
     private RemediationDecisionEvent toDecisionEvent(TradingStateProjection.RemediationDecisionState state) {
@@ -397,6 +427,23 @@ public final class InterventionOperatorController {
     ) {
     }
 
+    record AutomatedDecisionResponse(
+            boolean enabled,
+            long publishedCount,
+            long skippedCount,
+            List<InterventionAutomatedDecisionService.AutomatedDecisionOutcome> outcomes
+    ) {
+
+        static AutomatedDecisionResponse from(InterventionAutomatedDecisionService.AutomatedDecisionBatch batch) {
+            return new AutomatedDecisionResponse(
+                    batch.enabled(),
+                    batch.publishedCount(),
+                    batch.skippedCount(),
+                    batch.outcomes()
+            );
+        }
+    }
+
     record RemediationDecisionHttpRequest(
             String provider,
             String environment,
@@ -432,6 +479,14 @@ public final class InterventionOperatorController {
                     attributes
             );
         }
+    }
+
+    record AutomatedDecisionHttpRequest(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
     }
 
     record PositionAcknowledgementHttpRequest(
