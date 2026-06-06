@@ -48,12 +48,31 @@ class InterventionOperatorControllerTest {
     );
     private final InterventionRemediationCommandPlanner remediationCommandPlanner =
             new InterventionRemediationCommandPlanner(projection);
+    private final InterventionRemediationExecutorService remediationExecutorService = remediationExecutorService(
+            remediationCommandPlanner,
+            new InterventionProperties.RemediationExecutorPolicy(
+                    false,
+                    false,
+                    true,
+                    false,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    25,
+                    List.of()
+            )
+    );
     private final InterventionOperatorController controller = new InterventionOperatorController(
             service,
             remediationDecisionService,
             automatedDecisionService,
             remediationAdvisor,
-            remediationCommandPlanner,
+            remediationExecutorService,
             projection,
             new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null, null)
     );
@@ -699,9 +718,20 @@ class InterventionOperatorControllerTest {
                 decisionService,
                 automatedDecisionService,
                 advisor,
-                remediationCommandPlanner,
+                remediationExecutorService,
                 projection,
                 new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null, null)
+        );
+    }
+
+    private InterventionRemediationExecutorService remediationExecutorService(
+            InterventionRemediationCommandPlanner commandPlanner,
+            InterventionProperties.RemediationExecutorPolicy policy
+    ) {
+        return new InterventionRemediationExecutorService(
+                projection,
+                commandPlanner,
+                new InterventionProperties(null, null, null, null, policy)
         );
     }
 

@@ -81,7 +81,9 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - The planner refuses stale targets, missing intervention records, invalid position quantities, and unsupported actions.
 - All current command plans have `exchangeExecutable=false`.
 - The operator API exposes generated plans with `GET /internal/interventions/remediation/plans`.
-- Executor policy config exists, but no executor service consumes the plans yet.
+- `InterventionRemediationExecutorService` consumes persisted remediation decisions, regenerates current command plans, applies executor policy gates, caps dry-run batches, and returns report-only outcomes.
+- Executor reports can mark plans as `BLOCKED`, `DRY_RUN`, or `NO_ACTION`.
+- The executor service does not submit exchange commands, cancel orders, mutate positions, or acknowledge interventions.
 
 ### Operator API Surface
 
@@ -129,23 +131,22 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Enable automated decision publication only when the configured policy is understood.
 - Trigger automated decision publication through the operator API when enabled.
 - Inspect generated remediation command plans.
-- Treat all generated remediation command plans as non-executable until the remediation executor is implemented.
+- Treat all generated remediation command plans and executor reports as non-executing until the exchange executor path is implemented.
 
 ## Next Work In Dependency Order
 
-1. Add a remediation executor service that consumes current command plans but starts in dry-run/report-only mode.
-2. Add an operator dry-run endpoint that explains exactly what each ready plan would do and why it is or is not executable.
-3. Implement the first executable remediation operation: external order `CLOSE` as a cancel command routed through the existing execution pipeline, risk gate, idempotency, event journal, projection, and provider gateway.
-4. Add deterministic remediation command ids and idempotency keys so repeated automation cycles cannot duplicate exchange actions.
-5. Add pause governance state for `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions.
-6. Integrate pause governance into strategy admission and order execution admission.
-7. Add bounded position remediation sizing policy for `REDUCE`, `CLOSE`, and `HEDGE` before any position action can be executable.
-8. Implement position close/reduce planning with reduce-only constraints and provider capability validation.
-9. Implement hedge planning only after hedge sizing, margin mode, leverage, symbol capability, and account risk constraints are explicit.
-10. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
-11. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
-12. Add a scheduled/live automated remediation runner after executor safety and idempotency are in place.
-13. Expand persistence and recovery tests for automated decisions, generated plans, pause state, and executable remediation commands.
-14. Complete production operations work: deployment config, secrets handling, observability, alerting, runbooks, and incident procedures.
-15. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
-16. Keep the user manual and current-state documentation aligned after each capability change.
+1. Add an operator dry-run endpoint that exposes remediation executor reports and explains exactly what each ready plan would do and why it is or is not executable.
+2. Implement the first executable remediation operation: external order `CLOSE` as a cancel command routed through the existing execution pipeline, risk gate, idempotency, event journal, projection, and provider gateway.
+3. Add deterministic remediation command ids and idempotency keys so repeated automation cycles cannot duplicate exchange actions.
+4. Add pause governance state for `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions.
+5. Integrate pause governance into strategy admission and order execution admission.
+6. Add bounded position remediation sizing policy for `REDUCE`, `CLOSE`, and `HEDGE` before any position action can be executable.
+7. Implement position close/reduce planning with reduce-only constraints and provider capability validation.
+8. Implement hedge planning only after hedge sizing, margin mode, leverage, symbol capability, and account risk constraints are explicit.
+9. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
+10. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
+11. Add a scheduled/live automated remediation runner after executor safety and idempotency are in place.
+12. Expand persistence and recovery tests for automated decisions, generated plans, pause state, and executable remediation commands.
+13. Complete production operations work: deployment config, secrets handling, observability, alerting, runbooks, and incident procedures.
+14. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
+15. Keep the user manual and current-state documentation aligned after each capability change.

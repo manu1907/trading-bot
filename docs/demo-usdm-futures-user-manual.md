@@ -1088,9 +1088,14 @@ the policy is enabled, `dry_run_only=false`, at least one operation is explicitl
 allowlisted, and the strict ready-plan, fresh-projection, target-identity, and
 managed-pipeline gates remain enabled. `allow_real_environment=false` means a
 future executor must still refuse real-environment exchange execution unless a
-real deployment deliberately overrides that guard. The current codebase binds
-and validates this policy, but it still has no executor service and no endpoint
-that turns plans into exchange commands.
+real deployment deliberately overrides that guard.
+
+The current codebase includes a report-only remediation executor service. It
+consumes persisted remediation decisions, regenerates current command plans,
+applies the executor policy gates, caps each batch with `max_plans_per_run`, and
+returns per-plan reports with statuses such as blocked or no-action. It still
+does not turn plans into exchange commands, and there is not yet an operator API
+endpoint for retrieving the dry-run reports.
 
 ## Event And Projection Capabilities
 

@@ -46,6 +46,15 @@ public class InterventionConfiguration {
     }
 
     @Bean
+    InterventionRemediationExecutorService interventionRemediationExecutorService(
+            TradingStateProjection projection,
+            InterventionRemediationCommandPlanner commandPlanner,
+            InterventionProperties properties
+    ) {
+        return new InterventionRemediationExecutorService(projection, commandPlanner, properties);
+    }
+
+    @Bean
     @ConditionalOnBean(TradingEventBus.class)
     InterventionAutomatedDecisionService interventionAutomatedDecisionService(
             TradingEventBus eventBus,

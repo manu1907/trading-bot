@@ -563,6 +563,11 @@ blocked by default, and executable operation names must be allowlisted before a
 future executor may act. Enabling exchange execution requires the ready-plan,
 fresh-projection, target-identity, and managed-pipeline gates to remain enabled,
 so remediation cannot be configured to bypass the normal execution pipeline.
+`InterventionRemediationExecutorService` is currently report-only. It consumes
+persisted remediation decisions, regenerates current command plans through the
+planner, evaluates each plan against the executor policy, caps each dry-run
+batch, and returns blocked, dry-run, or no-action reports. It does not submit
+orders, cancel orders, mutate positions, or acknowledge interventions.
 
 ## Redpanda Messaging
 

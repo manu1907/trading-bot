@@ -28,6 +28,7 @@ class InterventionConfigurationTest {
                 .hasSingleBean(InterventionProperties.class)
                 .hasSingleBean(InterventionAcknowledgementService.class)
                 .hasSingleBean(InterventionRemediationCommandPlanner.class)
+                .hasSingleBean(InterventionRemediationExecutorService.class)
                 .hasSingleBean(InterventionAutomatedDecisionService.class)
                 .doesNotHaveBean(InterventionRemediationOrchestrator.class)
                 .doesNotHaveBean(InterventionOperatorController.class));

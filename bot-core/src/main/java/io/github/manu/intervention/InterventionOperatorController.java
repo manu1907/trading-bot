@@ -1,7 +1,6 @@
 package io.github.manu.intervention;
 
 import io.github.manu.messaging.PublishedTradingEvent;
-import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.projection.TradingStateProjection;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,7 +32,7 @@ public final class InterventionOperatorController {
     private final InterventionRemediationDecisionService remediationDecisionService;
     private final InterventionAutomatedDecisionService automatedDecisionService;
     private final InterventionRemediationAdvisor remediationAdvisor;
-    private final InterventionRemediationCommandPlanner remediationCommandPlanner;
+    private final InterventionRemediationExecutorService remediationExecutorService;
     private final TradingStateProjection projection;
     private final String operatorToken;
 
@@ -42,7 +41,7 @@ public final class InterventionOperatorController {
             InterventionRemediationDecisionService remediationDecisionService,
             InterventionAutomatedDecisionService automatedDecisionService,
             InterventionRemediationAdvisor remediationAdvisor,
-            InterventionRemediationCommandPlanner remediationCommandPlanner,
+            InterventionRemediationExecutorService remediationExecutorService,
             TradingStateProjection projection,
             InterventionProperties properties
     ) {
@@ -50,7 +49,7 @@ public final class InterventionOperatorController {
         this.remediationDecisionService = Objects.requireNonNull(remediationDecisionService, "remediationDecisionService");
         this.automatedDecisionService = Objects.requireNonNull(automatedDecisionService, "automatedDecisionService");
         this.remediationAdvisor = Objects.requireNonNull(remediationAdvisor, "remediationAdvisor");
-        this.remediationCommandPlanner = Objects.requireNonNull(remediationCommandPlanner, "remediationCommandPlanner");
+        this.remediationExecutorService = Objects.requireNonNull(remediationExecutorService, "remediationExecutorService");
         this.projection = Objects.requireNonNull(projection, "projection");
         InterventionProperties.OperatorApi operatorApi = Objects.requireNonNull(properties, "properties").operatorApi();
         this.operatorToken = requireText(operatorApi.operatorToken(), "operatorToken");
@@ -205,16 +204,7 @@ public final class InterventionOperatorController {
         }
         try {
             List<InterventionRemediationCommandPlanner.RemediationCommandPlan> plans =
-                    projection.remediationDecisionStates(
-                                    requireText(provider, "provider"),
-                                    requireText(environment, "environment"),
-                                    requireText(account, "account"),
-                                    requireText(market, "market")
-                            )
-                            .stream()
-                            .map(this::toDecisionEvent)
-                            .map(remediationCommandPlanner::plan)
-                            .toList();
+                    remediationExecutorService.plans(provider, environment, account, market);
             return Mono.just(ResponseEntity.ok(new RemediationCommandPlansResponse(plans.size(), plans)));
         } catch (IllegalArgumentException exception) {
             return badRequest(exception);
@@ -306,29 +296,6 @@ public final class InterventionOperatorController {
                 request.account(),
                 request.market()
         ));
-    }
-
-    private RemediationDecisionEvent toDecisionEvent(TradingStateProjection.RemediationDecisionState state) {
-        return RemediationDecisionEvent.newBuilder()
-                .setEventId(state.eventId())
-                .setSchemaVersion(1)
-                .setRemediationId(state.remediationId())
-                .setProvider(state.provider())
-                .setEnvironment(state.environment())
-                .setAccount(state.account())
-                .setMarket(state.market())
-                .setSymbol(state.symbol())
-                .setScope(state.scope())
-                .setAction(state.action())
-                .setClientOrderId(state.clientOrderId())
-                .setPositionSide(state.positionSide())
-                .setInterventionReason(state.interventionReason())
-                .setReasons(List.copyOf(state.reasons()))
-                .setDecidedBy(state.decidedBy())
-                .setDecisionReason(state.decisionReason())
-                .setDecidedAtMicros(state.updatedAt())
-                .setAttributes(Map.copyOf(state.attributes()))
-                .build();
     }
 
     private ResponseEntity<AcknowledgementAcceptedResponse> accepted(PublishedTradingEvent published) {
