@@ -8,6 +8,7 @@ import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.github.manu.observability.PauseGovernanceMetrics;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationTargetConfidence;
@@ -62,6 +63,7 @@ public final class OrderRiskGate {
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
     private final TradingStateProjection tradingStateProjection;
     private final AuditLogger auditLogger;
+    private final PauseGovernanceMetrics pauseGovernanceMetrics;
     private final Clock clock;
 
     public OrderRiskGate(
@@ -69,7 +71,14 @@ public final class OrderRiskGate {
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             TradingStateProjection tradingStateProjection
     ) {
-        this(properties, reconciliationConfidenceTracker, tradingStateProjection, new AuditLogger(), Clock.systemUTC());
+        this(
+                properties,
+                reconciliationConfidenceTracker,
+                tradingStateProjection,
+                new AuditLogger(),
+                new PauseGovernanceMetrics(),
+                Clock.systemUTC()
+        );
     }
 
     @Autowired
@@ -77,9 +86,17 @@ public final class OrderRiskGate {
             ExecutionProperties properties,
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             TradingStateProjection tradingStateProjection,
-            AuditLogger auditLogger
+            AuditLogger auditLogger,
+            PauseGovernanceMetrics pauseGovernanceMetrics
     ) {
-        this(properties, reconciliationConfidenceTracker, tradingStateProjection, auditLogger, Clock.systemUTC());
+        this(
+                properties,
+                reconciliationConfidenceTracker,
+                tradingStateProjection,
+                auditLogger,
+                pauseGovernanceMetrics,
+                Clock.systemUTC()
+        );
     }
 
     OrderRiskGate(
@@ -87,7 +104,14 @@ public final class OrderRiskGate {
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             Clock clock
     ) {
-        this(properties, reconciliationConfidenceTracker, new TradingStateProjection(), new AuditLogger(), clock);
+        this(
+                properties,
+                reconciliationConfidenceTracker,
+                new TradingStateProjection(),
+                new AuditLogger(),
+                new PauseGovernanceMetrics(),
+                clock
+        );
     }
 
     OrderRiskGate(
@@ -96,7 +120,14 @@ public final class OrderRiskGate {
             TradingStateProjection tradingStateProjection,
             Clock clock
     ) {
-        this(properties, reconciliationConfidenceTracker, tradingStateProjection, new AuditLogger(), clock);
+        this(
+                properties,
+                reconciliationConfidenceTracker,
+                tradingStateProjection,
+                new AuditLogger(),
+                new PauseGovernanceMetrics(),
+                clock
+        );
     }
 
     OrderRiskGate(
@@ -104,6 +135,7 @@ public final class OrderRiskGate {
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             TradingStateProjection tradingStateProjection,
             AuditLogger auditLogger,
+            PauseGovernanceMetrics pauseGovernanceMetrics,
             Clock clock
     ) {
         this.properties = Objects.requireNonNull(properties, "properties");
@@ -113,6 +145,7 @@ public final class OrderRiskGate {
         );
         this.tradingStateProjection = Objects.requireNonNull(tradingStateProjection, "tradingStateProjection");
         this.auditLogger = Objects.requireNonNull(auditLogger, "auditLogger");
+        this.pauseGovernanceMetrics = Objects.requireNonNull(pauseGovernanceMetrics, "pauseGovernanceMetrics");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -228,6 +261,7 @@ public final class OrderRiskGate {
 
     private void auditPauseOverride(OrderCommandEvent command, RiskDecisionEvent decision) {
         if ("true".equals(attribute(decision, "pause_override_requested"))) {
+            pauseGovernanceMetrics.pauseOverrideEvaluated(command, decision);
             auditLogger.pauseOverrideEvaluated(command, decision);
         }
     }

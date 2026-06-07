@@ -11,11 +11,13 @@ import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.github.manu.observability.PauseGovernanceMetrics;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
 import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationObservation;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -468,6 +470,7 @@ class OrderRiskGateTest {
     void audits_pause_override_attempt_after_risk_decision_is_built() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
         AuditLogger auditLogger = mock(AuditLogger.class);
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         OrderCommandEvent command = commandWithAttributes(Map.of(
                 "pause_override",
                 "true",
@@ -484,10 +487,28 @@ class OrderRiskGateTest {
                 reconciliationTracker,
                 projectionWithPause("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL"),
                 auditLogger,
+                new PauseGovernanceMetrics(meterRegistry),
                 clock
         ).evaluate(command);
 
         assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(meterRegistry.getMeters()
+                .stream()
+                .filter(meter -> "trading.pause_governance.override.events".equals(meter.getId().getName()))
+                .toList())
+                .singleElement()
+                .satisfies(meter -> {
+                    assertThat(meter.getId().getTag("provider")).isEqualTo("binance");
+                    assertThat(meter.getId().getTag("environment")).isEqualTo("demo");
+                    assertThat(meter.getId().getTag("account")).isEqualTo("main");
+                    assertThat(meter.getId().getTag("market")).isEqualTo("usd_m_futures");
+                    assertThat(meter.getId().getTag("symbol")).isEqualTo("BTCUSDT");
+                    assertThat(meter.getId().getTag("decision")).isEqualTo("APPROVED");
+                    assertThat(meter.getId().getTag("outcome")).isEqualTo("allowed");
+                    assertThat(meter.getId().getTag("invalid_reason")).isEqualTo("none");
+                    assertThat(meterRegistry.get(meter.getId().getName()).tags(meter.getId().getTags()).counter().count())
+                            .isEqualTo(1.0d);
+                });
         verify(auditLogger).pauseOverrideEvaluated(any(OrderCommandEvent.class), any(RiskDecisionEvent.class));
     }
 

@@ -44,6 +44,7 @@ dependencies {
     implementation("org.agrona:agrona:${rootProject.ext["agrona.version"]}")
 
     // ---------- OPERATIONAL EXCELLENCE ----------
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
     // Async logging – never block the trading thread
     implementation("ch.qos.logback:logback-classic:1.5.32")
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
@@ -52,6 +53,7 @@ dependencies {
     // Schema-first trading event contracts; Java types are generated at build time.
     api("org.apache.avro:avro:${rootProject.ext["avro.version"]}")
     implementation("org.apache.kafka:kafka-clients")
+    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     runtimeOnly("org.postgresql:postgresql")
     avroTools("org.apache.avro:avro-tools:${rootProject.ext["avro.version"]}") {
         exclude(group = "org.apache.avro", module = "trevni-avro")

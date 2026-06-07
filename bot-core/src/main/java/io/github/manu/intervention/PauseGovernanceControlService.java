@@ -7,6 +7,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.observability.PauseGovernanceMetrics;
 import io.github.manu.projection.TradingStateProjection;
 
 import java.time.Clock;
@@ -26,6 +27,7 @@ public final class PauseGovernanceControlService {
     private final TradingEventBus eventBus;
     private final TradingStateProjection projection;
     private final AuditLogger auditLogger;
+    private final PauseGovernanceMetrics pauseGovernanceMetrics;
     private final Clock clock;
     private final Supplier<String> idSupplier;
 
@@ -38,7 +40,23 @@ public final class PauseGovernanceControlService {
             TradingStateProjection projection,
             AuditLogger auditLogger
     ) {
-        this(eventBus, projection, auditLogger, Clock.systemUTC(), () -> UUID.randomUUID().toString());
+        this(eventBus, projection, auditLogger, new PauseGovernanceMetrics());
+    }
+
+    public PauseGovernanceControlService(
+            TradingEventBus eventBus,
+            TradingStateProjection projection,
+            AuditLogger auditLogger,
+            PauseGovernanceMetrics pauseGovernanceMetrics
+    ) {
+        this(
+                eventBus,
+                projection,
+                auditLogger,
+                pauseGovernanceMetrics,
+                Clock.systemUTC(),
+                () -> UUID.randomUUID().toString()
+        );
     }
 
     PauseGovernanceControlService(
@@ -47,19 +65,21 @@ public final class PauseGovernanceControlService {
             Clock clock,
             Supplier<String> idSupplier
     ) {
-        this(eventBus, projection, new AuditLogger(), clock, idSupplier);
+        this(eventBus, projection, new AuditLogger(), new PauseGovernanceMetrics(), clock, idSupplier);
     }
 
     PauseGovernanceControlService(
             TradingEventBus eventBus,
             TradingStateProjection projection,
             AuditLogger auditLogger,
+            PauseGovernanceMetrics pauseGovernanceMetrics,
             Clock clock,
             Supplier<String> idSupplier
     ) {
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.auditLogger = Objects.requireNonNull(auditLogger, "auditLogger");
+        this.pauseGovernanceMetrics = Objects.requireNonNull(pauseGovernanceMetrics, "pauseGovernanceMetrics");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.idSupplier = Objects.requireNonNull(idSupplier, "idSupplier");
     }
@@ -103,14 +123,18 @@ public final class PauseGovernanceControlService {
                 .setAttributes(attributes(activePause, request))
                 .build();
         return eventBus.publish(envelope(event, pauseScope, pauseTarget))
-                .thenApply(published -> {
-                    auditLogger.pauseGovernanceReleased(
-                            event,
-                            pauseScope,
-                            pauseTarget,
-                            activePause.remediationId()
-                    );
-                    return published;
+                .whenComplete((published, failure) -> {
+                    if (failure == null) {
+                        pauseGovernanceMetrics.pauseReleasePublished(event, pauseScope);
+                        auditLogger.pauseGovernanceReleased(
+                                event,
+                                pauseScope,
+                                pauseTarget,
+                                activePause.remediationId()
+                        );
+                    } else {
+                        pauseGovernanceMetrics.pauseReleaseFailed(event, pauseScope);
+                    }
                 });
     }
 

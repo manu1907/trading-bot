@@ -600,8 +600,22 @@ Pause governance audit logging:
 - Override audit records include command identity, decision identity, final risk
   decision, override actor, reason, expiry, and invalid reason when the override
   request is rejected by policy.
-- These are log-based audit controls. Metrics, dashboards, alerts, and
-  operator audit-query endpoints are still planned work.
+
+Pause governance metrics:
+
+- Actuator and the Prometheus registry are on the bot-core runtime classpath.
+- If the application exposes management endpoints, Prometheus metrics are
+  available at `/actuator/prometheus`.
+- Pause release publication outcomes increment
+  `trading.pause_governance.release.events`.
+- Explicit pause override evaluations increment
+  `trading.pause_governance.override.events`.
+- Release metric tags include `provider`, `environment`, `account`, `market`,
+  `scope`, and `outcome`.
+- Override metric tags include `provider`, `environment`, `account`, `market`,
+  `symbol`, `decision`, `outcome`, and `invalid_reason`.
+- Dashboards, alerts, active-pause gauges, and operator audit-query endpoints
+  are still planned work.
 
 Release active pause governance:
 
@@ -1201,6 +1215,8 @@ Current automated remediation execution state:
   state.
 - Successful pause releases and explicit pause override attempts are written as
   structured audit log records.
+- Pause release publication outcomes and explicit override evaluations are
+  counted with Micrometer metrics for Prometheus scraping.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become

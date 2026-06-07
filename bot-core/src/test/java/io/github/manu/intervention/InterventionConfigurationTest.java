@@ -7,6 +7,7 @@ import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.observability.PauseGovernanceMetrics;
 import io.github.manu.projection.TradingStateProjection;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ class InterventionConfigurationTest {
             .withUserConfiguration(InterventionConfiguration.class, InterventionOperatorController.class)
             .withBean(TradingEventBus.class, NoopTradingEventBus::new)
             .withBean(AuditLogger.class, AuditLogger::new)
+            .withBean(PauseGovernanceMetrics.class, PauseGovernanceMetrics::new)
             .withBean(TradingStateProjection.class, TradingStateProjection::new);
 
     @Test

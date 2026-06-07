@@ -5,6 +5,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.execution.OrderExecutionPipeline;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.observability.PauseGovernanceMetrics;
 import io.github.manu.projection.TradingStateProjection;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -40,9 +41,10 @@ public class InterventionConfiguration {
     PauseGovernanceControlService pauseGovernanceControlService(
             TradingEventBus eventBus,
             TradingStateProjection projection,
-            AuditLogger auditLogger
+            AuditLogger auditLogger,
+            PauseGovernanceMetrics pauseGovernanceMetrics
     ) {
-        return new PauseGovernanceControlService(eventBus, projection, auditLogger);
+        return new PauseGovernanceControlService(eventBus, projection, auditLogger, pauseGovernanceMetrics);
     }
 
     @Bean
