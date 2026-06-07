@@ -694,6 +694,12 @@ Pause governance metrics:
   backups, at least 7 recovery days, and a 90-day restore-drill interval.
 - Full infrastructure provisioning and CI/CD deployment workflows are still
   planned work.
+- Deployment contracts use the neutral schema in
+  `ops/deployment/deployment-contract.yml`, so another cloud must keep the same
+  app-facing runtime variables and secret keys.
+- An AWS equivalent contract already exists at
+  `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same bot runtime
+  surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL.
 
 List recent pause governance audit records:
 

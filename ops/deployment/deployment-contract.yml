@@ -1,0 +1,80 @@
+schema_version: 1
+schema_id: io.github.manu.trading-bot.deployment-contract
+
+required_top_level_sections:
+  - contract
+  - deployment
+  - runtime_env
+  - secret_env
+  - alertmanager_secret_substitutions
+  - audit_backend
+
+contract:
+  id: io.github.manu.trading-bot.deployment-contract
+  version: 1
+
+required_deployment_fields:
+  - platform
+  - runtime
+  - environment
+  - provider
+  - account
+  - market
+  - service_name
+  - image
+
+required_runtime_env:
+  SPRING_PROFILES_ACTIVE: live
+  BOT_CONFIG_DIR: /app/config
+  BOT_PROVIDER: binance
+  BOT_ENVIRONMENT: demo
+  BOT_ACCOUNT: main
+  BOT_MARKET: usdm_futures
+  TRADING_INTERVENTION_OPERATOR_API_ENABLED: "true"
+  TRADING_AUDIT_PAUSE_GOVERNANCE_FILE_STORE_ENABLED: "false"
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_ENABLED: "true"
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_TABLE_PREFIX: trading_audit_pause_governance_
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA: "false"
+
+required_secret_env:
+  - BINANCE_DEMO_API_KEY
+  - BINANCE_DEMO_API_SECRET
+  - TRADING_INTERVENTION_OPERATOR_API_OPERATOR_TOKEN
+  - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL
+  - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME
+  - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD
+
+required_alertmanager_secret_substitutions:
+  - ALERTMANAGER_TRADING_BOT_OPERATOR_PAGERDUTY_ROUTING_KEY
+  - ALERTMANAGER_TRADING_BOT_PLATFORM_PAGERDUTY_ROUTING_KEY
+  - ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_WEBHOOK
+  - ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_CHANNEL
+  - ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_WEBHOOK
+  - ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_CHANNEL
+  - ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_WEBHOOK
+  - ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_CHANNEL
+
+secret_binding_shape:
+  required_fields:
+    - secret
+    - version
+  forbidden_inline_patterns:
+    - hooks.slack.com
+    - xoxb-
+    - pd_
+    - -----BEGIN
+    - jdbc:postgresql://
+
+audit_backend:
+  required_selected: jdbc
+  required_jdbc_fields:
+    - database
+    - schema_owner
+    - table_prefix
+    - retention_days
+    - backups
+  required_backup_fields:
+    - enabled
+    - mechanism
+    - minimum_recovery_days
+    - restore_test_interval_days

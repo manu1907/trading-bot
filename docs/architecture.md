@@ -624,7 +624,11 @@ maps Binance credentials, operator token, audit JDBC credentials, and
 Alertmanager receiver substitutions to Secret Manager names, disables ephemeral
 JSONL audit persistence for Cloud Run, and selects indexed JDBC audit
 persistence with deployment-owned schema migration, 180-day retention, Cloud SQL
-automated backups, and 90-day restore drills.
+automated backups, and 90-day restore drills. Deployment contracts now use the
+cloud-neutral schema in `ops/deployment/deployment-contract.yml`; an AWS
+equivalent lives in `ops/aws/demo-usdm-futures-deployment.yml` and maps the same
+app-facing runtime variables to ECS Fargate, AWS Secrets Manager, and RDS
+PostgreSQL without changing trading code.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

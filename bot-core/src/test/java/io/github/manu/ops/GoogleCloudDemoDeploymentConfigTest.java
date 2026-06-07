@@ -19,6 +19,11 @@ class GoogleCloudDemoDeploymentConfigTest {
     void demo_deployment_selects_active_target_and_jdbc_audit_backend() throws IOException {
         Map<String, Object> deployment = yaml(DEPLOYMENT_PATH);
 
+        Map<String, Object> contract = map(deployment, "contract");
+        assertThat(contract)
+                .containsEntry("id", "io.github.manu.trading-bot.deployment-contract")
+                .containsEntry("version", 1);
+
         Map<String, Object> metadata = map(deployment, "deployment");
         assertThat(metadata)
                 .containsEntry("platform", "google_cloud")

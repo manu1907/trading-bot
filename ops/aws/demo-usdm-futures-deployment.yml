@@ -5,14 +5,14 @@ contract:
   version: 1
 
 deployment:
-  platform: google_cloud
-  runtime: cloud_run
+  platform: aws
+  runtime: ecs_fargate
   environment: demo
   provider: binance
   account: main
   market: usdm_futures
   service_name: trading-bot-demo-main-usdm-futures
-  region: ${GCP_REGION}
+  region: ${AWS_REGION}
   image: ${TRADING_BOT_IMAGE}
 
 runtime_env:
@@ -30,59 +30,59 @@ runtime_env:
 
 secret_env:
   BINANCE_DEMO_API_KEY:
-    secret: trading-bot-demo-binance-api-key
-    version: latest
+    secret: trading-bot/demo/binance/api-key
+    version: AWSCURRENT
   BINANCE_DEMO_API_SECRET:
-    secret: trading-bot-demo-binance-api-secret
-    version: latest
+    secret: trading-bot/demo/binance/api-secret
+    version: AWSCURRENT
   TRADING_INTERVENTION_OPERATOR_API_OPERATOR_TOKEN:
-    secret: trading-bot-demo-operator-token
-    version: latest
+    secret: trading-bot/demo/operator-token
+    version: AWSCURRENT
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL:
-    secret: trading-bot-demo-audit-jdbc-url
-    version: latest
+    secret: trading-bot/demo/audit/jdbc-url
+    version: AWSCURRENT
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME:
-    secret: trading-bot-demo-audit-jdbc-username
-    version: latest
+    secret: trading-bot/demo/audit/jdbc-username
+    version: AWSCURRENT
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD:
-    secret: trading-bot-demo-audit-jdbc-password
-    version: latest
+    secret: trading-bot/demo/audit/jdbc-password
+    version: AWSCURRENT
 
 alertmanager_secret_substitutions:
   ALERTMANAGER_TRADING_BOT_OPERATOR_PAGERDUTY_ROUTING_KEY:
-    secret: trading-bot-demo-alert-operator-pagerduty-routing-key
-    version: latest
+    secret: trading-bot/demo/alerts/operator-pagerduty-routing-key
+    version: AWSCURRENT
   ALERTMANAGER_TRADING_BOT_PLATFORM_PAGERDUTY_ROUTING_KEY:
-    secret: trading-bot-demo-alert-platform-pagerduty-routing-key
-    version: latest
+    secret: trading-bot/demo/alerts/platform-pagerduty-routing-key
+    version: AWSCURRENT
   ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_WEBHOOK:
-    secret: trading-bot-demo-alert-operator-slack-webhook
-    version: latest
+    secret: trading-bot/demo/alerts/operator-slack-webhook
+    version: AWSCURRENT
   ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_CHANNEL:
-    secret: trading-bot-demo-alert-operator-slack-channel
-    version: latest
+    secret: trading-bot/demo/alerts/operator-slack-channel
+    version: AWSCURRENT
   ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_WEBHOOK:
-    secret: trading-bot-demo-alert-platform-slack-webhook
-    version: latest
+    secret: trading-bot/demo/alerts/platform-slack-webhook
+    version: AWSCURRENT
   ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_CHANNEL:
-    secret: trading-bot-demo-alert-platform-slack-channel
-    version: latest
+    secret: trading-bot/demo/alerts/platform-slack-channel
+    version: AWSCURRENT
   ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_WEBHOOK:
-    secret: trading-bot-demo-alert-fallback-slack-webhook
-    version: latest
+    secret: trading-bot/demo/alerts/fallback-slack-webhook
+    version: AWSCURRENT
   ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_CHANNEL:
-    secret: trading-bot-demo-alert-fallback-slack-channel
-    version: latest
+    secret: trading-bot/demo/alerts/fallback-slack-channel
+    version: AWSCURRENT
 
 audit_backend:
   selected: jdbc
   jdbc:
-    database: cloud_sql_postgresql
+    database: rds_postgresql
     schema_owner: deployment_migration
     table_prefix: trading_audit_pause_governance_
     retention_days: 180
     backups:
       enabled: true
-      mechanism: cloud_sql_automated_backup
+      mechanism: rds_automated_backup
       minimum_recovery_days: 7
       restore_test_interval_days: 90

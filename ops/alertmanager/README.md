@@ -33,3 +33,6 @@ selected deployment secret system.
 The Google Cloud demo deployment contract in
 `ops/google-cloud/demo-usdm-futures-deployment.yml` maps these substitutions to
 Google Secret Manager secret names for the Binance USD-M futures demo target.
+The AWS demo deployment contract in
+`ops/aws/demo-usdm-futures-deployment.yml` maps the same substitutions to AWS
+Secrets Manager names.

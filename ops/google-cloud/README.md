@@ -3,6 +3,10 @@
 This directory contains deployment contracts for running trading-bot on Google
 Cloud without committing runtime secrets.
 
+The contract implements the neutral schema in
+`ops/deployment/deployment-contract.yml`. Google Cloud-specific choices must not
+change the app-facing runtime variables or trading behavior.
+
 ## Demo USD-M Futures
 
 `demo-usdm-futures-deployment.yml` is the first deployment contract for the
