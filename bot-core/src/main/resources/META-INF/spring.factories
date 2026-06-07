@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+io.github.manu.config.ExternalTradingRuntimeEnvironmentPostProcessor

@@ -21,7 +21,8 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - The runtime profile/config system supports the same application code for demo and real environments.
 - Configuration catalogs include exchange/provider, journal, projection, messaging, audit, observability, execution, risk, idempotency, reconciliation, and intervention/remediation defaults.
 - The checked-in catalog lists all current top-level `trading.*` runtime configuration roots with their source-controlled defaults so runtime overrides have an explicit baseline.
-- A checked-in first-start runtime override now exists at `config/runtime/live/binance/demo/main/usdm_futures.json` for the current active demo target. It selects `trading-bot-demo-main-usdm-futures`, enables demo journal/recovery, projection snapshots, messaging runtime intent, audit persistence, execution pipeline, signal-planner defaults, Binance user-data/market-data/reconciliation runtime flags, automated remediation policy, scheduled remediation runner, and the demo-only executor policy for `CANCEL_ORDER`.
+- A checked-in first-start runtime override now exists at `config/runtime/live/binance/demo/main/usdm_futures.json` for the current active demo target. It selects `trading-bot-demo-main-usdm-futures`, enables demo journal/recovery, projection snapshots, messaging runtime services, audit persistence, execution pipeline, signal-planner defaults, Binance user-data/market-data/reconciliation runtime flags, automated remediation policy, scheduled remediation runner, and the demo-only executor policy for `CANCEL_ORDER`.
+- `ExternalTradingRuntimeEnvironmentPostProcessor` loads the same validated live external config before Spring conditional beans and `@ConfigurationProperties` binding, then exposes merged `trading.*` values as Spring properties. Command-line arguments and OS environment variables remain higher priority than the checked-in runtime file.
 - Operator API access can be protected with `X-Operator-Token` when enabled by config.
 - Automated remediation policy is configurable under `trading.intervention.automated-policy`.
 - Automated remediation runner policy is configurable under `trading.intervention.automated-remediation-runner`.
@@ -149,7 +150,6 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Automated remediation can now run on a schedule when explicitly enabled, but exchange execution still requires the executor execution path and explicit executor policy.
 - Position remediation, order adoption, and order amendment controls are not exchange-executable yet.
 - Scheduled live remediation is currently limited to projected decisions and the currently supported external-order cancel execution path.
-- The external JSON config loader validates `trading.*` runtime override paths, but Spring-managed `@ConfigurationProperties` services still need an explicit binding bridge so checked-in `trading.*` runtime overrides drive service creation exactly like `application.yaml` and environment values.
 - Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition/audit-store-failure counters, active-pause gauges, a recent audit-query endpoint, optional JSONL-backed audit persistence, Prometheus alert rules, and an importable Grafana dashboard, but they do not yet have deployment-specific external alert routing or a production-grade indexed audit backend.
 - Position remediation does not yet construct reduce-only orders or hedge orders, even though bounded planning metadata exists.
 - External order adoption semantics are not yet defined enough for live execution.
@@ -298,14 +298,13 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 
 ## Next Work In Dependency Order
 
-1. Bind validated external JSON `trading.*` runtime overrides into Spring-managed runtime services so the checked-in demo runtime file controls messaging, journal, projection, audit, execution, intervention, and observability service creation without duplicating values in `application.yaml`.
-2. Add deployment-specific external alert routing for pause governance and a production-grade indexed audit backend if JSONL is not sufficient for deployment.
-3. Implement position close/reduce command construction with reduce-only constraints and provider capability validation.
-4. Implement hedge command construction only after hedge-mode handling, margin mode, leverage, symbol capability, and account risk constraints are explicit.
-5. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
-6. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
-7. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.
-8. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
-9. Complete production deployment work: deployment config, secrets handling, observability, alerting, dashboards, runbooks, and incident procedures.
-10. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
-11. Keep the user manual and current-state documentation aligned after each capability change.
+1. Add deployment-specific external alert routing for pause governance and a production-grade indexed audit backend if JSONL is not sufficient for deployment.
+2. Implement position close/reduce command construction with reduce-only constraints and provider capability validation.
+3. Implement hedge command construction only after hedge-mode handling, margin mode, leverage, symbol capability, and account risk constraints are explicit.
+4. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
+5. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
+6. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.
+7. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
+8. Complete production deployment work: deployment config, secrets handling, observability, alerting, dashboards, runbooks, and incident procedures.
+9. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
+10. Keep the user manual and current-state documentation aligned after each capability change.

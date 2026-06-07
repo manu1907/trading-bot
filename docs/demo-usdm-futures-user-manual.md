@@ -765,7 +765,11 @@ demo operation, enables the execution pipeline, configures the signal planner's
 default target as `binance/demo/main/usdm_futures` with `BTCUSDT`, enables
 automated remediation policy for external order close decisions, enables the
 scheduled remediation runner, and enables the executor policy for the currently
-supported `CANCEL_ORDER` remediation path.
+supported `CANCEL_ORDER` remediation path. The same checked-in runtime file is
+loaded before Spring creates conditional runtime services, so these `trading.*`
+values drive both external runtime config and Spring-managed service activation.
+Command-line arguments and OS environment variables still override the checked-in
+file.
 
 The remediation execution portion of that runtime override is:
 

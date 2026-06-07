@@ -108,6 +108,12 @@ Root `version` and `schema` metadata cannot be changed by environment or
 runtime patches. The current migration policy is `fail_fast`: an unsupported
 schema id, schema version, config version, or migration policy stops startup
 or reload instead of trying an implicit migration.
+`ExternalTradingRuntimeEnvironmentPostProcessor` also loads the same validated
+live config before Spring bean conditions and `@ConfigurationProperties` binding,
+then exposes the merged `trading.*` subtree as a high-priority Spring property
+source. Command-line arguments and OS environment variables stay above this
+source, so deployment secrets and emergency overrides remain authoritative while
+checked-in runtime files can still activate runtime services on first start.
 
 For backtest mode, only the backtest config is used.
 
