@@ -231,6 +231,20 @@ public final class InterventionOperatorController {
         }
     }
 
+    @PostMapping("/remediation/executor/execute")
+    public Mono<ResponseEntity<?>> remediationExecutorExecute(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestBody Mono<ExecutorHttpRequest> request
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        Mono<ResponseEntity<?>> response = request
+                .map(this::executeRemediation)
+                .map(batch -> (ResponseEntity<?>) batch);
+        return response.onErrorResume(IllegalArgumentException.class, this::badRequest);
+    }
+
     @PostMapping("/remediation/decisions")
     public Mono<ResponseEntity<?>> decideRemediation(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
@@ -315,6 +329,17 @@ public final class InterventionOperatorController {
                 request.environment(),
                 request.account(),
                 request.market()
+        ));
+    }
+
+    private ResponseEntity<InterventionRemediationExecutorService.RemediationExecutionBatch> executeRemediation(
+            ExecutorHttpRequest request
+    ) {
+        return ResponseEntity.accepted().body(remediationExecutorService.execute(
+                requireText(request.provider(), "provider"),
+                requireText(request.environment(), "environment"),
+                requireText(request.account(), "account"),
+                requireText(request.market(), "market")
         ));
     }
 
@@ -469,6 +494,14 @@ public final class InterventionOperatorController {
     }
 
     record AutomatedDecisionHttpRequest(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+    }
+
+    record ExecutorHttpRequest(
             String provider,
             String environment,
             String account,

@@ -380,13 +380,13 @@ class InterventionOperatorControllerTest {
                 .jsonPath("$.plans[0].operation")
                 .isEqualTo("CANCEL_ORDER")
                 .jsonPath("$.plans[0].exchangeExecutable")
-                .isEqualTo(false)
+                .isEqualTo(true)
                 .jsonPath("$.plans[0].reasons[0]")
                 .isEqualTo("remediation:cancel_external_order")
                 .jsonPath("$.plans[0].attributes.target_exchange_order_id")
                 .isEqualTo("12345")
                 .jsonPath("$.plans[0].attributes.exchange_executable")
-                .isEqualTo("false");
+                .isEqualTo("true");
     }
 
     @Test
@@ -442,6 +442,8 @@ class InterventionOperatorControllerTest {
                 .jsonPath("$.evaluatedCount")
                 .isEqualTo(1)
                 .jsonPath("$.blockedCount")
+                .isEqualTo(0)
+                .jsonPath("$.dryRunCount")
                 .isEqualTo(1)
                 .jsonPath("$.reports[0].remediationId")
                 .isEqualTo("remediation-1")
@@ -450,15 +452,61 @@ class InterventionOperatorControllerTest {
                 .jsonPath("$.reports[0].operation")
                 .isEqualTo("CANCEL_ORDER")
                 .jsonPath("$.reports[0].status")
-                .isEqualTo("BLOCKED")
+                .isEqualTo("DRY_RUN")
                 .jsonPath("$.reports[0].exchangeExecutable")
-                .isEqualTo(false)
+                .isEqualTo(true)
                 .jsonPath("$.reports[0].reasons[1]")
-                .isEqualTo("executor:plan_not_exchange_executable")
+                .isEqualTo("executor:exchange_execution_disabled")
                 .jsonPath("$.reports[0].attributes.executor_reason")
-                .isEqualTo("executor:plan_not_exchange_executable")
+                .isEqualTo("executor:exchange_execution_disabled")
                 .jsonPath("$.reports[0].plan.operation")
                 .isEqualTo("CANCEL_ORDER");
+    }
+
+    @Test
+    void executes_remediation_executor_batch_when_token_matches() {
+        InterventionOperatorController enabledController = controller(
+                remediationAdvisor,
+                automatedDecisionService,
+                remediationExecutorService(remediationCommandPlanner, enabledDryRunExecutorPolicy())
+        );
+        WebTestClient enabledClient = WebTestClient.bindToController(enabledController).build();
+        restoreCloseRemediationDecisionWithOrder();
+
+        enabledClient.post()
+                .uri("/internal/interventions/remediation/executor/execute")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(automatedDecisionRequest())
+                .exchange()
+                .expectStatus()
+                .isAccepted()
+                .expectBody()
+                .jsonPath("$.enabled")
+                .isEqualTo(true)
+                .jsonPath("$.exchangeExecutionEnabled")
+                .isEqualTo(false)
+                .jsonPath("$.dryRunOnly")
+                .isEqualTo(true)
+                .jsonPath("$.reports[0].status")
+                .isEqualTo("DRY_RUN")
+                .jsonPath("$.reports[0].attributes.executor_reason")
+                .isEqualTo("executor:exchange_execution_disabled");
+    }
+
+    @Test
+    void rejects_remediation_executor_execute_when_token_is_invalid() {
+        restoreCloseRemediationDecisionWithOrder();
+
+        client.post()
+                .uri("/internal/interventions/remediation/executor/execute")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .bodyValue(automatedDecisionRequest())
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
     }
 
     @Test

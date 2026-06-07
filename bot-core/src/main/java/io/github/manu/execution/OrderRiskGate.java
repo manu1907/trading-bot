@@ -426,6 +426,7 @@ public final class OrderRiskGate {
         }
         if (target.isPresent()) {
             TradingStateProjection.OrderState state = target.orElseThrow();
+            boolean externalRemediationCancel = externalRemediationCancel(targetOrder, command);
             if (targetIdentityMismatch(state, targetClientOrderId, targetExchangeOrderId)) {
                 ManualInterventionDecision decision =
                         decisionFor(targetOrder.action(), PROJECTED_TARGET_IDENTITY_MISMATCH_REASON);
@@ -433,7 +434,7 @@ public final class OrderRiskGate {
                 reject = reject || decision.reject();
                 manualReview = manualReview || decision.manualReview();
             }
-            if (targetOrder.requireManagedTarget() && !state.managedByBot()) {
+            if (targetOrder.requireManagedTarget() && !state.managedByBot() && !externalRemediationCancel) {
                 ManualInterventionDecision decision = decisionFor(targetOrder.action(), PROJECTED_TARGET_UNMANAGED_REASON);
                 reasons.addAll(decision.reasons());
                 reject = reject || decision.reject();
@@ -445,7 +446,7 @@ public final class OrderRiskGate {
                 reject = reject || decision.reject();
                 manualReview = manualReview || decision.manualReview();
             }
-            if (targetOrder.rejectExternalIntervention() && state.externalIntervention()) {
+            if (targetOrder.rejectExternalIntervention() && state.externalIntervention() && !externalRemediationCancel) {
                 ManualInterventionDecision decision =
                         decisionFor(targetOrder.action(), PROJECTED_TARGET_EXTERNAL_INTERVENTION_REASON);
                 reasons.addAll(decision.reasons());
@@ -454,6 +455,16 @@ public final class OrderRiskGate {
             }
         }
         return new TargetOrderDecision(List.copyOf(reasons), reject, manualReview);
+    }
+
+    private boolean externalRemediationCancel(ExecutionProperties.TargetOrder targetOrder, OrderCommandEvent command) {
+        return targetOrder.allowExternalRemediationCancel()
+                && action(command) == OrderCommandAction.CANCEL
+                && "intervention_remediation_executor".equals(attribute(command, "command_source"))
+                && "ORDER".equals(attribute(command, "remediation_scope"))
+                && "CLOSE".equals(attribute(command, "remediation_action"))
+                && "CANCEL_ORDER".equals(attribute(command, "remediation_operation"))
+                && value(attribute(command, "remediation_id")) != null;
     }
 
     private boolean targetIdentityMismatch(
@@ -784,6 +795,11 @@ public final class OrderRiskGate {
         attributes.put("target_order_require_managed", Boolean.toString(targetOrder.requireManagedTarget()));
         attributes.put("target_order_reject_closed", Boolean.toString(targetOrder.rejectClosedTarget()));
         attributes.put("target_order_reject_external_intervention", Boolean.toString(targetOrder.rejectExternalIntervention()));
+        attributes.put(
+                "target_order_allow_external_remediation_cancel",
+                Boolean.toString(targetOrder.allowExternalRemediationCancel())
+        );
+        attributes.put("target_order_external_remediation_cancel", Boolean.toString(externalRemediationCancel(targetOrder, command)));
         String targetClientOrderId = targetClientOrderId(command);
         String targetExchangeOrderId = targetExchangeOrderId(command);
         if (targetClientOrderId != null || targetExchangeOrderId != null) {

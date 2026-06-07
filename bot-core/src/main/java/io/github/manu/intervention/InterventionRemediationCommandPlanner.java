@@ -74,7 +74,13 @@ public final class InterventionRemediationCommandPlanner {
         return switch (action) {
             case ACTION_ADOPT -> ready(event, Operation.ADOPT_ORDER, false, "remediation:adopt_order", attributes);
             case ACTION_AMEND -> ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
-            case ACTION_CLOSE -> ready(event, Operation.CANCEL_ORDER, false, "remediation:cancel_external_order", attributes);
+            case ACTION_CLOSE -> ready(
+                    event,
+                    Operation.CANCEL_ORDER,
+                    true,
+                    "remediation:cancel_external_order",
+                    exchangeExecutionAttributes(attributes, "order_execution_pipeline")
+            );
             case ACTION_REPLAN_FROM_PROJECTION -> ready(
                     event,
                     Operation.REPLAN_FROM_PROJECTION,
@@ -178,6 +184,11 @@ public final class InterventionRemediationCommandPlanner {
     ) {
         attributes.put("exchange_executable", Boolean.toString(exchangeExecutable));
         return plan(event, PlanStatus.READY, operation, exchangeExecutable, List.of(reason), attributes);
+    }
+
+    private Map<String, String> exchangeExecutionAttributes(Map<String, String> attributes, String executionPath) {
+        attributes.put("exchange_execution_path", executionPath);
+        return attributes;
     }
 
     private RemediationCommandPlan noAction(

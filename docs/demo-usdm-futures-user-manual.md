@@ -554,8 +554,10 @@ curl -H 'X-Operator-Token: <operator-token>' \
 ```
 
 Plan responses include `status`, `operation`, `exchangeExecutable`, `reasons`,
-and target attributes. For now, `exchangeExecutable=false` means the bot has
-classified the action but will not send an exchange command from that plan.
+and target attributes. Order `CLOSE` for a projected external order can now be
+planned as `operation=CANCEL_ORDER` with `exchangeExecutable=true`; all
+position, pause, adopt, amend, ignore, and replan plans remain non-executable
+until their specific policies exist.
 
 Dry-run the remediation executor reports for persisted remediation decisions:
 
@@ -569,6 +571,30 @@ batch counts, and per-plan reports with `planStatus`, `operation`, `status`,
 `reasons`, `attributes`, and the original `plan`. The endpoint does not submit
 exchange commands. It explains whether each plan is blocked, no-action, or
 would remain report-only under the current executor policy.
+
+Execute the remediation executor batch:
+
+```bash
+curl -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/interventions/remediation/executor/execute' \
+  -d '{
+    "provider": "binance",
+    "environment": "demo",
+    "account": "main",
+    "market": "usdm_futures"
+  }'
+```
+
+This endpoint is still policy-gated. It submits only eligible `CANCEL_ORDER`
+plans for external order `CLOSE` decisions, and only when
+`remediation_executor_policy.enabled=true`,
+`exchange_execution_enabled=true`, `dry_run_only=false`, `CANCEL_ORDER` is in
+`allowed_operations`, the target identity is present, and the normal order
+execution pipeline is enabled. It returns `SUBMITTED_TO_PIPELINE` after the
+command has been accepted by the pipeline; the final risk decision and order
+result are recorded through the normal event path.
 
 Acknowledge an order intervention:
 
@@ -1081,8 +1107,8 @@ Current automated remediation execution state:
 - Stale orders or positions are refused as `STALE_PROJECTION`.
 - Invalid or missing position amount data is refused as `INSUFFICIENT_DATA`.
 - Flat position close/reduce/hedge requests become `NO_ACTION`.
-- Order `CLOSE` becomes a non-executable cancel intent with the projected target
-  order identity.
+- Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
+  projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become
   non-executable position intents with the projected absolute amount and an
   execution blocker explaining that bounded sizing policy is still missing.
@@ -1090,10 +1116,10 @@ Current automated remediation execution state:
   `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
   commands yet.
 
-As of this version, every remediation command plan is marked
-`exchangeExecutable=false`. This is intentional: the codebase now has the safety
-boundary needed for automated remediation, but it still does not directly amend,
-cancel, reduce, close, or hedge live exchange state from those plans.
+As of this version, only external order `CLOSE` remediation can become
+`exchangeExecutable=true`, and it can only submit a cancel through the existing
+order execution pipeline. The codebase still does not directly amend, reduce,
+close, or hedge positions from remediation plans.
 
 The remediation executor policy is the configuration boundary for the future
 executor. It is disabled by default and cannot allow exchange execution unless
@@ -1103,12 +1129,15 @@ managed-pipeline gates remain enabled. `allow_real_environment=false` means a
 future executor must still refuse real-environment exchange execution unless a
 real deployment deliberately overrides that guard.
 
-The current codebase includes a report-only remediation executor service. It
-consumes persisted remediation decisions, regenerates current command plans,
-applies the executor policy gates, caps each batch with `max_plans_per_run`, and
-returns per-plan reports with statuses such as blocked or no-action. It still
-does not turn plans into exchange commands. The operator API exposes the reports
-through `GET /internal/interventions/remediation/executor/dry-run`.
+The current codebase includes a remediation executor service. It consumes
+persisted remediation decisions, regenerates current command plans, applies the
+executor policy gates, caps each batch with `max_plans_per_run`, and returns
+per-plan reports with statuses such as blocked, dry-run, submitted, or
+no-action. Dry-run reports are exposed through
+`GET /internal/interventions/remediation/executor/dry-run`. Policy-gated
+execution is exposed through
+`POST /internal/interventions/remediation/executor/execute` and currently
+supports only external-order close as cancel.
 
 ## Event And Projection Capabilities
 

@@ -19,20 +19,21 @@ class InterventionRemediationCommandPlannerTest {
     private final InterventionRemediationCommandPlanner planner = new InterventionRemediationCommandPlanner(projection);
 
     @Test
-    void plans_order_close_as_non_executable_cancel_intent_with_target_identity() {
+    void plans_order_close_as_executable_cancel_intent_with_target_identity() {
         restoreOrderIntervention("external_order_observed", true);
 
         InterventionRemediationCommandPlanner.RemediationCommandPlan plan = planner.plan(orderDecision("CLOSE"));
 
         assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
         assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER);
-        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.exchangeExecutable()).isTrue();
         assertThat(plan.reasons()).containsExactly("remediation:cancel_external_order");
         assertThat(plan.attributes())
                 .containsEntry("target_client_order_id", "client-1")
                 .containsEntry("target_exchange_order_id", "12345")
                 .containsEntry("target_order_status", "ACCEPTED")
-                .containsEntry("exchange_executable", "false");
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
     }
 
     @Test

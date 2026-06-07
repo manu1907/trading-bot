@@ -1,8 +1,15 @@
 package io.github.manu.intervention;
 
+import io.github.manu.events.v1.OrderCommandAction;
+import io.github.manu.events.v1.OrderCommandEvent;
+import io.github.manu.events.v1.OrderCommandSide;
+import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.RemediationDecisionEvent;
+import io.github.manu.execution.OrderExecutionPipeline;
 import io.github.manu.projection.TradingStateProjection;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -13,19 +20,44 @@ import java.util.Objects;
 public final class InterventionRemediationExecutorService {
 
     private static final String REAL_ENVIRONMENT = "real";
+    private static final String COMMAND_SOURCE = "intervention_remediation_executor";
+    private static final String STRATEGY_ID = "intervention-remediation-executor";
 
     private final TradingStateProjection projection;
     private final InterventionRemediationCommandPlanner commandPlanner;
     private final InterventionProperties.RemediationExecutorPolicy policy;
+    private final OrderExecutionPipeline orderExecutionPipeline;
+    private final Clock clock;
 
     public InterventionRemediationExecutorService(
             TradingStateProjection projection,
             InterventionRemediationCommandPlanner commandPlanner,
             InterventionProperties properties
     ) {
+        this(projection, commandPlanner, properties, null, Clock.systemUTC());
+    }
+
+    public InterventionRemediationExecutorService(
+            TradingStateProjection projection,
+            InterventionRemediationCommandPlanner commandPlanner,
+            InterventionProperties properties,
+            OrderExecutionPipeline orderExecutionPipeline
+    ) {
+        this(projection, commandPlanner, properties, orderExecutionPipeline, Clock.systemUTC());
+    }
+
+    InterventionRemediationExecutorService(
+            TradingStateProjection projection,
+            InterventionRemediationCommandPlanner commandPlanner,
+            InterventionProperties properties,
+            OrderExecutionPipeline orderExecutionPipeline,
+            Clock clock
+    ) {
         this.projection = Objects.requireNonNull(projection, "projection");
         this.commandPlanner = Objects.requireNonNull(commandPlanner, "commandPlanner");
         this.policy = Objects.requireNonNull(properties, "properties").remediationExecutorPolicy();
+        this.orderExecutionPipeline = orderExecutionPipeline;
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     public List<InterventionRemediationCommandPlanner.RemediationCommandPlan> plans(
@@ -51,7 +83,52 @@ public final class InterventionRemediationExecutorService {
             return new RemediationExecutionBatch(
                     false,
                     policy.exchangeExecutionEnabled(),
+                policy.dryRunOnly(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                List.of()
+            );
+        }
+
+        List<RemediationExecutionReport> reports = plans(provider, environment, account, market)
+                .stream()
+                .limit(policy.maxPlansPerRun())
+                .map(plan -> evaluate(plan, ExecutionMode.DRY_RUN))
+                .toList();
+        long blockedCount = reports.stream().filter(report -> report.status() == ExecutionStatus.BLOCKED).count();
+        long dryRunCount = reports.stream().filter(report -> report.status() == ExecutionStatus.DRY_RUN).count();
+        long submittedCount = reports.stream()
+                .filter(report -> report.status() == ExecutionStatus.SUBMITTED_TO_PIPELINE)
+                .count();
+        long noActionCount = reports.stream().filter(report -> report.status() == ExecutionStatus.NO_ACTION).count();
+        return new RemediationExecutionBatch(
+                true,
+                policy.exchangeExecutionEnabled(),
+                policy.dryRunOnly(),
+                reports.size(),
+                Math.toIntExact(blockedCount),
+                Math.toIntExact(dryRunCount),
+                Math.toIntExact(submittedCount),
+                Math.toIntExact(noActionCount),
+                reports
+        );
+    }
+
+    public RemediationExecutionBatch execute(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        if (!policy.enabled()) {
+            return new RemediationExecutionBatch(
+                    false,
+                    policy.exchangeExecutionEnabled(),
                     policy.dryRunOnly(),
+                    0,
                     0,
                     0,
                     0,
@@ -63,10 +140,13 @@ public final class InterventionRemediationExecutorService {
         List<RemediationExecutionReport> reports = plans(provider, environment, account, market)
                 .stream()
                 .limit(policy.maxPlansPerRun())
-                .map(this::evaluate)
+                .map(plan -> evaluate(plan, ExecutionMode.EXECUTE))
                 .toList();
         long blockedCount = reports.stream().filter(report -> report.status() == ExecutionStatus.BLOCKED).count();
         long dryRunCount = reports.stream().filter(report -> report.status() == ExecutionStatus.DRY_RUN).count();
+        long submittedCount = reports.stream()
+                .filter(report -> report.status() == ExecutionStatus.SUBMITTED_TO_PIPELINE)
+                .count();
         long noActionCount = reports.stream().filter(report -> report.status() == ExecutionStatus.NO_ACTION).count();
         return new RemediationExecutionBatch(
                 true,
@@ -75,6 +155,7 @@ public final class InterventionRemediationExecutorService {
                 reports.size(),
                 Math.toIntExact(blockedCount),
                 Math.toIntExact(dryRunCount),
+                Math.toIntExact(submittedCount),
                 Math.toIntExact(noActionCount),
                 reports
         );
@@ -95,12 +176,14 @@ public final class InterventionRemediationExecutorService {
     }
 
     private RemediationExecutionReport evaluate(
-            InterventionRemediationCommandPlanner.RemediationCommandPlan plan
+            InterventionRemediationCommandPlanner.RemediationCommandPlan plan,
+            ExecutionMode mode
     ) {
         Map<String, String> attributes = new LinkedHashMap<>(plan.attributes());
         attributes.put("executor_policy_enabled", Boolean.toString(policy.enabled()));
         attributes.put("executor_exchange_execution_enabled", Boolean.toString(policy.exchangeExecutionEnabled()));
         attributes.put("executor_dry_run_only", Boolean.toString(policy.dryRunOnly()));
+        attributes.put("executor_mode", mode.name());
 
         if (plan.status() == InterventionRemediationCommandPlanner.PlanStatus.NO_ACTION) {
             return report(plan, ExecutionStatus.NO_ACTION, "executor:no_action_plan", attributes);
@@ -147,7 +230,81 @@ public final class InterventionRemediationExecutorService {
         if (policy.dryRunOnly()) {
             return report(plan, ExecutionStatus.DRY_RUN, "executor:dry_run_only", attributes);
         }
-        return report(plan, ExecutionStatus.DRY_RUN, "executor:report_only_no_exchange_submission", attributes);
+        if (mode == ExecutionMode.DRY_RUN) {
+            return report(plan, ExecutionStatus.DRY_RUN, "executor:dry_run_request", attributes);
+        }
+        if (orderExecutionPipeline == null) {
+            return report(plan, ExecutionStatus.BLOCKED, "executor:order_execution_pipeline_missing", attributes);
+        }
+        if (plan.operation() != InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER) {
+            return report(plan, ExecutionStatus.BLOCKED, "executor:operation_execution_not_implemented", attributes);
+        }
+        OrderCommandEvent command = cancelOrderCommand(plan, attributes);
+        try {
+            orderExecutionPipeline.handleOrderCommand(command).join();
+        } catch (RuntimeException exception) {
+            attributes.put("executor_submission_failure", exception.getClass().getSimpleName());
+            if (exception.getMessage() != null && !exception.getMessage().isBlank()) {
+                attributes.put("executor_submission_failure_message", exception.getMessage());
+            }
+            return report(plan, ExecutionStatus.BLOCKED, "executor:pipeline_submission_failed", attributes);
+        }
+        attributes.put("executor_submitted_command_id", command.getCommandId().toString());
+        attributes.put("executor_submitted_idempotency_key", command.getIdempotencyKey().toString());
+        attributes.put("executor_submitted_target_client_order_id", text(command.getTargetClientOrderId()));
+        attributes.put("executor_submitted_target_exchange_order_id", text(command.getTargetExchangeOrderId()));
+        return report(plan, ExecutionStatus.SUBMITTED_TO_PIPELINE, "executor:submitted_to_order_execution_pipeline", attributes);
+    }
+
+    private OrderCommandEvent cancelOrderCommand(
+            InterventionRemediationCommandPlanner.RemediationCommandPlan plan,
+            Map<String, String> reportAttributes
+    ) {
+        String remediationId = requireText(plan.remediationId(), "remediationId");
+        String commandId = "remediation-command:" + remediationId + ":cancel-order";
+        String commandClientOrderId = "rm-cxl-" + safeId(remediationId);
+        String targetExchangeOrderId = text(plan.attributes().get("target_exchange_order_id"));
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.putAll(plan.attributes());
+        attributes.put("command_source", COMMAND_SOURCE);
+        attributes.put("remediation_operation", plan.operation().name());
+        attributes.put("remediation_executor_policy_enabled", Boolean.toString(policy.enabled()));
+        attributes.put("target_client_order_id", requireText(plan.clientOrderId(), "clientOrderId"));
+        if (targetExchangeOrderId != null) {
+            attributes.put("target_exchange_order_id", targetExchangeOrderId);
+        }
+        reportAttributes.put("executor_command_id", commandId);
+        reportAttributes.put("executor_command_client_order_id", commandClientOrderId);
+        return OrderCommandEvent.newBuilder()
+                .setEventId(commandId)
+                .setSchemaVersion(1)
+                .setCommandId(commandId)
+                .setStrategyId(STRATEGY_ID)
+                .setProvider(requireText(plan.provider(), "provider"))
+                .setEnvironment(requireText(plan.environment(), "environment"))
+                .setAccount(requireText(plan.account(), "account"))
+                .setMarket(requireText(plan.market(), "market"))
+                .setSymbol(requireText(plan.symbol(), "symbol"))
+                .setAction(OrderCommandAction.CANCEL)
+                .setTargetClientOrderId(requireText(plan.clientOrderId(), "clientOrderId"))
+                .setTargetExchangeOrderId(targetExchangeOrderId)
+                .setSide(OrderCommandSide.BUY)
+                .setOrderType(OrderCommandType.LIMIT)
+                .setPositionSide(null)
+                .setTimeInForce(null)
+                .setQuantity(null)
+                .setQuoteOrderQuantity(null)
+                .setPrice(null)
+                .setStopPrice(null)
+                .setActivationPrice(null)
+                .setCallbackRate(null)
+                .setReduceOnly(false)
+                .setClosePosition(false)
+                .setClientOrderId(commandClientOrderId)
+                .setIdempotencyKey(commandId)
+                .setRequestedAtMicros(Instant.now(clock))
+                .setAttributes(Map.copyOf(attributes))
+                .build();
     }
 
     private RemediationExecutionReport report(
@@ -257,9 +414,27 @@ public final class InterventionRemediationExecutorService {
         return value.trim();
     }
 
+    private String text(CharSequence value) {
+        if (value == null || value.toString().isBlank()) {
+            return null;
+        }
+        return value.toString().trim();
+    }
+
+    private String safeId(String value) {
+        String safe = value.replaceAll("[^A-Za-z0-9_-]", "-");
+        return safe.length() <= 28 ? safe : safe.substring(0, 28);
+    }
+
+    private enum ExecutionMode {
+        DRY_RUN,
+        EXECUTE
+    }
+
     public enum ExecutionStatus {
         BLOCKED,
         DRY_RUN,
+        SUBMITTED_TO_PIPELINE,
         NO_ACTION
     }
 
@@ -270,6 +445,7 @@ public final class InterventionRemediationExecutorService {
             int evaluatedCount,
             int blockedCount,
             int dryRunCount,
+            int submittedCount,
             int noActionCount,
             List<RemediationExecutionReport> reports
     ) {

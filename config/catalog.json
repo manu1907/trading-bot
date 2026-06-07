@@ -77,6 +77,7 @@
           "require_managed_target": true,
           "reject_closed_target": true,
           "reject_external_intervention": true,
+          "allow_external_remediation_cancel": true,
           "action": "MANUAL_REVIEW"
         }
       }

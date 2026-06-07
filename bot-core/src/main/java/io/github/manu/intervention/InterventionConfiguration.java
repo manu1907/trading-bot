@@ -1,9 +1,11 @@
 package io.github.manu.intervention;
 
 import io.github.manu.events.TradingEventType;
+import io.github.manu.execution.OrderExecutionPipeline;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -49,9 +51,15 @@ public class InterventionConfiguration {
     InterventionRemediationExecutorService interventionRemediationExecutorService(
             TradingStateProjection projection,
             InterventionRemediationCommandPlanner commandPlanner,
-            InterventionProperties properties
+            InterventionProperties properties,
+            ObjectProvider<OrderExecutionPipeline> orderExecutionPipeline
     ) {
-        return new InterventionRemediationExecutorService(projection, commandPlanner, properties);
+        return new InterventionRemediationExecutorService(
+                projection,
+                commandPlanner,
+                properties,
+                orderExecutionPipeline.getIfAvailable()
+        );
     }
 
     @Bean

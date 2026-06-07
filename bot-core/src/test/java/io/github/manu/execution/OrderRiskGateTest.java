@@ -724,6 +724,26 @@ class OrderRiskGateTest {
                 .containsEntry("target_order_managed_by_bot", "false");
     }
 
+    @Test
+    void approves_external_remediation_cancel_for_unmanaged_external_target_when_allowed() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithTargetOrder(
+                "manual-client-1",
+                OrderResultStatus.ACCEPTED.name(),
+                false,
+                true
+        )).evaluate(externalRemediationCancelCommand("manual-client-1"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_allow_external_remediation_cancel", "true")
+                .containsEntry("target_order_external_remediation_cancel", "true")
+                .containsEntry("target_order_managed_by_bot", "false")
+                .containsEntry("target_order_external_intervention", "true");
+    }
+
     private OrderRiskGate gate(ExecutionProperties properties) {
         return new OrderRiskGate(properties, reconciliationTracker, clock);
     }
@@ -1153,6 +1173,21 @@ class OrderRiskGateTest {
                 .setClientOrderId("tb-cancel-001")
                 .setTargetClientOrderId(null)
                 .setTargetExchangeOrderId(targetExchangeOrderId)
+                .build();
+    }
+
+    private OrderCommandEvent externalRemediationCancelCommand(String targetClientOrderId) {
+        return OrderCommandEvent.newBuilder(cancelCommand(targetClientOrderId))
+                .setCommandId("remediation-command:remediation-001:cancel-order")
+                .setClientOrderId("rm-cxl-remediation-001")
+                .setAttributes(Map.of(
+                        "command_source", "intervention_remediation_executor",
+                        "remediation_id", "remediation-001",
+                        "remediation_scope", "ORDER",
+                        "remediation_action", "CLOSE",
+                        "remediation_operation", "CANCEL_ORDER",
+                        "target_client_order_id", targetClientOrderId
+                ))
                 .build();
     }
 

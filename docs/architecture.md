@@ -552,10 +552,11 @@ visible before any exchange executor is introduced.
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and
 marks the plan as stale or insufficient when the target has changed or lacks
-safe sizing data. Current plans are deliberately `exchangeExecutable=false`:
-order close becomes a cancel intent with target identity, position close/reduce
-or hedge captures projected amount and blockers, and pause/adopt/ignore remain
-governance intents until a bounded exchange command executor is implemented.
+safe sizing data. Order `CLOSE` for a projected external order now becomes an
+exchange-executable `CANCEL_ORDER` plan with target identity and an
+`order_execution_pipeline` execution path. Position close/reduce or hedge still
+captures projected amount and blockers, and pause/adopt/ignore remain
+governance intents until bounded command-specific executors are implemented.
 `trading.intervention.remediation-executor-policy` is the explicit future
 executor safety boundary. It is disabled by default, exchange execution is
 disabled separately, dry-run mode is enforced by default, real environments are
@@ -563,15 +564,18 @@ blocked by default, and executable operation names must be allowlisted before a
 future executor may act. Enabling exchange execution requires the ready-plan,
 fresh-projection, target-identity, and managed-pipeline gates to remain enabled,
 so remediation cannot be configured to bypass the normal execution pipeline.
-`InterventionRemediationExecutorService` is currently report-only. It consumes
-persisted remediation decisions, regenerates current command plans through the
-planner, evaluates each plan against the executor policy, caps each dry-run
-batch, and returns blocked, dry-run, or no-action reports. It does not submit
-orders, cancel orders, mutate positions, or acknowledge interventions.
-The operator API exposes these reports at
+`InterventionRemediationExecutorService` consumes persisted remediation
+decisions, regenerates current command plans through the planner, evaluates each
+plan against the executor policy, caps each batch, and returns blocked, dry-run,
+submitted, or no-action reports. Dry-run mode never submits commands. Execute
+mode currently supports only external-order `CLOSE` as a `CANCEL_ORDER` routed
+through `OrderExecutionPipeline`; the normal risk gate, idempotency, event bus,
+journal, projection, reconciliation, and provider gateway remain authoritative.
+The operator API exposes dry-run reports at
 `GET /internal/interventions/remediation/executor/dry-run` so operators can see
 the exact executor blocker before any exchange-executable remediation path is
-enabled.
+enabled, and exposes policy-gated execution at
+`POST /internal/interventions/remediation/executor/execute`.
 
 ## Redpanda Messaging
 
