@@ -610,12 +610,14 @@ Pause governance metrics:
   `trading.pause_governance.release.events`.
 - Explicit pause override evaluations increment
   `trading.pause_governance.override.events`.
+- Effective active account and symbol pauses are exposed through
+  `trading.pause_governance.active.states` with a `scope` tag.
 - Release metric tags include `provider`, `environment`, `account`, `market`,
   `scope`, and `outcome`.
 - Override metric tags include `provider`, `environment`, `account`, `market`,
   `symbol`, `decision`, `outcome`, and `invalid_reason`.
-- Dashboards, alerts, active-pause gauges, and operator audit-query endpoints
-  are still planned work.
+- Dashboards, alerts, activation/expiry counters, and operator audit-query
+  endpoints are still planned work.
 
 Release active pause governance:
 
@@ -1217,6 +1219,8 @@ Current automated remediation execution state:
   structured audit log records.
 - Pause release publication outcomes and explicit override evaluations are
   counted with Micrometer metrics for Prometheus scraping.
+- Effective active pause counts are exposed as low-cardinality Micrometer
+  gauges by pause scope.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become

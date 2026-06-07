@@ -569,8 +569,11 @@ Successful pause releases and explicit pause override attempts emit structured
 audit records through `AuditLogger`. The same control points record Micrometer
 counters for Prometheus scraping: release publication outcomes use
 `trading.pause_governance.release.events`, and explicit override evaluations
-use `trading.pause_governance.override.events`. Dashboards, alerts, audit-query
-endpoints, and active-pause gauges are still future work.
+use `trading.pause_governance.override.events`. Effective active pause counts
+are exposed as low-cardinality gauges with
+`trading.pause_governance.active.states` tagged by pause scope. Dashboards,
+alerts, audit-query endpoints, and activation/expiry counters are still future
+work.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and
