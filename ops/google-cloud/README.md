@@ -49,6 +49,25 @@ Required Alertmanager substitution secrets:
 - `trading-bot-demo-alert-fallback-slack-webhook`
 - `trading-bot-demo-alert-fallback-slack-channel`
 
+## Real USD-M Futures
+
+`real-usdm-futures-deployment.yml` is the matching Google Cloud contract for
+the Binance USD-M futures real target:
+
+- Cloud Run service: `trading-bot-real-main-usdm-futures`.
+- Active target: `binance / real / main / usdm_futures`.
+- Real Binance credentials are isolated behind `BINANCE_REAL_API_KEY` and
+  `BINANCE_REAL_API_SECRET` Secret Manager bindings.
+- Operator token, audit JDBC credentials, and alert receiver secrets use
+  `trading-bot-real-*` Secret Manager names.
+- The remediation executor policy is explicitly disabled for real startup:
+  executor disabled, exchange execution disabled, report-only true, and
+  real-environment execution not allowed.
+- Real deployment metadata requires manual approval, demo promotion evidence,
+  real secret isolation, and an empty initial real-operation allowlist.
+- The real audit backend uses Cloud SQL PostgreSQL with 365-day retention, at
+  least 35 recovery days, and a restore drill every 30 days.
+
 Deployment automation must render the Alertmanager profile from
 `ops/alertmanager/pause-governance-alertmanager.yml` by substituting these
 Secret Manager values outside source control.

@@ -105,6 +105,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - A Google Cloud demo deployment contract now exists at `ops/google-cloud/demo-usdm-futures-deployment.yml`; it selects Cloud Run for `binance/demo/main/usdm_futures`, binds the active target through runtime environment variables, maps Binance credentials, operator token, audit JDBC credentials, and Alertmanager receiver substitutions to Secret Manager names, disables ephemeral JSONL audit persistence for Cloud Run, and selects indexed JDBC audit persistence with deployment-owned schema migration, 180-day retention, Cloud SQL automated backups, at least 7 recovery days, and 90-day restore drills.
 - A cloud-neutral deployment contract schema now exists at `ops/deployment/deployment-contract.yml`; both Google Cloud and AWS demo deployment contracts conform to the same app-facing runtime env vars, secret keys, Alertmanager substitutions, and JDBC audit persistence guarantees.
 - An AWS demo deployment contract now exists at `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same Binance USD-M futures demo runtime surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL without changing bot code.
+- A Google Cloud real deployment contract now exists at `ops/google-cloud/real-usdm-futures-deployment.yml`; it uses the same code and neutral contract shape, selects `binance/real/main/usdm_futures`, binds real Binance credentials and real audit/alert secrets with isolated `trading-bot-real-*` Secret Manager names, requires manual approval and demo promotion evidence metadata, and explicitly starts real remediation exchange execution disabled with no real operation allowlist.
 
 ### Remediation Command Planning And Execution
 
@@ -155,7 +156,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Automated remediation can now run on a schedule when explicitly enabled, but exchange execution still requires the executor execution path and explicit executor policy.
 - Position remediation, order adoption, and order amendment controls are not exchange-executable yet.
 - Scheduled live remediation is currently limited to projected decisions and the currently supported external-order cancel execution path.
-- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition/audit-store-failure counters, active-pause gauges, a recent audit-query endpoint, optional JSONL-backed audit persistence, optional indexed JDBC audit persistence, Prometheus alert rules, Alertmanager routing, Google Cloud and AWS Secret Manager binding names for demo alert receiver substitutions, and an importable Grafana dashboard, but real alert receiver secret values are still deployment-owned and not source controlled.
+- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition/audit-store-failure counters, active-pause gauges, a recent audit-query endpoint, optional JSONL-backed audit persistence, optional indexed JDBC audit persistence, Prometheus alert rules, Alertmanager routing, Google Cloud and AWS Secret Manager binding names for demo alert receiver substitutions, Google Cloud Secret Manager binding names for real alert receiver substitutions, and an importable Grafana dashboard, but real alert receiver secret values are still deployment-owned and not source controlled.
 - Position remediation does not yet construct reduce-only orders or hedge orders, even though bounded planning metadata exists.
 - External order adoption semantics are not yet defined enough for live execution.
 - Managed order amendment semantics are not yet defined enough for live execution.
@@ -213,7 +214,8 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 - An importable Grafana dashboard exists for active pauses, activation, release outcomes, overrides, expiry transitions, and audit-store failures.
 - Source-controlled Alertmanager routes exist for pause activation, expiry, override, release, and audit-store failures.
 - Cloud-neutral deployment contract validation exists for runtime env vars, secret bindings, Alertmanager substitutions, and JDBC audit backend policy.
-- Google Cloud and AWS demo secret binding names now exist for real Alertmanager receiver substitutions and the selected JDBC audit backend.
+- Google Cloud and AWS demo secret binding names now exist for Alertmanager receiver substitutions and the selected JDBC audit backend.
+- Google Cloud real secret binding names now exist for isolated real Binance credentials, operator token, Alertmanager receiver substitutions, and the selected JDBC audit backend.
 - The remaining pause governance deployment work is creating the real secret values, provisioning the selected managed PostgreSQL backend, rendering Alertmanager from secrets, and wiring the deployment pipeline.
 - Bounded position sizing metadata exists for `REDUCE`, `CLOSE`, and `HEDGE`.
 - Implement position close/reduce/hedge command construction only after reduce-only rules, margin mode, leverage, symbol capability, and account risk limits are explicit.
@@ -289,7 +291,7 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 ### Roadmap Slice 9: Real Trading Readiness And Promotion
 
 - Keep real trading disabled until demo-live promotion gates pass.
-- Require explicit real environment config: real credentials, real endpoint, real risk budgets, real executor policy, real alert routing, real emergency stop, and real deployment approval.
+- Require explicit real environment config: real credentials, real endpoint, real risk budgets, real executor policy, real alert routing, real emergency stop, and real deployment approval. The first Google Cloud real deployment contract now exists but starts with remediation exchange execution disabled and an empty real-operation allowlist.
 - Start real trading with smallest practical risk limits, restricted symbol allowlist, conservative order limits, and remediation executor policy still constrained to proven operations.
 - Monitor real trading with tighter alerts and a defined manual kill switch.
 - Increase limits only by explicit config changes after evidence review.

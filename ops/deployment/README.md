@@ -21,4 +21,5 @@ environment variables and operational guarantees must stay equivalent.
 Current implementations:
 
 - `ops/google-cloud/demo-usdm-futures-deployment.yml`
+- `ops/google-cloud/real-usdm-futures-deployment.yml`
 - `ops/aws/demo-usdm-futures-deployment.yml`

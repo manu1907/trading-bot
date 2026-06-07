@@ -9,6 +9,9 @@ required_top_level_sections:
   - alertmanager_secret_substitutions
   - audit_backend
 
+optional_top_level_sections:
+  - deployment_controls
+
 contract:
   id: io.github.manu.trading-bot.deployment-contract
   version: 1
@@ -23,11 +26,10 @@ required_deployment_fields:
   - service_name
   - image
 
-required_runtime_env:
+required_runtime_env_common:
   SPRING_PROFILES_ACTIVE: live
   BOT_CONFIG_DIR: /app/config
   BOT_PROVIDER: binance
-  BOT_ENVIRONMENT: demo
   BOT_ACCOUNT: main
   BOT_MARKET: usdm_futures
   TRADING_INTERVENTION_OPERATOR_API_ENABLED: "true"
@@ -36,13 +38,29 @@ required_runtime_env:
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_TABLE_PREFIX: trading_audit_pause_governance_
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA: "false"
 
-required_secret_env:
-  - BINANCE_DEMO_API_KEY
-  - BINANCE_DEMO_API_SECRET
+required_runtime_env_by_environment:
+  demo:
+    BOT_ENVIRONMENT: demo
+  real:
+    BOT_ENVIRONMENT: real
+    TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_ENABLED: "false"
+    TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_EXCHANGE_EXECUTION_ENABLED: "false"
+    TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_REPORT_ONLY: "true"
+    TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_ALLOW_REAL_ENVIRONMENT: "false"
+
+required_secret_env_common:
   - TRADING_INTERVENTION_OPERATOR_API_OPERATOR_TOKEN
   - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL
   - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME
   - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD
+
+required_secret_env_by_environment:
+  demo:
+    - BINANCE_DEMO_API_KEY
+    - BINANCE_DEMO_API_SECRET
+  real:
+    - BINANCE_REAL_API_KEY
+    - BINANCE_REAL_API_SECRET
 
 required_alertmanager_secret_substitutions:
   - ALERTMANAGER_TRADING_BOT_OPERATOR_PAGERDUTY_ROUTING_KEY
@@ -67,6 +85,7 @@ secret_binding_shape:
 
 audit_backend:
   required_selected: jdbc
+  minimum_retention_days: 180
   required_jdbc_fields:
     - database
     - schema_owner

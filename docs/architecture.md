@@ -628,7 +628,12 @@ automated backups, and 90-day restore drills. Deployment contracts now use the
 cloud-neutral schema in `ops/deployment/deployment-contract.yml`; an AWS
 equivalent lives in `ops/aws/demo-usdm-futures-deployment.yml` and maps the same
 app-facing runtime variables to ECS Fargate, AWS Secrets Manager, and RDS
-PostgreSQL without changing trading code.
+PostgreSQL without changing trading code. A matching Google Cloud real contract
+lives in `ops/google-cloud/real-usdm-futures-deployment.yml`; it selects the
+real Binance USD-M futures target with isolated real credentials and real audit
+secrets, while keeping remediation exchange execution disabled until promotion
+evidence, manual approval, and explicit real-operation allowlists are supplied by
+deployment.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and
