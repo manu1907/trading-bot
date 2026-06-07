@@ -125,7 +125,7 @@ class InterventionConfigurationTest {
 
             assertThat(policy.enabled()).isFalse();
             assertThat(policy.exchangeExecutionEnabled()).isFalse();
-            assertThat(policy.dryRunOnly()).isTrue();
+            assertThat(policy.reportOnly()).isTrue();
             assertThat(policy.allowRealEnvironment()).isFalse();
             assertThat(policy.requireReadyPlan()).isTrue();
             assertThat(policy.requireFreshProjectionMatch()).isTrue();
@@ -146,7 +146,7 @@ class InterventionConfigurationTest {
                 .withPropertyValues(
                         "trading.intervention.remediation-executor-policy.enabled=true",
                         "trading.intervention.remediation-executor-policy.exchange-execution-enabled=true",
-                        "trading.intervention.remediation-executor-policy.dry-run-only=false",
+                        "trading.intervention.remediation-executor-policy.report-only=false",
                         "trading.intervention.remediation-executor-policy.allow-real-environment=false",
                         "trading.intervention.remediation-executor-policy.max-plans-per-run=3",
                         "trading.intervention.remediation-executor-policy.allowed-operations[0]=CANCEL_ORDER",
@@ -158,7 +158,7 @@ class InterventionConfigurationTest {
 
                     assertThat(policy.enabled()).isTrue();
                     assertThat(policy.exchangeExecutionEnabled()).isTrue();
-                    assertThat(policy.dryRunOnly()).isFalse();
+                    assertThat(policy.reportOnly()).isFalse();
                     assertThat(policy.allowRealEnvironment()).isFalse();
                     assertThat(policy.maxPlansPerRun()).isEqualTo(3);
                     assertThat(policy.allowedOperations())
@@ -175,7 +175,7 @@ class InterventionConfigurationTest {
                 .withPropertyValues(
                         "trading.intervention.remediation-executor-policy.enabled=true",
                         "trading.intervention.remediation-executor-policy.exchange-execution-enabled=true",
-                        "trading.intervention.remediation-executor-policy.dry-run-only=false"
+                        "trading.intervention.remediation-executor-policy.report-only=false"
                 )
                 .run(context -> assertThat(context)
                         .hasFailed()
@@ -189,7 +189,7 @@ class InterventionConfigurationTest {
                 .withPropertyValues(
                         "trading.intervention.remediation-executor-policy.enabled=true",
                         "trading.intervention.remediation-executor-policy.exchange-execution-enabled=true",
-                        "trading.intervention.remediation-executor-policy.dry-run-only=false",
+                        "trading.intervention.remediation-executor-policy.report-only=false",
                         "trading.intervention.remediation-executor-policy.require-managed-execution-pipeline=false",
                         "trading.intervention.remediation-executor-policy.allowed-operations[0]=CANCEL_ORDER"
                 )

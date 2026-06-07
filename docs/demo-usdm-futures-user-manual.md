@@ -67,17 +67,17 @@ attach live streams automatically:
 - `trading.intervention.remediation_executor_policy.enabled`: `false`
 - `trading.intervention.remediation_executor_policy.exchange_execution_enabled`:
   `false`
-- `trading.intervention.remediation_executor_policy.dry_run_only`: `true`
+- `trading.intervention.remediation_executor_policy.report_only`: `true`
 
 The Binance live order smoke test is the exception: it is an opt-in Gradle task
 that deliberately submits a passive demo USD-M futures order, queries it, and
 cancels it.
 
-The `dry_run_only=true` catalog value is a disabled safety default, not the
+The `report_only=true` catalog value is a disabled safety default, not the
 intended demo-live operating mode. When the bot is deliberately configured to
 execute eligible remediation against the Binance demo exchange, the runtime
 override must enable the executor policy, enable exchange execution, set
-`dry_run_only=false`, and explicitly allow the operation being executed. Today
+`report_only=false`, and explicitly allow the operation being executed. Today
 the only supported exchange-executable remediation operation is `CANCEL_ORDER`
 for an external-order `CLOSE` decision.
 
@@ -715,14 +715,14 @@ planned as `operation=CANCEL_ORDER` with `exchangeExecutable=true`; all
 position, pause, adopt, amend, ignore, and replan plans remain non-executable
 until their specific policies exist.
 
-Dry-run the remediation executor reports for persisted remediation decisions:
+Preview the remediation executor reports for persisted remediation decisions:
 
 ```bash
 curl -H 'X-Operator-Token: <operator-token>' \
-  'http://localhost:8080/internal/interventions/remediation/executor/dry-run?provider=binance&environment=demo&account=main&market=usdm_futures'
+  'http://localhost:8080/internal/interventions/remediation/executor/preview?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
-Dry-run responses include `enabled`, `exchangeExecutionEnabled`, `dryRunOnly`,
+Preview responses include `enabled`, `exchangeExecutionEnabled`, `reportOnly`,
 batch counts, and per-plan reports with `planStatus`, `operation`, `status`,
 `reasons`, `attributes`, and the original `plan`. The endpoint does not submit
 exchange commands. It explains whether each plan is blocked, no-action, or
@@ -746,7 +746,7 @@ curl -X POST \
 This endpoint is still policy-gated. It submits only eligible `CANCEL_ORDER`
 plans for external order `CLOSE` decisions, and only when
 `remediation_executor_policy.enabled=true`,
-`exchange_execution_enabled=true`, `dry_run_only=false`, `CANCEL_ORDER` is in
+`exchange_execution_enabled=true`, `report_only=false`, `CANCEL_ORDER` is in
 `allowed_operations`, the target identity is present, and the normal order
 execution pipeline is enabled. It returns `SUBMITTED_TO_PIPELINE` after the
 command has been accepted by the pipeline; the final risk decision and order
@@ -767,7 +767,7 @@ eligible remediation execution is:
       "remediation_executor_policy": {
         "enabled": true,
         "exchange_execution_enabled": true,
-        "dry_run_only": false,
+        "report_only": false,
         "allowed_operations": [
           "CANCEL_ORDER"
         ]
@@ -1289,7 +1289,7 @@ Default intervention config:
   remediation action`
 - `remediation_executor_policy.enabled`: `false`
 - `remediation_executor_policy.exchange_execution_enabled`: `false`
-- `remediation_executor_policy.dry_run_only`: `true`
+- `remediation_executor_policy.report_only`: `true`
 - `remediation_executor_policy.allow_real_environment`: `false`
 - `remediation_executor_policy.require_ready_plan`: `true`
 - `remediation_executor_policy.require_fresh_projection_match`: `true`
@@ -1304,7 +1304,7 @@ Default intervention config:
 
 The executor policy defaults describe a safe startup state. Demo-live exchange
 execution is a runtime override state: set `enabled=true`,
-`exchange_execution_enabled=true`, `dry_run_only=false`, and allow the exact
+`exchange_execution_enabled=true`, `report_only=false`, and allow the exact
 operation, currently `CANCEL_ORDER`, before using
 `POST /internal/interventions/remediation/executor/execute`.
 
@@ -1396,7 +1396,7 @@ close, or hedge positions from remediation plans.
 
 The remediation executor policy is the configuration boundary for the future
 executor. It is disabled by default and cannot allow exchange execution unless
-the policy is enabled, `dry_run_only=false`, at least one operation is explicitly
+the policy is enabled, `report_only=false`, at least one operation is explicitly
 allowlisted, and the strict ready-plan, fresh-projection, target-identity, and
 managed-pipeline gates remain enabled. `allow_real_environment=false` means a
 future executor must still refuse real-environment exchange execution unless a
@@ -1405,9 +1405,9 @@ real deployment deliberately overrides that guard.
 The current codebase includes a remediation executor service. It consumes
 persisted remediation decisions, regenerates current command plans, applies the
 executor policy gates, caps each batch with `max_plans_per_run`, and returns
-per-plan reports with statuses such as blocked, dry-run, submitted, or
-no-action. Dry-run reports are exposed through
-`GET /internal/interventions/remediation/executor/dry-run`. Policy-gated
+per-plan reports with statuses such as blocked, preview, submitted, or
+no-action. Preview reports are exposed through
+`GET /internal/interventions/remediation/executor/preview`. Policy-gated
 execution is exposed through
 `POST /internal/interventions/remediation/executor/execute` and currently
 supports only external-order close as cancel.

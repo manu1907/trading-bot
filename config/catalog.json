@@ -169,7 +169,7 @@
       "remediation_executor_policy": {
         "enabled": false,
         "exchange_execution_enabled": false,
-        "dry_run_only": true,
+        "report_only": true,
         "allow_real_environment": false,
         "require_ready_plan": true,
         "require_fresh_projection_match": true,

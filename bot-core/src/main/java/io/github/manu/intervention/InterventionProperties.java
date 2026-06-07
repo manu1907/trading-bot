@@ -134,7 +134,7 @@ public record InterventionProperties(
     public record RemediationExecutorPolicy(
             Boolean enabled,
             Boolean exchangeExecutionEnabled,
-            Boolean dryRunOnly,
+            Boolean reportOnly,
             Boolean allowRealEnvironment,
             Boolean requireReadyPlan,
             Boolean requireFreshProjectionMatch,
@@ -151,7 +151,7 @@ public record InterventionProperties(
         public RemediationExecutorPolicy {
             enabled = Boolean.TRUE.equals(enabled);
             exchangeExecutionEnabled = Boolean.TRUE.equals(exchangeExecutionEnabled);
-            dryRunOnly = dryRunOnly == null || Boolean.TRUE.equals(dryRunOnly);
+            reportOnly = reportOnly == null || Boolean.TRUE.equals(reportOnly);
             allowRealEnvironment = Boolean.TRUE.equals(allowRealEnvironment);
             requireReadyPlan = requireReadyPlan == null || Boolean.TRUE.equals(requireReadyPlan);
             requireFreshProjectionMatch = requireFreshProjectionMatch == null
@@ -185,8 +185,8 @@ public record InterventionProperties(
                 if (!Boolean.TRUE.equals(enabled)) {
                     throw new IllegalArgumentException("exchangeExecutionEnabled requires remediation executor policy to be enabled");
                 }
-                if (Boolean.TRUE.equals(dryRunOnly)) {
-                    throw new IllegalArgumentException("exchangeExecutionEnabled requires dryRunOnly=false");
+                if (Boolean.TRUE.equals(reportOnly)) {
+                    throw new IllegalArgumentException("exchangeExecutionEnabled requires reportOnly=false");
                 }
                 if (allowedOperations.isEmpty()) {
                     throw new IllegalArgumentException("exchangeExecutionEnabled requires at least one allowed operation");
@@ -204,8 +204,8 @@ public record InterventionProperties(
                     throw new IllegalArgumentException("exchangeExecutionEnabled requires requireManagedExecutionPipeline=true");
                 }
             }
-            if (!Boolean.TRUE.equals(exchangeExecutionEnabled) && Boolean.FALSE.equals(dryRunOnly)) {
-                throw new IllegalArgumentException("dryRunOnly cannot be false unless exchangeExecutionEnabled is true");
+            if (!Boolean.TRUE.equals(exchangeExecutionEnabled) && Boolean.FALSE.equals(reportOnly)) {
+                throw new IllegalArgumentException("reportOnly cannot be false unless exchangeExecutionEnabled is true");
             }
         }
 

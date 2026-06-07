@@ -242,8 +242,8 @@ public final class InterventionOperatorController {
         }
     }
 
-    @GetMapping("/remediation/executor/dry-run")
-    public Mono<ResponseEntity<?>> remediationExecutorDryRun(
+    @GetMapping("/remediation/executor/preview")
+    public Mono<ResponseEntity<?>> remediationExecutorPreview(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
             @RequestParam("provider") String provider,
             @RequestParam("environment") String environment,
@@ -255,7 +255,7 @@ public final class InterventionOperatorController {
         }
         try {
             InterventionRemediationExecutorService.RemediationExecutionBatch batch =
-                    remediationExecutorService.dryRun(provider, environment, account, market);
+                    remediationExecutorService.preview(provider, environment, account, market);
             return Mono.just(ResponseEntity.ok(batch));
         } catch (IllegalArgumentException exception) {
             return badRequest(exception);

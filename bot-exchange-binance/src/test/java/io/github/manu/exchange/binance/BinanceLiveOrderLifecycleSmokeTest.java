@@ -52,13 +52,22 @@ class BinanceLiveOrderLifecycleSmokeTest {
         BigDecimal passivePrice = passiveBuyPrice(binance);
         BigDecimal quantity = orderQuantity(symbolInfo, passivePrice);
         String clientOrderId = "tb_smoke_" + Instant.now().toEpochMilli();
+        Clock clock = Clock.systemUTC();
+        BinanceExchangeMetadata exchangeMetadata =
+                new BinanceExchangeInfoParser().parse(binance.rest().baseUrl(), exchangeInfo, Instant.now(clock));
 
         BinanceOrderClient orderClient = new BinanceOrderClient(
                 binance,
                 apiKey,
                 apiSecret,
-                Clock.systemUTC(),
-                serverTimeOffsetMillis(binance)
+                clock,
+                serverTimeOffsetMillis(binance),
+                new BinanceJdkHttpTransport(
+                        Duration.ofMillis(binance.rest().connectTimeoutMillis()),
+                        Duration.ofMillis(binance.rest().responseTimeoutMillis())
+                ),
+                jsonMapper,
+                exchangeMetadata
         );
         boolean hedgeMode = hedgeMode(binance, apiKey, apiSecret);
         BinanceOrderCommand order = new BinanceOrderCommand(

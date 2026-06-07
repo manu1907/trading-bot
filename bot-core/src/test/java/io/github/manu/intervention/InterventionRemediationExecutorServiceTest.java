@@ -46,7 +46,7 @@ class InterventionRemediationExecutorServiceTest {
         restoreCloseRemediationDecisionWithOrder("client-1", "remediation-1", "evt-remediation-1");
 
         InterventionRemediationExecutorService.RemediationExecutionBatch batch =
-                service(policy(false, false, true, 25)).dryRun("binance", "demo", "main", "usd_m_futures");
+                service(policy(false, false, true, 25)).preview("binance", "demo", "main", "usd_m_futures");
 
         assertThat(batch.enabled()).isFalse();
         assertThat(batch.evaluatedCount()).isZero();
@@ -54,30 +54,30 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     @Test
-    void dry_runs_executable_cancel_plan_when_exchange_execution_is_disabled() {
+    void previews_executable_cancel_plan_when_exchange_execution_is_disabled() {
         restoreCloseRemediationDecisionWithOrder("client-1", "remediation-1", "evt-remediation-1");
 
         InterventionRemediationExecutorService.RemediationExecutionBatch batch =
-                service(policy(true, false, true, 25)).dryRun("binance", "demo", "main", "usd_m_futures");
+                service(policy(true, false, true, 25)).preview("binance", "demo", "main", "usd_m_futures");
 
         assertThat(batch.enabled()).isTrue();
         assertThat(batch.exchangeExecutionEnabled()).isFalse();
-        assertThat(batch.dryRunOnly()).isTrue();
+        assertThat(batch.reportOnly()).isTrue();
         assertThat(batch.evaluatedCount()).isEqualTo(1);
         assertThat(batch.blockedCount()).isZero();
-        assertThat(batch.dryRunCount()).isEqualTo(1);
+        assertThat(batch.previewOnlyCount()).isEqualTo(1);
         assertThat(batch.submittedCount()).isZero();
         assertThat(batch.noActionCount()).isZero();
         assertThat(batch.reports()).singleElement().satisfies(report -> {
             assertThat(report.remediationId()).isEqualTo("remediation-1");
             assertThat(report.planStatus()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
             assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER);
-            assertThat(report.status()).isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.DRY_RUN);
+            assertThat(report.status()).isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.PREVIEW_ONLY);
             assertThat(report.exchangeExecutable()).isTrue();
             assertThat(report.reasons())
                     .containsExactly("remediation:cancel_external_order", "executor:exchange_execution_disabled");
             assertThat(report.attributes())
-                    .containsEntry("executor_status", "DRY_RUN")
+                    .containsEntry("executor_status", "PREVIEW_ONLY")
                     .containsEntry("executor_reason", "executor:exchange_execution_disabled")
                     .containsEntry("executor_exchange_execution_enabled", "false");
         });
@@ -88,7 +88,7 @@ class InterventionRemediationExecutorServiceTest {
         restoreFlatPositionCloseDecision();
 
         InterventionRemediationExecutorService.RemediationExecutionBatch batch =
-                service(policy(true, false, true, 25)).dryRun("binance", "demo", "main", "usd_m_futures");
+                service(policy(true, false, true, 25)).preview("binance", "demo", "main", "usd_m_futures");
 
         assertThat(batch.evaluatedCount()).isEqualTo(1);
         assertThat(batch.blockedCount()).isZero();
@@ -106,7 +106,7 @@ class InterventionRemediationExecutorServiceTest {
         restoreTwoCloseRemediationDecisionsWithOrders();
 
         InterventionRemediationExecutorService.RemediationExecutionBatch batch =
-                service(policy(true, false, true, 1)).dryRun("binance", "demo", "main", "usd_m_futures");
+                service(policy(true, false, true, 1)).preview("binance", "demo", "main", "usd_m_futures");
 
         assertThat(batch.evaluatedCount()).isEqualTo(1);
         assertThat(batch.reports()).hasSize(1);
@@ -184,13 +184,13 @@ class InterventionRemediationExecutorServiceTest {
     private InterventionProperties.RemediationExecutorPolicy policy(
             boolean enabled,
             boolean exchangeExecutionEnabled,
-            boolean dryRunOnly,
+            boolean reportOnly,
             int maxPlansPerRun
     ) {
         return new InterventionProperties.RemediationExecutorPolicy(
                 enabled,
                 exchangeExecutionEnabled,
-                dryRunOnly,
+                reportOnly,
                 false,
                 true,
                 true,

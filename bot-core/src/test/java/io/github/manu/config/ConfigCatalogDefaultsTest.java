@@ -55,7 +55,7 @@ class ConfigCatalogDefaultsTest {
 
         assertBoolean(catalog, "trading.intervention.remediation_executor_policy.enabled", false);
         assertBoolean(catalog, "trading.intervention.remediation_executor_policy.exchange_execution_enabled", false);
-        assertBoolean(catalog, "trading.intervention.remediation_executor_policy.dry_run_only", true);
+        assertBoolean(catalog, "trading.intervention.remediation_executor_policy.report_only", true);
         assertThat(requiredNode(catalog, "trading.intervention.remediation_executor_policy.allowed_operations"))
                 .as("trading.intervention.remediation_executor_policy.allowed_operations")
                 .isEmpty();

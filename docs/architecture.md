@@ -617,20 +617,21 @@ safety boundary. The checked-in catalog keeps the executor disabled, exchange
 execution disabled, report-only mode enabled, real environments blocked, and
 executable operation names empty for safe startup. Demo-live exchange execution
 is an explicit runtime override state: the policy must be enabled,
-`exchange_execution_enabled=true`, `dry_run_only=false`, and the operation must
+`exchange_execution_enabled=true`, `report_only=false`, and the operation must
 be allowlisted before the executor may submit commands. Enabling exchange
 execution requires the ready-plan, fresh-projection, target-identity, and
 managed-pipeline gates to remain enabled, so remediation cannot be configured to
 bypass the normal execution pipeline.
 `InterventionRemediationExecutorService` consumes persisted remediation
 decisions, regenerates current command plans through the planner, evaluates each
-plan against the executor policy, caps each batch, and returns blocked, dry-run,
-submitted, or no-action reports. Dry-run mode never submits commands. Execute
-mode currently supports only external-order `CLOSE` as a `CANCEL_ORDER` routed
-through `OrderExecutionPipeline`; the normal risk gate, idempotency, event bus,
-journal, projection, reconciliation, and provider gateway remain authoritative.
+plan against the executor policy, caps each batch, and returns blocked, preview,
+submitted, or no-action reports. The preview endpoint is a pre-execution report
+surface and never submits commands. Execute mode currently supports only
+external-order `CLOSE` as a `CANCEL_ORDER` routed through
+`OrderExecutionPipeline`; the normal risk gate, idempotency, event bus, journal,
+projection, reconciliation, and provider gateway remain authoritative.
 The operator API exposes preview reports at
-`GET /internal/interventions/remediation/executor/dry-run` so operators can see
+`GET /internal/interventions/remediation/executor/preview` so operators can see
 the exact executor blocker before any exchange-executable remediation path is
 enabled, and exposes policy-gated execution at
 `POST /internal/interventions/remediation/executor/execute`.

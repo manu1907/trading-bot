@@ -5,7 +5,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 ## Operating Rules
 
 - Demo and real trading must use the same codebase. Switching between them must be done through profile, configuration, credentials, and deployment controls only.
-- The bot is not a toy dry-run engine. Simulation and backtesting are separate runtimes; live/demo trading must exercise the same execution, risk, journal, projection, and reconciliation paths.
+- The bot is not a toy reporting engine. Simulation and backtesting are separate runtimes; live/demo trading must exercise the same execution, risk, journal, projection, and reconciliation paths.
 - Source-controlled defaults live in `config/catalog.json`. Runtime environment config should select and narrow behavior, not fork product logic.
 - Provider modules declare and validate exchange capability, translate provider commands, and execute provider operations. Provider modules must not contain strategy logic.
 - Strategy modules emit provider-agnostic intent or signals. Core services handle risk, reconciliation confidence, projection, planning, idempotency, and execution admission.
@@ -25,7 +25,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Automated remediation policy is configurable under `trading.intervention.automated-policy`.
 - Remediation executor policy is configurable under `trading.intervention.remediation-executor-policy`.
 - Executor policy catalog defaults keep the executor disabled, exchange execution disabled, report-only mode enabled, real environments blocked, and executable operations empty for safe startup.
-- Demo-live remediation exchange execution is a runtime override state, not a dry-run target: enable the executor policy, set `exchange_execution_enabled=true`, set `dry_run_only=false`, and allowlist the operation, currently only `CANCEL_ORDER`.
+- Demo-live remediation exchange execution is a runtime override state, not a report-only target: enable the executor policy, set `exchange_execution_enabled=true`, set `report_only=false`, and allowlist the operation, currently only `CANCEL_ORDER`.
 - Executor policy validation requires explicit allowed operations and strict ready-plan, fresh-projection, target-identity, and managed-pipeline gates before exchange execution can be enabled.
 - Target-order risk policy now includes `allow_external_remediation_cancel`, which defaults to true but only applies to executor-originated `ORDER`/`CLOSE`/`CANCEL_ORDER` commands with explicit remediation attributes.
 - Conservative remediation defaults are configured: unknown or high-risk intervention types route to operator review or non-executable planning instead of live exchange action.
@@ -105,8 +105,8 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Position actions, pause actions, adoption, amendment, ignore, and replan actions remain non-executable governance or planning intents.
 - The operator API exposes generated plans with `GET /internal/interventions/remediation/plans`.
 - `InterventionRemediationExecutorService` consumes persisted remediation decisions, regenerates current command plans, applies executor policy gates, caps batches, and returns auditable outcomes.
-- Executor reports can mark plans as `BLOCKED`, `DRY_RUN`, `SUBMITTED_TO_PIPELINE`, or `NO_ACTION`.
-- The executor can submit only `CANCEL_ORDER` for order `CLOSE` remediation, and only when policy is enabled, exchange execution is enabled, dry-run only is false, `CANCEL_ORDER` is allowlisted, the target identity is present, the environment is allowed, and `OrderExecutionPipeline` is available.
+- Executor reports can mark plans as `BLOCKED`, `PREVIEW_ONLY`, `SUBMITTED_TO_PIPELINE`, or `NO_ACTION`.
+- The executor can submit only `CANCEL_ORDER` for order `CLOSE` remediation, and only when policy is enabled, exchange execution is enabled, report only is false, `CANCEL_ORDER` is allowlisted, the target identity is present, the environment is allowed, and `OrderExecutionPipeline` is available.
 - Submitted remediation cancels use deterministic remediation command ids and idempotency keys derived from the remediation id.
 - The executor does not directly call an exchange gateway. It submits to `OrderExecutionPipeline`; the normal risk decision, provider gateway, event bus, journal, projection, and reconciliation path remains authoritative.
 - Position remediation planning now has bounded sizing metadata for `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN`: close uses the full projected absolute position amount, reduce requires explicit `reduce_quantity` or `reduce_fraction` bounded by the projected amount, and hedge defaults to the projected absolute amount while marking hedge-mode requirements.
@@ -122,7 +122,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - `GET /internal/interventions/remediation` lists remediation recommendations.
 - `GET /internal/interventions/remediation/decisions` lists remediation decisions.
 - `GET /internal/interventions/remediation/plans` lists generated command plans.
-- `GET /internal/interventions/remediation/executor/dry-run` lists executor outcomes without submitting commands.
+- `GET /internal/interventions/remediation/executor/preview` lists executor outcomes without submitting commands.
 - `POST /internal/interventions/pauses/releases` releases a matching active account or symbol pause through an auditable remediation decision event.
 - `POST /internal/interventions/remediation/decisions` records a remediation decision.
 - `POST /internal/interventions/remediation/automated-decisions` triggers automated decision publication when enabled.
@@ -163,7 +163,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Trigger automated decision publication through the operator API when enabled.
 - Inspect generated remediation command plans.
 - Inspect remediation executor preview outcomes if you need to see why a plan would be blocked before execution.
-- Execute eligible remediation batches only after enabling the executor policy, exchange execution, `dry_run_only=false`, and the relevant operation allowlist. Today the only eligible exchange operation is `CANCEL_ORDER` for an external order `CLOSE` decision.
+- Execute eligible remediation batches only after enabling the executor policy, exchange execution, `report_only=false`, and the relevant operation allowlist. Today the only eligible exchange operation is `CANCEL_ORDER` for an external order `CLOSE` decision.
 - Treat position, pause, adoption, amendment, ignore, and replan plans as non-executing until their specific execution policies are implemented.
 
 ## End-To-End Delivery Roadmap To Live Google Cloud Operation
@@ -297,7 +297,7 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 5. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
 6. Add a scheduled/live automated remediation runner after executor safety, pause governance, and idempotency behavior are covered by persistence tests.
 7. Expand persistence and recovery tests for automated decisions, generated plans, pause state, and executable remediation commands.
-8. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, dry-run, submitted, and unknown outcomes.
+8. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
 9. Complete production deployment work: deployment config, secrets handling, observability, alerting, dashboards, runbooks, and incident procedures.
 10. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
 11. Keep the user manual and current-state documentation aligned after each capability change.

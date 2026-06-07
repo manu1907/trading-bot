@@ -545,18 +545,18 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
-    void dry_runs_remediation_executor_reports_when_token_matches() {
+    void previews_remediation_executor_reports_when_token_matches() {
         InterventionOperatorController enabledController = controller(
                 remediationAdvisor,
                 automatedDecisionService,
-                remediationExecutorService(remediationCommandPlanner, enabledDryRunExecutorPolicy())
+                remediationExecutorService(remediationCommandPlanner, enabledReportOnlyExecutorPolicy())
         );
         WebTestClient enabledClient = WebTestClient.bindToController(enabledController).build();
         restoreCloseRemediationDecisionWithOrder();
 
         enabledClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/internal/interventions/remediation/executor/dry-run")
+                        .path("/internal/interventions/remediation/executor/preview")
                         .queryParam("provider", "binance")
                         .queryParam("environment", "demo")
                         .queryParam("account", "main")
@@ -571,13 +571,13 @@ class InterventionOperatorControllerTest {
                 .isEqualTo(true)
                 .jsonPath("$.exchangeExecutionEnabled")
                 .isEqualTo(false)
-                .jsonPath("$.dryRunOnly")
+                .jsonPath("$.reportOnly")
                 .isEqualTo(true)
                 .jsonPath("$.evaluatedCount")
                 .isEqualTo(1)
                 .jsonPath("$.blockedCount")
                 .isEqualTo(0)
-                .jsonPath("$.dryRunCount")
+                .jsonPath("$.previewOnlyCount")
                 .isEqualTo(1)
                 .jsonPath("$.reports[0].remediationId")
                 .isEqualTo("remediation-1")
@@ -586,7 +586,7 @@ class InterventionOperatorControllerTest {
                 .jsonPath("$.reports[0].operation")
                 .isEqualTo("CANCEL_ORDER")
                 .jsonPath("$.reports[0].status")
-                .isEqualTo("DRY_RUN")
+                .isEqualTo("PREVIEW_ONLY")
                 .jsonPath("$.reports[0].exchangeExecutable")
                 .isEqualTo(true)
                 .jsonPath("$.reports[0].reasons[1]")
@@ -602,7 +602,7 @@ class InterventionOperatorControllerTest {
         InterventionOperatorController enabledController = controller(
                 remediationAdvisor,
                 automatedDecisionService,
-                remediationExecutorService(remediationCommandPlanner, enabledDryRunExecutorPolicy())
+                remediationExecutorService(remediationCommandPlanner, enabledReportOnlyExecutorPolicy())
         );
         WebTestClient enabledClient = WebTestClient.bindToController(enabledController).build();
         restoreCloseRemediationDecisionWithOrder();
@@ -619,10 +619,10 @@ class InterventionOperatorControllerTest {
                 .isEqualTo(true)
                 .jsonPath("$.exchangeExecutionEnabled")
                 .isEqualTo(false)
-                .jsonPath("$.dryRunOnly")
+                .jsonPath("$.reportOnly")
                 .isEqualTo(true)
                 .jsonPath("$.reports[0].status")
-                .isEqualTo("DRY_RUN")
+                .isEqualTo("PREVIEW_ONLY")
                 .jsonPath("$.reports[0].attributes.executor_reason")
                 .isEqualTo("executor:exchange_execution_disabled");
     }
@@ -644,12 +644,12 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
-    void rejects_remediation_executor_dry_run_when_token_is_invalid() {
+    void rejects_remediation_executor_preview_when_token_is_invalid() {
         restoreCloseRemediationDecisionWithOrder();
 
         client.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/internal/interventions/remediation/executor/dry-run")
+                        .path("/internal/interventions/remediation/executor/preview")
                         .queryParam("provider", "binance")
                         .queryParam("environment", "demo")
                         .queryParam("account", "main")
@@ -1001,7 +1001,7 @@ class InterventionOperatorControllerTest {
         );
     }
 
-    private InterventionProperties.RemediationExecutorPolicy enabledDryRunExecutorPolicy() {
+    private InterventionProperties.RemediationExecutorPolicy enabledReportOnlyExecutorPolicy() {
         return new InterventionProperties.RemediationExecutorPolicy(
                 true,
                 false,

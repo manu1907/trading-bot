@@ -73,7 +73,7 @@ public final class InterventionRemediationExecutorService {
                 .toList();
     }
 
-    public RemediationExecutionBatch dryRun(
+    public RemediationExecutionBatch preview(
             String provider,
             String environment,
             String account,
@@ -83,23 +83,23 @@ public final class InterventionRemediationExecutorService {
             return new RemediationExecutionBatch(
                     false,
                     policy.exchangeExecutionEnabled(),
-                policy.dryRunOnly(),
-                0,
-                0,
-                0,
-                0,
-                0,
-                List.of()
+                    policy.reportOnly(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    List.of()
             );
         }
 
         List<RemediationExecutionReport> reports = plans(provider, environment, account, market)
                 .stream()
                 .limit(policy.maxPlansPerRun())
-                .map(plan -> evaluate(plan, ExecutionMode.DRY_RUN))
+                .map(plan -> evaluate(plan, ExecutionMode.PREVIEW))
                 .toList();
         long blockedCount = reports.stream().filter(report -> report.status() == ExecutionStatus.BLOCKED).count();
-        long dryRunCount = reports.stream().filter(report -> report.status() == ExecutionStatus.DRY_RUN).count();
+        long previewOnlyCount = reports.stream().filter(report -> report.status() == ExecutionStatus.PREVIEW_ONLY).count();
         long submittedCount = reports.stream()
                 .filter(report -> report.status() == ExecutionStatus.SUBMITTED_TO_PIPELINE)
                 .count();
@@ -107,10 +107,10 @@ public final class InterventionRemediationExecutorService {
         return new RemediationExecutionBatch(
                 true,
                 policy.exchangeExecutionEnabled(),
-                policy.dryRunOnly(),
+                policy.reportOnly(),
                 reports.size(),
                 Math.toIntExact(blockedCount),
-                Math.toIntExact(dryRunCount),
+                Math.toIntExact(previewOnlyCount),
                 Math.toIntExact(submittedCount),
                 Math.toIntExact(noActionCount),
                 reports
@@ -127,7 +127,7 @@ public final class InterventionRemediationExecutorService {
             return new RemediationExecutionBatch(
                     false,
                     policy.exchangeExecutionEnabled(),
-                    policy.dryRunOnly(),
+                    policy.reportOnly(),
                     0,
                     0,
                     0,
@@ -143,7 +143,7 @@ public final class InterventionRemediationExecutorService {
                 .map(plan -> evaluate(plan, ExecutionMode.EXECUTE))
                 .toList();
         long blockedCount = reports.stream().filter(report -> report.status() == ExecutionStatus.BLOCKED).count();
-        long dryRunCount = reports.stream().filter(report -> report.status() == ExecutionStatus.DRY_RUN).count();
+        long previewOnlyCount = reports.stream().filter(report -> report.status() == ExecutionStatus.PREVIEW_ONLY).count();
         long submittedCount = reports.stream()
                 .filter(report -> report.status() == ExecutionStatus.SUBMITTED_TO_PIPELINE)
                 .count();
@@ -151,10 +151,10 @@ public final class InterventionRemediationExecutorService {
         return new RemediationExecutionBatch(
                 true,
                 policy.exchangeExecutionEnabled(),
-                policy.dryRunOnly(),
+                policy.reportOnly(),
                 reports.size(),
                 Math.toIntExact(blockedCount),
-                Math.toIntExact(dryRunCount),
+                Math.toIntExact(previewOnlyCount),
                 Math.toIntExact(submittedCount),
                 Math.toIntExact(noActionCount),
                 reports
@@ -182,7 +182,7 @@ public final class InterventionRemediationExecutorService {
         Map<String, String> attributes = new LinkedHashMap<>(plan.attributes());
         attributes.put("executor_policy_enabled", Boolean.toString(policy.enabled()));
         attributes.put("executor_exchange_execution_enabled", Boolean.toString(policy.exchangeExecutionEnabled()));
-        attributes.put("executor_dry_run_only", Boolean.toString(policy.dryRunOnly()));
+        attributes.put("executor_report_only", Boolean.toString(policy.reportOnly()));
         attributes.put("executor_mode", mode.name());
 
         if (plan.status() == InterventionRemediationCommandPlanner.PlanStatus.NO_ACTION) {
@@ -225,13 +225,13 @@ public final class InterventionRemediationExecutorService {
             return report(plan, ExecutionStatus.BLOCKED, "executor:operation_not_allowed", attributes);
         }
         if (!policy.exchangeExecutionEnabled()) {
-            return report(plan, ExecutionStatus.DRY_RUN, "executor:exchange_execution_disabled", attributes);
+            return report(plan, ExecutionStatus.PREVIEW_ONLY, "executor:exchange_execution_disabled", attributes);
         }
-        if (policy.dryRunOnly()) {
-            return report(plan, ExecutionStatus.DRY_RUN, "executor:dry_run_only", attributes);
+        if (policy.reportOnly()) {
+            return report(plan, ExecutionStatus.PREVIEW_ONLY, "executor:report_only_policy", attributes);
         }
-        if (mode == ExecutionMode.DRY_RUN) {
-            return report(plan, ExecutionStatus.DRY_RUN, "executor:dry_run_request", attributes);
+        if (mode == ExecutionMode.PREVIEW) {
+            return report(plan, ExecutionStatus.PREVIEW_ONLY, "executor:preview_request", attributes);
         }
         if (orderExecutionPipeline == null) {
             return report(plan, ExecutionStatus.BLOCKED, "executor:order_execution_pipeline_missing", attributes);
@@ -427,13 +427,13 @@ public final class InterventionRemediationExecutorService {
     }
 
     private enum ExecutionMode {
-        DRY_RUN,
+        PREVIEW,
         EXECUTE
     }
 
     public enum ExecutionStatus {
         BLOCKED,
-        DRY_RUN,
+        PREVIEW_ONLY,
         SUBMITTED_TO_PIPELINE,
         NO_ACTION
     }
@@ -441,10 +441,10 @@ public final class InterventionRemediationExecutorService {
     public record RemediationExecutionBatch(
             boolean enabled,
             boolean exchangeExecutionEnabled,
-            boolean dryRunOnly,
+            boolean reportOnly,
             int evaluatedCount,
             int blockedCount,
-            int dryRunCount,
+            int previewOnlyCount,
             int submittedCount,
             int noActionCount,
             List<RemediationExecutionReport> reports
