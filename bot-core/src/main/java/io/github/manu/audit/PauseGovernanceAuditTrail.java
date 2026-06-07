@@ -1,6 +1,9 @@
 package io.github.manu.audit;
 
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -12,26 +15,46 @@ import java.util.Objects;
 @Component
 public final class PauseGovernanceAuditTrail {
 
+    private static final Logger log = LoggerFactory.getLogger(PauseGovernanceAuditTrail.class);
     private static final int DEFAULT_MAX_EVENTS = 1_000;
 
     private final int maxEvents;
+    private final List<PauseGovernanceAuditStore> stores;
     private final Deque<PauseGovernanceAuditEvent> events = new ArrayDeque<>();
 
     public PauseGovernanceAuditTrail() {
-        this(DEFAULT_MAX_EVENTS);
+        this(DEFAULT_MAX_EVENTS, List.of());
+    }
+
+    @Autowired
+    public PauseGovernanceAuditTrail(List<PauseGovernanceAuditStore> stores) {
+        this(DEFAULT_MAX_EVENTS, stores);
     }
 
     PauseGovernanceAuditTrail(int maxEvents) {
+        this(maxEvents, List.of());
+    }
+
+    PauseGovernanceAuditTrail(int maxEvents, List<PauseGovernanceAuditStore> stores) {
         if (maxEvents <= 0) {
             throw new IllegalArgumentException("maxEvents must be positive");
         }
         this.maxEvents = maxEvents;
+        this.stores = stores == null ? List.of() : List.copyOf(stores);
     }
 
     public synchronized void record(PauseGovernanceAuditEvent event) {
-        events.addLast(Objects.requireNonNull(event, "event"));
+        PauseGovernanceAuditEvent normalizedEvent = Objects.requireNonNull(event, "event");
+        events.addLast(normalizedEvent);
         while (events.size() > maxEvents) {
             events.removeFirst();
+        }
+        for (PauseGovernanceAuditStore store : stores) {
+            try {
+                store.record(normalizedEvent);
+            } catch (PauseGovernanceAuditStoreException exception) {
+                log.warn("failed to persist pause governance audit event", exception);
+            }
         }
     }
 
@@ -44,6 +67,13 @@ public final class PauseGovernanceAuditTrail {
     ) {
         if (limit <= 0) {
             throw new IllegalArgumentException("limit must be positive");
+        }
+        if (!stores.isEmpty()) {
+            try {
+                return stores.getFirst().recent(provider, environment, account, market, limit);
+            } catch (PauseGovernanceAuditStoreException exception) {
+                log.warn("failed to query persisted pause governance audit events", exception);
+            }
         }
         List<PauseGovernanceAuditEvent> matches = new ArrayList<>();
         events.descendingIterator()

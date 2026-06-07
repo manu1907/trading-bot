@@ -1,5 +1,6 @@
 package io.github.manu.audit;
 
+import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandSide;
@@ -8,7 +9,9 @@ import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +21,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PauseGovernanceAuditTrailTest {
 
     private static final Instant NOW = Instant.parse("2026-06-07T14:30:00Z");
+
+    @TempDir
+    private Path temporaryDirectory;
 
     private final PauseGovernanceAuditTrail auditTrail = new PauseGovernanceAuditTrail();
     private final AuditLogger auditLogger = new AuditLogger(auditTrail);
@@ -76,6 +82,23 @@ class PauseGovernanceAuditTrailTest {
                 .singleElement()
                 .extracting(PauseGovernanceAuditTrail.PauseGovernanceAuditEvent::eventId)
                 .isEqualTo("new");
+    }
+
+    @Test
+    void query_uses_configured_store_after_restart() {
+        FilePauseGovernanceAuditStore store = new FilePauseGovernanceAuditStore(
+                temporaryDirectory.resolve("pause-governance.jsonl"),
+                JsonMapperFactory.create()
+        );
+        PauseGovernanceAuditTrail persistedTrail = new PauseGovernanceAuditTrail(1, List.of(store));
+        persistedTrail.record(event("persisted", "binance", "demo", "main", "usd_m_futures"));
+
+        PauseGovernanceAuditTrail restartedTrail = new PauseGovernanceAuditTrail(1, List.of(store));
+
+        assertThat(restartedTrail.recent("binance", "demo", "main", "usd_m_futures", 10))
+                .singleElement()
+                .extracting(PauseGovernanceAuditTrail.PauseGovernanceAuditEvent::eventId)
+                .isEqualTo("persisted");
     }
 
     private PauseGovernanceAuditTrail.PauseGovernanceAuditEvent event(

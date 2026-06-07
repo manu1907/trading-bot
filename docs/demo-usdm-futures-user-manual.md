@@ -605,6 +605,15 @@ Pause governance audit logging:
 - Projected active pauses that cross a valid `pause_expires_at` are observed by
   the pause expiry monitor and emit structured `pause_governance_expired`
   records once per projected pause expiry.
+- The pause audit trail keeps a bounded in-memory buffer by default.
+- Enable the optional append-only JSONL store with
+  `trading.audit.pause-governance.file-store.enabled=true`.
+- The default file path is
+  `data/audit/pause-governance-audit.jsonl`; override it with
+  `trading.audit.pause-governance.file-store.path`.
+- When the file store is enabled, the operator audit endpoint reads persisted
+  pause audit records, so recent activation, release, override, and expiry
+  records remain queryable after restart.
 
 Pause governance metrics:
 
@@ -638,8 +647,8 @@ Pause governance metrics:
   change the scan interval from the default `30000`.
 - Recent pause activation, release, override, and expiry audit records can be
   queried through the operator API.
-- Dashboards, external alert routing, and durable/searchable audit storage are
-  still planned work.
+- Dashboards, external alert routing, and a production-grade indexed audit
+  backend are still planned work.
 
 List recent pause governance audit records:
 
