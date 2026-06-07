@@ -346,12 +346,16 @@ public final class TradingStateProjection implements TradingEventHandler {
     }
 
     public boolean accountPaused(String provider, String environment, String account, String market) {
-        return pauseGovernance.containsKey(key(provider, environment, account, market, "ACCOUNT", account));
+        return activePause(pauseGovernance.get(key(provider, environment, account, market, "ACCOUNT", account)));
     }
 
     public boolean symbolPaused(String provider, String environment, String account, String market, String symbol) {
         return accountPaused(provider, environment, account, market)
-                || pauseGovernance.containsKey(key(provider, environment, account, market, "SYMBOL", symbol));
+                || activePause(pauseGovernance.get(key(provider, environment, account, market, "SYMBOL", symbol)));
+    }
+
+    private boolean activePause(PauseGovernanceState state) {
+        return state != null && Boolean.TRUE.equals(state.active());
     }
 
     public TradingStateSnapshot snapshot() {

@@ -13,6 +13,7 @@ import io.github.manu.events.v1.StrategySignalEvent;
 import io.github.manu.events.v1.StrategySignalType;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.messaging.TradingEventHandler;
+import io.github.manu.projection.TradingStateProjection;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -33,15 +34,34 @@ public final class StrategySignalPlanner implements TradingEventHandler {
 
     private final ExecutionProperties properties;
     private final TradingEventBus eventBus;
+    private final TradingStateProjection tradingStateProjection;
     private final Clock clock;
 
     public StrategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus) {
-        this(properties, eventBus, Clock.systemUTC());
+        this(properties, eventBus, new TradingStateProjection(), Clock.systemUTC());
+    }
+
+    public StrategySignalPlanner(
+            ExecutionProperties properties,
+            TradingEventBus eventBus,
+            TradingStateProjection tradingStateProjection
+    ) {
+        this(properties, eventBus, tradingStateProjection, Clock.systemUTC());
     }
 
     StrategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus, Clock clock) {
+        this(properties, eventBus, new TradingStateProjection(), clock);
+    }
+
+    StrategySignalPlanner(
+            ExecutionProperties properties,
+            TradingEventBus eventBus,
+            TradingStateProjection tradingStateProjection,
+            Clock clock
+    ) {
         this.properties = Objects.requireNonNull(properties, "properties");
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+        this.tradingStateProjection = Objects.requireNonNull(tradingStateProjection, "tradingStateProjection");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -74,6 +94,9 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         String account = resolve(signal.getAccount(), properties.signalPlanner().defaults().account(), "account");
         String market = resolve(signal.getMarket(), properties.signalPlanner().defaults().market(), "market");
         String symbol = resolve(signal.getSymbol(), properties.signalPlanner().defaults().symbol(), "symbol");
+        if (tradingStateProjection.symbolPaused(provider, environment, account, market, symbol)) {
+            return Optional.empty();
+        }
         OrderCommandType orderType = orderType(signal, features);
         String quantity = value(signal.getTargetQuantity());
         String quoteOrderQuantity = quantity == null ? value(signal.getTargetNotional()) : null;

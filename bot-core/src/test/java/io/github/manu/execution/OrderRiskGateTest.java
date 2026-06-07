@@ -353,6 +353,58 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void rejects_new_order_when_account_is_paused_by_governance() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithPause("ACCOUNT", ACCOUNT, null, "PAUSE_ACCOUNT"))
+                .evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("pause_governance:account");
+        assertThat(decision.getAttributes())
+                .containsEntry("pause_governance_active", "true")
+                .containsEntry("pause_governance_account_paused", "true")
+                .containsEntry("pause_governance_symbol_paused", "false")
+                .containsEntry("pause_governance_scopes", "ACCOUNT")
+                .containsEntry("pause_governance_targets", ACCOUNT)
+                .containsEntry("pause_governance_actions", "PAUSE_ACCOUNT");
+    }
+
+    @Test
+    void rejects_new_order_when_symbol_is_paused_by_governance() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithPause("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL"))
+                .evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("pause_governance:symbol");
+        assertThat(decision.getAttributes())
+                .containsEntry("pause_governance_active", "true")
+                .containsEntry("pause_governance_account_paused", "false")
+                .containsEntry("pause_governance_symbol_paused", "true")
+                .containsEntry("pause_governance_scopes", "SYMBOL")
+                .containsEntry("pause_governance_targets", SYMBOL)
+                .containsEntry("pause_governance_actions", "PAUSE_SYMBOL");
+    }
+
+    @Test
+    void approves_cancel_when_symbol_is_paused_by_governance() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithTargetOrderAndPause())
+                .evaluate(cancelCommand("tb-lfa-open"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes())
+                .containsEntry("pause_governance_active", "true")
+                .containsEntry("pause_governance_symbol_paused", "true")
+                .containsEntry("pause_governance_allows_cancel", "true")
+                .containsEntry("target_client_order_id", "tb-lfa-open");
+    }
+
+    @Test
     void rejects_non_positive_quantity_before_provider_mapping() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -1058,6 +1110,64 @@ class OrderRiskGateTest {
                 List.of()
         ));
         return projection;
+    }
+
+    private TradingStateProjection projectionWithPause(String scope, String target, String symbol, String action) {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(pauseGovernanceState(scope, target, symbol, action)),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection projectionWithTargetOrderAndPause() {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(targetOrderState("tb-lfa-open", "12345", OrderResultStatus.ACCEPTED.name(), true, false)),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(pauseGovernanceState("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL")),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection.PauseGovernanceState pauseGovernanceState(
+            String scope,
+            String target,
+            String symbol,
+            String action
+    ) {
+        return new TradingStateProjection.PauseGovernanceState(
+                PROVIDER,
+                ENVIRONMENT,
+                ACCOUNT,
+                MARKET,
+                scope,
+                target,
+                symbol,
+                "remediation-pause-001",
+                "POSITION",
+                action,
+                "external_position_change",
+                List.of("risk_policy"),
+                "automated_policy",
+                "pause until risk is resolved",
+                Map.of(),
+                true,
+                NOW,
+                "evt-pause"
+        );
     }
 
     private TradingStateProjection.OrderState unresolvedOrderCommandState() {

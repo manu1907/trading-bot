@@ -3,6 +3,7 @@ package io.github.manu.execution;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
+import io.github.manu.projection.TradingStateProjection;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -35,8 +36,12 @@ public class ExecutionConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "trading.execution.signal-planner", name = "enabled", havingValue = "true")
-    StrategySignalPlanner strategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus) {
-        return new StrategySignalPlanner(properties, eventBus);
+    StrategySignalPlanner strategySignalPlanner(
+            ExecutionProperties properties,
+            TradingEventBus eventBus,
+            TradingStateProjection tradingStateProjection
+    ) {
+        return new StrategySignalPlanner(properties, eventBus, tradingStateProjection);
     }
 
     @Bean

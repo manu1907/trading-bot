@@ -51,6 +51,8 @@ public final class OrderRiskGate {
     private static final String PROJECTED_TARGET_UNMANAGED_REASON = "order_target:not_managed";
     private static final String PROJECTED_TARGET_CLOSED_REASON = "order_target:closed";
     private static final String PROJECTED_TARGET_EXTERNAL_INTERVENTION_REASON = "order_target:external_intervention";
+    private static final String ACCOUNT_PAUSED_REASON = "pause_governance:account";
+    private static final String SYMBOL_PAUSED_REASON = "pause_governance:symbol";
     private static final BigDecimal ZERO = BigDecimal.ZERO;
 
     private final ExecutionProperties properties;
@@ -130,6 +132,7 @@ public final class OrderRiskGate {
             ProjectionIdempotencyDecision projectionIdempotencyDecision = projectionIdempotencyDecision(command);
             OrderLimitDecision orderLimitDecision = orderLimitDecision(properties.riskGate().orderLimit(), command);
             TargetOrderDecision targetOrderDecision = targetOrderDecision(properties.riskGate().targetOrder(), command);
+            PauseGovernanceDecision pauseGovernanceDecision = pauseGovernanceDecision(command);
             reasons.addAll(reconciliationReasons);
             reasons.addAll(manualInterventionDecision.reasons());
             reasons.addAll(unknownOrderStatusDecision.reasons());
@@ -137,13 +140,15 @@ public final class OrderRiskGate {
             reasons.addAll(projectionIdempotencyDecision.reasons());
             reasons.addAll(orderLimitDecision.reasons());
             reasons.addAll(targetOrderDecision.reasons());
+            reasons.addAll(pauseGovernanceDecision.reasons());
             if (!reconciliationReasons.isEmpty()
                     || manualInterventionDecision.reject()
                     || unknownOrderStatusDecision.reject()
                     || pendingOrderCommandDecision.reject()
                     || projectionIdempotencyDecision.reject()
                     || orderLimitDecision.reject()
-                    || targetOrderDecision.reject()) {
+                    || targetOrderDecision.reject()
+                    || pauseGovernanceDecision.reject()) {
                 decision = RiskDecision.REJECTED;
             } else if (manualInterventionDecision.manualReview()
                     || unknownOrderStatusDecision.manualReview()
@@ -270,6 +275,35 @@ public final class OrderRiskGate {
             return new ManualInterventionDecision(List.of(), false, false);
         }
         return decisionFor(pendingOrderCommand.action(), UNRESOLVED_ORDER_COMMAND_REASON);
+    }
+
+    private PauseGovernanceDecision pauseGovernanceDecision(OrderCommandEvent command) {
+        if (action(command) == OrderCommandAction.CANCEL) {
+            return PauseGovernanceDecision.none();
+        }
+        List<TradingStateProjection.PauseGovernanceState> pauses = activePauseGovernance(command);
+        List<String> reasons = new ArrayList<>();
+        if (pauses.stream().anyMatch(pause -> "ACCOUNT".equals(pause.pauseScope()))) {
+            reasons.add(ACCOUNT_PAUSED_REASON);
+        }
+        if (pauses.stream().anyMatch(pause -> "SYMBOL".equals(pause.pauseScope()))) {
+            reasons.add(SYMBOL_PAUSED_REASON);
+        }
+        return new PauseGovernanceDecision(List.copyOf(reasons), !reasons.isEmpty());
+    }
+
+    private List<TradingStateProjection.PauseGovernanceState> activePauseGovernance(OrderCommandEvent command) {
+        String symbol = value(command.getSymbol());
+        return tradingStateProjection.pauseGovernanceStates(
+                        value(command.getProvider()),
+                        value(command.getEnvironment()),
+                        value(command.getAccount()),
+                        value(command.getMarket())
+                ).stream()
+                .filter(pause -> Boolean.TRUE.equals(pause.active()))
+                .filter(pause -> "ACCOUNT".equals(pause.pauseScope())
+                        || "SYMBOL".equals(pause.pauseScope()) && Objects.equals(value(pause.pauseTarget()), symbol))
+                .toList();
     }
 
     private ProjectionIdempotencyDecision projectionIdempotencyDecision(OrderCommandEvent command) {
@@ -706,9 +740,38 @@ public final class OrderRiskGate {
                 "projected_idempotency_reject_duplicates",
                 Boolean.toString(properties.idempotency().rejectProjectedDuplicates())
         );
+        attributes.putAll(pauseGovernanceAttributes(command));
         attributes.putAll(projectionIdempotencyDecision(command).attributes());
         attributes.putAll(orderLimitAttributes(command));
         attributes.putAll(targetOrderAttributes(command));
+        return Map.copyOf(attributes);
+    }
+
+    private Map<CharSequence, CharSequence> pauseGovernanceAttributes(OrderCommandEvent command) {
+        List<TradingStateProjection.PauseGovernanceState> pauses = activePauseGovernance(command);
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.put("pause_governance_active", Boolean.toString(!pauses.isEmpty()));
+        attributes.put(
+                "pause_governance_account_paused",
+                Boolean.toString(pauses.stream().anyMatch(pause -> "ACCOUNT".equals(pause.pauseScope())))
+        );
+        attributes.put(
+                "pause_governance_symbol_paused",
+                Boolean.toString(pauses.stream().anyMatch(pause -> "SYMBOL".equals(pause.pauseScope())))
+        );
+        attributes.put("pause_governance_allows_cancel", Boolean.toString(action(command) == OrderCommandAction.CANCEL));
+        putIfPresent(attributes, "pause_governance_scopes", joined(pauses.stream()
+                .map(TradingStateProjection.PauseGovernanceState::pauseScope)
+                .toList()));
+        putIfPresent(attributes, "pause_governance_targets", joined(pauses.stream()
+                .map(TradingStateProjection.PauseGovernanceState::pauseTarget)
+                .toList()));
+        putIfPresent(attributes, "pause_governance_remediation_ids", joined(pauses.stream()
+                .map(TradingStateProjection.PauseGovernanceState::remediationId)
+                .toList()));
+        putIfPresent(attributes, "pause_governance_actions", joined(pauses.stream()
+                .map(TradingStateProjection.PauseGovernanceState::action)
+                .toList()));
         return Map.copyOf(attributes);
     }
 
@@ -931,6 +994,16 @@ public final class OrderRiskGate {
 
         private static TargetOrderDecision none() {
             return new TargetOrderDecision(List.of(), false, false);
+        }
+    }
+
+    private record PauseGovernanceDecision(
+            List<String> reasons,
+            boolean reject
+    ) {
+
+        private static PauseGovernanceDecision none() {
+            return new PauseGovernanceDecision(List.of(), false);
         }
     }
 

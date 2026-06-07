@@ -555,9 +555,11 @@ curl -H 'X-Operator-Token: <operator-token>' \
 
 Pause responses include account-level and symbol-level pause state projected
 from `PAUSE_ACCOUNT` and `PAUSE_SYMBOL` remediation decisions. This state is
-durable and auditable, but current pause enforcement is not complete yet; the
-next implementation slice must wire it into strategy admission and order
-execution admission.
+durable and auditable. The strategy signal planner suppresses new planned order
+commands for paused targets, and the order risk gate rejects non-cancel
+commands for paused accounts or symbols. Cancel commands can still pass the
+risk gate when their target-order checks pass, because cancelling can reduce
+existing risk.
 
 List remediation command plans for persisted remediation decisions:
 
@@ -1122,6 +1124,8 @@ Current automated remediation execution state:
 - Flat position close/reduce/hedge requests become `NO_ACTION`.
 - `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions create durable pause governance
   state that can be listed through the operator API.
+- Pause governance suppresses strategy-planned order commands and rejects
+  non-cancel order commands at the risk gate for paused accounts or symbols.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become
@@ -1130,7 +1134,6 @@ Current automated remediation execution state:
 - `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `ADOPT`, `IGNORE`, and
   `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
   commands yet.
-- Pause governance does not yet block strategy admission or order execution.
 
 As of this version, only external order `CLOSE` remediation can become
 `exchangeExecutable=true`, and it can only submit a cancel through the existing

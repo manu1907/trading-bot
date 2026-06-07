@@ -1004,6 +1004,45 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void ignores_inactive_pause_governance_for_pause_lookup_helpers() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.PauseGovernanceState(
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        "SYMBOL",
+                        SYMBOL,
+                        SYMBOL,
+                        "remediation-pause-symbol",
+                        "POSITION",
+                        "PAUSE_SYMBOL",
+                        "external_position_change",
+                        List.of("intervention:external_position_change"),
+                        "automated_policy",
+                        "inactive release test",
+                        Map.of(),
+                        false,
+                        timestamp(54),
+                        "evt-pause-inactive"
+                )),
+                List.of()
+        ));
+
+        assertThat(projection.pauseGovernanceStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(pause -> assertThat(pause.active()).isFalse());
+        assertThat(projection.accountPaused(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.symbolPaused(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL)).isFalse();
+    }
+
+    @Test
     void remediation_decision_clears_matching_manual_review_decision() {
         projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(40)));
         projection.apply(riskDecision(

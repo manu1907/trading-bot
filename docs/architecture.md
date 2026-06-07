@@ -549,9 +549,11 @@ allowed, deduplicates by `recommendation_event_id`, and caps each run with
 `maxDecisionsPerRun`. This keeps unattended policy decisions replayable and
 visible before any exchange executor is introduced.
 `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions are projected into durable pause
-governance state. This state is included in projection snapshots and exposed
-through the operator API, but enforcement in strategy and order admission is a
-separate layer that still has to be implemented.
+governance state. This state is included in projection snapshots, exposed
+through the operator API, suppresses strategy-planned order commands for paused
+targets, and makes the order risk gate reject non-cancel commands for paused
+accounts or symbols. Cancel commands remain admissible under pause governance
+so the bot can still reduce risk by cancelling unsafe or unwanted open orders.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

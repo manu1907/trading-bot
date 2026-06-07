@@ -13,6 +13,8 @@ import io.github.manu.events.v1.StrategySignalType;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.projection.TradingStateSnapshot;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
 
@@ -240,6 +242,17 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_order_command_when_symbol_is_paused_by_governance() {
+        StrategySignalPlanner planner = planner(projectionWithPause("SYMBOL", "BTCUSDT", "PAUSE_SYMBOL"));
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void requires_target_when_signal_and_defaults_do_not_provide_it() {
         StrategySignalPlanner planner = new StrategySignalPlanner(
                 new ExecutionProperties(new ExecutionProperties.SignalPlanner(
@@ -256,14 +269,53 @@ class StrategySignalPlannerTest {
     }
 
     private StrategySignalPlanner planner() {
+        return planner(new TradingStateProjection());
+    }
+
+    private StrategySignalPlanner planner(TradingStateProjection projection) {
         return new StrategySignalPlanner(
                 new ExecutionProperties(new ExecutionProperties.SignalPlanner(
                         true,
                         defaults()
                 ), null),
                 eventBus,
+                projection,
                 FIXED_CLOCK
         );
+    }
+
+    private TradingStateProjection projectionWithPause(String scope, String target, String action) {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.PauseGovernanceState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        scope,
+                        target,
+                        "BTCUSDT",
+                        "remediation-pause-001",
+                        "POSITION",
+                        action,
+                        "external_position_change",
+                        List.of("risk_policy"),
+                        "automated_policy",
+                        "pause until risk is resolved",
+                        Map.of(),
+                        true,
+                        NOW,
+                        "evt-pause"
+                )),
+                List.of()
+        ));
+        return projection;
     }
 
     private ExecutionProperties.SignalPlanner.Defaults defaults() {
