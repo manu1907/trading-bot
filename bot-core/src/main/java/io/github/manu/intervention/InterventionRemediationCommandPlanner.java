@@ -27,6 +27,10 @@ public final class InterventionRemediationCommandPlanner {
     private static final String ACTION_RELEASE_SYMBOL_PAUSE = "RELEASE_SYMBOL_PAUSE";
     private static final String ACTION_RELEASE_ACCOUNT_PAUSE = "RELEASE_ACCOUNT_PAUSE";
     private static final String ACTION_IGNORE = "IGNORE";
+    private static final String ATTR_HEDGE_FRACTION = "hedge_fraction";
+    private static final String ATTR_HEDGE_QUANTITY = "hedge_quantity";
+    private static final String ATTR_REDUCE_FRACTION = "reduce_fraction";
+    private static final String ATTR_REDUCE_QUANTITY = "reduce_quantity";
 
     private final TradingStateProjection projection;
 
@@ -189,10 +193,155 @@ public final class InterventionRemediationCommandPlanner {
         if (amount.compareTo(BigDecimal.ZERO) == 0) {
             return noAction(event, operation, "projection:position_already_flat", attributes);
         }
-        attributes.put("position_abs_amount", amount.abs().toPlainString());
+        PositionRemediationSize size = positionRemediationSize(event, amount, operation);
+        if (!size.valid()) {
+            return insufficientData(event, operation, size.invalidReason(), attributes);
+        }
+        attributes.put("position_abs_amount", normalize(amount.abs()));
+        attributes.put("position_direction", amount.signum() > 0 ? "LONG" : "SHORT");
+        attributes.put("remediation_order_side", amount.signum() > 0 ? "SELL" : "BUY");
+        attributes.put("target_position_quantity", normalize(size.quantity()));
+        attributes.put("position_sizing_policy", size.policy());
+        attributes.put("reduce_only_required", Boolean.toString(size.reduceOnlyRequired()));
+        attributes.put("hedge_mode_required", Boolean.toString(size.hedgeModeRequired()));
         attributes.put("exchange_executable", "false");
-        attributes.put("exchange_execution_blocker", "bounded_position_sizing_policy_missing");
+        attributes.put("exchange_execution_blocker", size.exchangeExecutionBlocker());
         return ready(event, operation, false, reason, attributes);
+    }
+
+    private PositionRemediationSize positionRemediationSize(
+            RemediationDecisionEvent event,
+            BigDecimal positionAmount,
+            Operation operation
+    ) {
+        BigDecimal absoluteAmount = positionAmount.abs();
+        return switch (operation) {
+            case CLOSE_POSITION -> PositionRemediationSize.valid(
+                    absoluteAmount,
+                    "bounded_projection_full_close",
+                    true,
+                    false,
+                    "position_order_execution_policy_missing"
+            );
+            case REDUCE_POSITION -> boundedQuantity(
+                    event,
+                    absoluteAmount,
+                    ATTR_REDUCE_QUANTITY,
+                    ATTR_REDUCE_FRACTION,
+                    "bounded_projection_reduce",
+                    true,
+                    false,
+                    "position_order_execution_policy_missing",
+                    "remediation:reduce_size_missing",
+                    "remediation:reduce_size_invalid",
+                    "remediation:reduce_size_exceeds_position"
+            );
+            case HEDGE_POSITION -> boundedQuantity(
+                    event,
+                    absoluteAmount,
+                    ATTR_HEDGE_QUANTITY,
+                    ATTR_HEDGE_FRACTION,
+                    "bounded_projection_hedge",
+                    false,
+                    true,
+                    "hedge_mode_provider_policy_missing",
+                    absoluteAmount
+            );
+            default -> PositionRemediationSize.invalid("remediation:unsupported_position_sizing_operation");
+        };
+    }
+
+    private PositionRemediationSize boundedQuantity(
+            RemediationDecisionEvent event,
+            BigDecimal absoluteAmount,
+            String quantityAttribute,
+            String fractionAttribute,
+            String policy,
+            boolean reduceOnlyRequired,
+            boolean hedgeModeRequired,
+            String exchangeExecutionBlocker,
+            BigDecimal defaultQuantity
+    ) {
+        BigDecimal quantity = decimal(attribute(event, quantityAttribute));
+        if (quantity == null) {
+            BigDecimal fraction = decimal(attribute(event, fractionAttribute));
+            quantity = fraction == null ? defaultQuantity : absoluteAmount.multiply(fraction);
+        }
+        return boundedQuantity(
+                quantity,
+                absoluteAmount,
+                policy,
+                reduceOnlyRequired,
+                hedgeModeRequired,
+                exchangeExecutionBlocker,
+                "remediation:position_size_missing",
+                "remediation:position_size_invalid",
+                "remediation:position_size_exceeds_position"
+        );
+    }
+
+    private PositionRemediationSize boundedQuantity(
+            RemediationDecisionEvent event,
+            BigDecimal absoluteAmount,
+            String quantityAttribute,
+            String fractionAttribute,
+            String policy,
+            boolean reduceOnlyRequired,
+            boolean hedgeModeRequired,
+            String exchangeExecutionBlocker,
+            String missingReason,
+            String invalidReason,
+            String exceedsReason
+    ) {
+        BigDecimal quantity = decimal(attribute(event, quantityAttribute));
+        if (quantity == null) {
+            BigDecimal fraction = decimal(attribute(event, fractionAttribute));
+            if (fraction != null) {
+                quantity = fraction.compareTo(BigDecimal.ZERO) > 0 && fraction.compareTo(BigDecimal.ONE) <= 0
+                        ? absoluteAmount.multiply(fraction)
+                        : BigDecimal.ZERO;
+            }
+        }
+        return boundedQuantity(
+                quantity,
+                absoluteAmount,
+                policy,
+                reduceOnlyRequired,
+                hedgeModeRequired,
+                exchangeExecutionBlocker,
+                missingReason,
+                invalidReason,
+                exceedsReason
+        );
+    }
+
+    private PositionRemediationSize boundedQuantity(
+            BigDecimal quantity,
+            BigDecimal absoluteAmount,
+            String policy,
+            boolean reduceOnlyRequired,
+            boolean hedgeModeRequired,
+            String exchangeExecutionBlocker,
+            String missingReason,
+            String invalidReason,
+            String exceedsReason
+    ) {
+        if (quantity == null) {
+            return PositionRemediationSize.invalid(missingReason);
+        }
+        if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            return PositionRemediationSize.invalid(invalidReason);
+        }
+        if (quantity.compareTo(absoluteAmount) > 0) {
+            return PositionRemediationSize.invalid(exceedsReason);
+        }
+        return PositionRemediationSize.valid(
+                quantity,
+                policy,
+                reduceOnlyRequired,
+                hedgeModeRequired,
+                exchangeExecutionBlocker
+        );
     }
 
     private RemediationCommandPlan ready(
@@ -324,6 +473,10 @@ public final class InterventionRemediationCommandPlanner {
         }
     }
 
+    private String normalize(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
+    }
+
     private String requireText(CharSequence value, String field) {
         String text = text(value);
         if (text == null) {
@@ -385,6 +538,41 @@ public final class InterventionRemediationCommandPlanner {
         public RemediationCommandPlan {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
             attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+    }
+
+    private record PositionRemediationSize(
+            BigDecimal quantity,
+            String policy,
+            boolean reduceOnlyRequired,
+            boolean hedgeModeRequired,
+            String exchangeExecutionBlocker,
+            String invalidReason
+    ) {
+
+        private boolean valid() {
+            return quantity != null;
+        }
+
+        private static PositionRemediationSize valid(
+                BigDecimal quantity,
+                String policy,
+                boolean reduceOnlyRequired,
+                boolean hedgeModeRequired,
+                String exchangeExecutionBlocker
+        ) {
+            return new PositionRemediationSize(
+                    quantity,
+                    policy,
+                    reduceOnlyRequired,
+                    hedgeModeRequired,
+                    exchangeExecutionBlocker,
+                    null
+            );
+        }
+
+        private static PositionRemediationSize invalid(String reason) {
+            return new PositionRemediationSize(null, null, false, false, null, reason);
         }
     }
 }

@@ -61,8 +61,80 @@ class InterventionRemediationCommandPlannerTest {
         assertThat(plan.attributes())
                 .containsEntry("position_amount", "0.25")
                 .containsEntry("position_abs_amount", "0.25")
+                .containsEntry("target_position_quantity", "0.25")
+                .containsEntry("position_direction", "LONG")
+                .containsEntry("remediation_order_side", "SELL")
+                .containsEntry("position_sizing_policy", "bounded_projection_hedge")
+                .containsEntry("reduce_only_required", "false")
+                .containsEntry("hedge_mode_required", "true")
                 .containsEntry("alternative_operation", "REPLAN_FROM_PROJECTION")
-                .containsEntry("exchange_execution_blocker", "bounded_position_sizing_policy_missing");
+                .containsEntry("exchange_execution_blocker", "hedge_mode_provider_policy_missing");
+    }
+
+    @Test
+    void plans_position_close_with_full_projected_size_and_reduce_only_requirement() {
+        restorePositionIntervention("-0.25", true);
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = planner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.reasons()).containsExactly("remediation:close_position");
+        assertThat(plan.attributes())
+                .containsEntry("position_abs_amount", "0.25")
+                .containsEntry("target_position_quantity", "0.25")
+                .containsEntry("position_direction", "SHORT")
+                .containsEntry("remediation_order_side", "BUY")
+                .containsEntry("position_sizing_policy", "bounded_projection_full_close")
+                .containsEntry("reduce_only_required", "true")
+                .containsEntry("hedge_mode_required", "false")
+                .containsEntry("exchange_execution_blocker", "position_order_execution_policy_missing");
+    }
+
+    @Test
+    void plans_position_reduce_with_explicit_fraction_bounded_by_projected_size() {
+        restorePositionIntervention("0.25", true);
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = planner.plan(positionDecision(
+                "REDUCE",
+                Map.of("reduce_fraction", "0.5")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_abs_amount", "0.25")
+                .containsEntry("target_position_quantity", "0.125")
+                .containsEntry("position_sizing_policy", "bounded_projection_reduce")
+                .containsEntry("reduce_only_required", "true")
+                .containsEntry("exchange_execution_blocker", "position_order_execution_policy_missing");
+    }
+
+    @Test
+    void rejects_position_reduce_without_explicit_bounded_size() {
+        restorePositionIntervention("0.25", true);
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = planner.plan(positionDecision("REDUCE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.INSUFFICIENT_DATA);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
+        assertThat(plan.reasons()).containsExactly("remediation:reduce_size_missing");
+    }
+
+    @Test
+    void rejects_position_reduce_when_quantity_exceeds_projected_size() {
+        restorePositionIntervention("0.25", true);
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = planner.plan(positionDecision(
+                "REDUCE",
+                Map.of("reduce_quantity", "0.50")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.INSUFFICIENT_DATA);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
+        assertThat(plan.reasons()).containsExactly("remediation:reduce_size_exceeds_position");
     }
 
     @Test
@@ -151,12 +223,17 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     private RemediationDecisionEvent positionDecision(String action) {
+        return positionDecision(action, Map.of());
+    }
+
+    private RemediationDecisionEvent positionDecision(String action, Map<CharSequence, CharSequence> attributes) {
         return RemediationDecisionEvent.newBuilder(orderDecision(action))
                 .setScope("POSITION")
                 .setClientOrderId(null)
                 .setPositionSide("BOTH")
                 .setInterventionReason("external_position_change")
                 .setReasons(List.of("intervention:external_position_change"))
+                .setAttributes(attributes)
                 .build();
     }
 

@@ -606,8 +606,12 @@ marks the plan as stale or insufficient when the target has changed or lacks
 safe sizing data. Order `CLOSE` for a projected external order now becomes an
 exchange-executable `CANCEL_ORDER` plan with target identity and an
 `order_execution_pipeline` execution path. Position close/reduce or hedge still
-captures projected amount and blockers, and pause/adopt/ignore remain
-governance intents until bounded command-specific executors are implemented.
+captures bounded sizing metadata while remaining non-executable: close uses the
+full projected absolute position amount, reduce requires explicit
+`reduce_quantity` or `reduce_fraction` decision attributes bounded by the
+projected amount, and hedge defaults to the projected absolute amount with a
+hedge-mode requirement. Pause/adopt/ignore remain governance intents until
+bounded command-specific executors are implemented.
 `trading.intervention.remediation-executor-policy` is the explicit future
 executor safety boundary. It is disabled by default, exchange execution is
 disabled separately, dry-run mode is enforced by default, real environments are

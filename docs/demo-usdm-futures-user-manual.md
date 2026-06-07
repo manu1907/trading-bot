@@ -1280,8 +1280,17 @@ Current automated remediation execution state:
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become
-  non-executable position intents with the projected absolute amount and an
-  execution blocker explaining that bounded sizing policy is still missing.
+  non-executable position intents with bounded sizing metadata.
+- Position `CLOSE` targets the full projected absolute position amount and
+  marks `reduce_only_required=true`.
+- Position `REDUCE` requires explicit `reduce_quantity` or `reduce_fraction`
+  decision attributes, and the planner rejects missing, invalid, or oversized
+  reduce requests as `INSUFFICIENT_DATA`.
+- Position `HEDGE` and `HEDGE_OR_REPLAN` default to the projected absolute
+  position amount and mark `hedge_mode_required=true`.
+- Position remediation still carries an execution blocker because reduce-only
+  order construction, hedge-mode validation, provider capability validation,
+  and account risk limits are not executable yet.
 - `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `ADOPT`, `IGNORE`, and
   `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
   commands yet.
