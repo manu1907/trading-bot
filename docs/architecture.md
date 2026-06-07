@@ -612,13 +612,16 @@ full projected absolute position amount, reduce requires explicit
 projected amount, and hedge defaults to the projected absolute amount with a
 hedge-mode requirement. Pause/adopt/ignore remain governance intents until
 bounded command-specific executors are implemented.
-`trading.intervention.remediation-executor-policy` is the explicit future
-executor safety boundary. It is disabled by default, exchange execution is
-disabled separately, dry-run mode is enforced by default, real environments are
-blocked by default, and executable operation names must be allowlisted before a
-future executor may act. Enabling exchange execution requires the ready-plan,
-fresh-projection, target-identity, and managed-pipeline gates to remain enabled,
-so remediation cannot be configured to bypass the normal execution pipeline.
+`trading.intervention.remediation-executor-policy` is the explicit executor
+safety boundary. The checked-in catalog keeps the executor disabled, exchange
+execution disabled, report-only mode enabled, real environments blocked, and
+executable operation names empty for safe startup. Demo-live exchange execution
+is an explicit runtime override state: the policy must be enabled,
+`exchange_execution_enabled=true`, `dry_run_only=false`, and the operation must
+be allowlisted before the executor may submit commands. Enabling exchange
+execution requires the ready-plan, fresh-projection, target-identity, and
+managed-pipeline gates to remain enabled, so remediation cannot be configured to
+bypass the normal execution pipeline.
 `InterventionRemediationExecutorService` consumes persisted remediation
 decisions, regenerates current command plans through the planner, evaluates each
 plan against the executor policy, caps each batch, and returns blocked, dry-run,
@@ -626,7 +629,7 @@ submitted, or no-action reports. Dry-run mode never submits commands. Execute
 mode currently supports only external-order `CLOSE` as a `CANCEL_ORDER` routed
 through `OrderExecutionPipeline`; the normal risk gate, idempotency, event bus,
 journal, projection, reconciliation, and provider gateway remain authoritative.
-The operator API exposes dry-run reports at
+The operator API exposes preview reports at
 `GET /internal/interventions/remediation/executor/dry-run` so operators can see
 the exact executor blocker before any exchange-executable remediation path is
 enabled, and exposes policy-gated execution at

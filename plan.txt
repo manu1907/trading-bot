@@ -19,11 +19,13 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 ### Profile And Configuration
 
 - The runtime profile/config system supports the same application code for demo and real environments.
-- Configuration catalogs include exchange/provider, execution, risk, idempotency, reconciliation, and intervention/remediation defaults.
+- Configuration catalogs include exchange/provider, journal, projection, messaging, audit, observability, execution, risk, idempotency, reconciliation, and intervention/remediation defaults.
+- The checked-in catalog lists all current top-level `trading.*` runtime configuration roots with their source-controlled defaults so runtime overrides have an explicit baseline.
 - Operator API access can be protected with `X-Operator-Token` when enabled by config.
 - Automated remediation policy is configurable under `trading.intervention.automated-policy`.
 - Remediation executor policy is configurable under `trading.intervention.remediation-executor-policy`.
-- Executor policy defaults keep the executor disabled, exchange execution disabled, dry-run only, real environments blocked, and executable operations empty.
+- Executor policy catalog defaults keep the executor disabled, exchange execution disabled, report-only mode enabled, real environments blocked, and executable operations empty for safe startup.
+- Demo-live remediation exchange execution is a runtime override state, not a dry-run target: enable the executor policy, set `exchange_execution_enabled=true`, set `dry_run_only=false`, and allowlist the operation, currently only `CANCEL_ORDER`.
 - Executor policy validation requires explicit allowed operations and strict ready-plan, fresh-projection, target-identity, and managed-pipeline gates before exchange execution can be enabled.
 - Target-order risk policy now includes `allow_external_remediation_cancel`, which defaults to true but only applies to executor-originated `ORDER`/`CLOSE`/`CANCEL_ORDER` commands with explicit remediation attributes.
 - Conservative remediation defaults are configured: unknown or high-risk intervention types route to operator review or non-executable planning instead of live exchange action.
@@ -132,7 +134,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 - Current-state documentation exists for the bot's architecture, supported scenarios, and limitations.
 - A user manual exists for starting and using the bot in the current Binance USD-M futures demo profile.
-- Documentation describes that the bot can detect, recommend, decide, plan remediation, dry-run executor outcomes, and submit the first policy-gated external-order close cancel through the normal execution pipeline.
+- Documentation describes that the bot can detect, recommend, decide, plan remediation, preview executor outcomes through the report endpoint, and submit the first policy-gated external-order close cancel through the normal execution pipeline.
 
 ## Current Limitations And Explicit Blocks
 
@@ -160,7 +162,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Enable automated decision publication only when the configured policy is understood.
 - Trigger automated decision publication through the operator API when enabled.
 - Inspect generated remediation command plans.
-- Inspect remediation executor dry-run outcomes.
+- Inspect remediation executor preview outcomes if you need to see why a plan would be blocked before execution.
 - Execute eligible remediation batches only after enabling the executor policy, exchange execution, `dry_run_only=false`, and the relevant operation allowlist. Today the only eligible exchange operation is `CANCEL_ORDER` for an external order `CLOSE` decision.
 - Treat position, pause, adoption, amendment, ignore, and replan plans as non-executing until their specific execution policies are implemented.
 

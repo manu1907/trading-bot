@@ -41,6 +41,16 @@ trading:
       password: ${TRADING_PROJECTION_JDBC_PASSWORD:}
       table-prefix: trading_projection_
       initialize-schema: false
+  audit:
+    pause-governance:
+      file-store:
+        enabled: false
+        path: data/audit/pause-governance-audit.jsonl
+  observability:
+    pause-governance:
+      expiry-monitor:
+        enabled: true
+        interval-millis: 30000
   execution:
     pipeline:
       enabled: false

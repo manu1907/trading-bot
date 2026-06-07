@@ -11,6 +11,59 @@
     "timezone": "UTC"
   },
   "trading": {
+    "journal": {
+      "enabled": false,
+      "directory": "data/journal/trading-events",
+      "recovery": {
+        "enabled": false
+      }
+    },
+    "projection": {
+      "snapshot_store": {
+        "enabled": false,
+        "path": "data/projection/trading-state-snapshot.json"
+      },
+      "jdbc_store": {
+        "enabled": false,
+        "url": null,
+        "username": null,
+        "password": "",
+        "table_prefix": "trading_projection_",
+        "initialize_schema": false
+      }
+    },
+    "messaging": {
+      "enabled": false,
+      "bootstrap_servers": "localhost:19092",
+      "schema_registry_url": "http://localhost:18081",
+      "client_id_prefix": "trading-bot",
+      "topics": {
+        "auto_create": false,
+        "replication_factor": 1
+      },
+      "consumers": {
+        "enabled": false,
+        "auto_start": false,
+        "group_id_suffix": "dispatcher",
+        "poll_timeout_millis": 250
+      }
+    },
+    "audit": {
+      "pause_governance": {
+        "file_store": {
+          "enabled": false,
+          "path": "data/audit/pause-governance-audit.jsonl"
+        }
+      }
+    },
+    "observability": {
+      "pause_governance": {
+        "expiry_monitor": {
+          "enabled": true,
+          "interval_millis": 30000
+        }
+      }
+    },
     "execution": {
       "pipeline": {
         "enabled": false

@@ -64,10 +64,22 @@ attach live streams automatically:
 - `reconciliation.runtime_enabled`: `false`
 - `trading.intervention.operator_api.enabled`: `false`
 - `trading.intervention.remediation_orchestrator.enabled`: `false`
+- `trading.intervention.remediation_executor_policy.enabled`: `false`
+- `trading.intervention.remediation_executor_policy.exchange_execution_enabled`:
+  `false`
+- `trading.intervention.remediation_executor_policy.dry_run_only`: `true`
 
 The Binance live order smoke test is the exception: it is an opt-in Gradle task
 that deliberately submits a passive demo USD-M futures order, queries it, and
 cancels it.
+
+The `dry_run_only=true` catalog value is a disabled safety default, not the
+intended demo-live operating mode. When the bot is deliberately configured to
+execute eligible remediation against the Binance demo exchange, the runtime
+override must enable the executor policy, enable exchange execution, set
+`dry_run_only=false`, and explicitly allow the operation being executed. Today
+the only supported exchange-executable remediation operation is `CANCEL_ORDER`
+for an external-order `CLOSE` decision.
 
 ## Prerequisites
 
@@ -740,6 +752,36 @@ execution pipeline is enabled. It returns `SUBMITTED_TO_PIPELINE` after the
 command has been accepted by the pipeline; the final risk decision and order
 result are recorded through the normal event path.
 
+For the current demo USD-M futures target, the minimal runtime override for
+eligible remediation execution is:
+
+```json
+{
+  "trading": {
+    "execution": {
+      "pipeline": {
+        "enabled": true
+      }
+    },
+    "intervention": {
+      "remediation_executor_policy": {
+        "enabled": true,
+        "exchange_execution_enabled": true,
+        "dry_run_only": false,
+        "allowed_operations": [
+          "CANCEL_ORDER"
+        ]
+      }
+    }
+  }
+}
+```
+
+This override does not make every remediation action executable. It only allows
+the executor to submit currently supported `CANCEL_ORDER` plans through the
+normal order execution pipeline when all projection, identity, freshness, risk,
+and idempotency gates pass.
+
 Acknowledge an order intervention:
 
 ```bash
@@ -851,6 +893,52 @@ Files:
 
 Startup rejects unsupported schema ids, schema versions, config versions, and
 migration policies. Unknown override paths are rejected.
+
+## Trading Runtime Catalog Defaults
+
+The checked-in `config/catalog.json` is the source-controlled default catalog.
+Every value below is runtime-overridable through the normal config merge path
+unless a validator rejects an unsafe combination.
+
+Journal defaults:
+
+- `trading.journal.enabled`: `false`
+- `trading.journal.directory`: `data/journal/trading-events`
+- `trading.journal.recovery.enabled`: `false`
+
+Projection defaults:
+
+- `trading.projection.snapshot_store.enabled`: `false`
+- `trading.projection.snapshot_store.path`:
+  `data/projection/trading-state-snapshot.json`
+- `trading.projection.jdbc_store.enabled`: `false`
+- `trading.projection.jdbc_store.url`: `null`
+- `trading.projection.jdbc_store.username`: `null`
+- `trading.projection.jdbc_store.password`: empty string
+- `trading.projection.jdbc_store.table_prefix`: `trading_projection_`
+- `trading.projection.jdbc_store.initialize_schema`: `false`
+
+Messaging defaults:
+
+- `trading.messaging.enabled`: `false`
+- `trading.messaging.bootstrap_servers`: `localhost:19092`
+- `trading.messaging.schema_registry_url`: `http://localhost:18081`
+- `trading.messaging.client_id_prefix`: `trading-bot`
+- `trading.messaging.topics.auto_create`: `false`
+- `trading.messaging.topics.replication_factor`: `1`
+- `trading.messaging.consumers.enabled`: `false`
+- `trading.messaging.consumers.auto_start`: `false`
+- `trading.messaging.consumers.group_id_suffix`: `dispatcher`
+- `trading.messaging.consumers.poll_timeout_millis`: `250`
+
+Pause governance audit and observability defaults:
+
+- `trading.audit.pause_governance.file_store.enabled`: `false`
+- `trading.audit.pause_governance.file_store.path`:
+  `data/audit/pause-governance-audit.jsonl`
+- `trading.observability.pause_governance.expiry_monitor.enabled`: `true`
+- `trading.observability.pause_governance.expiry_monitor.interval_millis`:
+  `30000`
 
 ## Active Target Options
 
@@ -1213,6 +1301,12 @@ Default intervention config:
 - `remediation_executor_policy.reject_insufficient_data_plans`: `true`
 - `remediation_executor_policy.max_plans_per_run`: `25`
 - `remediation_executor_policy.allowed_operations`: empty list
+
+The executor policy defaults describe a safe startup state. Demo-live exchange
+execution is a runtime override state: set `enabled=true`,
+`exchange_execution_enabled=true`, `dry_run_only=false`, and allow the exact
+operation, currently `CANCEL_ORDER`, before using
+`POST /internal/interventions/remediation/executor/execute`.
 
 The system can track and expose:
 
