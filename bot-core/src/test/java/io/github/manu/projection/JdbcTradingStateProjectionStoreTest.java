@@ -59,6 +59,15 @@ class JdbcTradingStateProjectionStoreTest {
                     assertThat(decision.reasons()).containsExactly("intervention:external_order_observed");
                     assertThat(decision.attributes()).containsEntry("ticket", "ops-789");
                 });
+        assertThat(loaded.get().pauseGovernance()).singleElement()
+                .satisfies(pause -> {
+                    assertThat(pause.pauseScope()).isEqualTo("SYMBOL");
+                    assertThat(pause.pauseTarget()).isEqualTo("BTCUSDT");
+                    assertThat(pause.remediationId()).isEqualTo("remediation-pause-1");
+                    assertThat(pause.reasons()).containsExactly("intervention:external_position_change");
+                    assertThat(pause.attributes()).containsEntry("source_recommendation", "advisor");
+                    assertThat(pause.active()).isTrue();
+                });
         assertThat(loaded.get().appliedEventIds())
                 .containsExactly(
                         "evt-balance",
@@ -66,7 +75,8 @@ class JdbcTradingStateProjectionStoreTest {
                         "evt-order",
                         "evt-risk",
                         "evt-risk-decision",
-                        "evt-remediation-decision"
+                        "evt-remediation-decision",
+                        "evt-pause-governance"
                 );
     }
 
@@ -200,13 +210,34 @@ class JdbcTradingStateProjectionStoreTest {
                         now.plusSeconds(5),
                         "evt-remediation-decision"
                 )),
+                List.of(new TradingStateProjection.PauseGovernanceState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "options",
+                        "SYMBOL",
+                        "BTCUSDT",
+                        "BTCUSDT",
+                        "remediation-pause-1",
+                        "POSITION",
+                        "PAUSE_SYMBOL",
+                        "external_position_change",
+                        List.of("intervention:external_position_change"),
+                        "automated_remediation_policy",
+                        "policy selected pause governance",
+                        Map.of("source_recommendation", "advisor"),
+                        true,
+                        now.plusSeconds(6),
+                        "evt-pause-governance"
+                )),
                 List.of(
                         "evt-balance",
                         "evt-position",
                         "evt-order",
                         "evt-risk",
                         "evt-risk-decision",
-                        "evt-remediation-decision"
+                        "evt-remediation-decision",
+                        "evt-pause-governance"
                 )
         );
     }

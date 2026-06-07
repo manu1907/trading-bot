@@ -40,6 +40,7 @@ public final class TradingStateProjection implements TradingEventHandler {
     private final Map<String, RiskState> risks = new ConcurrentHashMap<>();
     private final Map<String, ManualReviewDecisionState> manualReviewDecisions = new ConcurrentHashMap<>();
     private final Map<String, RemediationDecisionState> remediationDecisions = new ConcurrentHashMap<>();
+    private final Map<String, PauseGovernanceState> pauseGovernance = new ConcurrentHashMap<>();
     private final LinkedHashSet<String> appliedEventIds = new LinkedHashSet<>();
     private final int maxAppliedEventIds;
     private final Object lock = new Object();
@@ -330,6 +331,29 @@ public final class TradingStateProjection implements TradingEventHandler {
                 .toList();
     }
 
+    public List<PauseGovernanceState> pauseGovernanceStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        String prefix = key(provider, environment, account, market);
+        return pauseGovernance.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .toList();
+    }
+
+    public boolean accountPaused(String provider, String environment, String account, String market) {
+        return pauseGovernance.containsKey(key(provider, environment, account, market, "ACCOUNT", account));
+    }
+
+    public boolean symbolPaused(String provider, String environment, String account, String market, String symbol) {
+        return accountPaused(provider, environment, account, market)
+                || pauseGovernance.containsKey(key(provider, environment, account, market, "SYMBOL", symbol));
+    }
+
     public TradingStateSnapshot snapshot() {
         synchronized (lock) {
             return new TradingStateSnapshot(
@@ -339,6 +363,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                     valuesByKey(risks),
                     valuesByKey(manualReviewDecisions),
                     valuesByKey(remediationDecisions),
+                    valuesByKey(pauseGovernance),
                     List.copyOf(appliedEventIds)
             );
         }
@@ -353,6 +378,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             risks.clear();
             manualReviewDecisions.clear();
             remediationDecisions.clear();
+            pauseGovernance.clear();
             appliedEventIds.clear();
             for (BalanceState state : snapshot.balances()) {
                 balances.put(key(state.provider(), state.environment(), state.account(), state.market(), state.asset()), state);
@@ -407,6 +433,16 @@ public final class TradingStateProjection implements TradingEventHandler {
                         state.account(),
                         state.market(),
                         state.remediationId()
+                ), state);
+            }
+            for (PauseGovernanceState state : snapshot.pauseGovernance()) {
+                pauseGovernance.put(key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.pauseScope(),
+                        state.pauseTarget()
                 ), state);
             }
             for (String eventId : snapshot.appliedEventIds()) {
@@ -916,9 +952,58 @@ public final class TradingStateProjection implements TradingEventHandler {
                 return ProjectionUpdate.stale(envelope.eventType(), entityKey, eventId);
             }
             remediationDecisions.put(entityKey, state);
+            projectPauseGovernance(state);
             clearManualReviewDecision(state);
             return ProjectionUpdate.applied(envelope.eventType(), entityKey, eventId);
         }
+    }
+
+    private void projectPauseGovernance(RemediationDecisionState state) {
+        String pauseScope = pauseScope(state.action());
+        if (pauseScope == null) {
+            return;
+        }
+        String pauseTarget = pauseTarget(pauseScope, state);
+        if (pauseTarget == null) {
+            return;
+        }
+        PauseGovernanceState pauseState = new PauseGovernanceState(
+                state.provider(),
+                state.environment(),
+                state.account(),
+                state.market(),
+                pauseScope,
+                pauseTarget,
+                state.symbol(),
+                state.remediationId(),
+                state.scope(),
+                state.action(),
+                state.interventionReason(),
+                state.reasons(),
+                state.decidedBy(),
+                state.decisionReason(),
+                state.attributes(),
+                true,
+                state.updatedAt(),
+                state.eventId()
+        );
+        pauseGovernance.put(key(state.provider(), state.environment(), state.account(), state.market(), pauseScope, pauseTarget), pauseState);
+    }
+
+    private String pauseScope(String action) {
+        return switch (action == null ? "" : action) {
+            case "PAUSE_ACCOUNT" -> "ACCOUNT";
+            case "PAUSE_SYMBOL" -> "SYMBOL";
+            default -> null;
+        };
+    }
+
+    private String pauseTarget(String pauseScope, RemediationDecisionState state) {
+        return switch (pauseScope) {
+            case "ACCOUNT" -> state.account();
+            case "SYMBOL" -> state.symbol();
+            default -> null;
+        };
     }
 
     private void clearManualReviewDecision(RemediationDecisionState state) {
@@ -1490,6 +1575,34 @@ public final class TradingStateProjection implements TradingEventHandler {
         public RemediationDecisionState {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
             attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+    }
+
+    public record PauseGovernanceState(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String pauseScope,
+            String pauseTarget,
+            String symbol,
+            String remediationId,
+            String sourceScope,
+            String action,
+            String interventionReason,
+            List<String> reasons,
+            String decidedBy,
+            String decisionReason,
+            Map<String, String> attributes,
+            Boolean active,
+            Instant updatedAt,
+            String eventId
+    ) implements TimedState {
+
+        public PauseGovernanceState {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+            active = active == null || Boolean.TRUE.equals(active);
         }
     }
 }

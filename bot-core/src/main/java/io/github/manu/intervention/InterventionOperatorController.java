@@ -136,6 +136,33 @@ public final class InterventionOperatorController {
         }
     }
 
+    @GetMapping("/pauses")
+    public Mono<ResponseEntity<?>> pauseGovernance(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestParam("provider") String provider,
+            @RequestParam("environment") String environment,
+            @RequestParam("account") String account,
+            @RequestParam("market") String market
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        try {
+            List<PauseGovernanceResponse> pauses = projection.pauseGovernanceStates(
+                            requireText(provider, "provider"),
+                            requireText(environment, "environment"),
+                            requireText(account, "account"),
+                            requireText(market, "market")
+                    )
+                    .stream()
+                    .map(PauseGovernanceResponse::from)
+                    .toList();
+            return Mono.just(ResponseEntity.ok(new PauseGovernanceListResponse(pauses.size(), pauses)));
+        } catch (IllegalArgumentException exception) {
+            return badRequest(exception);
+        }
+    }
+
     @GetMapping("/remediation")
     public Mono<ResponseEntity<?>> remediationRecommendations(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
@@ -424,6 +451,9 @@ public final class InterventionOperatorController {
     record ManualReviewDecisionsResponse(int count, List<ManualReviewDecisionResponse> decisions) {
     }
 
+    record PauseGovernanceListResponse(int count, List<PauseGovernanceResponse> pauses) {
+    }
+
     record RemediationRecommendationsResponse(
             int count,
             List<InterventionRemediationAdvisor.RemediationRecommendation> recommendations
@@ -610,6 +640,51 @@ public final class InterventionOperatorController {
                     state.decisionId(),
                     state.reasons(),
                     state.attributes(),
+                    state.updatedAt(),
+                    state.eventId()
+            );
+        }
+    }
+
+    record PauseGovernanceResponse(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String pauseScope,
+            String pauseTarget,
+            String symbol,
+            String remediationId,
+            String sourceScope,
+            String action,
+            String interventionReason,
+            List<String> reasons,
+            String decidedBy,
+            String decisionReason,
+            Map<String, String> attributes,
+            boolean active,
+            Instant updatedAt,
+            String eventId
+    ) {
+
+        static PauseGovernanceResponse from(TradingStateProjection.PauseGovernanceState state) {
+            return new PauseGovernanceResponse(
+                    state.provider(),
+                    state.environment(),
+                    state.account(),
+                    state.market(),
+                    state.pauseScope(),
+                    state.pauseTarget(),
+                    state.symbol(),
+                    state.remediationId(),
+                    state.sourceScope(),
+                    state.action(),
+                    state.interventionReason(),
+                    state.reasons(),
+                    state.decidedBy(),
+                    state.decisionReason(),
+                    state.attributes(),
+                    state.active(),
                     state.updatedAt(),
                     state.eventId()
             );

@@ -967,6 +967,43 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void projects_pause_governance_from_pause_remediation_decisions() {
+        projection.apply(pauseRemediationDecision(
+                "evt-pause-symbol",
+                "remediation-pause-symbol",
+                "POSITION",
+                "PAUSE_SYMBOL",
+                SYMBOL,
+                timestamp(52)
+        ));
+        projection.apply(pauseRemediationDecision(
+                "evt-pause-account",
+                "remediation-pause-account",
+                "POSITION",
+                "PAUSE_ACCOUNT",
+                null,
+                timestamp(53)
+        ));
+
+        assertThat(projection.pauseGovernanceStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .hasSize(2)
+                .anySatisfy(pause -> {
+                    assertThat(pause.pauseScope()).isEqualTo("ACCOUNT");
+                    assertThat(pause.pauseTarget()).isEqualTo(ACCOUNT);
+                    assertThat(pause.remediationId()).isEqualTo("remediation-pause-account");
+                    assertThat(pause.active()).isTrue();
+                })
+                .anySatisfy(pause -> {
+                    assertThat(pause.pauseScope()).isEqualTo("SYMBOL");
+                    assertThat(pause.pauseTarget()).isEqualTo(SYMBOL);
+                    assertThat(pause.remediationId()).isEqualTo("remediation-pause-symbol");
+                    assertThat(pause.reasons()).containsExactly("intervention:external_position_change");
+                });
+        assertThat(projection.accountPaused(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+        assertThat(projection.symbolPaused(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL)).isTrue();
+    }
+
+    @Test
     void remediation_decision_clears_matching_manual_review_decision() {
         projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(40)));
         projection.apply(riskDecision(
@@ -1035,6 +1072,14 @@ class TradingStateProjectionTest {
         projection.apply(risk("evt-risk", "-0.01304097", timestamp(13)));
         projection.apply(riskDecision("evt-risk-decision-review", RiskDecision.MANUAL_REVIEW, timestamp(14)));
         projection.apply(remediationDecision("evt-remediation-decision", "remediation-1", timestamp(15)));
+        projection.apply(pauseRemediationDecision(
+                "evt-pause-symbol",
+                "remediation-pause-symbol",
+                "POSITION",
+                "PAUSE_SYMBOL",
+                SYMBOL,
+                timestamp(16)
+        ));
 
         TradingStateSnapshot snapshot = projection.snapshot();
         TradingStateProjection restored = new TradingStateProjection();
@@ -1056,8 +1101,15 @@ class TradingStateProjectionTest {
                 .singleElement()
                 .satisfies(decision -> assertThat(decision.commandId()).isEqualTo("cmd-1"));
         assertThat(restored.remediationDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .extracting(TradingStateProjection.RemediationDecisionState::remediationId)
+                .containsExactly("remediation-1", "remediation-pause-symbol");
+        assertThat(restored.pauseGovernanceStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
                 .singleElement()
-                .satisfies(decision -> assertThat(decision.remediationId()).isEqualTo("remediation-1"));
+                .satisfies(pause -> {
+                    assertThat(pause.pauseScope()).isEqualTo("SYMBOL");
+                    assertThat(pause.pauseTarget()).isEqualTo(SYMBOL);
+                    assertThat(pause.remediationId()).isEqualTo("remediation-pause-symbol");
+                });
         assertThat(restored.apply(balance("evt-balance", "1001", "951", timestamp(14))).status())
                 .isEqualTo(ProjectionUpdateStatus.DUPLICATE);
     }
@@ -1248,6 +1300,48 @@ class TradingStateProjectionTest {
                         MARKET,
                         SYMBOL,
                         "client-1"
+                ),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<RemediationDecisionEvent> pauseRemediationDecision(
+            String eventId,
+            String remediationId,
+            String scope,
+            String action,
+            String symbol,
+            Instant decidedAt
+    ) {
+        RemediationDecisionEvent event = RemediationDecisionEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setRemediationId(remediationId)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(symbol)
+                .setScope(scope)
+                .setAction(action)
+                .setClientOrderId(null)
+                .setPositionSide("BOTH")
+                .setInterventionReason("external_position_change")
+                .setReasons(List.of("intervention:external_position_change"))
+                .setDecidedBy("automated_remediation_policy")
+                .setDecisionReason("policy selected pause governance")
+                .setDecidedAtMicros(decidedAt)
+                .setAttributes(Map.of("source_recommendation", "pause-governance-test"))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.REMEDIATION_DECISION,
+                TradingEventKeys.symbol(
+                        TradingEventType.REMEDIATION_DECISION,
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        symbol == null ? ACCOUNT : symbol
                 ),
                 event
         );

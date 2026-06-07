@@ -548,6 +548,10 @@ recommendations, skips operator-review recommendations unless explicitly
 allowed, deduplicates by `recommendation_event_id`, and caps each run with
 `maxDecisionsPerRun`. This keeps unattended policy decisions replayable and
 visible before any exchange executor is introduced.
+`PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions are projected into durable pause
+governance state. This state is included in projection snapshots and exposed
+through the operator API, but enforcement in strategy and order admission is a
+separate layer that still has to be implemented.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

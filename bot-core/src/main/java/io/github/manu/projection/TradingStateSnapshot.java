@@ -9,6 +9,7 @@ public record TradingStateSnapshot(
         List<TradingStateProjection.RiskState> risks,
         List<TradingStateProjection.ManualReviewDecisionState> manualReviewDecisions,
         List<TradingStateProjection.RemediationDecisionState> remediationDecisions,
+        List<TradingStateProjection.PauseGovernanceState> pauseGovernance,
         List<String> appliedEventIds
 ) {
 
@@ -19,7 +20,20 @@ public record TradingStateSnapshot(
         risks = risks == null ? List.of() : List.copyOf(risks);
         manualReviewDecisions = manualReviewDecisions == null ? List.of() : List.copyOf(manualReviewDecisions);
         remediationDecisions = remediationDecisions == null ? List.of() : List.copyOf(remediationDecisions);
+        pauseGovernance = pauseGovernance == null ? List.of() : List.copyOf(pauseGovernance);
         appliedEventIds = appliedEventIds == null ? List.of() : List.copyOf(appliedEventIds);
+    }
+
+    public TradingStateSnapshot(
+            List<TradingStateProjection.BalanceState> balances,
+            List<TradingStateProjection.PositionState> positions,
+            List<TradingStateProjection.OrderState> orders,
+            List<TradingStateProjection.RiskState> risks,
+            List<TradingStateProjection.ManualReviewDecisionState> manualReviewDecisions,
+            List<TradingStateProjection.RemediationDecisionState> remediationDecisions,
+            List<String> appliedEventIds
+    ) {
+        this(balances, positions, orders, risks, manualReviewDecisions, remediationDecisions, List.of(), appliedEventIds);
     }
 
     public TradingStateSnapshot(
@@ -44,6 +58,6 @@ public record TradingStateSnapshot(
     }
 
     public static TradingStateSnapshot empty() {
-        return new TradingStateSnapshot(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        return new TradingStateSnapshot(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
     }
 }

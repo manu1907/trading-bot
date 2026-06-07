@@ -26,11 +26,12 @@ public final class ProjectionSnapshotLifecycle implements SmartLifecycle {
             store.load().ifPresent(snapshot -> {
                 projection.restore(snapshot);
                 log.info(
-                        "Loaded trading-state projection snapshot: balances={}, positions={}, orders={}, risks={}",
+                        "Loaded trading-state projection snapshot: balances={}, positions={}, orders={}, risks={}, pauses={}",
                         snapshot.balances().size(),
                         snapshot.positions().size(),
                         snapshot.orders().size(),
-                        snapshot.risks().size()
+                        snapshot.risks().size(),
+                        snapshot.pauseGovernance().size()
                 );
             });
         }
@@ -42,11 +43,12 @@ public final class ProjectionSnapshotLifecycle implements SmartLifecycle {
             TradingStateSnapshot snapshot = projection.snapshot();
             store.save(snapshot);
             log.info(
-                    "Saved trading-state projection snapshot: balances={}, positions={}, orders={}, risks={}",
+                    "Saved trading-state projection snapshot: balances={}, positions={}, orders={}, risks={}, pauses={}",
                     snapshot.balances().size(),
                     snapshot.positions().size(),
                     snapshot.orders().size(),
-                    snapshot.risks().size()
+                    snapshot.risks().size(),
+                    snapshot.pauseGovernance().size()
             );
         }
     }

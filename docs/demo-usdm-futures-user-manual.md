@@ -546,6 +546,19 @@ curl -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/remediation/decisions?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
+List active pause governance:
+
+```bash
+curl -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/interventions/pauses?provider=binance&environment=demo&account=main&market=usdm_futures'
+```
+
+Pause responses include account-level and symbol-level pause state projected
+from `PAUSE_ACCOUNT` and `PAUSE_SYMBOL` remediation decisions. This state is
+durable and auditable, but current pause enforcement is not complete yet; the
+next implementation slice must wire it into strategy admission and order
+execution admission.
+
 List remediation command plans for persisted remediation decisions:
 
 ```bash
@@ -1107,6 +1120,8 @@ Current automated remediation execution state:
 - Stale orders or positions are refused as `STALE_PROJECTION`.
 - Invalid or missing position amount data is refused as `INSUFFICIENT_DATA`.
 - Flat position close/reduce/hedge requests become `NO_ACTION`.
+- `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions create durable pause governance
+  state that can be listed through the operator API.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become
@@ -1115,6 +1130,7 @@ Current automated remediation execution state:
 - `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `ADOPT`, `IGNORE`, and
   `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
   commands yet.
+- Pause governance does not yet block strategy admission or order execution.
 
 As of this version, only external order `CLOSE` remediation can become
 `exchangeExecutable=true`, and it can only submit a cancel through the existing

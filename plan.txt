@@ -75,6 +75,8 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - `OPERATOR_REVIEW` is skipped by default for automation unless config explicitly allows publishing review decisions.
 - The operator API can trigger automated decision publication with `POST /internal/interventions/remediation/automated-decisions`.
 - Automated decision publication does not execute exchange operations by itself.
+- `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` remediation decisions are projected into durable pause governance state.
+- Pause governance state is included in file/JDBC projection snapshots and can be restored after restart.
 
 ### Remediation Command Planning And Execution
 
@@ -97,6 +99,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - `GET /internal/interventions/orders` lists projected order interventions.
 - `GET /internal/interventions/positions` lists projected position interventions.
 - `GET /internal/interventions/manual-reviews` lists manual review state.
+- `GET /internal/interventions/pauses` lists projected pause governance state.
 - `GET /internal/interventions/remediation` lists remediation recommendations.
 - `GET /internal/interventions/remediation/decisions` lists remediation decisions.
 - `GET /internal/interventions/remediation/plans` lists generated command plans.
@@ -118,9 +121,9 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - The bot is not yet ready for unattended real-money autonomous trading.
 - Only external-order `CLOSE` remediation can currently become an executable exchange command, and only as a cancel routed through `OrderExecutionPipeline`.
 - Automated remediation currently publishes decisions only; exchange execution still requires the executor execution path and explicit executor policy. There is no scheduled fully automatic executor loop yet.
-- Position remediation, order adoption, order amendment, pause governance, and account/symbol pause enforcement are not exchange-executable yet.
+- Position remediation, order adoption, order amendment, and account/symbol pause enforcement are not exchange-executable yet.
 - Automated decision execution is currently triggered through the operator API; there is no scheduled live remediation loop yet.
-- Pause actions are currently labels/plans only. They do not yet block strategy admission or order execution.
+- Pause actions now create durable pause governance state, but they do not yet block strategy admission or order execution.
 - Position remediation does not yet have a complete bounded sizing policy for close, reduce, or hedge actions.
 - Position remediation does not yet construct reduce-only orders or hedge orders.
 - External order adoption semantics are not yet defined enough for live execution.
@@ -148,9 +151,9 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery: 55 to 80 commits/slices.
+Estimated remaining delivery: 54 to 79 commits/slices.
 
-- Core remediation execution and governance: 12 to 18 slices.
+- Core remediation execution and governance: 11 to 17 slices.
 - Strategy runtime and trading lifecycle: 10 to 16 slices.
 - Persistence, recovery, and replay hardening: 6 to 10 slices.
 - Backtesting, paper/demo validation, and promotion gates: 6 to 10 slices.
@@ -161,7 +164,7 @@ Estimated remaining delivery: 55 to 80 commits/slices.
 
 ### Roadmap Slice 1: Complete Automated Remediation Governance
 
-- Add durable pause governance state for `PAUSE_SYMBOL` and `PAUSE_ACCOUNT`.
+- Durable pause governance state exists for `PAUSE_SYMBOL` and `PAUSE_ACCOUNT`; the remaining work is enforcement, expiry/override/release, and operations controls.
 - Enforce pause governance in strategy admission and order execution admission.
 - Add metrics and audit events for pause activation, expiry, override, and release.
 - Add bounded position sizing policy for `REDUCE`, `CLOSE`, and `HEDGE`.
@@ -255,8 +258,8 @@ Estimated remaining delivery: 55 to 80 commits/slices.
 
 ## Next Work In Dependency Order
 
-1. Add pause governance state for `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions.
-2. Integrate pause governance into strategy admission and order execution admission.
+1. Integrate pause governance into strategy admission and order execution admission.
+2. Add pause governance expiry, override, release, metrics, and audit controls.
 3. Add bounded position remediation sizing policy for `REDUCE`, `CLOSE`, and `HEDGE` before any position action can be executable.
 4. Implement position close/reduce planning with reduce-only constraints and provider capability validation.
 5. Implement hedge planning only after hedge sizing, margin mode, leverage, symbol capability, and account risk constraints are explicit.

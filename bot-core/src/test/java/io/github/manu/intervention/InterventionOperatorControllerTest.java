@@ -266,6 +266,58 @@ class InterventionOperatorControllerTest {
     }
 
     @Test
+    void lists_pause_governance_when_token_matches() {
+        restorePauseGovernance();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/pauses")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.count")
+                .isEqualTo(1)
+                .jsonPath("$.pauses[0].pauseScope")
+                .isEqualTo("SYMBOL")
+                .jsonPath("$.pauses[0].pauseTarget")
+                .isEqualTo("BTCUSDT")
+                .jsonPath("$.pauses[0].remediationId")
+                .isEqualTo("remediation-pause-1")
+                .jsonPath("$.pauses[0].action")
+                .isEqualTo("PAUSE_SYMBOL")
+                .jsonPath("$.pauses[0].active")
+                .isEqualTo(true);
+    }
+
+    @Test
+    void rejects_pause_governance_listing_when_token_is_invalid() {
+        restorePauseGovernance();
+
+        client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/interventions/pauses")
+                        .queryParam("provider", "binance")
+                        .queryParam("environment", "demo")
+                        .queryParam("account", "main")
+                        .queryParam("market", "usd_m_futures")
+                        .build())
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+    }
+
+    @Test
     void lists_remediation_recommendations_when_token_matches() {
         restoreManualReviewDecision();
 
@@ -1030,6 +1082,38 @@ class InterventionOperatorControllerTest {
                         "evt-remediation-decision"
                 )),
                 List.of("evt-remediation-decision")
+        ));
+    }
+
+    private void restorePauseGovernance() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.PauseGovernanceState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "SYMBOL",
+                        "BTCUSDT",
+                        "BTCUSDT",
+                        "remediation-pause-1",
+                        "POSITION",
+                        "PAUSE_SYMBOL",
+                        "external_position_change",
+                        List.of("intervention:external_position_change"),
+                        "automated_remediation_policy",
+                        "policy selected pause governance",
+                        Map.of("source_recommendation", "advisor"),
+                        true,
+                        NOW.minusSeconds(1),
+                        "evt-pause-governance"
+                )),
+                List.of("evt-pause-governance")
         ));
     }
 

@@ -76,6 +76,28 @@ create table if not exists trading_projection_risks (
     event_id varchar(512)
 );
 
+create table if not exists trading_projection_pause_governance (
+    state_key varchar(512) primary key,
+    provider varchar(64) not null,
+    environment varchar(64) not null,
+    account varchar(128) not null,
+    market varchar(128) not null,
+    pause_scope varchar(64) not null,
+    pause_target varchar(256) not null,
+    symbol varchar(128),
+    remediation_id varchar(512) not null,
+    source_scope varchar(128) not null,
+    action varchar(128) not null,
+    intervention_reason varchar(512),
+    reasons varchar(2048),
+    decided_by varchar(256),
+    decision_reason varchar(2048),
+    attributes varchar(4096),
+    active boolean not null default true,
+    updated_at varchar(64) not null,
+    event_id varchar(512)
+);
+
 create table if not exists trading_projection_applied_event_ids (
     sequence_number integer primary key,
     event_id varchar(512) not null unique
