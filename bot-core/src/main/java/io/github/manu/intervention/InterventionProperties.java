@@ -1,6 +1,7 @@
 package io.github.manu.intervention;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import java.util.List;
 
@@ -10,9 +11,11 @@ public record InterventionProperties(
         RemediationOrchestrator remediationOrchestrator,
         AutomatedPolicy automatedPolicy,
         AutomatedDecisionService automatedDecisionService,
+        AutomatedRemediationRunner automatedRemediationRunner,
         RemediationExecutorPolicy remediationExecutorPolicy
 ) {
 
+    @ConstructorBinding
     public InterventionProperties {
         operatorApi = operatorApi == null ? OperatorApi.disabled() : operatorApi;
         remediationOrchestrator = remediationOrchestrator == null
@@ -22,9 +25,29 @@ public record InterventionProperties(
         automatedDecisionService = automatedDecisionService == null
                 ? AutomatedDecisionService.disabled()
                 : automatedDecisionService;
+        automatedRemediationRunner = automatedRemediationRunner == null
+                ? AutomatedRemediationRunner.disabled()
+                : automatedRemediationRunner;
         remediationExecutorPolicy = remediationExecutorPolicy == null
                 ? RemediationExecutorPolicy.disabled()
                 : remediationExecutorPolicy;
+    }
+
+    public InterventionProperties(
+            OperatorApi operatorApi,
+            RemediationOrchestrator remediationOrchestrator,
+            AutomatedPolicy automatedPolicy,
+            AutomatedDecisionService automatedDecisionService,
+            RemediationExecutorPolicy remediationExecutorPolicy
+    ) {
+        this(
+                operatorApi,
+                remediationOrchestrator,
+                automatedPolicy,
+                automatedDecisionService,
+                null,
+                remediationExecutorPolicy
+        );
     }
 
     public record OperatorApi(
@@ -128,6 +151,70 @@ public record InterventionProperties(
 
         static AutomatedDecisionService disabled() {
             return new AutomatedDecisionService(false, false, 100, null, null);
+        }
+    }
+
+    public record AutomatedRemediationRunner(
+            Boolean enabled,
+            Long intervalMillis,
+            Long initialDelayMillis,
+            Boolean publishDecisions,
+            Boolean executeRemediation,
+            Target target
+    ) {
+
+        public AutomatedRemediationRunner {
+            enabled = Boolean.TRUE.equals(enabled);
+            long normalizedIntervalMillis = intervalMillis == null ? 30_000L : intervalMillis;
+            if (normalizedIntervalMillis <= 0L) {
+                throw new IllegalArgumentException("intervalMillis must be positive");
+            }
+            intervalMillis = normalizedIntervalMillis;
+            long normalizedInitialDelayMillis = initialDelayMillis == null ? 30_000L : initialDelayMillis;
+            if (normalizedInitialDelayMillis < 0L) {
+                throw new IllegalArgumentException("initialDelayMillis must be zero or positive");
+            }
+            initialDelayMillis = normalizedInitialDelayMillis;
+            publishDecisions = publishDecisions == null || Boolean.TRUE.equals(publishDecisions);
+            executeRemediation = executeRemediation == null || Boolean.TRUE.equals(executeRemediation);
+            target = target == null ? Target.active() : target;
+            if (Boolean.TRUE.equals(enabled)
+                    && !Boolean.TRUE.equals(publishDecisions)
+                    && !Boolean.TRUE.equals(executeRemediation)) {
+                throw new IllegalArgumentException(
+                        "automatedRemediationRunner requires publishDecisions or executeRemediation when enabled"
+                );
+            }
+        }
+
+        static AutomatedRemediationRunner disabled() {
+            return new AutomatedRemediationRunner(false, 30_000L, 30_000L, true, true, Target.active());
+        }
+    }
+
+    public record Target(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+
+        public Target {
+            provider = normalize(provider);
+            environment = normalize(environment);
+            account = normalize(account);
+            market = normalize(market);
+        }
+
+        static Target active() {
+            return new Target(null, null, null, null);
+        }
+
+        private static String normalize(String value) {
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            return value.trim();
         }
     }
 

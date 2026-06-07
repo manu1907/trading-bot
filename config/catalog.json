@@ -166,6 +166,19 @@
         "decided_by": "automated_remediation_policy",
         "decision_reason": "automated policy selected remediation action"
       },
+      "automated_remediation_runner": {
+        "enabled": false,
+        "interval_millis": 30000,
+        "initial_delay_millis": 30000,
+        "publish_decisions": true,
+        "execute_remediation": true,
+        "target": {
+          "provider": null,
+          "environment": null,
+          "account": null,
+          "market": null
+        }
+      },
       "remediation_executor_policy": {
         "enabled": false,
         "exchange_execution_enabled": false,

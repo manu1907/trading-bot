@@ -1,6 +1,7 @@
 package io.github.manu.intervention;
 
 import io.github.manu.audit.AuditLogger;
+import io.github.manu.config.runtime.ConfigManager;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.messaging.DeadLetterTradingEvent;
@@ -34,6 +35,7 @@ class InterventionConfigurationTest {
                 .hasSingleBean(InterventionRemediationCommandPlanner.class)
                 .hasSingleBean(InterventionRemediationExecutorService.class)
                 .hasSingleBean(InterventionAutomatedDecisionService.class)
+                .doesNotHaveBean(InterventionAutomatedRemediationRunner.class)
                 .doesNotHaveBean(InterventionRemediationOrchestrator.class)
                 .doesNotHaveBean(InterventionOperatorController.class));
     }
@@ -115,6 +117,54 @@ class InterventionConfigurationTest {
                     assertThat(service.decidedBy()).isEqualTo("auto-policy");
                     assertThat(service.decisionReason()).isEqualTo("automated remediation batch");
                 });
+    }
+
+    @Test
+    void binds_automated_remediation_runner_policy() {
+        contextRunner
+                .withPropertyValues(
+                        "trading.intervention.automated-remediation-runner.enabled=true",
+                        "trading.intervention.automated-remediation-runner.interval-millis=5000",
+                        "trading.intervention.automated-remediation-runner.initial-delay-millis=250",
+                        "trading.intervention.automated-remediation-runner.publish-decisions=false",
+                        "trading.intervention.automated-remediation-runner.execute-remediation=true",
+                        "trading.intervention.automated-remediation-runner.target.provider=binance",
+                        "trading.intervention.automated-remediation-runner.target.environment=demo",
+                        "trading.intervention.automated-remediation-runner.target.account=main",
+                        "trading.intervention.automated-remediation-runner.target.market=usdm_futures"
+                )
+                .withBean(ConfigManager.class, ConfigManager::new)
+                .run(context -> {
+                    InterventionProperties.AutomatedRemediationRunner runner =
+                            context.getBean(InterventionProperties.class).automatedRemediationRunner();
+
+                    assertThat(runner.enabled()).isTrue();
+                    assertThat(runner.intervalMillis()).isEqualTo(5000L);
+                    assertThat(runner.initialDelayMillis()).isEqualTo(250L);
+                    assertThat(runner.publishDecisions()).isFalse();
+                    assertThat(runner.executeRemediation()).isTrue();
+                    assertThat(runner.target().provider()).isEqualTo("binance");
+                    assertThat(runner.target().environment()).isEqualTo("demo");
+                    assertThat(runner.target().account()).isEqualTo("main");
+                    assertThat(runner.target().market()).isEqualTo("usdm_futures");
+                    assertThat(context).hasSingleBean(InterventionAutomatedRemediationRunner.class);
+                });
+    }
+
+    @Test
+    void rejects_automated_remediation_runner_without_work_when_enabled() {
+        contextRunner
+                .withPropertyValues(
+                        "trading.intervention.automated-remediation-runner.enabled=true",
+                        "trading.intervention.automated-remediation-runner.publish-decisions=false",
+                        "trading.intervention.automated-remediation-runner.execute-remediation=false"
+                )
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasRootCauseMessage(
+                                "automatedRemediationRunner requires publishDecisions or executeRemediation when enabled"
+                        ));
     }
 
     @Test

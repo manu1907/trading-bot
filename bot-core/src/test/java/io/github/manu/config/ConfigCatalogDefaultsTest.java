@@ -47,6 +47,16 @@ class ConfigCatalogDefaultsTest {
 
         assertBoolean(catalog, "trading.observability.pause_governance.expiry_monitor.enabled", true);
         assertInt(catalog, "trading.observability.pause_governance.expiry_monitor.interval_millis", 30000);
+
+        assertBoolean(catalog, "trading.intervention.automated_remediation_runner.enabled", false);
+        assertInt(catalog, "trading.intervention.automated_remediation_runner.interval_millis", 30000);
+        assertInt(catalog, "trading.intervention.automated_remediation_runner.initial_delay_millis", 30000);
+        assertBoolean(catalog, "trading.intervention.automated_remediation_runner.publish_decisions", true);
+        assertBoolean(catalog, "trading.intervention.automated_remediation_runner.execute_remediation", true);
+        assertNull(catalog, "trading.intervention.automated_remediation_runner.target.provider");
+        assertNull(catalog, "trading.intervention.automated_remediation_runner.target.environment");
+        assertNull(catalog, "trading.intervention.automated_remediation_runner.target.account");
+        assertNull(catalog, "trading.intervention.automated_remediation_runner.target.market");
     }
 
     @Test

@@ -1287,6 +1287,15 @@ Default intervention config:
 - `automated_decision_service.decided_by`: `automated_remediation_policy`
 - `automated_decision_service.decision_reason`: `automated policy selected
   remediation action`
+- `automated_remediation_runner.enabled`: `false`
+- `automated_remediation_runner.interval_millis`: `30000`
+- `automated_remediation_runner.initial_delay_millis`: `30000`
+- `automated_remediation_runner.publish_decisions`: `true`
+- `automated_remediation_runner.execute_remediation`: `true`
+- `automated_remediation_runner.target.provider`: `null`
+- `automated_remediation_runner.target.environment`: `null`
+- `automated_remediation_runner.target.account`: `null`
+- `automated_remediation_runner.target.market`: `null`
 - `remediation_executor_policy.enabled`: `false`
 - `remediation_executor_policy.exchange_execution_enabled`: `false`
 - `remediation_executor_policy.report_only`: `true`
@@ -1332,14 +1341,27 @@ reconciliation, journaling, and projection persistence are configured.
 The automated decision service can publish `REMEDIATION_DECISION` events from
 current recommendations when explicitly enabled. By default it skips
 `OPERATOR_REVIEW`, deduplicates by `recommendation_event_id`, and limits each
-run with `max_decisions_per_run`. It still does not send exchange commands; it
-only records the selected automated decision so the command planner and future
+run with `max_decisions_per_run`. It still does not send exchange commands by
+itself; it records the selected automated decision so the command planner and
 executor can evaluate it.
+
+The automated remediation runner can run this workflow without an operator API
+call when `automated_remediation_runner.enabled=true`. Each tick resolves the
+configured target, or the active target when the target fields are `null`,
+executes already-projected eligible remediation decisions first, and then
+publishes new automated decisions for the next projected tick. This avoids
+racing asynchronous event consumers while still allowing unattended demo-live
+remediation once the executor policy is configured for exchange execution.
 
 Current automated remediation execution state:
 
 - The bot can convert remediation recommendations into remediation decisions
   when `automated_decision_service.enabled=true`.
+- The bot can run automated remediation on a schedule when
+  `automated_remediation_runner.enabled=true`.
+- The scheduled runner executes already-projected remediation decisions before
+  publishing new automated decisions, so newly published decisions are executed
+  after they are projected by the event pipeline.
 - The bot can convert remediation decisions into internal command plans.
 - The planner revalidates the current projection before planning an action.
 - Stale orders or positions are refused as `STALE_PROJECTION`.
@@ -1398,9 +1420,9 @@ The remediation executor policy is the configuration boundary for the future
 executor. It is disabled by default and cannot allow exchange execution unless
 the policy is enabled, `report_only=false`, at least one operation is explicitly
 allowlisted, and the strict ready-plan, fresh-projection, target-identity, and
-managed-pipeline gates remain enabled. `allow_real_environment=false` means a
-future executor must still refuse real-environment exchange execution unless a
-real deployment deliberately overrides that guard.
+managed-pipeline gates remain enabled. `allow_real_environment=false` means the
+executor must still refuse real-environment exchange execution unless a real
+deployment deliberately overrides that guard.
 
 The current codebase includes a remediation executor service. It consumes
 persisted remediation decisions, regenerates current command plans, applies the

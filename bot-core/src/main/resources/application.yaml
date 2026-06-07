@@ -65,6 +65,18 @@ trading:
         reject-degraded: true
       manual-intervention:
         reject-external-order-interventions: true
+  intervention:
+    automated-remediation-runner:
+      enabled: false
+      interval-millis: 30000
+      initial-delay-millis: 30000
+      publish-decisions: true
+      execute-remediation: true
+      target:
+        provider: ${TRADING_REMEDIATION_RUNNER_PROVIDER:}
+        environment: ${TRADING_REMEDIATION_RUNNER_ENVIRONMENT:}
+        account: ${TRADING_REMEDIATION_RUNNER_ACCOUNT:}
+        market: ${TRADING_REMEDIATION_RUNNER_MARKET:}
   messaging:
     enabled: false
     bootstrap-servers: localhost:19092

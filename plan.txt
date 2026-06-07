@@ -23,6 +23,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - The checked-in catalog lists all current top-level `trading.*` runtime configuration roots with their source-controlled defaults so runtime overrides have an explicit baseline.
 - Operator API access can be protected with `X-Operator-Token` when enabled by config.
 - Automated remediation policy is configurable under `trading.intervention.automated-policy`.
+- Automated remediation runner policy is configurable under `trading.intervention.automated-remediation-runner`.
 - Remediation executor policy is configurable under `trading.intervention.remediation-executor-policy`.
 - Executor policy catalog defaults keep the executor disabled, exchange execution disabled, report-only mode enabled, real environments blocked, and executable operations empty for safe startup.
 - Demo-live remediation exchange execution is a runtime override state, not a report-only target: enable the executor policy, set `exchange_execution_enabled=true`, set `report_only=false`, and allowlist the operation, currently only `CANCEL_ORDER`.
@@ -77,6 +78,9 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - `OPERATOR_REVIEW` is skipped by default for automation unless config explicitly allows publishing review decisions.
 - The operator API can trigger automated decision publication with `POST /internal/interventions/remediation/automated-decisions`.
 - Automated decision publication does not execute exchange operations by itself.
+- A scheduled automated remediation runner now exists and is disabled by default.
+- When enabled, the runner executes already-projected remediation decisions first, then publishes new automated decisions for the next projected tick.
+- The runner can use the active runtime target or an explicit configured target under `trading.intervention.automated-remediation-runner.target`.
 - `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` remediation decisions are projected into durable pause governance state.
 - Pause governance state is included in file/JDBC projection snapshots and can be restored after restart.
 - Pause governance now suppresses strategy-planned order commands for paused accounts or symbols.
@@ -105,6 +109,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Position actions, pause actions, adoption, amendment, ignore, and replan actions remain non-executable governance or planning intents.
 - The operator API exposes generated plans with `GET /internal/interventions/remediation/plans`.
 - `InterventionRemediationExecutorService` consumes persisted remediation decisions, regenerates current command plans, applies executor policy gates, caps batches, and returns auditable outcomes.
+- `InterventionAutomatedRemediationRunner` can call the executor on a schedule when explicitly enabled, but it still cannot bypass executor policy, risk gates, idempotency, projection, journal, reconciliation, or provider execution.
 - Executor reports can mark plans as `BLOCKED`, `PREVIEW_ONLY`, `SUBMITTED_TO_PIPELINE`, or `NO_ACTION`.
 - The executor can submit only `CANCEL_ORDER` for order `CLOSE` remediation, and only when policy is enabled, exchange execution is enabled, report only is false, `CANCEL_ORDER` is allowlisted, the target identity is present, the environment is allowed, and `OrderExecutionPipeline` is available.
 - Submitted remediation cancels use deterministic remediation command ids and idempotency keys derived from the remediation id.
@@ -140,9 +145,9 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 - The bot is not yet ready for unattended real-money autonomous trading.
 - Only external-order `CLOSE` remediation can currently become an executable exchange command, and only as a cancel routed through `OrderExecutionPipeline`.
-- Automated remediation currently publishes decisions only; exchange execution still requires the executor execution path and explicit executor policy. There is no scheduled fully automatic executor loop yet.
+- Automated remediation can now run on a schedule when explicitly enabled, but exchange execution still requires the executor execution path and explicit executor policy.
 - Position remediation, order adoption, and order amendment controls are not exchange-executable yet.
-- Automated decision execution is currently triggered through the operator API; there is no scheduled live remediation loop yet.
+- Scheduled live remediation is currently limited to projected decisions and the currently supported external-order cancel execution path.
 - Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition/audit-store-failure counters, active-pause gauges, a recent audit-query endpoint, optional JSONL-backed audit persistence, Prometheus alert rules, and an importable Grafana dashboard, but they do not yet have deployment-specific external alert routing or a production-grade indexed audit backend.
 - Position remediation does not yet construct reduce-only orders or hedge orders, even though bounded planning metadata exists.
 - External order adoption semantics are not yet defined enough for live execution.
@@ -161,6 +166,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Record manual remediation decisions through the operator API if desired.
 - Enable automated decision publication only when the configured policy is understood.
 - Trigger automated decision publication through the operator API when enabled.
+- Enable the scheduled automated remediation runner only after the decision policy, executor policy, reconciliation, journaling, and projection persistence are configured for the target.
 - Inspect generated remediation command plans.
 - Inspect remediation executor preview outcomes if you need to see why a plan would be blocked before execution.
 - Execute eligible remediation batches only after enabling the executor policy, exchange execution, `report_only=false`, and the relevant operation allowlist. Today the only eligible exchange operation is `CANCEL_ORDER` for an external order `CLOSE` decision.
@@ -203,7 +209,7 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 - Implement position close/reduce/hedge command construction only after reduce-only rules, margin mode, leverage, symbol capability, and account risk limits are explicit.
 - Implement order adoption policy only after ownership transfer, client order id handling, reconciliation, and rollback behavior are defined.
 - Implement managed order amendment policy only after allowed field drift, stale-state handling, and cancel/replace behavior are defined.
-- Add scheduled remediation runner after executable remediation idempotency and pause governance are covered by persistence tests.
+- Scheduled remediation runner exists; the remaining work is persistence/recovery hardening, metrics/alerts, and expansion beyond external-order cancel.
 - Definition of done: unattended demo remediation can handle external orders and known external-position scenarios without manual review, while unsupported scenarios are automatically blocked or paused with auditable reasons.
 
 ### Roadmap Slice 2: Complete Strategy And Trading Runtime
@@ -295,9 +301,8 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 3. Implement hedge command construction only after hedge-mode handling, margin mode, leverage, symbol capability, and account risk constraints are explicit.
 4. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
 5. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
-6. Add a scheduled/live automated remediation runner after executor safety, pause governance, and idempotency behavior are covered by persistence tests.
-7. Expand persistence and recovery tests for automated decisions, generated plans, pause state, and executable remediation commands.
-8. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
-9. Complete production deployment work: deployment config, secrets handling, observability, alerting, dashboards, runbooks, and incident procedures.
-10. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
-11. Keep the user manual and current-state documentation aligned after each capability change.
+6. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.
+7. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
+8. Complete production deployment work: deployment config, secrets handling, observability, alerting, dashboards, runbooks, and incident procedures.
+9. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
+10. Keep the user manual and current-state documentation aligned after each capability change.

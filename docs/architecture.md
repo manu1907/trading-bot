@@ -630,6 +630,14 @@ surface and never submits commands. Execute mode currently supports only
 external-order `CLOSE` as a `CANCEL_ORDER` routed through
 `OrderExecutionPipeline`; the normal risk gate, idempotency, event bus, journal,
 projection, reconciliation, and provider gateway remain authoritative.
+`InterventionAutomatedRemediationRunner` is the scheduled live automation layer.
+It is disabled by default. When enabled, each tick resolves either its explicit
+target or the current active runtime target, executes already-projected
+remediation decisions through `InterventionRemediationExecutorService`, and then
+publishes new automated remediation decisions for the next projected tick. This
+ordering avoids relying on same-tick projection updates from asynchronous event
+consumers while still allowing unattended remediation when policy gates permit
+exchange execution.
 The operator API exposes preview reports at
 `GET /internal/interventions/remediation/executor/preview` so operators can see
 the exact executor blocker before any exchange-executable remediation path is

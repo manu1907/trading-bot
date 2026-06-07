@@ -1,6 +1,7 @@
 package io.github.manu.intervention;
 
 import io.github.manu.audit.AuditLogger;
+import io.github.manu.config.runtime.ConfigManager;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.execution.OrderExecutionPipeline;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
@@ -13,8 +14,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
+@EnableScheduling
 @EnableConfigurationProperties(InterventionProperties.class)
 public class InterventionConfiguration {
 
@@ -84,6 +87,27 @@ public class InterventionConfiguration {
             InterventionProperties properties
     ) {
         return new InterventionAutomatedDecisionService(eventBus, remediationAdvisor, projection, properties);
+    }
+
+    @Bean
+    @ConditionalOnBean(InterventionAutomatedDecisionService.class)
+    @ConditionalOnProperty(
+            prefix = "trading.intervention.automated-remediation-runner",
+            name = "enabled",
+            havingValue = "true"
+    )
+    InterventionAutomatedRemediationRunner interventionAutomatedRemediationRunner(
+            InterventionAutomatedDecisionService automatedDecisionService,
+            InterventionRemediationExecutorService remediationExecutorService,
+            InterventionProperties properties,
+            ConfigManager configManager
+    ) {
+        return new InterventionAutomatedRemediationRunner(
+                automatedDecisionService,
+                remediationExecutorService,
+                properties,
+                configManager
+        );
     }
 
     @Bean
