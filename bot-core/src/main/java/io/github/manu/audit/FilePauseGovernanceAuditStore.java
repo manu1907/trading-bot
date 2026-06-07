@@ -78,4 +78,9 @@ public final class FilePauseGovernanceAuditStore implements PauseGovernanceAudit
             throw new PauseGovernanceAuditStoreException("Failed to read pause governance audit events", exception);
         }
     }
+
+    @Override
+    public String storeName() {
+        return "file";
+    }
 }

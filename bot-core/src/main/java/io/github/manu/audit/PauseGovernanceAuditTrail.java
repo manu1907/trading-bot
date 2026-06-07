@@ -20,27 +20,40 @@ public final class PauseGovernanceAuditTrail {
 
     private final int maxEvents;
     private final List<PauseGovernanceAuditStore> stores;
+    private final PauseGovernanceAuditMetrics auditMetrics;
     private final Deque<PauseGovernanceAuditEvent> events = new ArrayDeque<>();
 
     public PauseGovernanceAuditTrail() {
-        this(DEFAULT_MAX_EVENTS, List.of());
+        this(DEFAULT_MAX_EVENTS, List.of(), new PauseGovernanceAuditMetrics());
     }
 
     @Autowired
-    public PauseGovernanceAuditTrail(List<PauseGovernanceAuditStore> stores) {
-        this(DEFAULT_MAX_EVENTS, stores);
+    public PauseGovernanceAuditTrail(
+            List<PauseGovernanceAuditStore> stores,
+            PauseGovernanceAuditMetrics auditMetrics
+    ) {
+        this(DEFAULT_MAX_EVENTS, stores, auditMetrics);
     }
 
     PauseGovernanceAuditTrail(int maxEvents) {
-        this(maxEvents, List.of());
+        this(maxEvents, List.of(), new PauseGovernanceAuditMetrics());
     }
 
     PauseGovernanceAuditTrail(int maxEvents, List<PauseGovernanceAuditStore> stores) {
+        this(maxEvents, stores, new PauseGovernanceAuditMetrics());
+    }
+
+    PauseGovernanceAuditTrail(
+            int maxEvents,
+            List<PauseGovernanceAuditStore> stores,
+            PauseGovernanceAuditMetrics auditMetrics
+    ) {
         if (maxEvents <= 0) {
             throw new IllegalArgumentException("maxEvents must be positive");
         }
         this.maxEvents = maxEvents;
         this.stores = stores == null ? List.of() : List.copyOf(stores);
+        this.auditMetrics = Objects.requireNonNull(auditMetrics, "auditMetrics");
     }
 
     public synchronized void record(PauseGovernanceAuditEvent event) {
@@ -53,6 +66,7 @@ public final class PauseGovernanceAuditTrail {
             try {
                 store.record(normalizedEvent);
             } catch (PauseGovernanceAuditStoreException exception) {
+                auditMetrics.auditStoreFailure("record", store.storeName());
                 log.warn("failed to persist pause governance audit event", exception);
             }
         }
@@ -72,6 +86,7 @@ public final class PauseGovernanceAuditTrail {
             try {
                 return stores.getFirst().recent(provider, environment, account, market, limit);
             } catch (PauseGovernanceAuditStoreException exception) {
+                auditMetrics.auditStoreFailure("query", stores.getFirst().storeName());
                 log.warn("failed to query persisted pause governance audit events", exception);
             }
         }

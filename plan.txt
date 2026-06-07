@@ -89,6 +89,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Projected active pauses crossing a valid `pause_expires_at` are now observed by a scheduled pause expiry monitor, which emits one `pause_governance_expired` audit record and one `trading.pause_governance.expiry.transitions` metric per projected pause expiry without mutating projection state or touching the exchange.
 - Recent pause activation, pause release, explicit pause override, and pause expiry audit records can now be queried through `GET /internal/interventions/pauses/audit-events`.
 - Pause governance audit records can now be persisted to an optional append-only JSONL file store with `trading.audit.pause-governance.file-store.enabled=true`; when configured, the audit endpoint reads persisted audit records so recent pause governance audit history remains queryable after restart.
+- Audit-store persistence or query failures now emit `trading.pause_governance.audit_store.failures` tagged by `operation` and `store`, giving dashboards and alerts an explicit degradation signal.
 
 ### Remediation Command Planning And Execution
 
@@ -137,7 +138,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Automated remediation currently publishes decisions only; exchange execution still requires the executor execution path and explicit executor policy. There is no scheduled fully automatic executor loop yet.
 - Position remediation, order adoption, and order amendment controls are not exchange-executable yet.
 - Automated decision execution is currently triggered through the operator API; there is no scheduled live remediation loop yet.
-- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition counters, active-pause gauges, a recent audit-query endpoint, and optional JSONL-backed audit persistence, but they do not yet have dashboards, external alert routing, or a production-grade indexed audit backend.
+- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition/audit-store-failure counters, active-pause gauges, a recent audit-query endpoint, and optional JSONL-backed audit persistence, but they do not yet have dashboards, external alert routing, or a production-grade indexed audit backend.
 - Position remediation does not yet have a complete bounded sizing policy for close, reduce, or hedge actions.
 - Position remediation does not yet construct reduce-only orders or hedge orders.
 - External order adoption semantics are not yet defined enough for live execution.
@@ -165,13 +166,13 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery: 42 to 67 commits/slices.
+Estimated remaining delivery: 41 to 66 commits/slices.
 
 - Core remediation execution and governance: 1 to 5 slices.
 - Strategy runtime and trading lifecycle: 10 to 16 slices.
 - Persistence, recovery, and replay hardening: 6 to 10 slices.
 - Backtesting, paper/demo validation, and promotion gates: 6 to 10 slices.
-- Observability, alerts, and operator controls: 6 to 9 slices.
+- Observability, alerts, and operator controls: 5 to 8 slices.
 - Google Cloud infrastructure and CI/CD: 8 to 12 slices.
 - Security, secrets, operations, and live runbooks: 5 to 8 slices.
 - Final demo-live burn-in and real-live readiness: 4 to 7 slices.
@@ -189,6 +190,7 @@ Estimated remaining delivery: 42 to 67 commits/slices.
 - Scheduled pause expiry monitoring now emits one expiry audit record and one expiry-transition metric per projected active pause that crosses a valid `pause_expires_at`.
 - Recent pause activation, pause release, explicit pause override, and pause expiry audit records are queryable from the operator API.
 - Optional append-only JSONL persistence exists for pause governance audit records, and the operator audit endpoint reads persisted audit records when the store is enabled.
+- Audit-store persistence and query failures emit a Micrometer counter for operational alerting.
 - The remaining pause governance work is dashboards, external alert routing, and a production-grade indexed audit backend if JSONL is not sufficient for deployment.
 - Add operational dashboards and external alert routes for pause activation, expiry, override, release, and audit-store failures.
 - Add bounded position sizing policy for `REDUCE`, `CLOSE`, and `HEDGE`.

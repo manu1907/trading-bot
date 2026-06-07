@@ -632,12 +632,16 @@ Pause governance metrics:
   `trading.pause_governance.expiry.configured.events`.
 - Observed expiry transitions increment
   `trading.pause_governance.expiry.transitions`.
+- Audit store persistence or query failures increment
+  `trading.pause_governance.audit_store.failures`.
 - Release metric tags include `provider`, `environment`, `account`, `market`,
   `scope`, and `outcome`.
 - Override metric tags include `provider`, `environment`, `account`, `market`,
   `symbol`, `decision`, `outcome`, and `invalid_reason`.
 - Expiry-transition metric tags include `provider`, `environment`, `account`,
   `market`, and `scope`.
+- Audit-store failure metric tags include `operation` and `store`; expected
+  operations are `record` and `query`, and the JSONL store reports `store=file`.
 - Activation and expiry-configured counters are live-only metrics handlers, so
   journal replay and snapshot restore do not increment them.
 - The pause expiry monitor is enabled by default. Set

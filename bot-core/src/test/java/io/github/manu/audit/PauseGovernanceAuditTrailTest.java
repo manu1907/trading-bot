@@ -8,6 +8,7 @@ import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -99,6 +100,25 @@ class PauseGovernanceAuditTrailTest {
                 .singleElement()
                 .extracting(PauseGovernanceAuditTrail.PauseGovernanceAuditEvent::eventId)
                 .isEqualTo("persisted");
+    }
+
+    @Test
+    void records_store_failure_metrics_and_falls_back_to_memory() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        PauseGovernanceAuditTrail trail = new PauseGovernanceAuditTrail(
+                10,
+                List.of(new FailingPauseGovernanceAuditStore()),
+                new PauseGovernanceAuditMetrics(meterRegistry)
+        );
+
+        trail.record(event("fallback", "binance", "demo", "main", "usd_m_futures"));
+
+        assertThat(trail.recent("binance", "demo", "main", "usd_m_futures", 10))
+                .singleElement()
+                .extracting(PauseGovernanceAuditTrail.PauseGovernanceAuditEvent::eventId)
+                .isEqualTo("fallback");
+        assertThat(counter(meterRegistry, "record")).isEqualTo(1.0d);
+        assertThat(counter(meterRegistry, "query")).isEqualTo(1.0d);
     }
 
     private PauseGovernanceAuditTrail.PauseGovernanceAuditEvent event(
@@ -212,5 +232,37 @@ class PauseGovernanceAuditTrailTest {
                         NOW.plusSeconds(60).toString()
                 ))
                 .build();
+    }
+
+    private double counter(SimpleMeterRegistry meterRegistry, String operation) {
+        return meterRegistry.get("trading.pause_governance.audit_store.failures")
+                .tag("operation", operation)
+                .tag("store", "failing")
+                .counter()
+                .count();
+    }
+
+    private static final class FailingPauseGovernanceAuditStore implements PauseGovernanceAuditStore {
+
+        @Override
+        public void record(PauseGovernanceAuditTrail.PauseGovernanceAuditEvent event) {
+            throw new PauseGovernanceAuditStoreException("record failed", new RuntimeException("record failed"));
+        }
+
+        @Override
+        public List<PauseGovernanceAuditTrail.PauseGovernanceAuditEvent> recent(
+                String provider,
+                String environment,
+                String account,
+                String market,
+                int limit
+        ) {
+            throw new PauseGovernanceAuditStoreException("query failed", new RuntimeException("query failed"));
+        }
+
+        @Override
+        public String storeName() {
+            return "failing";
+        }
     }
 }
