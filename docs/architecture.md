@@ -94,6 +94,11 @@ The external live config is intentionally outside Spring config:
 - `config/runtime/live/{provider}/{environment}/{account}/{market}.json`:
   operator overrides for the active runtime target.
 
+For the current first demo run, the checked-in active runtime override is
+`config/runtime/live/binance/demo/main/usdm_futures.json`. It is scoped to the
+active Binance demo `main` USD-M futures target and keeps secrets out of source
+control.
+
 The loader merges `catalog.json`, then the active environment file, then the
 active runtime file. Unknown override paths are rejected. Runtime override
 files are created as empty JSON objects when the active target has no file yet.

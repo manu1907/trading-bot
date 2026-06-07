@@ -1,1 +1,120 @@
-{}
+{
+  "bot": {
+    "instance_id": "trading-bot-demo-main-usdm-futures",
+    "target_id": "binance_demo_main_usdm_futures"
+  },
+  "trading": {
+    "journal": {
+      "enabled": true,
+      "recovery": {
+        "enabled": true
+      }
+    },
+    "projection": {
+      "snapshot_store": {
+        "enabled": true
+      }
+    },
+    "messaging": {
+      "enabled": true,
+      "topics": {
+        "auto_create": true
+      },
+      "consumers": {
+        "enabled": true,
+        "auto_start": true
+      }
+    },
+    "audit": {
+      "pause_governance": {
+        "file_store": {
+          "enabled": true
+        }
+      }
+    },
+    "execution": {
+      "pipeline": {
+        "enabled": true
+      },
+      "signal_planner": {
+        "enabled": true,
+        "defaults": {
+          "provider": "binance",
+          "environment": "demo",
+          "account": "main",
+          "market": "usdm_futures",
+          "symbol": "BTCUSDT",
+          "client_order_id_prefix": "tb-demo"
+        }
+      }
+    },
+    "intervention": {
+      "remediation_orchestrator": {
+        "enabled": true
+      },
+      "automated_policy": {
+        "external_order_action": "CLOSE"
+      },
+      "automated_decision_service": {
+        "enabled": true
+      },
+      "automated_remediation_runner": {
+        "enabled": true,
+        "initial_delay_millis": 5000,
+        "target": {
+          "provider": "binance",
+          "environment": "demo",
+          "account": "main",
+          "market": "usdm_futures"
+        }
+      },
+      "remediation_executor_policy": {
+        "enabled": true,
+        "exchange_execution_enabled": true,
+        "report_only": false,
+        "allowed_operations": [
+          "CANCEL_ORDER"
+        ]
+      }
+    }
+  },
+  "exchange": {
+    "providers": {
+      "binance": {
+        "environments": {
+          "demo": {
+            "accounts": {
+              "main": {
+                "markets": {
+                  "usdm_futures": {
+                    "user_data": {
+                      "runtime_enabled": true
+                    },
+                    "market_data": {
+                      "runtime_enabled": true,
+                      "streams": [
+                        "btcusdt@bookTicker",
+                        "btcusdt@aggTrade"
+                      ]
+                    },
+                    "reconciliation": {
+                      "runtime_enabled": true,
+                      "interval_seconds": 30,
+                      "open_orders_enabled": true,
+                      "open_order_symbols": [
+                        "BTCUSDT"
+                      ],
+                      "futures_balances_enabled": true,
+                      "futures_account_enabled": true,
+                      "futures_positions_enabled": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

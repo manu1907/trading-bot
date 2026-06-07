@@ -43,6 +43,29 @@ class ConfigLoaderIntegrationTest {
     }
 
     @Test
+    void checked_in_demo_usdm_runtime_file_is_valid_for_first_start_target() throws IOException {
+        TestContext context = prepareContext("config-checked-in-demo-runtime");
+        ExchangeProperties active = readActiveSelection(context.configDir.resolve("active.json"));
+        copyCheckedInRuntimeFile(context.configDir, active);
+
+        TradingBotProperties loadedConfig = context.configLoader.loadBaseline(RuntimeProfile.LIVE);
+
+        assertThat(loadedConfig.getExchange()).isEqualTo(active);
+        assertThat(loadedConfig.getBot().instanceId()).isEqualTo("trading-bot-demo-main-usdm-futures");
+        ObjectNode activeMarket = activeMarketConfig(loadedConfig, active);
+        assertThat(activeMarket.path("user_data").path("runtime_enabled").asBoolean()).isTrue();
+        assertThat(activeMarket.path("market_data").path("runtime_enabled").asBoolean()).isTrue();
+        assertThat(activeMarket.path("market_data").path("streams"))
+                .extracting(JsonNode::asString)
+                .containsExactly("btcusdt@bookTicker", "btcusdt@aggTrade");
+        assertThat(activeMarket.path("reconciliation").path("runtime_enabled").asBoolean()).isTrue();
+        assertThat(activeMarket.path("reconciliation").path("open_orders_enabled").asBoolean()).isTrue();
+        assertThat(activeMarket.path("reconciliation").path("futures_balances_enabled").asBoolean()).isTrue();
+        assertThat(activeMarket.path("reconciliation").path("futures_account_enabled").asBoolean()).isTrue();
+        assertThat(activeMarket.path("reconciliation").path("futures_positions_enabled").asBoolean()).isTrue();
+    }
+
+    @Test
     void environment_config_overrides_catalog_defaults_for_active_target() throws IOException {
         TestContext context = prepareContext("config-environment-precedence");
         ExchangeProperties active = readActiveSelection(context.configDir.resolve("active.json"));
@@ -237,6 +260,29 @@ class ConfigLoaderIntegrationTest {
         jsonMapper.writerWithDefaultPrettyPrinter().writeValue(runtimeFile.toFile(), runtime);
     }
 
+    private void copyCheckedInRuntimeFile(Path configDir, ExchangeProperties active) throws IOException {
+        Path runtimeFile = runtimeFile(configDir, active);
+        Path parent = runtimeFile.getParent();
+        if (parent == null) {
+            throw new IOException("Runtime file has no parent directory: " + runtimeFile);
+        }
+        Files.createDirectories(parent);
+        Files.copy(
+                runtimeFile(resolveRepoConfigDir(), active),
+                runtimeFile,
+                StandardCopyOption.REPLACE_EXISTING
+        );
+    }
+
+    private Path runtimeFile(Path configDir, ExchangeProperties active) {
+        return configDir.resolve("runtime")
+                .resolve(RuntimeProfile.LIVE.id())
+                .resolve(active.provider())
+                .resolve(active.environment())
+                .resolve(active.account())
+                .resolve(active.market() + ".json");
+    }
+
     private void merge(ObjectNode target, ObjectNode patch) {
         patch.properties().forEach(entry -> {
             JsonNode existing = target.get(entry.getKey());
@@ -276,6 +322,20 @@ class ConfigLoaderIntegrationTest {
                 .path("rest")
                 .path("base_url")
                 .asString();
+    }
+
+    private ObjectNode activeMarketConfig(TradingBotProperties properties, ExchangeProperties active) {
+        JsonNode market = properties.getProviders().requiredActive(active.provider())
+                .path("environments")
+                .path(active.environment())
+                .path("accounts")
+                .path(active.account())
+                .path("markets")
+                .path(active.market());
+        if (!(market instanceof ObjectNode marketObject)) {
+            throw new IllegalArgumentException("Expected active market object for " + active);
+        }
+        return marketObject;
     }
 
     private ObjectNode requiredObject(ObjectNode parent, String key) {

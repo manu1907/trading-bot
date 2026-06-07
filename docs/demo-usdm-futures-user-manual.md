@@ -752,8 +752,22 @@ execution pipeline is enabled. It returns `SUBMITTED_TO_PIPELINE` after the
 command has been accepted by the pipeline; the final risk decision and order
 result are recorded through the normal event path.
 
-For the current demo USD-M futures target, the minimal runtime override for
-eligible remediation execution is:
+For the current demo USD-M futures target, the checked-in first-start runtime
+override lives here:
+
+```text
+config/runtime/live/binance/demo/main/usdm_futures.json
+```
+
+It selects the demo instance id, enables local journal/recovery and projection
+snapshot persistence, enables the event-driven runtime switches intended for
+demo operation, enables the execution pipeline, configures the signal planner's
+default target as `binance/demo/main/usdm_futures` with `BTCUSDT`, enables
+automated remediation policy for external order close decisions, enables the
+scheduled remediation runner, and enables the executor policy for the currently
+supported `CANCEL_ORDER` remediation path.
+
+The remediation execution portion of that runtime override is:
 
 ```json
 {
@@ -777,10 +791,14 @@ eligible remediation execution is:
 }
 ```
 
-This override does not make every remediation action executable. It only allows
+This checked-in override does not make every remediation action executable. It only allows
 the executor to submit currently supported `CANCEL_ORDER` plans through the
 normal order execution pipeline when all projection, identity, freshness, risk,
 and idempotency gates pass.
+
+Operator API authentication is not hardcoded in that runtime file. Set operator
+tokens and exchange credentials through environment variables or the deployment
+secret system, not source-controlled JSON.
 
 Acknowledge an order intervention:
 
