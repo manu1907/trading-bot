@@ -591,6 +591,18 @@ Pause override policy:
 - `pause_override_expires_at` must be in the future and within
   `max_override_seconds`, which defaults to `900`.
 
+Pause governance audit logging:
+
+- Successful pause releases emit structured `pause_governance_released` audit
+  records through `io.github.manu.audit.AuditLogger`.
+- Explicit pause override attempts emit structured `pause_override_evaluated`
+  audit records after the risk decision is built.
+- Override audit records include command identity, decision identity, final risk
+  decision, override actor, reason, expiry, and invalid reason when the override
+  request is rejected by policy.
+- These are log-based audit controls. Metrics, dashboards, alerts, and
+  operator audit-query endpoints are still planned work.
+
 Release active pause governance:
 
 ```bash
@@ -1187,6 +1199,8 @@ Current automated remediation execution state:
 - Active pause governance can be released through the operator API; release is
   recorded as a remediation decision event and projected as inactive pause
   state.
+- Successful pause releases and explicit pause override attempts are written as
+  structured audit log records.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become

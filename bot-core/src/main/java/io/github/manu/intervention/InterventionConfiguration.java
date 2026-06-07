@@ -1,5 +1,6 @@
 package io.github.manu.intervention;
 
+import io.github.manu.audit.AuditLogger;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.execution.OrderExecutionPipeline;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
@@ -38,9 +39,10 @@ public class InterventionConfiguration {
     @ConditionalOnBean(TradingEventBus.class)
     PauseGovernanceControlService pauseGovernanceControlService(
             TradingEventBus eventBus,
-            TradingStateProjection projection
+            TradingStateProjection projection,
+            AuditLogger auditLogger
     ) {
-        return new PauseGovernanceControlService(eventBus, projection);
+        return new PauseGovernanceControlService(eventBus, projection, auditLogger);
     }
 
     @Bean

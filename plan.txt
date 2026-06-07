@@ -82,6 +82,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Active pause governance can now be released through the operator API; release publishes a remediation decision event and projects the pause state as inactive for replay/restart safety.
 - Pause governance can now expire through a `pause_expires_at` ISO-8601 instant decision attribute; expired pauses remain auditable in projection but no longer block strategy or order admission.
 - Pause governance override policy now exists in the order risk gate. It is disabled by default and requires explicit override actor, reason, and bounded expiry command attributes when enabled.
+- Successful pause releases and explicit pause override attempts now emit structured audit log events through `AuditLogger`.
 
 ### Remediation Command Planning And Execution
 
@@ -129,7 +130,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Automated remediation currently publishes decisions only; exchange execution still requires the executor execution path and explicit executor policy. There is no scheduled fully automatic executor loop yet.
 - Position remediation, order adoption, and order amendment controls are not exchange-executable yet.
 - Automated decision execution is currently triggered through the operator API; there is no scheduled live remediation loop yet.
-- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, and have disabled-by-default override policy, but they do not yet have metrics or richer audit-control endpoints.
+- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, and structured release/override audit logs, but they do not yet have metrics, dashboards, alerts, or richer audit-query endpoints.
 - Position remediation does not yet have a complete bounded sizing policy for close, reduce, or hedge actions.
 - Position remediation does not yet construct reduce-only orders or hedge orders.
 - External order adoption semantics are not yet defined enough for live execution.
@@ -157,9 +158,9 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery: 50 to 75 commits/slices.
+Estimated remaining delivery: 49 to 74 commits/slices.
 
-- Core remediation execution and governance: 7 to 13 slices.
+- Core remediation execution and governance: 6 to 12 slices.
 - Strategy runtime and trading lifecycle: 10 to 16 slices.
 - Persistence, recovery, and replay hardening: 6 to 10 slices.
 - Backtesting, paper/demo validation, and promotion gates: 6 to 10 slices.
@@ -174,8 +175,9 @@ Estimated remaining delivery: 50 to 75 commits/slices.
 - Pause governance can be released by operator API through replayable remediation decision events.
 - Pause governance can expire from replayed decision attributes.
 - Pause governance override policy exists in order risk-gate admission and remains disabled by default.
-- The remaining pause governance work is metrics, audit summaries, and operations controls.
-- Add metrics and audit events for pause activation, expiry, override, and release.
+- Structured audit logs exist for pause release and explicit override attempts.
+- The remaining pause governance work is metrics, dashboards, alerts, audit summaries/query endpoints, and optional activation/expiry audit records.
+- Add metrics and operational alerts for pause activation, expiry, override, and release.
 - Add bounded position sizing policy for `REDUCE`, `CLOSE`, and `HEDGE`.
 - Implement position close/reduce/hedge planning only after sizing, reduce-only rules, margin mode, leverage, symbol capability, and account risk limits are explicit.
 - Implement order adoption policy only after ownership transfer, client order id handling, reconciliation, and rollback behavior are defined.
@@ -267,7 +269,7 @@ Estimated remaining delivery: 50 to 75 commits/slices.
 
 ## Next Work In Dependency Order
 
-1. Add pause governance metrics and audit controls.
+1. Add pause governance metrics, dashboards, alerts, and audit-query controls.
 2. Add bounded position remediation sizing policy for `REDUCE`, `CLOSE`, and `HEDGE` before any position action can be executable.
 3. Implement position close/reduce planning with reduce-only constraints and provider capability validation.
 4. Implement hedge planning only after hedge sizing, margin mode, leverage, symbol capability, and account risk constraints are explicit.

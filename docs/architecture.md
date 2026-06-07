@@ -565,6 +565,10 @@ source-controlled defaults keep it disabled, and when enabled it requires
 time-bounded `pause_override_expires_at` command attribute inside the configured
 maximum override window. Strategy signal planning still suppresses paused
 targets, so strategy code cannot self-authorize around pause governance.
+Successful pause releases and explicit pause override attempts emit structured
+audit records through `AuditLogger`; those logs provide replay-adjacent
+operational evidence while metrics, dashboards, and audit-query endpoints are
+still future work.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

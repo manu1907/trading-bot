@@ -1,5 +1,6 @@
 package io.github.manu.execution;
 
+import io.github.manu.audit.AuditLogger;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
@@ -24,6 +25,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class OrderRiskGateTest {
 
@@ -458,6 +462,33 @@ class OrderRiskGateTest {
                 .containsEntry("pause_override_by", "operator")
                 .containsEntry("pause_override_reason", "controlled test order")
                 .containsEntry("pause_override_expires_at", NOW.plusSeconds(60).toString());
+    }
+
+    @Test
+    void audits_pause_override_attempt_after_risk_decision_is_built() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        AuditLogger auditLogger = mock(AuditLogger.class);
+        OrderCommandEvent command = commandWithAttributes(Map.of(
+                "pause_override",
+                "true",
+                "pause_override_by",
+                "operator",
+                "pause_override_reason",
+                "controlled test order",
+                "pause_override_expires_at",
+                NOW.plusSeconds(60).toString()
+        ));
+
+        RiskDecisionEvent decision = new OrderRiskGate(
+                propertiesWithPauseOverride(),
+                reconciliationTracker,
+                projectionWithPause("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL"),
+                auditLogger,
+                clock
+        ).evaluate(command);
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        verify(auditLogger).pauseOverrideEvaluated(any(OrderCommandEvent.class), any(RiskDecisionEvent.class));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package io.github.manu.intervention;
 
+import io.github.manu.audit.AuditLogger;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
@@ -24,11 +25,20 @@ public final class PauseGovernanceControlService {
 
     private final TradingEventBus eventBus;
     private final TradingStateProjection projection;
+    private final AuditLogger auditLogger;
     private final Clock clock;
     private final Supplier<String> idSupplier;
 
     public PauseGovernanceControlService(TradingEventBus eventBus, TradingStateProjection projection) {
-        this(eventBus, projection, Clock.systemUTC(), () -> UUID.randomUUID().toString());
+        this(eventBus, projection, new AuditLogger());
+    }
+
+    public PauseGovernanceControlService(
+            TradingEventBus eventBus,
+            TradingStateProjection projection,
+            AuditLogger auditLogger
+    ) {
+        this(eventBus, projection, auditLogger, Clock.systemUTC(), () -> UUID.randomUUID().toString());
     }
 
     PauseGovernanceControlService(
@@ -37,8 +47,19 @@ public final class PauseGovernanceControlService {
             Clock clock,
             Supplier<String> idSupplier
     ) {
+        this(eventBus, projection, new AuditLogger(), clock, idSupplier);
+    }
+
+    PauseGovernanceControlService(
+            TradingEventBus eventBus,
+            TradingStateProjection projection,
+            AuditLogger auditLogger,
+            Clock clock,
+            Supplier<String> idSupplier
+    ) {
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.projection = Objects.requireNonNull(projection, "projection");
+        this.auditLogger = Objects.requireNonNull(auditLogger, "auditLogger");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.idSupplier = Objects.requireNonNull(idSupplier, "idSupplier");
     }
@@ -81,7 +102,16 @@ public final class PauseGovernanceControlService {
                 .setDecidedAtMicros(Instant.now(clock))
                 .setAttributes(attributes(activePause, request))
                 .build();
-        return eventBus.publish(envelope(event, pauseScope, pauseTarget));
+        return eventBus.publish(envelope(event, pauseScope, pauseTarget))
+                .thenApply(published -> {
+                    auditLogger.pauseGovernanceReleased(
+                            event,
+                            pauseScope,
+                            pauseTarget,
+                            activePause.remediationId()
+                    );
+                    return published;
+                });
     }
 
     private TradingStateProjection.PauseGovernanceState activePause(

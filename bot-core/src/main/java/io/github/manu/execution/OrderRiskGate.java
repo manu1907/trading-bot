@@ -1,5 +1,6 @@
 package io.github.manu.execution;
 
+import io.github.manu.audit.AuditLogger;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
@@ -60,15 +61,25 @@ public final class OrderRiskGate {
     private final ExecutionProperties properties;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
     private final TradingStateProjection tradingStateProjection;
+    private final AuditLogger auditLogger;
     private final Clock clock;
 
-    @Autowired
     public OrderRiskGate(
             ExecutionProperties properties,
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             TradingStateProjection tradingStateProjection
     ) {
-        this(properties, reconciliationConfidenceTracker, tradingStateProjection, Clock.systemUTC());
+        this(properties, reconciliationConfidenceTracker, tradingStateProjection, new AuditLogger(), Clock.systemUTC());
+    }
+
+    @Autowired
+    public OrderRiskGate(
+            ExecutionProperties properties,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            TradingStateProjection tradingStateProjection,
+            AuditLogger auditLogger
+    ) {
+        this(properties, reconciliationConfidenceTracker, tradingStateProjection, auditLogger, Clock.systemUTC());
     }
 
     OrderRiskGate(
@@ -76,7 +87,7 @@ public final class OrderRiskGate {
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             Clock clock
     ) {
-        this(properties, reconciliationConfidenceTracker, new TradingStateProjection(), clock);
+        this(properties, reconciliationConfidenceTracker, new TradingStateProjection(), new AuditLogger(), clock);
     }
 
     OrderRiskGate(
@@ -85,12 +96,23 @@ public final class OrderRiskGate {
             TradingStateProjection tradingStateProjection,
             Clock clock
     ) {
+        this(properties, reconciliationConfidenceTracker, tradingStateProjection, new AuditLogger(), clock);
+    }
+
+    OrderRiskGate(
+            ExecutionProperties properties,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            TradingStateProjection tradingStateProjection,
+            AuditLogger auditLogger,
+            Clock clock
+    ) {
         this.properties = Objects.requireNonNull(properties, "properties");
         this.reconciliationConfidenceTracker = Objects.requireNonNull(
                 reconciliationConfidenceTracker,
                 "reconciliationConfidenceTracker"
         );
         this.tradingStateProjection = Objects.requireNonNull(tradingStateProjection, "tradingStateProjection");
+        this.auditLogger = Objects.requireNonNull(auditLogger, "auditLogger");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -162,7 +184,7 @@ public final class OrderRiskGate {
                 reasons.add(APPROVED_REASON);
             }
         }
-        return RiskDecisionEvent.newBuilder()
+        RiskDecisionEvent event = RiskDecisionEvent.newBuilder()
                 .setEventId("risk-decision:" + value(command.getCommandId()))
                 .setSchemaVersion(1)
                 .setDecisionId("risk-decision:" + value(command.getCommandId()))
@@ -181,6 +203,8 @@ public final class OrderRiskGate {
                 .setDecidedAtMicros(Instant.now(clock))
                 .setAttributes(attributes(command, reconciliationConfidence))
                 .build();
+        auditPauseOverride(command, event);
+        return event;
     }
 
     private List<String> reconciliationReasons(
@@ -200,6 +224,12 @@ public final class OrderRiskGate {
             reasons.add(DEGRADED_REASON);
         }
         return List.copyOf(reasons);
+    }
+
+    private void auditPauseOverride(OrderCommandEvent command, RiskDecisionEvent decision) {
+        if ("true".equals(attribute(decision, "pause_override_requested"))) {
+            auditLogger.pauseOverrideEvaluated(command, decision);
+        }
     }
 
     private ManualInterventionDecision manualInterventionDecision(
@@ -1132,6 +1162,13 @@ public final class OrderRiskGate {
             }
         }
         return null;
+    }
+
+    private String attribute(RiskDecisionEvent decision, String name) {
+        if (decision.getAttributes() == null) {
+            return null;
+        }
+        return value(decision.getAttributes().get(name));
     }
 
     private boolean booleanAttribute(OrderCommandEvent command, String name) {

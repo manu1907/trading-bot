@@ -1,5 +1,6 @@
 package io.github.manu.intervention;
 
+import io.github.manu.audit.AuditLogger;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.messaging.DeadLetterTradingEvent;
@@ -20,6 +21,7 @@ class InterventionConfigurationTest {
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withUserConfiguration(InterventionConfiguration.class, InterventionOperatorController.class)
             .withBean(TradingEventBus.class, NoopTradingEventBus::new)
+            .withBean(AuditLogger.class, AuditLogger::new)
             .withBean(TradingStateProjection.class, TradingStateProjection::new);
 
     @Test
