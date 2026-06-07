@@ -86,6 +86,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Pause release publication outcomes and explicit pause override evaluations now emit Micrometer counters for Prometheus scraping through Actuator.
 - Effective active account/symbol pause counts now emit low-cardinality Micrometer gauges through `trading.pause_governance.active.states`.
 - Live-only pause activation decisions now emit `trading.pause_governance.activation.events`; pause activations with a valid `pause_expires_at` now emit `trading.pause_governance.expiry.configured.events`.
+- Recent pause release and explicit pause override audit records can now be queried through `GET /internal/interventions/pauses/audit-events`.
 
 ### Remediation Command Planning And Execution
 
@@ -109,6 +110,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - `GET /internal/interventions/positions` lists projected position interventions.
 - `GET /internal/interventions/manual-reviews` lists manual review state.
 - `GET /internal/interventions/pauses` lists projected pause governance state.
+- `GET /internal/interventions/pauses/audit-events` lists recent in-memory pause governance audit records for release and override events.
 - `GET /internal/interventions/remediation` lists remediation recommendations.
 - `GET /internal/interventions/remediation/decisions` lists remediation decisions.
 - `GET /internal/interventions/remediation/plans` lists generated command plans.
@@ -133,7 +135,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Automated remediation currently publishes decisions only; exchange execution still requires the executor execution path and explicit executor policy. There is no scheduled fully automatic executor loop yet.
 - Position remediation, order adoption, and order amendment controls are not exchange-executable yet.
 - Automated decision execution is currently triggered through the operator API; there is no scheduled live remediation loop yet.
-- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured release/override audit logs, release/override/activation/expiry-configured counters, and active-pause gauges, but they do not yet have dashboards, alerts, actual expiry-transition alerting, or richer audit-query endpoints.
+- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured release/override audit logs, release/override/activation/expiry-configured counters, active-pause gauges, and a recent audit-query endpoint, but they do not yet have dashboards, alerts, actual expiry-transition alerting, or durable/searchable audit storage.
 - Position remediation does not yet have a complete bounded sizing policy for close, reduce, or hedge actions.
 - Position remediation does not yet construct reduce-only orders or hedge orders.
 - External order adoption semantics are not yet defined enough for live execution.
@@ -161,9 +163,9 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery: 46 to 71 commits/slices.
+Estimated remaining delivery: 45 to 70 commits/slices.
 
-- Core remediation execution and governance: 3 to 9 slices.
+- Core remediation execution and governance: 2 to 8 slices.
 - Strategy runtime and trading lifecycle: 10 to 16 slices.
 - Persistence, recovery, and replay hardening: 6 to 10 slices.
 - Backtesting, paper/demo validation, and promotion gates: 6 to 10 slices.
@@ -182,7 +184,8 @@ Estimated remaining delivery: 46 to 71 commits/slices.
 - Micrometer counters exist for pause release publication outcomes and explicit override evaluations.
 - Low-cardinality active-pause gauges exist for account and symbol pause scopes.
 - Live-only counters exist for pause activation decisions and pause activations with valid configured expiries.
-- The remaining pause governance work is dashboards, alerts, audit summaries/query endpoints, optional activation/expiry audit records, and actual expiry-transition alerting.
+- Recent pause release and explicit pause override audit records are queryable from the operator API.
+- The remaining pause governance work is dashboards, alerts, durable/searchable audit storage, optional activation/expiry audit records, and actual expiry-transition alerting.
 - Add operational alerts for pause activation, expiry, override, and release.
 - Add bounded position sizing policy for `REDUCE`, `CLOSE`, and `HEDGE`.
 - Implement position close/reduce/hedge planning only after sizing, reduce-only rules, margin mode, leverage, symbol capability, and account risk limits are explicit.
@@ -275,7 +278,7 @@ Estimated remaining delivery: 46 to 71 commits/slices.
 
 ## Next Work In Dependency Order
 
-1. Add pause governance dashboards, alerts, actual expiry-transition alerting, and audit-query controls.
+1. Add pause governance dashboards, alerts, actual expiry-transition alerting, and durable/searchable audit storage.
 2. Add bounded position remediation sizing policy for `REDUCE`, `CLOSE`, and `HEDGE` before any position action can be executable.
 3. Implement position close/reduce planning with reduce-only constraints and provider capability validation.
 4. Implement hedge planning only after hedge sizing, margin mode, leverage, symbol capability, and account risk constraints are explicit.

@@ -622,8 +622,17 @@ Pause governance metrics:
   `symbol`, `decision`, `outcome`, and `invalid_reason`.
 - Activation and expiry-configured counters are live-only metrics handlers, so
   journal replay and snapshot restore do not increment them.
-- Dashboards, alerts, actual expiry-transition alerting, and operator
-  audit-query endpoints are still planned work.
+- Recent pause release and override audit records can be queried through the
+  operator API.
+- Dashboards, alerts, and actual expiry-transition alerting are still planned
+  work.
+
+List recent pause governance audit records:
+
+```bash
+curl -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/interventions/pauses/audit-events?provider=binance&environment=demo&account=main&market=usdm_futures&limit=100'
+```
 
 Release active pause governance:
 
@@ -1229,6 +1238,8 @@ Current automated remediation execution state:
   gauges by pause scope.
 - Live pause activation decisions and pause activation decisions with a valid
   expiry are counted through live-only Micrometer handlers.
+- Recent pause release and explicit pause override audit records can be queried
+  through the operator API.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become

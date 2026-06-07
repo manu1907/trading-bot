@@ -7,12 +7,28 @@ import io.github.manu.runtime.RuntimeDescriptor;
 import net.logstash.logback.argument.StructuredArguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.Objects;
 
 @Component
 public class AuditLogger {
 
     private static final Logger log = LoggerFactory.getLogger(AuditLogger.class);
+
+    private final PauseGovernanceAuditTrail pauseGovernanceAuditTrail;
+
+    public AuditLogger() {
+        this(new PauseGovernanceAuditTrail());
+    }
+
+    @Autowired
+    public AuditLogger(PauseGovernanceAuditTrail pauseGovernanceAuditTrail) {
+        this.pauseGovernanceAuditTrail =
+                Objects.requireNonNull(pauseGovernanceAuditTrail, "pauseGovernanceAuditTrail");
+    }
 
     public void runtimeBootstrapped(RuntimeDescriptor descriptor) {
         log.info(
@@ -68,6 +84,29 @@ public class AuditLogger {
             String pauseTarget,
             String sourcePauseRemediationId
     ) {
+        pauseGovernanceAuditTrail.record(new PauseGovernanceAuditTrail.PauseGovernanceAuditEvent(
+                "pause_governance_released",
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                value(event.getSymbol()),
+                pauseScope,
+                pauseTarget,
+                value(event.getRemediationId()),
+                value(event.getEventId()),
+                sourcePauseRemediationId,
+                null,
+                null,
+                null,
+                null,
+                "released",
+                value(event.getDecidedBy()),
+                value(event.getDecisionReason()),
+                attribute(event, "pause_expires_at"),
+                null,
+                instant(event.getDecidedAtMicros())
+        ));
         log.info(
                 "pause governance released",
                 StructuredArguments.keyValue("event", "pause_governance_released"),
@@ -87,6 +126,29 @@ public class AuditLogger {
     }
 
     public void pauseOverrideEvaluated(OrderCommandEvent command, RiskDecisionEvent decision) {
+        pauseGovernanceAuditTrail.record(new PauseGovernanceAuditTrail.PauseGovernanceAuditEvent(
+                "pause_override_evaluated",
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket()),
+                value(command.getSymbol()),
+                null,
+                null,
+                null,
+                value(decision.getEventId()),
+                null,
+                value(command.getCommandId()),
+                value(command.getClientOrderId()),
+                value(decision.getDecisionId()),
+                decision.getDecision() == null ? null : decision.getDecision().name(),
+                "true".equals(attribute(decision, "pause_override_allowed")) ? "allowed" : "rejected",
+                attribute(decision, "pause_override_by"),
+                attribute(decision, "pause_override_reason"),
+                attribute(decision, "pause_override_expires_at"),
+                attribute(decision, "pause_override_invalid_reason"),
+                instant(decision.getDecidedAtMicros())
+        ));
         log.info(
                 "pause override evaluated",
                 StructuredArguments.keyValue("event", "pause_override_evaluated"),
@@ -113,6 +175,17 @@ public class AuditLogger {
             return null;
         }
         return value(decision.getAttributes().get(key));
+    }
+
+    private String attribute(RemediationDecisionEvent event, String key) {
+        if (event.getAttributes() == null) {
+            return null;
+        }
+        return value(event.getAttributes().get(key));
+    }
+
+    private Instant instant(Object value) {
+        return value instanceof Instant instant ? instant : null;
     }
 
     private String value(CharSequence value) {
