@@ -3,6 +3,7 @@ package io.github.manu.audit;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.runtime.RuntimeDescriptor;
 import net.logstash.logback.argument.StructuredArguments;
 import org.slf4j.Logger;
@@ -167,6 +168,49 @@ public class AuditLogger {
                 StructuredArguments.keyValue("pause_override_reason", attribute(decision, "pause_override_reason")),
                 StructuredArguments.keyValue("pause_override_expires_at", attribute(decision, "pause_override_expires_at")),
                 StructuredArguments.keyValue("pause_override_invalid_reason", attribute(decision, "pause_override_invalid_reason"))
+        );
+    }
+
+    public void pauseGovernanceExpired(TradingStateProjection.PauseGovernanceState state, Instant observedAt) {
+        Objects.requireNonNull(state, "state");
+        Instant expiresAt = state.expiresAt();
+        pauseGovernanceAuditTrail.record(new PauseGovernanceAuditTrail.PauseGovernanceAuditEvent(
+                "pause_governance_expired",
+                value(state.provider()),
+                value(state.environment()),
+                value(state.account()),
+                value(state.market()),
+                value(state.symbol()),
+                value(state.pauseScope()),
+                value(state.pauseTarget()),
+                value(state.remediationId()),
+                value(state.eventId()),
+                null,
+                null,
+                null,
+                null,
+                null,
+                "expired",
+                "pause_governance_expiry_monitor",
+                "pause_expires_at_elapsed",
+                expiresAt == null ? null : expiresAt.toString(),
+                null,
+                observedAt
+        ));
+        log.info(
+                "pause governance expired",
+                StructuredArguments.keyValue("event", "pause_governance_expired"),
+                StructuredArguments.keyValue("provider", value(state.provider())),
+                StructuredArguments.keyValue("environment", value(state.environment())),
+                StructuredArguments.keyValue("account", value(state.account())),
+                StructuredArguments.keyValue("market", value(state.market())),
+                StructuredArguments.keyValue("symbol", value(state.symbol())),
+                StructuredArguments.keyValue("pause_scope", value(state.pauseScope())),
+                StructuredArguments.keyValue("pause_target", value(state.pauseTarget())),
+                StructuredArguments.keyValue("remediation_id", value(state.remediationId())),
+                StructuredArguments.keyValue("event_id", value(state.eventId())),
+                StructuredArguments.keyValue("pause_expires_at", expiresAt == null ? null : expiresAt.toString()),
+                StructuredArguments.keyValue("observed_at", observedAt)
         );
     }
 

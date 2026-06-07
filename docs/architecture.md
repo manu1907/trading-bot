@@ -575,9 +575,15 @@ are exposed as low-cardinality gauges with
 pause activation decision counters use
 `trading.pause_governance.activation.events`; pause activations with a valid
 `pause_expires_at` also increment
-`trading.pause_governance.expiry.configured.events`. Recent pause release and
-override audit records are queryable through the operator API. Dashboards,
-alerts, and actual expiry-transition alerts are still future work.
+`trading.pause_governance.expiry.configured.events`. A scheduled pause expiry
+monitor observes projected active pauses that have crossed `pause_expires_at`
+and emits `pause_governance_expired` audit records plus the
+`trading.pause_governance.expiry.transitions` counter exactly once per projected
+pause expiry. It does not mutate projection state or call the exchange; expiry
+effectiveness remains derived from the replayable pause attributes. Recent
+pause release, override, and expiry audit records are queryable through the
+operator API. Dashboards, external alert routing, and durable/searchable audit
+storage are still future work.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

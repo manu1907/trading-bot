@@ -4,8 +4,10 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
+@EnableScheduling
 public class ObservabilityConfiguration {
 
     @Bean

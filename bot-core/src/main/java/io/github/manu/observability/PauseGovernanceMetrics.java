@@ -3,6 +3,7 @@ package io.github.manu.observability;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecisionEvent;
+import io.github.manu.projection.TradingStateProjection;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
@@ -18,6 +19,7 @@ public final class PauseGovernanceMetrics {
     static final String OVERRIDE_EVENTS = "trading.pause_governance.override.events";
     static final String ACTIVATION_EVENTS = "trading.pause_governance.activation.events";
     static final String EXPIRY_CONFIGURED_EVENTS = "trading.pause_governance.expiry.configured.events";
+    static final String EXPIRY_TRANSITION_EVENTS = "trading.pause_governance.expiry.transitions";
 
     private final MeterRegistry meterRegistry;
 
@@ -60,6 +62,18 @@ public final class PauseGovernanceMetrics {
                     .register(meterRegistry)
                     .increment();
         }
+    }
+
+    public void pauseExpired(TradingStateProjection.PauseGovernanceState state) {
+        Counter.builder(EXPIRY_TRANSITION_EVENTS)
+                .description("Projected active pause governance states observed after their configured expiry")
+                .tag("provider", tagValue(state.provider(), "unknown"))
+                .tag("environment", tagValue(state.environment(), "unknown"))
+                .tag("account", tagValue(state.account(), "unknown"))
+                .tag("market", tagValue(state.market(), "unknown"))
+                .tag("scope", tagValue(state.pauseScope(), "unknown"))
+                .register(meterRegistry)
+                .increment();
     }
 
     public void pauseOverrideEvaluated(OrderCommandEvent command, RiskDecisionEvent decision) {

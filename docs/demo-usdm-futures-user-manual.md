@@ -600,6 +600,9 @@ Pause governance audit logging:
 - Override audit records include command identity, decision identity, final risk
   decision, override actor, reason, expiry, and invalid reason when the override
   request is rejected by policy.
+- Projected active pauses that cross a valid `pause_expires_at` are observed by
+  the pause expiry monitor and emit structured `pause_governance_expired`
+  records once per projected pause expiry.
 
 Pause governance metrics:
 
@@ -616,16 +619,25 @@ Pause governance metrics:
   `trading.pause_governance.activation.events`.
 - Pause activation decisions with a valid `pause_expires_at` increment
   `trading.pause_governance.expiry.configured.events`.
+- Observed expiry transitions increment
+  `trading.pause_governance.expiry.transitions`.
 - Release metric tags include `provider`, `environment`, `account`, `market`,
   `scope`, and `outcome`.
 - Override metric tags include `provider`, `environment`, `account`, `market`,
   `symbol`, `decision`, `outcome`, and `invalid_reason`.
+- Expiry-transition metric tags include `provider`, `environment`, `account`,
+  `market`, and `scope`.
 - Activation and expiry-configured counters are live-only metrics handlers, so
   journal replay and snapshot restore do not increment them.
-- Recent pause release and override audit records can be queried through the
-  operator API.
-- Dashboards, alerts, and actual expiry-transition alerting are still planned
-  work.
+- The pause expiry monitor is enabled by default. Set
+  `trading.observability.pause-governance.expiry-monitor.enabled=false` to
+  disable it, or set
+  `trading.observability.pause-governance.expiry-monitor.interval-millis` to
+  change the scan interval from the default `30000`.
+- Recent pause release, override, and expiry audit records can be queried
+  through the operator API.
+- Dashboards, external alert routing, and durable/searchable audit storage are
+  still planned work.
 
 List recent pause governance audit records:
 
@@ -1238,8 +1250,12 @@ Current automated remediation execution state:
   gauges by pause scope.
 - Live pause activation decisions and pause activation decisions with a valid
   expiry are counted through live-only Micrometer handlers.
-- Recent pause release and explicit pause override audit records can be queried
-  through the operator API.
+- Projected active pauses crossing `pause_expires_at` are automatically observed
+  by the pause expiry monitor, which emits one expiry audit record and one
+  expiry-transition metric without mutating projection state or touching the
+  exchange.
+- Recent pause release, explicit pause override, and pause expiry audit records
+  can be queried through the operator API.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become
