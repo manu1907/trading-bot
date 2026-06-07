@@ -406,6 +406,87 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void rejects_pause_override_when_override_policy_is_disabled_by_default() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithPause("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL"))
+                .evaluate(commandWithAttributes(Map.of(
+                        "pause_override",
+                        "true",
+                        "pause_override_by",
+                        "operator",
+                        "pause_override_reason",
+                        "controlled test order",
+                        "pause_override_expires_at",
+                        NOW.plusSeconds(60).toString()
+                )));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly(
+                "pause_governance:symbol",
+                "pause_governance:override_invalid"
+        );
+        assertThat(decision.getAttributes())
+                .containsEntry("pause_override_enabled", "false")
+                .containsEntry("pause_override_requested", "true")
+                .containsEntry("pause_override_allowed", "false")
+                .containsEntry("pause_override_invalid_reason", "policy_disabled");
+    }
+
+    @Test
+    void approves_new_order_when_pause_override_policy_allows_audited_time_bounded_override() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(propertiesWithPauseOverride(), projectionWithPause("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL"))
+                .evaluate(commandWithAttributes(Map.of(
+                        "pause_override",
+                        "true",
+                        "pause_override_by",
+                        "operator",
+                        "pause_override_reason",
+                        "controlled test order",
+                        "pause_override_expires_at",
+                        NOW.plusSeconds(60).toString()
+                )));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("pause_governance:override", "risk_gate:approved");
+        assertThat(decision.getAttributes())
+                .containsEntry("pause_override_enabled", "true")
+                .containsEntry("pause_override_requested", "true")
+                .containsEntry("pause_override_allowed", "true")
+                .containsEntry("pause_override_by", "operator")
+                .containsEntry("pause_override_reason", "controlled test order")
+                .containsEntry("pause_override_expires_at", NOW.plusSeconds(60).toString());
+    }
+
+    @Test
+    void rejects_pause_override_when_override_expiry_exceeds_policy_window() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(propertiesWithPauseOverride(), projectionWithPause("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL"))
+                .evaluate(commandWithAttributes(Map.of(
+                        "pause_override",
+                        "true",
+                        "pause_override_by",
+                        "operator",
+                        "pause_override_reason",
+                        "controlled test order",
+                        "pause_override_expires_at",
+                        NOW.plusSeconds(901).toString()
+                )));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly(
+                "pause_governance:symbol",
+                "pause_governance:override_invalid"
+        );
+        assertThat(decision.getAttributes())
+                .containsEntry("pause_override_allowed", "false")
+                .containsEntry("pause_override_invalid_reason", "expiry_exceeds_policy");
+    }
+
+    @Test
     void approves_cancel_when_symbol_is_paused_by_governance() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -833,6 +914,19 @@ class OrderRiskGateTest {
                 null,
                 null,
                 orderLimit
+        ));
+    }
+
+    private ExecutionProperties propertiesWithPauseOverride() {
+        return new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                null,
+                null,
+                null,
+                null,
+                new ExecutionProperties.PauseGovernance(true, true, true, true, 900)
         ));
     }
 
@@ -1292,6 +1386,14 @@ class OrderRiskGateTest {
         return OrderCommandEvent.newBuilder(command())
                 .setPrice(null)
                 .setQuoteOrderQuantity(null)
+                .build();
+    }
+
+    private OrderCommandEvent commandWithAttributes(Map<String, String> attributes) {
+        Map<CharSequence, CharSequence> avroAttributes = new java.util.LinkedHashMap<>();
+        avroAttributes.putAll(attributes);
+        return OrderCommandEvent.newBuilder(command())
+                .setAttributes(avroAttributes)
                 .build();
     }
 

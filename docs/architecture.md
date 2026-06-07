@@ -559,7 +559,12 @@ operator-controlled release of a symbol or account pause to replay and restore
 as inactive pause governance state instead of a transient toggle. Pauses may
 also carry a `pause_expires_at` ISO-8601 instant attribute; expired pauses stay
 auditable in projection state but no longer block strategy admission or order
-risk-gate admission.
+risk-gate admission. Pause override is a separate order risk-gate policy:
+source-controlled defaults keep it disabled, and when enabled it requires
+`pause_override=true`, `pause_override_by`, `pause_override_reason`, and a
+time-bounded `pause_override_expires_at` command attribute inside the configured
+maximum override window. Strategy signal planning still suppresses paused
+targets, so strategy code cannot self-authorize around pause governance.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

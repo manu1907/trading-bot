@@ -118,7 +118,8 @@ public record ExecutionProperties(
             UnknownOrderStatus unknownOrderStatus,
             PendingOrderCommand pendingOrderCommand,
             OrderLimit orderLimit,
-            TargetOrder targetOrder
+            TargetOrder targetOrder,
+            PauseGovernance pauseGovernance
     ) {
 
         @ConstructorBinding
@@ -130,14 +131,15 @@ public record ExecutionProperties(
             pendingOrderCommand = pendingOrderCommand == null ? PendingOrderCommand.defaults() : pendingOrderCommand;
             orderLimit = orderLimit == null ? OrderLimit.defaults() : orderLimit;
             targetOrder = targetOrder == null ? TargetOrder.defaults() : targetOrder;
+            pauseGovernance = pauseGovernance == null ? PauseGovernance.defaults() : pauseGovernance;
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation) {
-            this(enabled, reconciliation, null, null, null, null, null);
+            this(enabled, reconciliation, null, null, null, null, null, null);
         }
 
         public RiskGate(Boolean enabled, Reconciliation reconciliation, ManualIntervention manualIntervention) {
-            this(enabled, reconciliation, manualIntervention, null, null, null, null);
+            this(enabled, reconciliation, manualIntervention, null, null, null, null, null);
         }
 
         public RiskGate(
@@ -146,7 +148,7 @@ public record ExecutionProperties(
                 ManualIntervention manualIntervention,
                 UnknownOrderStatus unknownOrderStatus
         ) {
-            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, null, null, null);
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, null, null, null, null);
         }
 
         public RiskGate(
@@ -156,7 +158,7 @@ public record ExecutionProperties(
                 UnknownOrderStatus unknownOrderStatus,
                 PendingOrderCommand pendingOrderCommand
         ) {
-            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, pendingOrderCommand, null, null);
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, pendingOrderCommand, null, null, null);
         }
 
         public RiskGate(
@@ -167,7 +169,28 @@ public record ExecutionProperties(
                 PendingOrderCommand pendingOrderCommand,
                 OrderLimit orderLimit
         ) {
-            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, pendingOrderCommand, orderLimit, null);
+            this(enabled, reconciliation, manualIntervention, unknownOrderStatus, pendingOrderCommand, orderLimit, null, null);
+        }
+
+        public RiskGate(
+                Boolean enabled,
+                Reconciliation reconciliation,
+                ManualIntervention manualIntervention,
+                UnknownOrderStatus unknownOrderStatus,
+                PendingOrderCommand pendingOrderCommand,
+                OrderLimit orderLimit,
+                TargetOrder targetOrder
+        ) {
+            this(
+                    enabled,
+                    reconciliation,
+                    manualIntervention,
+                    unknownOrderStatus,
+                    pendingOrderCommand,
+                    orderLimit,
+                    targetOrder,
+                    null
+            );
         }
 
         static RiskGate defaults() {
@@ -178,7 +201,8 @@ public record ExecutionProperties(
                     UnknownOrderStatus.defaults(),
                     PendingOrderCommand.defaults(),
                     OrderLimit.defaults(),
-                    TargetOrder.defaults()
+                    TargetOrder.defaults(),
+                    PauseGovernance.defaults()
             );
         }
     }
@@ -477,6 +501,36 @@ public record ExecutionProperties(
 
         static TargetOrder defaults() {
             return new TargetOrder(true, false, true, true, true, true, InterventionAction.MANUAL_REVIEW, true, true);
+        }
+    }
+
+    public record PauseGovernance(
+            Boolean overrideEnabled,
+            Boolean requireOverrideActor,
+            Boolean requireOverrideReason,
+            Boolean requireOverrideExpiry,
+            Integer maxOverrideSeconds
+    ) {
+
+        private static final int DEFAULT_MAX_OVERRIDE_SECONDS = 900;
+
+        @ConstructorBinding
+        public PauseGovernance {
+            overrideEnabled = Boolean.TRUE.equals(overrideEnabled);
+            requireOverrideActor = requireOverrideActor == null || Boolean.TRUE.equals(requireOverrideActor);
+            requireOverrideReason = requireOverrideReason == null || Boolean.TRUE.equals(requireOverrideReason);
+            requireOverrideExpiry = requireOverrideExpiry == null || Boolean.TRUE.equals(requireOverrideExpiry);
+            int normalizedMaxOverrideSeconds = maxOverrideSeconds == null
+                    ? DEFAULT_MAX_OVERRIDE_SECONDS
+                    : maxOverrideSeconds;
+            if (normalizedMaxOverrideSeconds <= 0) {
+                throw new IllegalArgumentException("maxOverrideSeconds must be positive");
+            }
+            maxOverrideSeconds = normalizedMaxOverrideSeconds;
+        }
+
+        static PauseGovernance defaults() {
+            return new PauseGovernance(false, true, true, true, DEFAULT_MAX_OVERRIDE_SECONDS);
         }
     }
 

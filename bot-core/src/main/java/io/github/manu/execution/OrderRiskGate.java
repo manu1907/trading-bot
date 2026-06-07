@@ -53,6 +53,8 @@ public final class OrderRiskGate {
     private static final String PROJECTED_TARGET_EXTERNAL_INTERVENTION_REASON = "order_target:external_intervention";
     private static final String ACCOUNT_PAUSED_REASON = "pause_governance:account";
     private static final String SYMBOL_PAUSED_REASON = "pause_governance:symbol";
+    private static final String PAUSE_OVERRIDE_REASON = "pause_governance:override";
+    private static final String PAUSE_OVERRIDE_INVALID_REASON = "pause_governance:override_invalid";
     private static final BigDecimal ZERO = BigDecimal.ZERO;
 
     private final ExecutionProperties properties;
@@ -282,12 +284,25 @@ public final class OrderRiskGate {
             return PauseGovernanceDecision.none();
         }
         List<TradingStateProjection.PauseGovernanceState> pauses = activePauseGovernance(command);
+        if (pauses.isEmpty()) {
+            return PauseGovernanceDecision.none();
+        }
+        PauseOverrideDecision overrideDecision = pauseOverrideDecision(
+                properties.riskGate().pauseGovernance(),
+                command
+        );
+        if (overrideDecision.allowed()) {
+            return new PauseGovernanceDecision(List.of(PAUSE_OVERRIDE_REASON), false);
+        }
         List<String> reasons = new ArrayList<>();
         if (pauses.stream().anyMatch(pause -> "ACCOUNT".equals(pause.pauseScope()))) {
             reasons.add(ACCOUNT_PAUSED_REASON);
         }
         if (pauses.stream().anyMatch(pause -> "SYMBOL".equals(pause.pauseScope()))) {
             reasons.add(SYMBOL_PAUSED_REASON);
+        }
+        if (overrideDecision.requested() && !overrideDecision.allowed()) {
+            reasons.add(PAUSE_OVERRIDE_INVALID_REASON);
         }
         return new PauseGovernanceDecision(List.copyOf(reasons), !reasons.isEmpty());
     }
@@ -304,6 +319,42 @@ public final class OrderRiskGate {
                 .filter(pause -> "ACCOUNT".equals(pause.pauseScope())
                         || "SYMBOL".equals(pause.pauseScope()) && Objects.equals(value(pause.pauseTarget()), symbol))
                 .toList();
+    }
+
+    private PauseOverrideDecision pauseOverrideDecision(
+            ExecutionProperties.PauseGovernance policy,
+            OrderCommandEvent command
+    ) {
+        boolean requested = booleanAttribute(command, "pause_override");
+        if (!requested) {
+            return new PauseOverrideDecision(false, false, null, null);
+        }
+        if (!policy.overrideEnabled()) {
+            return new PauseOverrideDecision(true, false, "policy_disabled", null);
+        }
+        String actor = attribute(command, "pause_override_by");
+        if (policy.requireOverrideActor() && actor == null) {
+            return new PauseOverrideDecision(true, false, "missing_actor", null);
+        }
+        String reason = attribute(command, "pause_override_reason");
+        if (policy.requireOverrideReason() && reason == null) {
+            return new PauseOverrideDecision(true, false, "missing_reason", null);
+        }
+        String expiresAtText = attribute(command, "pause_override_expires_at");
+        Instant expiresAt = instant(expiresAtText);
+        if (policy.requireOverrideExpiry() && expiresAt == null) {
+            return new PauseOverrideDecision(true, false, "missing_or_invalid_expiry", null);
+        }
+        Instant now = Instant.now(clock);
+        if (expiresAt != null) {
+            if (!expiresAt.isAfter(now)) {
+                return new PauseOverrideDecision(true, false, "expired", expiresAt);
+            }
+            if (expiresAt.isAfter(now.plusSeconds(policy.maxOverrideSeconds()))) {
+                return new PauseOverrideDecision(true, false, "expiry_exceeds_policy", expiresAt);
+            }
+        }
+        return new PauseOverrideDecision(true, true, null, expiresAt);
     }
 
     private ProjectionIdempotencyDecision projectionIdempotencyDecision(OrderCommandEvent command) {
@@ -749,6 +800,11 @@ public final class OrderRiskGate {
 
     private Map<CharSequence, CharSequence> pauseGovernanceAttributes(OrderCommandEvent command) {
         List<TradingStateProjection.PauseGovernanceState> pauses = activePauseGovernance(command);
+        PauseOverrideDecision overrideDecision = pauseOverrideDecision(
+                properties.riskGate().pauseGovernance(),
+                command
+        );
+        ExecutionProperties.PauseGovernance policy = properties.riskGate().pauseGovernance();
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         attributes.put("pause_governance_active", Boolean.toString(!pauses.isEmpty()));
         attributes.put(
@@ -775,6 +831,18 @@ public final class OrderRiskGate {
         putIfPresent(attributes, "pause_governance_expires_at", joined(pauses.stream()
                 .map(pause -> pause.expiresAt() == null ? null : pause.expiresAt().toString())
                 .toList()));
+        attributes.put("pause_override_enabled", Boolean.toString(policy.overrideEnabled()));
+        attributes.put("pause_override_requested", Boolean.toString(overrideDecision.requested()));
+        attributes.put("pause_override_allowed", Boolean.toString(overrideDecision.allowed()));
+        attributes.put("pause_override_max_seconds", Integer.toString(policy.maxOverrideSeconds()));
+        putIfPresent(attributes, "pause_override_by", attribute(command, "pause_override_by"));
+        putIfPresent(attributes, "pause_override_reason", attribute(command, "pause_override_reason"));
+        putIfPresent(attributes, "pause_override_invalid_reason", overrideDecision.invalidReason());
+        putIfPresent(
+                attributes,
+                "pause_override_expires_at",
+                overrideDecision.expiresAt() == null ? attribute(command, "pause_override_expires_at") : overrideDecision.expiresAt().toString()
+        );
         return Map.copyOf(attributes);
     }
 
@@ -1010,6 +1078,14 @@ public final class OrderRiskGate {
         }
     }
 
+    private record PauseOverrideDecision(
+            boolean requested,
+            boolean allowed,
+            String invalidReason,
+            Instant expiresAt
+    ) {
+    }
+
     private record DecimalField(String name, BigDecimal value, boolean invalid) {
     }
 
@@ -1056,6 +1132,23 @@ public final class OrderRiskGate {
             }
         }
         return null;
+    }
+
+    private boolean booleanAttribute(OrderCommandEvent command, String name) {
+        String value = attribute(command, name);
+        return value != null && Boolean.parseBoolean(value);
+    }
+
+    private Instant instant(String value) {
+        String text = value(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return Instant.parse(text);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private String value(CharSequence value) {

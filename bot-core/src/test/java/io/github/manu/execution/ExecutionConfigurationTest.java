@@ -22,6 +22,11 @@ class ExecutionConfigurationTest {
                         "trading.execution.risk-gate.unknown-order-status.apply-to-target-commands=true",
                         "trading.execution.risk-gate.pending-order-command.action=allow-new-commands",
                         "trading.execution.risk-gate.pending-order-command.apply-to-target-commands=true",
+                        "trading.execution.risk-gate.pause-governance.override-enabled=true",
+                        "trading.execution.risk-gate.pause-governance.require-override-actor=true",
+                        "trading.execution.risk-gate.pause-governance.require-override-reason=true",
+                        "trading.execution.risk-gate.pause-governance.require-override-expiry=true",
+                        "trading.execution.risk-gate.pause-governance.max-override-seconds=300",
                         "trading.execution.idempotency.reject-projected-duplicates=false"
                 )
                 .run(context -> {
@@ -41,6 +46,11 @@ class ExecutionConfigurationTest {
                     assertThat(properties.riskGate().pendingOrderCommand().action())
                             .isEqualTo(ExecutionProperties.InterventionAction.ALLOW_NEW_COMMANDS);
                     assertThat(properties.riskGate().pendingOrderCommand().applyToTargetCommands()).isTrue();
+                    assertThat(properties.riskGate().pauseGovernance().overrideEnabled()).isTrue();
+                    assertThat(properties.riskGate().pauseGovernance().requireOverrideActor()).isTrue();
+                    assertThat(properties.riskGate().pauseGovernance().requireOverrideReason()).isTrue();
+                    assertThat(properties.riskGate().pauseGovernance().requireOverrideExpiry()).isTrue();
+                    assertThat(properties.riskGate().pauseGovernance().maxOverrideSeconds()).isEqualTo(300);
                     assertThat(properties.idempotency().rejectProjectedDuplicates()).isFalse();
                 });
     }

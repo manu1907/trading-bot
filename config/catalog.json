@@ -79,6 +79,13 @@
           "reject_external_intervention": true,
           "allow_external_remediation_cancel": true,
           "action": "MANUAL_REVIEW"
+        },
+        "pause_governance": {
+          "override_enabled": false,
+          "require_override_actor": true,
+          "require_override_reason": true,
+          "require_override_expiry": true,
+          "max_override_seconds": 900
         }
       }
     },

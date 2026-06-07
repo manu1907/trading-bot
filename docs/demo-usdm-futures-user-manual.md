@@ -577,6 +577,20 @@ The timestamp must be an ISO-8601 instant. Invalid or missing expiry values do
 not auto-release a pause; this is intentional so malformed expiry data does not
 accidentally resume trading.
 
+Pause override policy:
+
+- `trading.execution.risk_gate.pause_governance.override_enabled` defaults to
+  `false`.
+- Overrides apply only in the order risk gate for explicitly constructed order
+  commands.
+- Strategy signal planning still suppresses paused targets; strategy code
+  cannot self-authorize around pause governance.
+- When override is enabled, a command must carry `pause_override=true`,
+  `pause_override_by`, `pause_override_reason`, and
+  `pause_override_expires_at`.
+- `pause_override_expires_at` must be in the future and within
+  `max_override_seconds`, which defaults to `900`.
+
 Release active pause governance:
 
 ```bash
@@ -1167,6 +1181,9 @@ Current automated remediation execution state:
   non-cancel order commands at the risk gate for paused accounts or symbols.
 - Pause governance can expire through a `pause_expires_at` decision attribute;
   expired pauses remain visible but are no longer effective admission blocks.
+- Pause governance override exists as a disabled-by-default order risk-gate
+  policy requiring explicit actor, reason, and bounded expiry command
+  attributes.
 - Active pause governance can be released through the operator API; release is
   recorded as a remediation decision event and projected as inactive pause
   state.
