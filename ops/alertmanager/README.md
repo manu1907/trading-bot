@@ -29,3 +29,7 @@ Required deployment secrets or environment substitutions:
 
 Do not commit real webhook URLs or PagerDuty routing keys. Inject them through the
 selected deployment secret system.
+
+The Google Cloud demo deployment contract in
+`ops/google-cloud/demo-usdm-futures-deployment.yml` maps these substitutions to
+Google Secret Manager secret names for the Binance USD-M futures demo target.

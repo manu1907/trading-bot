@@ -617,7 +617,14 @@ and platform notification channels lives in
 `ops/alertmanager/pause-governance-alertmanager.yml`; and an importable Grafana
 dashboard lives in `ops/grafana/pause-governance-dashboard.json`. Real webhook
 URLs and PagerDuty routing keys must be injected through deployment secrets, not
-source-controlled config.
+source-controlled config. The first Google Cloud deployment contract for Binance
+USD-M futures demo lives in `ops/google-cloud/demo-usdm-futures-deployment.yml`;
+it selects Cloud Run, binds the active target through environment variables,
+maps Binance credentials, operator token, audit JDBC credentials, and
+Alertmanager receiver substitutions to Secret Manager names, disables ephemeral
+JSONL audit persistence for Cloud Run, and selects indexed JDBC audit
+persistence with deployment-owned schema migration, 180-day retention, Cloud SQL
+automated backups, and 90-day restore drills.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

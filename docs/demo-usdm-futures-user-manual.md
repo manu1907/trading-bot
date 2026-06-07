@@ -682,8 +682,17 @@ Pause governance metrics:
   `routing_hint` to operator/platform PagerDuty and Slack receivers.
 - Real webhook URLs, Slack channels, and PagerDuty routing keys must be injected
   through deployment secrets.
-- Concrete external notification-channel routing and a production-grade indexed
-  audit backend beyond the source-controlled Alertmanager profile are still
+- The first Google Cloud demo deployment contract lives in
+  `ops/google-cloud/demo-usdm-futures-deployment.yml`.
+- That contract maps Binance credentials, operator token, audit JDBC
+  credentials, and Alertmanager receiver substitutions to Google Secret Manager
+  names.
+- For Cloud Run, that contract disables ephemeral JSONL audit persistence and
+  selects indexed JDBC pause-governance audit persistence.
+- The demo JDBC audit backend is specified as Cloud SQL PostgreSQL with
+  deployment-owned schema migration, 180-day retention, Cloud SQL automated
+  backups, at least 7 recovery days, and a 90-day restore-drill interval.
+- Full infrastructure provisioning and CI/CD deployment workflows are still
   planned work.
 
 List recent pause governance audit records:

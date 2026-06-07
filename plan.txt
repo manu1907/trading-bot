@@ -102,6 +102,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Prometheus-compatible pause governance alert rules now exist in `ops/prometheus/pause-governance-alerts.yml` for active pauses, activation, release publish failures, overrides, expiry transitions, and audit-store failures.
 - Alertmanager routing for pause governance alerts now exists in `ops/alertmanager/pause-governance-alertmanager.yml`, mapping `routing_hint` and `severity` labels to operator/platform PagerDuty and Slack receivers with source-controlled placeholders for deployment-injected secrets.
 - An importable Grafana pause governance dashboard now exists in `ops/grafana/pause-governance-dashboard.json`.
+- A Google Cloud demo deployment contract now exists at `ops/google-cloud/demo-usdm-futures-deployment.yml`; it selects Cloud Run for `binance/demo/main/usdm_futures`, binds the active target through runtime environment variables, maps Binance credentials, operator token, audit JDBC credentials, and Alertmanager receiver substitutions to Secret Manager names, disables ephemeral JSONL audit persistence for Cloud Run, and selects indexed JDBC audit persistence with deployment-owned schema migration, 180-day retention, Cloud SQL automated backups, at least 7 recovery days, and 90-day restore drills.
 
 ### Remediation Command Planning And Execution
 
@@ -152,7 +153,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Automated remediation can now run on a schedule when explicitly enabled, but exchange execution still requires the executor execution path and explicit executor policy.
 - Position remediation, order adoption, and order amendment controls are not exchange-executable yet.
 - Scheduled live remediation is currently limited to projected decisions and the currently supported external-order cancel execution path.
-- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition/audit-store-failure counters, active-pause gauges, a recent audit-query endpoint, optional JSONL-backed audit persistence, optional indexed JDBC audit persistence, Prometheus alert rules, Alertmanager routing, and an importable Grafana dashboard, but they do not yet have deployment-injected real alert receiver secrets.
+- Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition/audit-store-failure counters, active-pause gauges, a recent audit-query endpoint, optional JSONL-backed audit persistence, optional indexed JDBC audit persistence, Prometheus alert rules, Alertmanager routing, Secret Manager binding names for demo alert receiver substitutions, and an importable Grafana dashboard, but real alert receiver secret values are still deployment-owned and not source controlled.
 - Position remediation does not yet construct reduce-only orders or hedge orders, even though bounded planning metadata exists.
 - External order adoption semantics are not yet defined enough for live execution.
 - Managed order amendment semantics are not yet defined enough for live execution.
@@ -208,8 +209,9 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 - Audit-store persistence and query failures emit a Micrometer counter for operational alerting.
 - Prometheus-compatible alert rules exist for active pauses, activation, release publish failures, overrides, expiry transitions, and audit-store failures.
 - An importable Grafana dashboard exists for active pauses, activation, release outcomes, overrides, expiry transitions, and audit-store failures.
-- The remaining pause governance work is deployment-injected real receiver secrets and deployment wiring for the selected audit backend.
-- Source-controlled Alertmanager routes exist for pause activation, expiry, override, release, and audit-store failures; deployment still has to inject real receiver secrets.
+- Source-controlled Alertmanager routes exist for pause activation, expiry, override, release, and audit-store failures.
+- Google Cloud demo Secret Manager binding names now exist for real Alertmanager receiver substitutions and the selected JDBC audit backend.
+- The remaining pause governance deployment work is creating the real Secret Manager values, provisioning Cloud SQL, rendering Alertmanager from secrets, and wiring the deployment pipeline.
 - Bounded position sizing metadata exists for `REDUCE`, `CLOSE`, and `HEDGE`.
 - Implement position close/reduce/hedge command construction only after reduce-only rules, margin mode, leverage, symbol capability, and account risk limits are explicit.
 - Implement order adoption policy only after ownership transfer, client order id handling, reconciliation, and rollback behavior are defined.
@@ -301,13 +303,12 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 
 ## Next Work In Dependency Order
 
-1. Wire deployment-injected Alertmanager receiver secrets and choose the deployment audit backend, including JDBC URL, credentials, schema ownership, retention, and backup policy.
-2. Implement position close/reduce command construction with reduce-only constraints and provider capability validation.
-3. Implement hedge command construction only after hedge-mode handling, margin mode, leverage, symbol capability, and account risk constraints are explicit.
-4. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
-5. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
-6. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.
-7. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
-8. Complete production deployment work: deployment config, secrets handling, observability, alerting, dashboards, runbooks, and incident procedures.
-9. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
-10. Keep the user manual and current-state documentation aligned after each capability change.
+1. Implement position close/reduce command construction with reduce-only constraints and provider capability validation.
+2. Implement hedge command construction only after hedge-mode handling, margin mode, leverage, symbol capability, and account risk constraints are explicit.
+3. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
+4. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
+5. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.
+6. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
+7. Complete Google Cloud infrastructure and CI/CD work: Cloud SQL provisioning, Secret Manager values, service accounts, Artifact Registry image build/publish, Cloud Run deployment, Alertmanager rendering from secrets, observability, deployment smoke tests, rollback, dashboards, runbooks, and incident procedures.
+8. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
+9. Keep the user manual and current-state documentation aligned after each capability change.
