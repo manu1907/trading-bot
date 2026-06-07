@@ -546,7 +546,7 @@ curl -H 'X-Operator-Token: <operator-token>' \
   'http://localhost:8080/internal/interventions/remediation/decisions?provider=binance&environment=demo&account=main&market=usdm_futures'
 ```
 
-List active pause governance:
+List pause governance:
 
 ```bash
 curl -H 'X-Operator-Token: <operator-token>' \
@@ -559,7 +559,23 @@ durable and auditable. The strategy signal planner suppresses new planned order
 commands for paused targets, and the order risk gate rejects non-cancel
 commands for paused accounts or symbols. Cancel commands can still pass the
 risk gate when their target-order checks pass, because cancelling can reduce
-existing risk.
+existing risk. Pause responses also include expiry state: `expiresAt`,
+`expired`, and `effectiveActive`.
+
+To create a time-bounded pause decision, include a `pause_expires_at` attribute
+on the remediation decision:
+
+```json
+{
+  "attributes": {
+    "pause_expires_at": "2026-06-07T14:00:00Z"
+  }
+}
+```
+
+The timestamp must be an ISO-8601 instant. Invalid or missing expiry values do
+not auto-release a pause; this is intentional so malformed expiry data does not
+accidentally resume trading.
 
 Release active pause governance:
 
@@ -1149,6 +1165,8 @@ Current automated remediation execution state:
   state that can be listed through the operator API.
 - Pause governance suppresses strategy-planned order commands and rejects
   non-cancel order commands at the risk gate for paused accounts or symbols.
+- Pause governance can expire through a `pause_expires_at` decision attribute;
+  expired pauses remain visible but are no longer effective admission blocks.
 - Active pause governance can be released through the operator API; release is
   recorded as a remediation decision event and projected as inactive pause
   state.

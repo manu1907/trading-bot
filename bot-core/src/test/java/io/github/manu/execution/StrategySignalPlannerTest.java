@@ -253,6 +253,20 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void plans_order_command_when_symbol_pause_governance_has_expired() {
+        StrategySignalPlanner planner = planner(projectionWithPause(
+                "SYMBOL",
+                "BTCUSDT",
+                "PAUSE_SYMBOL",
+                Map.of("pause_expires_at", NOW.minusSeconds(1).toString())
+        ));
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isPresent();
+    }
+
+    @Test
     void requires_target_when_signal_and_defaults_do_not_provide_it() {
         StrategySignalPlanner planner = new StrategySignalPlanner(
                 new ExecutionProperties(new ExecutionProperties.SignalPlanner(
@@ -285,6 +299,15 @@ class StrategySignalPlannerTest {
     }
 
     private TradingStateProjection projectionWithPause(String scope, String target, String action) {
+        return projectionWithPause(scope, target, action, Map.of());
+    }
+
+    private TradingStateProjection projectionWithPause(
+            String scope,
+            String target,
+            String action,
+            Map<String, String> attributes
+    ) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -308,7 +331,7 @@ class StrategySignalPlannerTest {
                         List.of("risk_policy"),
                         "automated_policy",
                         "pause until risk is resolved",
-                        Map.of(),
+                        attributes,
                         true,
                         NOW,
                         "evt-pause"

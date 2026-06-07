@@ -94,7 +94,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         String account = resolve(signal.getAccount(), properties.signalPlanner().defaults().account(), "account");
         String market = resolve(signal.getMarket(), properties.signalPlanner().defaults().market(), "market");
         String symbol = resolve(signal.getSymbol(), properties.signalPlanner().defaults().symbol(), "symbol");
-        if (tradingStateProjection.symbolPaused(provider, environment, account, market, symbol)) {
+        if (tradingStateProjection.symbolPaused(provider, environment, account, market, symbol, Instant.now(clock))) {
             return Optional.empty();
         }
         OrderCommandType orderType = orderType(signal, features);

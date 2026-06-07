@@ -389,6 +389,23 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void approves_new_order_when_symbol_pause_governance_has_expired() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithPause(
+                "SYMBOL",
+                SYMBOL,
+                SYMBOL,
+                "PAUSE_SYMBOL",
+                Map.of("pause_expires_at", NOW.minusSeconds(1).toString())
+        )).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes()).containsEntry("pause_governance_active", "false");
+    }
+
+    @Test
     void approves_cancel_when_symbol_is_paused_by_governance() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -1113,6 +1130,16 @@ class OrderRiskGateTest {
     }
 
     private TradingStateProjection projectionWithPause(String scope, String target, String symbol, String action) {
+        return projectionWithPause(scope, target, symbol, action, Map.of());
+    }
+
+    private TradingStateProjection projectionWithPause(
+            String scope,
+            String target,
+            String symbol,
+            String action,
+            Map<String, String> attributes
+    ) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -1121,7 +1148,7 @@ class OrderRiskGateTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of(pauseGovernanceState(scope, target, symbol, action)),
+                List.of(pauseGovernanceState(scope, target, symbol, action, attributes)),
                 List.of()
         ));
         return projection;
@@ -1136,7 +1163,7 @@ class OrderRiskGateTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of(pauseGovernanceState("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL")),
+                List.of(pauseGovernanceState("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL", Map.of())),
                 List.of()
         ));
         return projection;
@@ -1146,7 +1173,8 @@ class OrderRiskGateTest {
             String scope,
             String target,
             String symbol,
-            String action
+            String action,
+            Map<String, String> attributes
     ) {
         return new TradingStateProjection.PauseGovernanceState(
                 PROVIDER,
@@ -1163,7 +1191,7 @@ class OrderRiskGateTest {
                 List.of("risk_policy"),
                 "automated_policy",
                 "pause until risk is resolved",
-                Map.of(),
+                attributes,
                 true,
                 NOW,
                 "evt-pause"

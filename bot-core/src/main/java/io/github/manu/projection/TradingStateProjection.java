@@ -346,16 +346,31 @@ public final class TradingStateProjection implements TradingEventHandler {
     }
 
     public boolean accountPaused(String provider, String environment, String account, String market) {
-        return activePause(pauseGovernance.get(key(provider, environment, account, market, "ACCOUNT", account)));
+        return accountPaused(provider, environment, account, market, Instant.now());
+    }
+
+    public boolean accountPaused(String provider, String environment, String account, String market, Instant now) {
+        return activePause(pauseGovernance.get(key(provider, environment, account, market, "ACCOUNT", account)), now);
     }
 
     public boolean symbolPaused(String provider, String environment, String account, String market, String symbol) {
-        return accountPaused(provider, environment, account, market)
-                || activePause(pauseGovernance.get(key(provider, environment, account, market, "SYMBOL", symbol)));
+        return symbolPaused(provider, environment, account, market, symbol, Instant.now());
     }
 
-    private boolean activePause(PauseGovernanceState state) {
-        return state != null && Boolean.TRUE.equals(state.active());
+    public boolean symbolPaused(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            Instant now
+    ) {
+        return accountPaused(provider, environment, account, market, now)
+                || activePause(pauseGovernance.get(key(provider, environment, account, market, "SYMBOL", symbol)), now);
+    }
+
+    private boolean activePause(PauseGovernanceState state, Instant now) {
+        return state != null && state.effectiveActive(now);
     }
 
     public TradingStateSnapshot snapshot() {
@@ -1622,6 +1637,31 @@ public final class TradingStateProjection implements TradingEventHandler {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
             attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
             active = active == null || Boolean.TRUE.equals(active);
+        }
+
+        public Instant expiresAt() {
+            return instantAttribute("pause_expires_at");
+        }
+
+        public boolean expired(Instant now) {
+            Instant expiresAt = expiresAt();
+            return expiresAt != null && now != null && !expiresAt.isAfter(now);
+        }
+
+        public boolean effectiveActive(Instant now) {
+            return Boolean.TRUE.equals(active) && !expired(now);
+        }
+
+        private Instant instantAttribute(String key) {
+            String value = attributes.get(key);
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            try {
+                return Instant.parse(value.trim());
+            } catch (RuntimeException ignored) {
+                return null;
+            }
         }
     }
 }

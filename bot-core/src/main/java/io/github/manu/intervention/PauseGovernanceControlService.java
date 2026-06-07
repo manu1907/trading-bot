@@ -94,7 +94,7 @@ public final class PauseGovernanceControlService {
     ) {
         return projection.pauseGovernanceStates(provider, environment, account, market)
                 .stream()
-                .filter(TradingStateProjection.PauseGovernanceState::active)
+                .filter(pause -> pause.effectiveActive(Instant.now(clock)))
                 .filter(pause -> pauseScope.equals(pause.pauseScope()))
                 .filter(pause -> pauseTarget.equals(pause.pauseTarget()))
                 .findFirst()

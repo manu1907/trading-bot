@@ -1035,6 +1035,35 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void expired_pause_governance_is_inactive_for_time_aware_lookup_helpers() {
+        projection.apply(pauseRemediationDecision(
+                "evt-pause-symbol",
+                "remediation-pause-symbol",
+                "POSITION",
+                "PAUSE_SYMBOL",
+                SYMBOL,
+                timestamp(52),
+                Map.of(
+                        "source_recommendation",
+                        "pause-governance-test",
+                        "pause_expires_at",
+                        timestamp(53).toString()
+                )
+        ));
+
+        assertThat(projection.symbolPaused(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, timestamp(52))).isTrue();
+        assertThat(projection.symbolPaused(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, timestamp(53))).isFalse();
+        assertThat(projection.pauseGovernanceStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(pause -> {
+                    assertThat(pause.expiresAt()).isEqualTo(timestamp(53));
+                    assertThat(pause.expired(timestamp(52))).isFalse();
+                    assertThat(pause.expired(timestamp(53))).isTrue();
+                    assertThat(pause.effectiveActive(timestamp(53))).isFalse();
+                });
+    }
+
+    @Test
     void ignores_inactive_pause_governance_for_pause_lookup_helpers() {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -1383,6 +1412,28 @@ class TradingStateProjectionTest {
             String symbol,
             Instant decidedAt
     ) {
+        return pauseRemediationDecision(
+                eventId,
+                remediationId,
+                scope,
+                action,
+                symbol,
+                decidedAt,
+                Map.of("source_recommendation", "pause-governance-test")
+        );
+    }
+
+    private TradingEventEnvelope<RemediationDecisionEvent> pauseRemediationDecision(
+            String eventId,
+            String remediationId,
+            String scope,
+            String action,
+            String symbol,
+            Instant decidedAt,
+            Map<String, String> attributes
+    ) {
+        Map<CharSequence, CharSequence> avroAttributes = new LinkedHashMap<>();
+        avroAttributes.putAll(attributes);
         RemediationDecisionEvent event = RemediationDecisionEvent.newBuilder()
                 .setEventId(eventId)
                 .setSchemaVersion(1)
@@ -1401,7 +1452,7 @@ class TradingStateProjectionTest {
                 .setDecidedBy("automated_remediation_policy")
                 .setDecisionReason("policy selected pause governance")
                 .setDecidedAtMicros(decidedAt)
-                .setAttributes(Map.of("source_recommendation", "pause-governance-test"))
+                .setAttributes(avroAttributes)
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.REMEDIATION_DECISION,

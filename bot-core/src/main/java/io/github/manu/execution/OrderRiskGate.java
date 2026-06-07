@@ -300,7 +300,7 @@ public final class OrderRiskGate {
                         value(command.getAccount()),
                         value(command.getMarket())
                 ).stream()
-                .filter(pause -> Boolean.TRUE.equals(pause.active()))
+                .filter(pause -> pause.effectiveActive(Instant.now(clock)))
                 .filter(pause -> "ACCOUNT".equals(pause.pauseScope())
                         || "SYMBOL".equals(pause.pauseScope()) && Objects.equals(value(pause.pauseTarget()), symbol))
                 .toList();
@@ -771,6 +771,9 @@ public final class OrderRiskGate {
                 .toList()));
         putIfPresent(attributes, "pause_governance_actions", joined(pauses.stream()
                 .map(TradingStateProjection.PauseGovernanceState::action)
+                .toList()));
+        putIfPresent(attributes, "pause_governance_expires_at", joined(pauses.stream()
+                .map(pause -> pause.expiresAt() == null ? null : pause.expiresAt().toString())
                 .toList()));
         return Map.copyOf(attributes);
     }

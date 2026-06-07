@@ -556,7 +556,10 @@ accounts or symbols. Cancel commands remain admissible under pause governance
 so the bot can still reduce risk by cancelling unsafe or unwanted open orders.
 Pause releases are also recorded as remediation decision events, allowing
 operator-controlled release of a symbol or account pause to replay and restore
-as inactive pause governance state instead of a transient toggle.
+as inactive pause governance state instead of a transient toggle. Pauses may
+also carry a `pause_expires_at` ISO-8601 instant attribute; expired pauses stay
+auditable in projection state but no longer block strategy admission or order
+risk-gate admission.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

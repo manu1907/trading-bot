@@ -301,6 +301,10 @@ class InterventionOperatorControllerTest {
                 .jsonPath("$.pauses[0].action")
                 .isEqualTo("PAUSE_SYMBOL")
                 .jsonPath("$.pauses[0].active")
+                .isEqualTo(true)
+                .jsonPath("$.pauses[0].expired")
+                .isEqualTo(false)
+                .jsonPath("$.pauses[0].effectiveActive")
                 .isEqualTo(true);
     }
 

@@ -718,11 +718,15 @@ public final class InterventionOperatorController {
             String decisionReason,
             Map<String, String> attributes,
             boolean active,
+            Instant expiresAt,
+            boolean expired,
+            boolean effectiveActive,
             Instant updatedAt,
             String eventId
     ) {
 
         static PauseGovernanceResponse from(TradingStateProjection.PauseGovernanceState state) {
+            Instant now = Instant.now();
             return new PauseGovernanceResponse(
                     state.provider(),
                     state.environment(),
@@ -740,6 +744,9 @@ public final class InterventionOperatorController {
                     state.decisionReason(),
                     state.attributes(),
                     state.active(),
+                    state.expiresAt(),
+                    state.expired(now),
+                    state.effectiveActive(now),
                     state.updatedAt(),
                     state.eventId()
             );
