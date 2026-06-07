@@ -16,4 +16,11 @@ public class ObservabilityConfiguration {
     ) {
         return TradingEventHandlerRegistration.liveOnly(TradingEventType.REMEDIATION_DECISION, handler);
     }
+
+    @Bean
+    TradingEventHandlerRegistration pauseGovernanceDecisionAuditHandlerRegistration(
+            PauseGovernanceDecisionAuditHandler handler
+    ) {
+        return TradingEventHandlerRegistration.liveOnly(TradingEventType.REMEDIATION_DECISION, handler);
+    }
 }

@@ -79,6 +79,51 @@ public class AuditLogger {
         );
     }
 
+    public void pauseGovernanceActivated(RemediationDecisionEvent event, String pauseScope, String pauseTarget) {
+        String expiresAt = attribute(event, "pause_expires_at");
+        String invalidReason = invalidExpiryReason(expiresAt);
+        pauseGovernanceAuditTrail.record(new PauseGovernanceAuditTrail.PauseGovernanceAuditEvent(
+                "pause_governance_activated",
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                value(event.getSymbol()),
+                pauseScope,
+                pauseTarget,
+                value(event.getRemediationId()),
+                value(event.getEventId()),
+                null,
+                null,
+                null,
+                null,
+                null,
+                "activated",
+                value(event.getDecidedBy()),
+                value(event.getDecisionReason()),
+                expiresAt,
+                invalidReason,
+                instant(event.getDecidedAtMicros())
+        ));
+        log.info(
+                "pause governance activated",
+                StructuredArguments.keyValue("event", "pause_governance_activated"),
+                StructuredArguments.keyValue("provider", value(event.getProvider())),
+                StructuredArguments.keyValue("environment", value(event.getEnvironment())),
+                StructuredArguments.keyValue("account", value(event.getAccount())),
+                StructuredArguments.keyValue("market", value(event.getMarket())),
+                StructuredArguments.keyValue("symbol", value(event.getSymbol())),
+                StructuredArguments.keyValue("pause_scope", pauseScope),
+                StructuredArguments.keyValue("pause_target", pauseTarget),
+                StructuredArguments.keyValue("remediation_id", value(event.getRemediationId())),
+                StructuredArguments.keyValue("event_id", value(event.getEventId())),
+                StructuredArguments.keyValue("activated_by", value(event.getDecidedBy())),
+                StructuredArguments.keyValue("activation_reason", value(event.getDecisionReason())),
+                StructuredArguments.keyValue("pause_expires_at", expiresAt),
+                StructuredArguments.keyValue("pause_expires_at_invalid_reason", invalidReason)
+        );
+    }
+
     public void pauseGovernanceReleased(
             RemediationDecisionEvent event,
             String pauseScope,
@@ -230,6 +275,18 @@ public class AuditLogger {
 
     private Instant instant(Object value) {
         return value instanceof Instant instant ? instant : null;
+    }
+
+    private String invalidExpiryReason(String expiresAt) {
+        if (expiresAt == null) {
+            return null;
+        }
+        try {
+            Instant.parse(expiresAt);
+            return null;
+        } catch (RuntimeException ignored) {
+            return "invalid_pause_expires_at";
+        }
     }
 
     private String value(CharSequence value) {

@@ -593,6 +593,8 @@ Pause override policy:
 
 Pause governance audit logging:
 
+- Pause activation decisions emit structured `pause_governance_activated` audit
+  records on the live event path.
 - Successful pause releases emit structured `pause_governance_released` audit
   records through `io.github.manu.audit.AuditLogger`.
 - Explicit pause override attempts emit structured `pause_override_evaluated`
@@ -634,8 +636,8 @@ Pause governance metrics:
   disable it, or set
   `trading.observability.pause-governance.expiry-monitor.interval-millis` to
   change the scan interval from the default `30000`.
-- Recent pause release, override, and expiry audit records can be queried
-  through the operator API.
+- Recent pause activation, release, override, and expiry audit records can be
+  queried through the operator API.
 - Dashboards, external alert routing, and durable/searchable audit storage are
   still planned work.
 
@@ -1254,8 +1256,8 @@ Current automated remediation execution state:
   by the pause expiry monitor, which emits one expiry audit record and one
   expiry-transition metric without mutating projection state or touching the
   exchange.
-- Recent pause release, explicit pause override, and pause expiry audit records
-  can be queried through the operator API.
+- Recent pause activation, pause release, explicit pause override, and pause
+  expiry audit records can be queried through the operator API.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become

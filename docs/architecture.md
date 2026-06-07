@@ -565,12 +565,13 @@ source-controlled defaults keep it disabled, and when enabled it requires
 time-bounded `pause_override_expires_at` command attribute inside the configured
 maximum override window. Strategy signal planning still suppresses paused
 targets, so strategy code cannot self-authorize around pause governance.
-Successful pause releases and explicit pause override attempts emit structured
-audit records through `AuditLogger`. The same control points record Micrometer
-counters for Prometheus scraping: release publication outcomes use
-`trading.pause_governance.release.events`, and explicit override evaluations
-use `trading.pause_governance.override.events`. Effective active pause counts
-are exposed as low-cardinality gauges with
+Pause activation decisions, successful pause releases, explicit pause override
+attempts, and observed pause expiry transitions emit structured audit records
+through `AuditLogger`. The same control points record Micrometer counters for
+Prometheus scraping: release publication outcomes use
+`trading.pause_governance.release.events`, and explicit override evaluations use
+`trading.pause_governance.override.events`. Effective active pause counts are
+exposed as low-cardinality gauges with
 `trading.pause_governance.active.states` tagged by pause scope. Live-only
 pause activation decision counters use
 `trading.pause_governance.activation.events`; pause activations with a valid
@@ -581,7 +582,7 @@ and emits `pause_governance_expired` audit records plus the
 `trading.pause_governance.expiry.transitions` counter exactly once per projected
 pause expiry. It does not mutate projection state or call the exchange; expiry
 effectiveness remains derived from the replayable pause attributes. Recent
-pause release, override, and expiry audit records are queryable through the
+pause activation, release, override, and expiry audit records are queryable through the
 operator API. Dashboards, external alert routing, and durable/searchable audit
 storage are still future work.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
