@@ -598,9 +598,15 @@ through the operator API. The audit trail keeps a bounded in-memory buffer by
 default and can be backed by an append-only JSONL file store when
 `trading.audit.pause-governance.file-store.enabled=true`; the endpoint reads
 the file store when it is configured, so recent pause governance audit events
-remain available after restart. Dashboard deployment/customization,
-deployment-specific external alert routing, and a production-grade indexed audit
-backend are still future work. Audit store
+remain available after restart. A production-grade indexed JDBC audit store can
+also be enabled with `trading.audit.pause-governance.jdbc-store.enabled=true`;
+it stores the full audit event payload plus indexed provider, environment,
+account, market, event, remediation, pause target, actor, and occurrence-time
+columns, and can initialize its schema when
+`trading.audit.pause-governance.jdbc-store.initialize-schema=true`. JDBC is
+disabled by default and must receive its URL and credentials from deployment
+secrets. Dashboard deployment/customization and deployment-specific external
+alert routing are still future work. Audit store
 persistence or query failures increment
 `trading.pause_governance.audit_store.failures`, tagged by operation and store
 type, so dashboards and alert rules can detect degradation even when the

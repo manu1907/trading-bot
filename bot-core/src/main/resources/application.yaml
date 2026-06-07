@@ -46,6 +46,13 @@ trading:
       file-store:
         enabled: false
         path: data/audit/pause-governance-audit.jsonl
+      jdbc-store:
+        enabled: false
+        url: ${TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL:}
+        username: ${TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME:}
+        password: ${TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD:}
+        table-prefix: trading_audit_pause_governance_
+        initialize-schema: false
   observability:
     pause-governance:
       expiry-monitor:

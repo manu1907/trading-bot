@@ -53,6 +53,14 @@
         "file_store": {
           "enabled": false,
           "path": "data/audit/pause-governance-audit.jsonl"
+        },
+        "jdbc_store": {
+          "enabled": false,
+          "url": null,
+          "username": null,
+          "password": "",
+          "table_prefix": "trading_audit_pause_governance_",
+          "initialize_schema": false
         }
       }
     },

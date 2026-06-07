@@ -626,6 +626,15 @@ Pause governance audit logging:
 - When the file store is enabled, the operator audit endpoint reads persisted
   pause audit records, so recent activation, release, override, and expiry
   records remain queryable after restart.
+- Enable the optional indexed JDBC store with
+  `trading.audit.pause-governance.jdbc-store.enabled=true` when deployment
+  provides a database URL and credentials.
+- The JDBC store keeps the full audit event payload plus indexed provider,
+  environment, account, market, event, remediation, pause target, actor, and
+  occurrence-time columns for faster operational queries.
+- JDBC schema initialization is controlled by
+  `trading.audit.pause-governance.jdbc-store.initialize-schema`; keep it
+  deployment-controlled for managed production databases.
 
 Pause governance metrics:
 
@@ -963,6 +972,13 @@ Pause governance audit and observability defaults:
 - `trading.audit.pause_governance.file_store.enabled`: `false`
 - `trading.audit.pause_governance.file_store.path`:
   `data/audit/pause-governance-audit.jsonl`
+- `trading.audit.pause_governance.jdbc_store.enabled`: `false`
+- `trading.audit.pause_governance.jdbc_store.url`: `null`
+- `trading.audit.pause_governance.jdbc_store.username`: `null`
+- `trading.audit.pause_governance.jdbc_store.password`: empty string
+- `trading.audit.pause_governance.jdbc_store.table_prefix`:
+  `trading_audit_pause_governance_`
+- `trading.audit.pause_governance.jdbc_store.initialize_schema`: `false`
 - `trading.observability.pause_governance.expiry_monitor.enabled`: `true`
 - `trading.observability.pause_governance.expiry_monitor.interval_millis`:
   `30000`

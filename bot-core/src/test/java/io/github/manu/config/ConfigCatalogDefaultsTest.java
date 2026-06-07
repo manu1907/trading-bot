@@ -44,6 +44,13 @@ class ConfigCatalogDefaultsTest {
 
         assertBoolean(catalog, "trading.audit.pause_governance.file_store.enabled", false);
         assertText(catalog, "trading.audit.pause_governance.file_store.path", "data/audit/pause-governance-audit.jsonl");
+        assertBoolean(catalog, "trading.audit.pause_governance.jdbc_store.enabled", false);
+        assertNull(catalog, "trading.audit.pause_governance.jdbc_store.url");
+        assertNull(catalog, "trading.audit.pause_governance.jdbc_store.username");
+        assertText(catalog, "trading.audit.pause_governance.jdbc_store.password", "");
+        assertText(catalog, "trading.audit.pause_governance.jdbc_store.table_prefix",
+                "trading_audit_pause_governance_");
+        assertBoolean(catalog, "trading.audit.pause_governance.jdbc_store.initialize_schema", false);
 
         assertBoolean(catalog, "trading.observability.pause_governance.expiry_monitor.enabled", true);
         assertInt(catalog, "trading.observability.pause_governance.expiry_monitor.interval_millis", 30000);

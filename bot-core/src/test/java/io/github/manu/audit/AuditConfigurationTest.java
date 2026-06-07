@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.nio.file.Path;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -30,5 +31,25 @@ class AuditConfigurationTest {
                                 + temporaryDirectory.resolve("pause-governance.jsonl")
                 )
                 .run(context -> assertThat(context).hasSingleBean(PauseGovernanceAuditStore.class));
+    }
+
+    @Test
+    void registers_jdbc_store_when_enabled() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(AuditConfiguration.class)
+                .withPropertyValues(
+                        "trading.audit.pause-governance.jdbc-store.enabled=true",
+                        "trading.audit.pause-governance.jdbc-store.url=" + url(),
+                        "trading.audit.pause-governance.jdbc-store.table-prefix=trading_audit_test_",
+                        "trading.audit.pause-governance.jdbc-store.initialize-schema=true"
+                )
+                .run(context -> {
+                    assertThat(context).hasSingleBean(PauseGovernanceAuditStore.class);
+                    assertThat(context.getBean(PauseGovernanceAuditStore.class).storeName()).isEqualTo("jdbc");
+                });
+    }
+
+    private String url() {
+        return "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=PostgreSQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1";
     }
 }
