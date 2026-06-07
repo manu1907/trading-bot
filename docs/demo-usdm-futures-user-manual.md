@@ -653,10 +653,12 @@ Pause governance metrics:
   queried through the operator API.
 - Prometheus-compatible alert rules for pause governance live in
   `ops/prometheus/pause-governance-alerts.yml`.
+- An importable Grafana dashboard for pause governance lives in
+  `ops/grafana/pause-governance-dashboard.json`.
 - Deployment-specific routing still has to map alert labels such as `severity`
   and `routing_hint` to real notification channels.
-- Dashboards, concrete external notification-channel routing, and a
-  production-grade indexed audit backend are still planned work.
+- Concrete external notification-channel routing and a production-grade indexed
+  audit backend are still planned work.
 
 List recent pause governance audit records:
 

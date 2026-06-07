@@ -109,7 +109,7 @@ extensions.configure<SpotlessExtension> {
         endWithNewline()
     }
     format("json") {
-        target("config/**/*.json")
+        target("config/**/*.json", "ops/**/*.json")
         trimTrailingWhitespace()
         endWithNewline()
     }
