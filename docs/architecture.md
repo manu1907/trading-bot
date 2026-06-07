@@ -587,12 +587,16 @@ through the operator API. The audit trail keeps a bounded in-memory buffer by
 default and can be backed by an append-only JSONL file store when
 `trading.audit.pause-governance.file-store.enabled=true`; the endpoint reads
 the file store when it is configured, so recent pause governance audit events
-remain available after restart. Dashboards, external alert routing, and a
-production-grade indexed audit backend are still future work. Audit store
+remain available after restart. Dashboards, deployment-specific external alert
+routing, and a production-grade indexed audit backend are still future work. Audit store
 persistence or query failures increment
 `trading.pause_governance.audit_store.failures`, tagged by operation and store
 type, so dashboards and alert rules can detect degradation even when the
-in-memory fallback still serves recent events.
+in-memory fallback still serves recent events. Prometheus-compatible alert rules
+for the pause governance metrics live in
+`ops/prometheus/pause-governance-alerts.yml`; deployment-specific routing still
+has to map rule labels such as `severity` and `routing_hint` to actual
+notification channels.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

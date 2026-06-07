@@ -1,0 +1,115 @@
+groups:
+  - name: pause-governance
+    rules:
+      - alert: PauseGovernanceAccountActive
+        expr: trading_pause_governance_active_states{scope="ACCOUNT"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Account-level pause governance is active
+          description: >-
+            At least one account-level pause governance state is effectively
+            active. New non-cancel order admission should be blocked until the
+            account pause is released or expires.
+
+      - alert: PauseGovernanceSymbolActive
+        expr: trading_pause_governance_active_states{scope="SYMBOL"} > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Symbol-level pause governance is active
+          description: >-
+            At least one symbol-level pause governance state is effectively
+            active. New non-cancel order admission for the paused symbol should
+            be blocked until the symbol pause is released or expires.
+
+      - alert: PauseGovernanceActivationObserved
+        expr: increase(trading_pause_governance_activation_events_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Pause governance activation observed
+          description: >-
+            A live pause governance activation decision was observed in the last
+            five minutes. Inspect the pause audit trail and current intervention
+            state before allowing the bot to resume normal admission.
+
+      - alert: PauseGovernanceReleasePublishFailed
+        expr: increase(trading_pause_governance_release_events_total{outcome="publish_failed"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Pause governance release publication failed
+          description: >-
+            A pause release request failed to publish its replayable remediation
+            decision event. The pause may remain effective until a successful
+            release event is published or the configured expiry passes.
+
+      - alert: PauseGovernanceOverrideAllowed
+        expr: increase(trading_pause_governance_override_events_total{outcome="allowed"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Pause governance override was allowed
+          description: >-
+            An explicit order risk-gate pause override was allowed. Verify the
+            actor, reason, bounded expiry, command identity, and resulting risk
+            decision immediately.
+
+      - alert: PauseGovernanceOverrideRejected
+        expr: increase(trading_pause_governance_override_events_total{outcome="rejected"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Pause governance override was rejected
+          description: >-
+            An explicit pause override request was rejected by policy. Inspect
+            the invalid_reason label and audit trail to determine whether this
+            was expected operator behavior or a faulty caller.
+
+      - alert: PauseGovernanceExpiryTransitionObserved
+        expr: increase(trading_pause_governance_expiry_transitions_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Pause governance expiry transition observed
+          description: >-
+            A projected active pause crossed its configured pause_expires_at
+            instant. Confirm that strategy admission and risk-gate admission
+            resumed only as intended.
+
+      - alert: PauseGovernanceAuditStoreFailure
+        expr: increase(trading_pause_governance_audit_store_failures_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: platform
+        annotations:
+          summary: Pause governance audit store failure
+          description: >-
+            The pause governance audit store failed while recording or querying
+            audit events. Check the operation and store labels, filesystem
+            health, permissions, disk pressure, and whether the operator audit
+            endpoint is falling back to memory only.

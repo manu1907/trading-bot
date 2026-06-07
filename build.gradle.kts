@@ -104,7 +104,7 @@ extensions.configure<SpotlessExtension> {
         endWithNewline()
     }
     format("projectDocs") {
-        target("*.md", "*.txt", "docs/**/*.md")
+        target("*.md", "*.txt", "docs/**/*.md", "ops/**/*.md")
         trimTrailingWhitespace()
         endWithNewline()
     }
@@ -114,7 +114,7 @@ extensions.configure<SpotlessExtension> {
         endWithNewline()
     }
     format("yaml") {
-        target(".github/**/*.yml", ".github/**/*.yaml", "*.yml", "*.yaml")
+        target(".github/**/*.yml", ".github/**/*.yaml", "*.yml", "*.yaml", "ops/**/*.yml", "ops/**/*.yaml")
         trimTrailingWhitespace()
         endWithNewline()
     }

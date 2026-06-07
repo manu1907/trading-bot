@@ -651,8 +651,12 @@ Pause governance metrics:
   change the scan interval from the default `30000`.
 - Recent pause activation, release, override, and expiry audit records can be
   queried through the operator API.
-- Dashboards, external alert routing, and a production-grade indexed audit
-  backend are still planned work.
+- Prometheus-compatible alert rules for pause governance live in
+  `ops/prometheus/pause-governance-alerts.yml`.
+- Deployment-specific routing still has to map alert labels such as `severity`
+  and `routing_hint` to real notification channels.
+- Dashboards, concrete external notification-channel routing, and a
+  production-grade indexed audit backend are still planned work.
 
 List recent pause governance audit records:
 
