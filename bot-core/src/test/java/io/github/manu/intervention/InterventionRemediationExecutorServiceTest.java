@@ -163,6 +163,85 @@ class InterventionRemediationExecutorServiceTest {
                 .isEqualTo(OrderResultStatus.CANCELED);
     }
 
+    @Test
+    void submits_position_close_remediation_as_reduce_only_market_order_through_execution_pipeline_when_policy_allows() {
+        restorePositionCloseRemediationDecision("0.25", "CLOSE", Map.of());
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        ReconciliationConfidenceTracker reconciliationTracker =
+                new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
+        reconciliationTracker.record(new ReconciliationObservation(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                TradingEventType.ORDER_RESULT,
+                "binance|demo|main|usd_m_futures|BTCUSDT",
+                ReconciliationConfidenceStatus.CONFIDENT,
+                List.of()
+        ));
+        OrderExecutionPipeline pipeline = new OrderExecutionPipeline(
+                new OrderRiskGate(new ExecutionProperties(null), reconciliationTracker, projection),
+                eventBus,
+                List.of(new PositionOrderGateway())
+        );
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service(livePositionPolicy(InterventionProperties.ExecutableOperation.CLOSE_POSITION), pipeline)
+                        .execute("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isZero();
+        assertThat(batch.submittedCount()).isEqualTo(1);
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.status())
+                    .isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.SUBMITTED_TO_PIPELINE);
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+            assertThat(report.attributes())
+                    .containsEntry("executor_submitted_command_id",
+                            "remediation-command:remediation-position-1:close-position")
+                    .containsEntry("executor_submitted_client_order_id", "rm-pos-remediation-position-1")
+                    .containsEntry("executor_submitted_side", "SELL")
+                    .containsEntry("executor_submitted_order_type", "MARKET")
+                    .containsEntry("executor_submitted_position_side", "BOTH")
+                    .containsEntry("executor_submitted_quantity", "0.25")
+                    .containsEntry("executor_submitted_reduce_only", "true")
+                    .containsEntry("executor_submitted_close_position", "false");
+        });
+        assertThat(eventBus.values(RiskDecisionEvent.class))
+                .singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+                    assertThat(decision.getAttributes())
+                            .containsEntry("external_position_remediation_executor_command", "true");
+                });
+        assertThat(eventBus.values(OrderCommandEvent.class)).isEmpty();
+        assertThat(eventBus.values(OrderResultEvent.class))
+                .singleElement()
+                .satisfies(result -> {
+                    assertThat(result.getStatus()).isEqualTo(OrderResultStatus.FILLED);
+                    assertThat(result.getOriginalQuantity()).isEqualTo("0.25");
+                    assertThat(result.getExecutedQuantity()).isEqualTo("0.25");
+                });
+    }
+
+    @Test
+    void blocks_position_reduce_execution_when_operation_is_not_allowlisted() {
+        restorePositionCloseRemediationDecision("0.25", "REDUCE", Map.of("reduce_fraction", "0.5"));
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service(livePositionPolicy(InterventionProperties.ExecutableOperation.CLOSE_POSITION))
+                        .execute("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isEqualTo(1);
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
+            assertThat(report.exchangeExecutable()).isTrue();
+            assertThat(report.reasons())
+                    .containsExactly("remediation:reduce_position", "executor:operation_not_allowed");
+        });
+    }
+
     private InterventionRemediationExecutorService service(
             InterventionProperties.RemediationExecutorPolicy policy
     ) {
@@ -206,6 +285,12 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     private InterventionProperties.RemediationExecutorPolicy liveCancelPolicy() {
+        return livePositionPolicy(InterventionProperties.ExecutableOperation.CANCEL_ORDER);
+    }
+
+    private InterventionProperties.RemediationExecutorPolicy livePositionPolicy(
+            InterventionProperties.ExecutableOperation operation
+    ) {
         return new InterventionProperties.RemediationExecutorPolicy(
                 true,
                 true,
@@ -220,7 +305,7 @@ class InterventionRemediationExecutorServiceTest {
                 true,
                 true,
                 25,
-                List.of(InterventionProperties.ExecutableOperation.CANCEL_ORDER)
+                List.of(operation)
         );
     }
 
@@ -297,6 +382,56 @@ class InterventionRemediationExecutorServiceTest {
                         "automated_remediation_policy",
                         "policy action selected",
                         Map.of(),
+                        NOW.minusSeconds(1),
+                        "evt-remediation-position-1"
+                )),
+                List.of("evt-remediation-position-1")
+        ));
+    }
+
+    private void restorePositionCloseRemediationDecision(
+            String positionAmount,
+            String action,
+            Map<String, String> attributes
+    ) {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(new TradingStateProjection.PositionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "BOTH",
+                        positionAmount,
+                        "50000.00",
+                        "50010.00",
+                        "12.50",
+                        "USER_DATA",
+                        true,
+                        "external_position_change",
+                        NOW.minusSeconds(1),
+                        "evt-position-intervention"
+                )),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.RemediationDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "remediation-position-1",
+                        "POSITION",
+                        action,
+                        null,
+                        "BOTH",
+                        "external_position_change",
+                        List.of("intervention:external_position_change"),
+                        "automated_remediation_policy",
+                        "policy action selected",
+                        attributes,
                         NOW.minusSeconds(1),
                         "evt-remediation-position-1"
                 )),
@@ -436,6 +571,59 @@ class InterventionRemediationExecutorServiceTest {
                             command.getMarket().toString(),
                             command.getSymbol().toString(),
                             command.getTargetClientOrderId().toString()
+                    ),
+                    result
+            ));
+        }
+    }
+
+    private static final class PositionOrderGateway implements OrderExecutionGateway {
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            OrderResultEvent result = OrderResultEvent.newBuilder()
+                    .setEventId("order-result:" + command.getCommandId() + ":filled")
+                    .setSchemaVersion(1)
+                    .setCommandId(command.getCommandId())
+                    .setProvider(command.getProvider())
+                    .setEnvironment(command.getEnvironment())
+                    .setAccount(command.getAccount())
+                    .setMarket(command.getMarket())
+                    .setSymbol(command.getSymbol())
+                    .setClientOrderId(command.getClientOrderId())
+                    .setExchangeOrderId("exchange-" + command.getClientOrderId())
+                    .setStatus(OrderResultStatus.FILLED)
+                    .setExchangeStatus("FILLED")
+                    .setPrice(null)
+                    .setOriginalQuantity(command.getQuantity())
+                    .setExecutedQuantity(command.getQuantity())
+                    .setAveragePrice("50000.00")
+                    .setCumulativeQuote(null)
+                    .setExchangeTransactTimeMicros(NOW)
+                    .setObservedAtMicros(NOW)
+                    .setRejectCode(null)
+                    .setRejectMessage(null)
+                    .setAttributes(Map.of(
+                            "source", "test-position-gateway",
+                            "reduce_only", Boolean.toString(Boolean.TRUE.equals(command.getReduceOnly())),
+                            "close_position", Boolean.toString(Boolean.TRUE.equals(command.getClosePosition()))
+                    ))
+                    .build();
+            return CompletableFuture.completedFuture(TradingEventEnvelope.of(
+                    TradingEventType.ORDER_RESULT,
+                    TradingEventKeys.order(
+                            TradingEventType.ORDER_RESULT,
+                            command.getProvider().toString(),
+                            command.getEnvironment().toString(),
+                            command.getAccount().toString(),
+                            command.getMarket().toString(),
+                            command.getSymbol().toString(),
+                            command.getClientOrderId().toString()
                     ),
                     result
             ));

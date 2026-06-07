@@ -53,7 +53,8 @@
         "enabled": true
       },
       "automated_policy": {
-        "external_order_action": "CLOSE"
+        "external_order_action": "CLOSE",
+        "open_position_action": "CLOSE"
       },
       "automated_decision_service": {
         "enabled": true
@@ -73,7 +74,9 @@
         "exchange_execution_enabled": true,
         "report_only": false,
         "allowed_operations": [
-          "CANCEL_ORDER"
+          "CANCEL_ORDER",
+          "CLOSE_POSITION",
+          "REDUCE_POSITION"
         ]
       }
     }

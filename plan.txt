@@ -21,14 +21,14 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - The runtime profile/config system supports the same application code for demo and real environments.
 - Configuration catalogs include exchange/provider, journal, projection, messaging, audit, observability, execution, risk, idempotency, reconciliation, and intervention/remediation defaults.
 - The checked-in catalog lists all current top-level `trading.*` runtime configuration roots with their source-controlled defaults so runtime overrides have an explicit baseline.
-- A checked-in first-start runtime override now exists at `config/runtime/live/binance/demo/main/usdm_futures.json` for the current active demo target. It selects `trading-bot-demo-main-usdm-futures`, enables demo journal/recovery, projection snapshots, messaging runtime services, audit persistence, execution pipeline, signal-planner defaults, Binance user-data/market-data/reconciliation runtime flags, automated remediation policy, scheduled remediation runner, and the demo-only executor policy for `CANCEL_ORDER`.
+- A checked-in first-start runtime override now exists at `config/runtime/live/binance/demo/main/usdm_futures.json` for the current active demo target. It selects `trading-bot-demo-main-usdm-futures`, enables demo journal/recovery, projection snapshots, messaging runtime services, audit persistence, execution pipeline, signal-planner defaults, Binance user-data/market-data/reconciliation runtime flags, automated remediation policy, scheduled remediation runner, and the demo-only executor policy for `CANCEL_ORDER`, `CLOSE_POSITION`, and `REDUCE_POSITION`.
 - `ExternalTradingRuntimeEnvironmentPostProcessor` loads the same validated live external config before Spring conditional beans and `@ConfigurationProperties` binding, then exposes merged `trading.*` values as Spring properties. Command-line arguments and OS environment variables remain higher priority than the checked-in runtime file.
 - Operator API access can be protected with `X-Operator-Token` when enabled by config.
 - Automated remediation policy is configurable under `trading.intervention.automated-policy`.
 - Automated remediation runner policy is configurable under `trading.intervention.automated-remediation-runner`.
 - Remediation executor policy is configurable under `trading.intervention.remediation-executor-policy`.
 - Executor policy catalog defaults keep the executor disabled, exchange execution disabled, report-only mode enabled, real environments blocked, and executable operations empty for safe startup.
-- Demo-live remediation exchange execution is a runtime override state, not a report-only target: enable the executor policy, set `exchange_execution_enabled=true`, set `report_only=false`, and allowlist the operation, currently only `CANCEL_ORDER`.
+- Demo-live remediation exchange execution is a runtime override state, not a report-only target: enable the executor policy, set `exchange_execution_enabled=true`, set `report_only=false`, and allowlist the operation. The currently supported demo executable operations are external-order `CANCEL_ORDER` plus one-way reduce-only `CLOSE_POSITION` and `REDUCE_POSITION`.
 - Executor policy validation requires explicit allowed operations and strict ready-plan, fresh-projection, target-identity, and managed-pipeline gates before exchange execution can be enabled.
 - Target-order risk policy now includes `allow_external_remediation_cancel`, which defaults to true but only applies to executor-originated `ORDER`/`CLOSE`/`CANCEL_ORDER` commands with explicit remediation attributes.
 - Conservative remediation defaults are configured: unknown or high-risk intervention types route to operator review or non-executable planning instead of live exchange action.
@@ -114,15 +114,19 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - The planner validates that the current projection still matches the decision target before producing a ready plan.
 - The planner refuses stale targets, missing intervention records, invalid position quantities, and unsupported actions.
 - Order-scope `CLOSE` decisions for projected external order interventions produce `CANCEL_ORDER` plans with `exchangeExecutable=true` and `exchange_execution_path=order_execution_pipeline`.
-- Position actions, pause actions, adoption, amendment, ignore, and replan actions remain non-executable governance or planning intents.
+- One-way position `CLOSE` decisions for projected external position interventions produce `CLOSE_POSITION` plans with `exchangeExecutable=true`, `exchange_execution_path=order_execution_pipeline`, the full projected absolute position amount, the opposite order side, `MARKET` order type, `reduceOnly=true`, and `closePosition=false`.
+- One-way position `REDUCE` decisions for projected external position interventions produce `REDUCE_POSITION` plans with `exchangeExecutable=true` only when the decision includes explicit `reduce_quantity` or `reduce_fraction` bounded by the projected absolute position amount.
+- Hedge-mode position sides (`LONG` or `SHORT`) remain non-executable for close/reduce until hedge-mode handling, margin mode, leverage, provider capability, and account-risk policies are explicit.
+- Pause actions, adoption, amendment, ignore, hedge, and replan actions remain non-executable governance or planning intents.
 - The operator API exposes generated plans with `GET /internal/interventions/remediation/plans`.
 - `InterventionRemediationExecutorService` consumes persisted remediation decisions, regenerates current command plans, applies executor policy gates, caps batches, and returns auditable outcomes.
 - `InterventionAutomatedRemediationRunner` can call the executor on a schedule when explicitly enabled, but it still cannot bypass executor policy, risk gates, idempotency, projection, journal, reconciliation, or provider execution.
 - Executor reports can mark plans as `BLOCKED`, `PREVIEW_ONLY`, `SUBMITTED_TO_PIPELINE`, or `NO_ACTION`.
-- The executor can submit only `CANCEL_ORDER` for order `CLOSE` remediation, and only when policy is enabled, exchange execution is enabled, report only is false, `CANCEL_ORDER` is allowlisted, the target identity is present, the environment is allowed, and `OrderExecutionPipeline` is available.
-- Submitted remediation cancels use deterministic remediation command ids and idempotency keys derived from the remediation id.
+- The executor can submit `CANCEL_ORDER`, `CLOSE_POSITION`, and `REDUCE_POSITION` only when policy is enabled, exchange execution is enabled, report only is false, the exact operation is allowlisted, the target identity is present, the environment is allowed, and `OrderExecutionPipeline` is available.
+- Submitted remediation cancels and position reduce-only orders use deterministic remediation command ids and idempotency keys derived from the remediation id.
 - The executor does not directly call an exchange gateway. It submits to `OrderExecutionPipeline`; the normal risk decision, provider gateway, event bus, journal, projection, and reconciliation path remains authoritative.
 - Position remediation planning now has bounded sizing metadata for `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN`: close uses the full projected absolute position amount, reduce requires explicit `reduce_quantity` or `reduce_fraction` bounded by the projected amount, and hedge defaults to the projected absolute amount while marking hedge-mode requirements.
+- The order risk gate now recognizes narrowly scoped executor-originated one-way position close/reduce remediation commands so the external-position intervention being corrected does not block its own reduce-only risk-reducing command. The exception requires `POSITION` scope, `CLOSE` or `REDUCE` action, `CLOSE_POSITION` or `REDUCE_POSITION` operation, `NEW MARKET`, `positionSide=BOTH`, bounded quantity, `reduceOnly=true`, `closePosition=false`, and remediation identity attributes.
 - The executor still does not mutate positions, acknowledge interventions, adopt orders, amend orders, pause symbols/accounts, or execute any real-environment command unless policy explicitly allows real.
 
 ### Operator API Surface
@@ -147,20 +151,20 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 - Current-state documentation exists for the bot's architecture, supported scenarios, and limitations.
 - A user manual exists for starting and using the bot in the current Binance USD-M futures demo profile.
-- Documentation describes that the bot can detect, recommend, decide, plan remediation, preview executor outcomes through the report endpoint, and submit the first policy-gated external-order close cancel through the normal execution pipeline.
+- Documentation describes that the bot can detect, recommend, decide, plan remediation, preview executor outcomes through the report endpoint, and submit policy-gated external-order close cancels plus one-way reduce-only position close/reduce orders through the normal execution pipeline.
 
 ## Current Limitations And Explicit Blocks
 
 - The bot is not yet ready for unattended real-money autonomous trading.
-- Only external-order `CLOSE` remediation can currently become an executable exchange command, and only as a cancel routed through `OrderExecutionPipeline`.
+- External-order `CLOSE`, one-way position `CLOSE`, and bounded one-way position `REDUCE` remediation can currently become executable exchange commands, and only through `OrderExecutionPipeline`.
 - Automated remediation can now run on a schedule when explicitly enabled, but exchange execution still requires the executor execution path and explicit executor policy.
-- Position remediation, order adoption, and order amendment controls are not exchange-executable yet.
-- Scheduled live remediation is currently limited to projected decisions and the currently supported external-order cancel execution path.
+- Order adoption and order amendment controls are not exchange-executable yet.
+- Scheduled live remediation is currently limited to projected decisions and the currently supported external-order cancel plus one-way reduce-only position close/reduce execution paths.
 - Pause actions create durable pause governance state, enforce admission blocks, support operator release, support time-bounded expiry attributes, disabled-by-default override policy, structured activation/release/override/expiry audit logs, release/override/activation/expiry-configured/expiry-transition/audit-store-failure counters, active-pause gauges, a recent audit-query endpoint, optional JSONL-backed audit persistence, optional indexed JDBC audit persistence, Prometheus alert rules, Alertmanager routing, Google Cloud and AWS Secret Manager binding names for demo alert receiver substitutions, Google Cloud Secret Manager binding names for real alert receiver substitutions, and an importable Grafana dashboard, but real alert receiver secret values are still deployment-owned and not source controlled.
-- Position remediation does not yet construct reduce-only orders or hedge orders, even though bounded planning metadata exists.
+- Position remediation does not yet construct hedge-mode close/reduce orders or hedge orders.
 - External order adoption semantics are not yet defined enough for live execution.
 - Managed order amendment semantics are not yet defined enough for live execution.
-- Manual/external positions can be evaluated and bounded position remediation plans can be generated, but automatic action against them remains blocked until executable position command policies are implemented.
+- Manual/external one-way positions can be evaluated and automatically closed or reduced through bounded reduce-only market orders when demo executor policy allowlists the operation; hedge-mode positions remain blocked until executable hedge-mode policies are implemented.
 - There is no complete production deployment package with secrets management, metrics, alerts, dashboards, or runbooks.
 - There is no deterministic backtest runtime that proves strategy behavior across historical data.
 - The LFA strategy lifecycle, feature calculation, signal generation, and position-management loop are not complete enough to treat it as a production autonomous strategy.
@@ -177,8 +181,8 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Enable the scheduled automated remediation runner only after the decision policy, executor policy, reconciliation, journaling, and projection persistence are configured for the target.
 - Inspect generated remediation command plans.
 - Inspect remediation executor preview outcomes if you need to see why a plan would be blocked before execution.
-- Execute eligible remediation batches only after enabling the executor policy, exchange execution, `report_only=false`, and the relevant operation allowlist. Today the only eligible exchange operation is `CANCEL_ORDER` for an external order `CLOSE` decision.
-- Treat position, pause, adoption, amendment, ignore, and replan plans as non-executing until their specific execution policies are implemented.
+- Execute eligible remediation batches only after enabling the executor policy, exchange execution, `report_only=false`, and the relevant operation allowlist. Today the eligible demo exchange operations are `CANCEL_ORDER` for an external order `CLOSE` decision plus `CLOSE_POSITION` and `REDUCE_POSITION` for one-way external-position remediation.
+- Treat hedge, hedge-mode position close/reduce, pause, adoption, amendment, ignore, and replan plans as non-executing until their specific execution policies are implemented.
 
 ## End-To-End Delivery Roadmap To Live Google Cloud Operation
 
@@ -218,7 +222,7 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 - Google Cloud real secret binding names now exist for isolated real Binance credentials, operator token, Alertmanager receiver substitutions, and the selected JDBC audit backend.
 - The remaining pause governance deployment work is creating the real secret values, provisioning the selected managed PostgreSQL backend, rendering Alertmanager from secrets, and wiring the deployment pipeline.
 - Bounded position sizing metadata exists for `REDUCE`, `CLOSE`, and `HEDGE`.
-- Implement position close/reduce/hedge command construction only after reduce-only rules, margin mode, leverage, symbol capability, and account risk limits are explicit.
+- Position close/reduce command construction now exists for one-way reduce-only execution. The remaining position-remediation work is hedge-mode close/reduce, hedge command construction, margin mode, leverage, provider capability, symbol filters, and account-risk constraints.
 - Implement order adoption policy only after ownership transfer, client order id handling, reconciliation, and rollback behavior are defined.
 - Implement managed order amendment policy only after allowed field drift, stale-state handling, and cancel/replace behavior are defined.
 - Scheduled remediation runner exists; the remaining work is persistence/recovery hardening, metrics/alerts, and expansion beyond external-order cancel.
@@ -308,12 +312,11 @@ Estimated remaining delivery: 38 to 63 commits/slices.
 
 ## Next Work In Dependency Order
 
-1. Implement position close/reduce command construction with reduce-only constraints and provider capability validation.
-2. Implement hedge command construction only after hedge-mode handling, margin mode, leverage, symbol capability, and account risk constraints are explicit.
-3. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
-4. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
-5. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.
-6. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
-7. Complete cloud infrastructure and CI/CD work: managed PostgreSQL provisioning, secret values, service accounts/IAM, container registry image build/publish, Google Cloud Run or AWS ECS deployment automation, Alertmanager rendering from secrets, observability, deployment smoke tests, rollback, dashboards, runbooks, and incident procedures.
-8. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
-9. Keep the user manual and current-state documentation aligned after each capability change.
+1. Implement hedge-mode close/reduce and hedge command construction only after hedge-mode handling, margin mode, leverage, symbol capability, and account risk constraints are explicit.
+2. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
+3. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
+4. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.
+5. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
+6. Complete cloud infrastructure and CI/CD work: managed PostgreSQL provisioning, secret values, service accounts/IAM, container registry image build/publish, Google Cloud Run or AWS ECS deployment automation, Alertmanager rendering from secrets, observability, deployment smoke tests, rollback, dashboards, runbooks, and incident procedures.
+7. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
+8. Keep the user manual and current-state documentation aligned after each capability change.

@@ -79,7 +79,7 @@ class InterventionRemediationCommandPlannerTest {
 
         assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
         assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
-        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.exchangeExecutable()).isTrue();
         assertThat(plan.reasons()).containsExactly("remediation:close_position");
         assertThat(plan.attributes())
                 .containsEntry("position_abs_amount", "0.25")
@@ -89,7 +89,12 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("position_sizing_policy", "bounded_projection_full_close")
                 .containsEntry("reduce_only_required", "true")
                 .containsEntry("hedge_mode_required", "false")
-                .containsEntry("exchange_execution_blocker", "position_order_execution_policy_missing");
+                .containsEntry("position_order_type", "MARKET")
+                .containsEntry("position_order_reduce_only", "true")
+                .containsEntry("position_order_close_position", "false")
+                .containsEntry("position_execution_mode", "one_way_reduce_only")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
     }
 
     @Test
@@ -103,13 +108,32 @@ class InterventionRemediationCommandPlannerTest {
 
         assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
         assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
-        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.exchangeExecutable()).isTrue();
         assertThat(plan.attributes())
                 .containsEntry("position_abs_amount", "0.25")
                 .containsEntry("target_position_quantity", "0.125")
                 .containsEntry("position_sizing_policy", "bounded_projection_reduce")
                 .containsEntry("reduce_only_required", "true")
-                .containsEntry("exchange_execution_blocker", "position_order_execution_policy_missing");
+                .containsEntry("position_order_type", "MARKET")
+                .containsEntry("position_execution_mode", "one_way_reduce_only")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void keeps_position_close_non_executable_for_hedge_mode_position_side_until_hedge_policy_exists() {
+        restorePositionIntervention("0.25", true, "LONG");
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = planner.plan(positionDecision("CLOSE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_side", "LONG")
+                .containsEntry("reduce_only_required", "true")
+                .containsEntry("exchange_execution_blocker", "hedge_mode_reduce_only_position_side_unsupported")
+                .containsEntry("exchange_executable", "false");
     }
 
     @Test
@@ -223,14 +247,26 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     private RemediationDecisionEvent positionDecision(String action) {
-        return positionDecision(action, Map.of());
+        return positionDecision(action, "BOTH");
+    }
+
+    private RemediationDecisionEvent positionDecision(String action, String positionSide) {
+        return positionDecision(action, positionSide, Map.of());
     }
 
     private RemediationDecisionEvent positionDecision(String action, Map<CharSequence, CharSequence> attributes) {
+        return positionDecision(action, "BOTH", attributes);
+    }
+
+    private RemediationDecisionEvent positionDecision(
+            String action,
+            String positionSide,
+            Map<CharSequence, CharSequence> attributes
+    ) {
         return RemediationDecisionEvent.newBuilder(orderDecision(action))
                 .setScope("POSITION")
                 .setClientOrderId(null)
-                .setPositionSide("BOTH")
+                .setPositionSide(positionSide)
                 .setInterventionReason("external_position_change")
                 .setReasons(List.of("intervention:external_position_change"))
                 .setAttributes(attributes)
@@ -290,6 +326,10 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     private void restorePositionIntervention(String positionAmount, boolean externalIntervention) {
+        restorePositionIntervention(positionAmount, externalIntervention, "BOTH");
+    }
+
+    private void restorePositionIntervention(String positionAmount, boolean externalIntervention, String positionSide) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(new TradingStateProjection.PositionState(
@@ -298,7 +338,7 @@ class InterventionRemediationCommandPlannerTest {
                         "main",
                         "usd_m_futures",
                         "BTCUSDT",
-                        "BOTH",
+                        positionSide,
                         positionAmount,
                         "50000.00",
                         "50010.00",

@@ -204,9 +204,44 @@ public final class InterventionRemediationCommandPlanner {
         attributes.put("position_sizing_policy", size.policy());
         attributes.put("reduce_only_required", Boolean.toString(size.reduceOnlyRequired()));
         attributes.put("hedge_mode_required", Boolean.toString(size.hedgeModeRequired()));
-        attributes.put("exchange_executable", "false");
-        attributes.put("exchange_execution_blocker", size.exchangeExecutionBlocker());
-        return ready(event, operation, false, reason, attributes);
+        attributes.put("position_order_type", "MARKET");
+        attributes.put("position_order_reduce_only", Boolean.toString(size.reduceOnlyRequired()));
+        attributes.put("position_order_close_position", "false");
+        String executionBlocker = positionOrderExecutionBlocker(event, position, operation, size);
+        boolean exchangeExecutable = executionBlocker == null;
+        if (exchangeExecutable) {
+            attributes.put("position_execution_mode", "one_way_reduce_only");
+            exchangeExecutionAttributes(attributes, "order_execution_pipeline");
+        } else {
+            attributes.put("exchange_execution_blocker", executionBlocker);
+        }
+        return ready(event, operation, exchangeExecutable, reason, attributes);
+    }
+
+    private String positionOrderExecutionBlocker(
+            RemediationDecisionEvent event,
+            TradingStateProjection.PositionState position,
+            Operation operation,
+            PositionRemediationSize size
+    ) {
+        if (operation == Operation.HEDGE_POSITION) {
+            return size.exchangeExecutionBlocker();
+        }
+        if (operation != Operation.CLOSE_POSITION && operation != Operation.REDUCE_POSITION) {
+            return "position_order_execution_policy_missing";
+        }
+        if (!size.reduceOnlyRequired()) {
+            return "position_order_reduce_only_required";
+        }
+        String provider = text(event.getProvider());
+        if (!"binance".equalsIgnoreCase(provider)) {
+            return "position_order_provider_policy_missing";
+        }
+        String positionSide = text(position.positionSide());
+        if (positionSide != null && !"BOTH".equals(positionSide)) {
+            return "hedge_mode_reduce_only_position_side_unsupported";
+        }
+        return null;
     }
 
     private PositionRemediationSize positionRemediationSize(

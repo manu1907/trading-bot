@@ -78,8 +78,10 @@ intended demo-live operating mode. When the bot is deliberately configured to
 execute eligible remediation against the Binance demo exchange, the runtime
 override must enable the executor policy, enable exchange execution, set
 `report_only=false`, and explicitly allow the operation being executed. Today
-the only supported exchange-executable remediation operation is `CANCEL_ORDER`
-for an external-order `CLOSE` decision.
+the supported demo exchange-executable remediation operations are `CANCEL_ORDER`
+for an external-order `CLOSE` decision plus one-way `CLOSE_POSITION` and
+`REDUCE_POSITION` as bounded reduce-only market orders for external-position
+remediation.
 
 ## Prerequisites
 
@@ -745,9 +747,11 @@ curl -H 'X-Operator-Token: <operator-token>' \
 
 Plan responses include `status`, `operation`, `exchangeExecutable`, `reasons`,
 and target attributes. Order `CLOSE` for a projected external order can now be
-planned as `operation=CANCEL_ORDER` with `exchangeExecutable=true`; all
-position, pause, adopt, amend, ignore, and replan plans remain non-executable
-until their specific policies exist.
+planned as `operation=CANCEL_ORDER` with `exchangeExecutable=true`. Position
+`CLOSE` and bounded one-way position `REDUCE` decisions can now be planned as
+`CLOSE_POSITION` or `REDUCE_POSITION` with `exchangeExecutable=true`; hedge-mode
+position sides, pause, adopt, amend, ignore, and replan plans remain
+non-executable until their specific policies exist.
 
 Preview the remediation executor reports for persisted remediation decisions:
 
@@ -777,14 +781,16 @@ curl -X POST \
   }'
 ```
 
-This endpoint is still policy-gated. It submits only eligible `CANCEL_ORDER`
-plans for external order `CLOSE` decisions, and only when
+This endpoint is still policy-gated. It submits only eligible `CANCEL_ORDER`,
+`CLOSE_POSITION`, and `REDUCE_POSITION` plans, and only when
 `remediation_executor_policy.enabled=true`,
-`exchange_execution_enabled=true`, `report_only=false`, `CANCEL_ORDER` is in
-`allowed_operations`, the target identity is present, and the normal order
-execution pipeline is enabled. It returns `SUBMITTED_TO_PIPELINE` after the
-command has been accepted by the pipeline; the final risk decision and order
-result are recorded through the normal event path.
+`exchange_execution_enabled=true`, `report_only=false`, the exact operation is
+in `allowed_operations`, the target identity is present, and the normal order
+execution pipeline is enabled. Position close/reduce submissions are `NEW`
+`MARKET` orders with the opposite side, bounded quantity, `positionSide=BOTH`,
+`reduceOnly=true`, and `closePosition=false`. It returns
+`SUBMITTED_TO_PIPELINE` after the command has been accepted by the pipeline; the
+final risk decision and order result are recorded through the normal event path.
 
 For the current demo USD-M futures target, the checked-in first-start runtime
 override lives here:
@@ -799,9 +805,10 @@ demo operation, enables the execution pipeline, configures the signal planner's
 default target as `binance/demo/main/usdm_futures` with `BTCUSDT`, enables
 automated remediation policy for external order close decisions, enables the
 scheduled remediation runner, and enables the executor policy for the currently
-supported `CANCEL_ORDER` remediation path. The same checked-in runtime file is
-loaded before Spring creates conditional runtime services, so these `trading.*`
-values drive both external runtime config and Spring-managed service activation.
+supported `CANCEL_ORDER`, `CLOSE_POSITION`, and `REDUCE_POSITION` remediation
+paths. The same checked-in runtime file is loaded before Spring creates
+conditional runtime services, so these `trading.*` values drive both external
+runtime config and Spring-managed service activation.
 Command-line arguments and OS environment variables still override the checked-in
 file.
 
@@ -816,12 +823,18 @@ The remediation execution portion of that runtime override is:
       }
     },
     "intervention": {
+      "automated_policy": {
+        "external_order_action": "CLOSE",
+        "open_position_action": "CLOSE"
+      },
       "remediation_executor_policy": {
         "enabled": true,
         "exchange_execution_enabled": true,
         "report_only": false,
         "allowed_operations": [
-          "CANCEL_ORDER"
+          "CANCEL_ORDER",
+          "CLOSE_POSITION",
+          "REDUCE_POSITION"
         ]
       }
     }
@@ -829,10 +842,10 @@ The remediation execution portion of that runtime override is:
 }
 ```
 
-This checked-in override does not make every remediation action executable. It only allows
-the executor to submit currently supported `CANCEL_ORDER` plans through the
-normal order execution pipeline when all projection, identity, freshness, risk,
-and idempotency gates pass.
+This checked-in override does not make every remediation action executable. It
+only allows the executor to submit currently supported cancel and one-way
+reduce-only position plans through the normal order execution pipeline when all
+projection, identity, freshness, risk, and idempotency gates pass.
 
 Operator API authentication is not hardcoded in that runtime file. Set operator
 tokens and exchange credentials through environment variables or the deployment
@@ -1377,7 +1390,8 @@ Default intervention config:
 The executor policy defaults describe a safe startup state. Demo-live exchange
 execution is a runtime override state: set `enabled=true`,
 `exchange_execution_enabled=true`, `report_only=false`, and allow the exact
-operation, currently `CANCEL_ORDER`, before using
+operation, currently `CANCEL_ORDER`, `CLOSE_POSITION`, or `REDUCE_POSITION`,
+before using
 `POST /internal/interventions/remediation/executor/execute`.
 
 The system can track and expose:
@@ -1458,18 +1472,22 @@ Current automated remediation execution state:
   expiry audit records can be queried through the operator API.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
-- Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become
-  non-executable position intents with bounded sizing metadata.
+- One-way position `CLOSE` and bounded one-way position `REDUCE` become
+  exchange-executable position intents with bounded sizing metadata and an
+  `order_execution_pipeline` execution path.
 - Position `CLOSE` targets the full projected absolute position amount and
-  marks `reduce_only_required=true`.
+  submits a `MARKET` order on the opposite side with `reduceOnly=true` and
+  `closePosition=false` when executor policy allows `CLOSE_POSITION`.
 - Position `REDUCE` requires explicit `reduce_quantity` or `reduce_fraction`
   decision attributes, and the planner rejects missing, invalid, or oversized
-  reduce requests as `INSUFFICIENT_DATA`.
+  reduce requests as `INSUFFICIENT_DATA`; eligible reduce submissions use the
+  same reduce-only market-order path when executor policy allows
+  `REDUCE_POSITION`.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` default to the projected absolute
   position amount and mark `hedge_mode_required=true`.
-- Position remediation still carries an execution blocker because reduce-only
-  order construction, hedge-mode validation, provider capability validation,
-  and account risk limits are not executable yet.
+- Hedge-mode position sides still carry an execution blocker because hedge-mode
+  close/reduce semantics require explicit mode, margin, leverage, capability,
+  and account-risk policies before execution.
 - `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `ADOPT`, `IGNORE`, and
   `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
   commands yet.

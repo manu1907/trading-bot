@@ -2,6 +2,7 @@ package io.github.manu.intervention;
 
 import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
+import io.github.manu.events.v1.OrderCommandPositionSide;
 import io.github.manu.events.v1.OrderCommandSide;
 import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.RemediationDecisionEvent;
@@ -236,10 +237,14 @@ public final class InterventionRemediationExecutorService {
         if (orderExecutionPipeline == null) {
             return report(plan, ExecutionStatus.BLOCKED, "executor:order_execution_pipeline_missing", attributes);
         }
-        if (plan.operation() != InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER) {
+        if (plan.operation() != InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER
+                && plan.operation() != InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION
+                && plan.operation() != InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION) {
             return report(plan, ExecutionStatus.BLOCKED, "executor:operation_execution_not_implemented", attributes);
         }
-        OrderCommandEvent command = cancelOrderCommand(plan, attributes);
+        OrderCommandEvent command = plan.operation() == InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER
+                ? cancelOrderCommand(plan, attributes)
+                : positionReduceOnlyOrderCommand(plan, attributes);
         try {
             orderExecutionPipeline.handleOrderCommand(command).join();
         } catch (RuntimeException exception) {
@@ -251,8 +256,17 @@ public final class InterventionRemediationExecutorService {
         }
         attributes.put("executor_submitted_command_id", command.getCommandId().toString());
         attributes.put("executor_submitted_idempotency_key", command.getIdempotencyKey().toString());
-        attributes.put("executor_submitted_target_client_order_id", text(command.getTargetClientOrderId()));
-        attributes.put("executor_submitted_target_exchange_order_id", text(command.getTargetExchangeOrderId()));
+        put(attributes, "executor_submitted_client_order_id", command.getClientOrderId());
+        put(attributes, "executor_submitted_target_client_order_id", command.getTargetClientOrderId());
+        put(attributes, "executor_submitted_target_exchange_order_id", command.getTargetExchangeOrderId());
+        put(attributes, "executor_submitted_side", command.getSide() == null ? null : command.getSide().name());
+        put(attributes, "executor_submitted_order_type", command.getOrderType() == null ? null : command.getOrderType().name());
+        put(attributes, "executor_submitted_position_side",
+                command.getPositionSide() == null ? null : command.getPositionSide().name());
+        put(attributes, "executor_submitted_quantity", command.getQuantity());
+        attributes.put("executor_submitted_reduce_only", Boolean.toString(Boolean.TRUE.equals(command.getReduceOnly())));
+        attributes.put("executor_submitted_close_position",
+                Boolean.toString(Boolean.TRUE.equals(command.getClosePosition())));
         return report(plan, ExecutionStatus.SUBMITTED_TO_PIPELINE, "executor:submitted_to_order_execution_pipeline", attributes);
     }
 
@@ -299,6 +313,60 @@ public final class InterventionRemediationExecutorService {
                 .setActivationPrice(null)
                 .setCallbackRate(null)
                 .setReduceOnly(false)
+                .setClosePosition(false)
+                .setClientOrderId(commandClientOrderId)
+                .setIdempotencyKey(commandId)
+                .setRequestedAtMicros(Instant.now(clock))
+                .setAttributes(Map.copyOf(attributes))
+                .build();
+    }
+
+    private OrderCommandEvent positionReduceOnlyOrderCommand(
+            InterventionRemediationCommandPlanner.RemediationCommandPlan plan,
+            Map<String, String> reportAttributes
+    ) {
+        String remediationId = requireText(plan.remediationId(), "remediationId");
+        String operationId = operationId(plan.operation());
+        String commandId = "remediation-command:" + remediationId + ":" + operationId;
+        String commandClientOrderId = "rm-pos-" + safeId(remediationId);
+        String side = requireText(plan.attributes().get("remediation_order_side"), "remediationOrderSide");
+        String quantity = requireText(plan.attributes().get("target_position_quantity"), "targetPositionQuantity");
+        String positionSide = text(plan.positionSide());
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.putAll(plan.attributes());
+        attributes.put("command_source", COMMAND_SOURCE);
+        attributes.put("remediation_operation", plan.operation().name());
+        attributes.put("remediation_executor_policy_enabled", Boolean.toString(policy.enabled()));
+        attributes.put("position_order_type", "MARKET");
+        attributes.put("position_order_reduce_only", "true");
+        attributes.put("position_order_close_position", "false");
+        attributes.put("position_execution_mode", "one_way_reduce_only");
+        reportAttributes.put("executor_command_id", commandId);
+        reportAttributes.put("executor_command_client_order_id", commandClientOrderId);
+        return OrderCommandEvent.newBuilder()
+                .setEventId(commandId)
+                .setSchemaVersion(1)
+                .setCommandId(commandId)
+                .setStrategyId(STRATEGY_ID)
+                .setProvider(requireText(plan.provider(), "provider"))
+                .setEnvironment(requireText(plan.environment(), "environment"))
+                .setAccount(requireText(plan.account(), "account"))
+                .setMarket(requireText(plan.market(), "market"))
+                .setSymbol(requireText(plan.symbol(), "symbol"))
+                .setAction(OrderCommandAction.NEW)
+                .setTargetClientOrderId(null)
+                .setTargetExchangeOrderId(null)
+                .setSide(OrderCommandSide.valueOf(side))
+                .setOrderType(OrderCommandType.MARKET)
+                .setPositionSide(positionSide == null ? null : OrderCommandPositionSide.valueOf(positionSide))
+                .setTimeInForce(null)
+                .setQuantity(quantity)
+                .setQuoteOrderQuantity(null)
+                .setPrice(null)
+                .setStopPrice(null)
+                .setActivationPrice(null)
+                .setCallbackRate(null)
+                .setReduceOnly(true)
                 .setClosePosition(false)
                 .setClientOrderId(commandClientOrderId)
                 .setIdempotencyKey(commandId)
@@ -374,6 +442,17 @@ public final class InterventionRemediationExecutorService {
             case IGNORE -> InterventionProperties.ExecutableOperation.IGNORE;
             case RELEASE_PAUSE, OPERATOR_REVIEW, UNSUPPORTED -> null;
         };
+    }
+
+    private String operationId(InterventionRemediationCommandPlanner.Operation operation) {
+        return operation.name().toLowerCase().replace('_', '-');
+    }
+
+    private void put(Map<String, String> attributes, String key, CharSequence value) {
+        String text = text(value);
+        if (text != null) {
+            attributes.put(key, text);
+        }
     }
 
     private RemediationDecisionEvent toDecisionEvent(TradingStateProjection.RemediationDecisionState state) {

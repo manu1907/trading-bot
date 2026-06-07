@@ -6,6 +6,8 @@ import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
+import io.github.manu.events.v1.OrderCommandPositionSide;
+import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.observability.PauseGovernanceMetrics;
@@ -274,6 +276,7 @@ public final class OrderRiskGate {
         boolean reject = false;
         boolean manualReview = false;
         boolean targetCommand = targetCommand(command);
+        boolean externalPositionRemediation = externalPositionRemediationCommand(command);
         if ((!targetCommand || manualIntervention.externalOrderApplyToTargetCommands())
                 && tradingStateProjection.hasExternalOrderInterventions(
                 value(command.getProvider()),
@@ -295,7 +298,8 @@ public final class OrderRiskGate {
                         value(command.getEnvironment()),
                         value(command.getAccount()),
                         value(command.getMarket())
-                )) {
+                )
+                && !externalPositionRemediation) {
             ManualInterventionDecision decision = decisionFor(
                     manualIntervention.externalPositionAction(),
                     EXTERNAL_POSITION_INTERVENTION_REASON
@@ -305,6 +309,22 @@ public final class OrderRiskGate {
             manualReview = manualReview || decision.manualReview();
         }
         return new ManualInterventionDecision(List.copyOf(reasons), reject, manualReview);
+    }
+
+    private boolean externalPositionRemediationCommand(OrderCommandEvent command) {
+        return action(command) == OrderCommandAction.NEW
+                && command.getOrderType() == OrderCommandType.MARKET
+                && Boolean.TRUE.equals(command.getReduceOnly())
+                && !Boolean.TRUE.equals(command.getClosePosition())
+                && command.getPositionSide() == OrderCommandPositionSide.BOTH
+                && value(command.getQuantity()) != null
+                && command.getSide() != null
+                && "intervention_remediation_executor".equals(attribute(command, "command_source"))
+                && "POSITION".equals(attribute(command, "remediation_scope"))
+                && List.of("CLOSE", "REDUCE").contains(attribute(command, "remediation_action"))
+                && List.of("CLOSE_POSITION", "REDUCE_POSITION").contains(attribute(command, "remediation_operation"))
+                && value(attribute(command, "remediation_id")) != null
+                && value(attribute(command, "target_position_quantity")) != null;
     }
 
     private ManualInterventionDecision unknownOrderStatusDecision(
@@ -834,6 +854,10 @@ public final class OrderRiskGate {
         attributes.put(
                 "external_position_intervention_apply_to_target_commands",
                 Boolean.toString(properties.riskGate().manualIntervention().externalPositionApplyToTargetCommands())
+        );
+        attributes.put(
+                "external_position_remediation_executor_command",
+                Boolean.toString(externalPositionRemediationCommand(command))
         );
         attributes.put(
                 "unknown_order_status_action",

@@ -38,6 +38,8 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty("trading.execution.signal-planner.defaults.symbol")).isEqualTo("BTCUSDT");
         assertThat(environment.getProperty("trading.intervention.automated-policy.external-order-action"))
                 .isEqualTo("CLOSE");
+        assertThat(environment.getProperty("trading.intervention.automated-policy.open-position-action"))
+                .isEqualTo("CLOSE");
         assertThat(environment.getProperty("trading.intervention.automated-remediation-runner.enabled", Boolean.class))
                 .isTrue();
         assertThat(environment.getProperty("trading.intervention.automated-remediation-runner.target.market"))
@@ -46,6 +48,10 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 .isFalse();
         assertThat(environment.getProperty("trading.intervention.remediation-executor-policy.allowed-operations[0]"))
                 .isEqualTo("CANCEL_ORDER");
+        assertThat(environment.getProperty("trading.intervention.remediation-executor-policy.allowed-operations[1]"))
+                .isEqualTo("CLOSE_POSITION");
+        assertThat(environment.getProperty("trading.intervention.remediation-executor-policy.allowed-operations[2]"))
+                .isEqualTo("REDUCE_POSITION");
     }
 
     @Test
