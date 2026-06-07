@@ -33,9 +33,18 @@ public final class InterventionRemediationCommandPlanner {
     private static final String ATTR_REDUCE_QUANTITY = "reduce_quantity";
 
     private final TradingStateProjection projection;
+    private final InterventionProperties.PositionOrderPolicy positionOrderPolicy;
 
     public InterventionRemediationCommandPlanner(TradingStateProjection projection) {
+        this(projection, InterventionProperties.PositionOrderPolicy.disabled());
+    }
+
+    public InterventionRemediationCommandPlanner(
+            TradingStateProjection projection,
+            InterventionProperties.PositionOrderPolicy positionOrderPolicy
+    ) {
         this.projection = Objects.requireNonNull(projection, "projection");
+        this.positionOrderPolicy = Objects.requireNonNull(positionOrderPolicy, "positionOrderPolicy");
     }
 
     public RemediationCommandPlan plan(RemediationDecisionEvent event) {
@@ -230,15 +239,34 @@ public final class InterventionRemediationCommandPlanner {
         if (operation != Operation.CLOSE_POSITION && operation != Operation.REDUCE_POSITION) {
             return "position_order_execution_policy_missing";
         }
+        if (!positionOrderPolicy.oneWayReduceOnlyEnabled()) {
+            return "position_order_execution_policy_disabled";
+        }
         if (!size.reduceOnlyRequired()) {
             return "position_order_reduce_only_required";
         }
         String provider = text(event.getProvider());
-        if (!"binance".equalsIgnoreCase(provider)) {
+        if (!positionOrderPolicy.provider().equalsIgnoreCase(provider)) {
             return "position_order_provider_policy_missing";
         }
+        String market = text(event.getMarket());
+        if (!positionOrderPolicy.market().equalsIgnoreCase(market)) {
+            return "position_order_market_policy_missing";
+        }
+        if (!"MARKET".equalsIgnoreCase(positionOrderPolicy.orderType())) {
+            return "position_order_type_policy_unsupported";
+        }
+        if (!positionOrderPolicy.requireReduceOnly()) {
+            return "position_order_reduce_only_policy_required";
+        }
+        if (!positionOrderPolicy.requireClosePositionFalse()) {
+            return "position_order_close_position_policy_required";
+        }
         String positionSide = text(position.positionSide());
-        if (positionSide != null && !"BOTH".equals(positionSide)) {
+        if (!positionOrderPolicy.positionSide().equalsIgnoreCase(positionSide)) {
+            if (positionOrderPolicy.hedgeModeExecutionEnabled()) {
+                return "hedge_mode_execution_policy_not_implemented";
+            }
             return "hedge_mode_reduce_only_position_side_unsupported";
         }
         return null;

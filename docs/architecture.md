@@ -653,10 +653,14 @@ governance intents until bounded command-specific executors are implemented.
 `trading.intervention.remediation-executor-policy` is the explicit executor
 safety boundary. The checked-in catalog keeps the executor disabled, exchange
 execution disabled, report-only mode enabled, real environments blocked, and
-executable operation names empty for safe startup. Demo-live exchange execution
-is an explicit runtime override state: the policy must be enabled,
-`exchange_execution_enabled=true`, `report_only=false`, and the operation must
-be allowlisted before the executor may submit commands. Enabling exchange
+executable operation names empty for safe startup. It also keeps
+`position_order_policy.one_way_reduce_only_enabled=false`; the provider, market,
+position side, order type, reduce-only requirement, close-position prohibition,
+and hedge-mode block are all explicit catalog policy values. Demo-live exchange
+execution is an explicit runtime override state: the policy must be enabled,
+`exchange_execution_enabled=true`, `report_only=false`, the operation must be
+allowlisted, and one-way position order execution must be explicitly enabled
+before the executor may submit position close/reduce commands. Enabling exchange
 execution requires the ready-plan, fresh-projection, target-identity, and
 managed-pipeline gates to remain enabled, so remediation cannot be configured to
 bypass the normal execution pipeline.

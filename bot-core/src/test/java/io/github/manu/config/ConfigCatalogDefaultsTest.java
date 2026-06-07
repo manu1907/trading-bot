@@ -76,6 +76,25 @@ class ConfigCatalogDefaultsTest {
         assertThat(requiredNode(catalog, "trading.intervention.remediation_executor_policy.allowed_operations"))
                 .as("trading.intervention.remediation_executor_policy.allowed_operations")
                 .isEmpty();
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.one_way_reduce_only_enabled",
+                false);
+        assertText(catalog, "trading.intervention.remediation_executor_policy.position_order_policy.provider", "binance");
+        assertText(catalog, "trading.intervention.remediation_executor_policy.position_order_policy.market",
+                "usdm_futures");
+        assertText(catalog, "trading.intervention.remediation_executor_policy.position_order_policy.position_side",
+                "BOTH");
+        assertText(catalog, "trading.intervention.remediation_executor_policy.position_order_policy.order_type",
+                "MARKET");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.require_reduce_only",
+                true);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.require_close_position_false",
+                true);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.hedge_mode_execution_enabled",
+                false);
     }
 
     private void assertBoolean(JsonNode root, String path, boolean expected) {

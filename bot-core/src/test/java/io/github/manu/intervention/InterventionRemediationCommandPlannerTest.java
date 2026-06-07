@@ -16,7 +16,8 @@ class InterventionRemediationCommandPlannerTest {
     private static final Instant NOW = Instant.parse("2026-06-06T15:15:00Z");
 
     private final TradingStateProjection projection = new TradingStateProjection();
-    private final InterventionRemediationCommandPlanner planner = new InterventionRemediationCommandPlanner(projection);
+    private final InterventionRemediationCommandPlanner planner =
+            new InterventionRemediationCommandPlanner(projection, enabledPositionOrderPolicy());
 
     @Test
     void plans_order_close_as_executable_cancel_intent_with_target_identity() {
@@ -134,6 +135,49 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("reduce_only_required", "true")
                 .containsEntry("exchange_execution_blocker", "hedge_mode_reduce_only_position_side_unsupported")
                 .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_close_non_executable_when_position_order_policy_is_disabled() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner disabledPlanner = new InterventionRemediationCommandPlanner(projection);
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = disabledPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("exchange_execution_blocker", "position_order_execution_policy_disabled")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_reduce_non_executable_when_market_does_not_match_policy() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner ethPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                new InterventionProperties.PositionOrderPolicy(
+                        true,
+                        "binance",
+                        "coin_m_futures",
+                        "BOTH",
+                        "MARKET",
+                        true,
+                        true,
+                        false
+                )
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = ethPlanner.plan(positionDecision(
+                "REDUCE",
+                Map.of("reduce_fraction", "0.5")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes()).containsEntry("exchange_execution_blocker", "position_order_market_policy_missing");
     }
 
     @Test
@@ -353,5 +397,18 @@ class InterventionRemediationCommandPlannerTest {
                 List.of(),
                 List.of()
         ));
+    }
+
+    private InterventionProperties.PositionOrderPolicy enabledPositionOrderPolicy() {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                false
+        );
     }
 }

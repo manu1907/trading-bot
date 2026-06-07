@@ -203,7 +203,17 @@
         "max_plans_per_run": 25,
         "allowed_operations": [
 
-        ]
+        ],
+        "position_order_policy": {
+          "one_way_reduce_only_enabled": false,
+          "provider": "binance",
+          "market": "usdm_futures",
+          "position_side": "BOTH",
+          "order_type": "MARKET",
+          "require_reduce_only": true,
+          "require_close_position_false": true,
+          "hedge_mode_execution_enabled": false
+        }
       }
     }
   },

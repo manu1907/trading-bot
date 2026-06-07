@@ -71,7 +71,8 @@ class InterventionOperatorControllerTest {
                     true,
                     true,
                     25,
-                    List.of()
+                    List.of(),
+                    InterventionProperties.PositionOrderPolicy.disabled()
             )
     );
     private final InterventionOperatorController controller = new InterventionOperatorController(
@@ -1016,7 +1017,8 @@ class InterventionOperatorControllerTest {
                 true,
                 true,
                 25,
-                List.of()
+                List.of(),
+                InterventionProperties.PositionOrderPolicy.disabled()
         );
     }
 

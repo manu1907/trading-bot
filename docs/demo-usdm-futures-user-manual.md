@@ -835,7 +835,10 @@ The remediation execution portion of that runtime override is:
           "CANCEL_ORDER",
           "CLOSE_POSITION",
           "REDUCE_POSITION"
-        ]
+        ],
+        "position_order_policy": {
+          "one_way_reduce_only_enabled": true
+        }
       }
     }
   }
@@ -845,7 +848,12 @@ The remediation execution portion of that runtime override is:
 This checked-in override does not make every remediation action executable. It
 only allows the executor to submit currently supported cancel and one-way
 reduce-only position plans through the normal order execution pipeline when all
-projection, identity, freshness, risk, and idempotency gates pass.
+projection, identity, freshness, risk, policy, and idempotency gates pass. The
+remaining position-order policy fields are inherited from the catalog defaults:
+`provider=binance`, `market=usdm_futures`, `position_side=BOTH`,
+`order_type=MARKET`, `require_reduce_only=true`,
+`require_close_position_false=true`, and
+`hedge_mode_execution_enabled=false`.
 
 Operator API authentication is not hardcoded in that runtime file. Set operator
 tokens and exchange credentials through environment variables or the deployment
@@ -1386,12 +1394,25 @@ Default intervention config:
 - `remediation_executor_policy.reject_insufficient_data_plans`: `true`
 - `remediation_executor_policy.max_plans_per_run`: `25`
 - `remediation_executor_policy.allowed_operations`: empty list
+- `remediation_executor_policy.position_order_policy.one_way_reduce_only_enabled`:
+  `false`
+- `remediation_executor_policy.position_order_policy.provider`: `binance`
+- `remediation_executor_policy.position_order_policy.market`: `usdm_futures`
+- `remediation_executor_policy.position_order_policy.position_side`: `BOTH`
+- `remediation_executor_policy.position_order_policy.order_type`: `MARKET`
+- `remediation_executor_policy.position_order_policy.require_reduce_only`:
+  `true`
+- `remediation_executor_policy.position_order_policy.require_close_position_false`:
+  `true`
+- `remediation_executor_policy.position_order_policy.hedge_mode_execution_enabled`:
+  `false`
 
 The executor policy defaults describe a safe startup state. Demo-live exchange
 execution is a runtime override state: set `enabled=true`,
 `exchange_execution_enabled=true`, `report_only=false`, and allow the exact
 operation, currently `CANCEL_ORDER`, `CLOSE_POSITION`, or `REDUCE_POSITION`,
-before using
+plus `position_order_policy.one_way_reduce_only_enabled=true` for one-way
+position remediation, before using
 `POST /internal/interventions/remediation/executor/execute`.
 
 The system can track and expose:

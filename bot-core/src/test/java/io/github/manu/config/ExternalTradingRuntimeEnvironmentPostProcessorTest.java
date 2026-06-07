@@ -52,6 +52,16 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 .isEqualTo("CLOSE_POSITION");
         assertThat(environment.getProperty("trading.intervention.remediation-executor-policy.allowed-operations[2]"))
                 .isEqualTo("REDUCE_POSITION");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.one-way-reduce-only-enabled",
+                Boolean.class
+        )).isTrue();
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.market"
+        )).isEqualTo("usdm_futures");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.position-side"
+        )).isEqualTo("BOTH");
     }
 
     @Test

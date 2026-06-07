@@ -59,8 +59,14 @@ public class InterventionConfiguration {
     }
 
     @Bean
-    InterventionRemediationCommandPlanner interventionRemediationCommandPlanner(TradingStateProjection projection) {
-        return new InterventionRemediationCommandPlanner(projection);
+    InterventionRemediationCommandPlanner interventionRemediationCommandPlanner(
+            TradingStateProjection projection,
+            InterventionProperties properties
+    ) {
+        return new InterventionRemediationCommandPlanner(
+                projection,
+                properties.remediationExecutorPolicy().positionOrderPolicy()
+        );
     }
 
     @Bean

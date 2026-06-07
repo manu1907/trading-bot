@@ -232,9 +232,9 @@ public record InterventionProperties(
             Boolean rejectOperatorReviewPlans,
             Boolean rejectInsufficientDataPlans,
             Integer maxPlansPerRun,
-            List<ExecutableOperation> allowedOperations
+            List<ExecutableOperation> allowedOperations,
+            PositionOrderPolicy positionOrderPolicy
     ) {
-
         public RemediationExecutorPolicy {
             enabled = Boolean.TRUE.equals(enabled);
             exchangeExecutionEnabled = Boolean.TRUE.equals(exchangeExecutionEnabled);
@@ -268,6 +268,7 @@ public record InterventionProperties(
                 }
                 allowedOperations = List.copyOf(allowedOperations);
             }
+            positionOrderPolicy = positionOrderPolicy == null ? PositionOrderPolicy.disabled() : positionOrderPolicy;
             if (Boolean.TRUE.equals(exchangeExecutionEnabled)) {
                 if (!Boolean.TRUE.equals(enabled)) {
                     throw new IllegalArgumentException("exchangeExecutionEnabled requires remediation executor policy to be enabled");
@@ -311,8 +312,43 @@ public record InterventionProperties(
                     true,
                     true,
                     25,
-                    List.of()
+                    List.of(),
+                    PositionOrderPolicy.disabled()
             );
+        }
+    }
+
+    public record PositionOrderPolicy(
+            Boolean oneWayReduceOnlyEnabled,
+            String provider,
+            String market,
+            String positionSide,
+            String orderType,
+            Boolean requireReduceOnly,
+            Boolean requireClosePositionFalse,
+            Boolean hedgeModeExecutionEnabled
+    ) {
+
+        public PositionOrderPolicy {
+            oneWayReduceOnlyEnabled = Boolean.TRUE.equals(oneWayReduceOnlyEnabled);
+            provider = normalize(provider, "binance");
+            market = normalize(market, "usdm_futures");
+            positionSide = normalize(positionSide, "BOTH");
+            orderType = normalize(orderType, "MARKET");
+            requireReduceOnly = requireReduceOnly == null || Boolean.TRUE.equals(requireReduceOnly);
+            requireClosePositionFalse = requireClosePositionFalse == null || Boolean.TRUE.equals(requireClosePositionFalse);
+            hedgeModeExecutionEnabled = Boolean.TRUE.equals(hedgeModeExecutionEnabled);
+        }
+
+        static PositionOrderPolicy disabled() {
+            return new PositionOrderPolicy(false, "binance", "usdm_futures", "BOTH", "MARKET", true, true, false);
+        }
+
+        private static String normalize(String value, String defaultValue) {
+            if (value == null || value.isBlank()) {
+                return defaultValue;
+            }
+            return value.trim();
         }
     }
 

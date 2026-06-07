@@ -77,7 +77,10 @@
           "CANCEL_ORDER",
           "CLOSE_POSITION",
           "REDUCE_POSITION"
-        ]
+        ],
+        "position_order_policy": {
+          "one_way_reduce_only_enabled": true
+        }
       }
     }
   },

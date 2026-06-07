@@ -187,6 +187,14 @@ class InterventionConfigurationTest {
             assertThat(policy.rejectInsufficientDataPlans()).isTrue();
             assertThat(policy.maxPlansPerRun()).isEqualTo(25);
             assertThat(policy.allowedOperations()).isEmpty();
+            assertThat(policy.positionOrderPolicy().oneWayReduceOnlyEnabled()).isFalse();
+            assertThat(policy.positionOrderPolicy().provider()).isEqualTo("binance");
+            assertThat(policy.positionOrderPolicy().market()).isEqualTo("usdm_futures");
+            assertThat(policy.positionOrderPolicy().positionSide()).isEqualTo("BOTH");
+            assertThat(policy.positionOrderPolicy().orderType()).isEqualTo("MARKET");
+            assertThat(policy.positionOrderPolicy().requireReduceOnly()).isTrue();
+            assertThat(policy.positionOrderPolicy().requireClosePositionFalse()).isTrue();
+            assertThat(policy.positionOrderPolicy().hedgeModeExecutionEnabled()).isFalse();
         });
     }
 
@@ -200,7 +208,12 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.allow-real-environment=false",
                         "trading.intervention.remediation-executor-policy.max-plans-per-run=3",
                         "trading.intervention.remediation-executor-policy.allowed-operations[0]=CANCEL_ORDER",
-                        "trading.intervention.remediation-executor-policy.allowed-operations[1]=PAUSE_SYMBOL"
+                        "trading.intervention.remediation-executor-policy.allowed-operations[1]=PAUSE_SYMBOL",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.one-way-reduce-only-enabled=true",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.provider=binance",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.market=usdm_futures",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.position-side=BOTH",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.order-type=MARKET"
                 )
                 .run(context -> {
                     InterventionProperties.RemediationExecutorPolicy policy =
@@ -216,6 +229,11 @@ class InterventionConfigurationTest {
                                     InterventionProperties.ExecutableOperation.CANCEL_ORDER,
                                     InterventionProperties.ExecutableOperation.PAUSE_SYMBOL
                             );
+                    assertThat(policy.positionOrderPolicy().oneWayReduceOnlyEnabled()).isTrue();
+                    assertThat(policy.positionOrderPolicy().provider()).isEqualTo("binance");
+                    assertThat(policy.positionOrderPolicy().market()).isEqualTo("usdm_futures");
+                    assertThat(policy.positionOrderPolicy().positionSide()).isEqualTo("BOTH");
+                    assertThat(policy.positionOrderPolicy().orderType()).isEqualTo("MARKET");
                 });
     }
 

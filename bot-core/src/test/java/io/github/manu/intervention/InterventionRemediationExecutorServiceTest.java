@@ -39,7 +39,7 @@ class InterventionRemediationExecutorServiceTest {
 
     private final TradingStateProjection projection = new TradingStateProjection();
     private final InterventionRemediationCommandPlanner commandPlanner =
-            new InterventionRemediationCommandPlanner(projection);
+            new InterventionRemediationCommandPlanner(projection, enabledPositionOrderPolicy());
 
     @Test
     void returns_disabled_batch_when_executor_policy_is_disabled() {
@@ -280,7 +280,8 @@ class InterventionRemediationExecutorServiceTest {
                 true,
                 true,
                 maxPlansPerRun,
-                List.of()
+                List.of(),
+                InterventionProperties.PositionOrderPolicy.disabled()
         );
     }
 
@@ -305,7 +306,21 @@ class InterventionRemediationExecutorServiceTest {
                 true,
                 true,
                 25,
-                List.of(operation)
+                List.of(operation),
+                enabledPositionOrderPolicy()
+        );
+    }
+
+    private static InterventionProperties.PositionOrderPolicy enabledPositionOrderPolicy() {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                false
         );
     }
 

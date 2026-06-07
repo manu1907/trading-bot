@@ -189,7 +189,8 @@ class InterventionAutomatedRemediationRunnerTest {
                 true,
                 true,
                 25,
-                List.of()
+                List.of(),
+                InterventionProperties.PositionOrderPolicy.disabled()
         );
     }
 
