@@ -144,6 +144,115 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Execute eligible remediation batches only after enabling the executor policy, exchange execution, `dry_run_only=false`, and the relevant operation allowlist. Today the only eligible exchange operation is `CANCEL_ORDER` for an external order `CLOSE` decision.
 - Treat position, pause, adoption, amendment, ignore, and replan plans as non-executing until their specific execution policies are implemented.
 
+## End-To-End Delivery Roadmap To Live Google Cloud Operation
+
+This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
+
+Estimated remaining delivery: 55 to 80 commits/slices.
+
+- Core remediation execution and governance: 12 to 18 slices.
+- Strategy runtime and trading lifecycle: 10 to 16 slices.
+- Persistence, recovery, and replay hardening: 6 to 10 slices.
+- Backtesting, paper/demo validation, and promotion gates: 6 to 10 slices.
+- Observability, alerts, and operator controls: 6 to 9 slices.
+- Google Cloud infrastructure and CI/CD: 8 to 12 slices.
+- Security, secrets, operations, and live runbooks: 5 to 8 slices.
+- Final demo-live burn-in and real-live readiness: 4 to 7 slices.
+
+### Roadmap Slice 1: Complete Automated Remediation Governance
+
+- Add durable pause governance state for `PAUSE_SYMBOL` and `PAUSE_ACCOUNT`.
+- Enforce pause governance in strategy admission and order execution admission.
+- Add metrics and audit events for pause activation, expiry, override, and release.
+- Add bounded position sizing policy for `REDUCE`, `CLOSE`, and `HEDGE`.
+- Implement position close/reduce/hedge planning only after sizing, reduce-only rules, margin mode, leverage, symbol capability, and account risk limits are explicit.
+- Implement order adoption policy only after ownership transfer, client order id handling, reconciliation, and rollback behavior are defined.
+- Implement managed order amendment policy only after allowed field drift, stale-state handling, and cancel/replace behavior are defined.
+- Add scheduled remediation runner after executable remediation idempotency and pause governance are covered by persistence tests.
+- Definition of done: unattended demo remediation can handle external orders and known external-position scenarios without manual review, while unsupported scenarios are automatically blocked or paused with auditable reasons.
+
+### Roadmap Slice 2: Complete Strategy And Trading Runtime
+
+- Finish the LFA strategy lifecycle from market data to signal generation to order intent.
+- Add strategy-level risk budgets, symbol budgets, position budgets, daily loss limits, max drawdown limits, max open orders, and max exposure.
+- Add lifecycle state for strategy start, warm-up, active trading, paused, draining, stopped, and emergency stop.
+- Add position-management logic for entry, exit, stop, take-profit, timeout, stale signal, partial fill, and unknown result handling.
+- Add strategy admission checks that read current projection, reconciliation confidence, pause governance, and risk budget state before emitting commands.
+- Add deterministic strategy command ids and idempotency keys.
+- Definition of done: the bot can run the strategy in demo using live data, make bounded decisions, and recover from restart without duplicate orders.
+
+### Roadmap Slice 3: Harden Persistence, Replay, And Recovery
+
+- Ensure all live side-effecting components are disabled during replay.
+- Persist and replay remediation decisions, executor submissions, pause state, strategy lifecycle state, and risk budget state.
+- Add recovery tests for restart during pending order command, gateway failure, unknown order result, partial fill, external intervention, and remediation execution.
+- Add projection reconciliation after restart before any strategy or remediation executor can resume.
+- Add journal retention, compaction, backup, and restore procedures.
+- Definition of done: a process restart or deployment rollout does not duplicate exchange actions and does not resume trading until projection and exchange state are reconciled.
+
+### Roadmap Slice 4: Backtesting, Simulation, And Demo Validation
+
+- Build a deterministic backtest runtime that uses historical market data and the same strategy/risk logic, but no live exchange side effects.
+- Add simulation for fills, fees, slippage, funding, partial fills, rejects, cancel races, and network faults.
+- Add paper/demo validation reports for win rate, drawdown, exposure, order count, fill quality, latency, and failure handling.
+- Define promotion gates from backtest to demo, from demo shadow mode to demo live trading, and from demo live trading to real trading.
+- Definition of done: strategy promotion is based on repeatable evidence and configured gates, not manual confidence.
+
+### Roadmap Slice 5: Observability And Operator Controls
+
+- Add structured metrics for signals, commands, risk decisions, gateway calls, order results, reconciliation, interventions, remediation executor outcomes, and strategy PnL.
+- Add health checks for exchange connectivity, user-data stream freshness, market-data freshness, reconciliation confidence, journal writes, and event consumer lag.
+- Add alerting for emergency stop, degraded reconciliation, unknown order state, unexpected external intervention, high loss, excessive order rate, stale streams, failed deployments, and secret/config errors.
+- Add operator endpoints for read-only status, pause/resume, emergency stop, controlled drain, and safe config inspection.
+- Add dashboards for strategy state, account state, exposure, order lifecycle, remediation lifecycle, and deployment health.
+- Definition of done: the bot can be operated without reading logs as the primary control surface.
+
+### Roadmap Slice 6: Google Cloud Infrastructure
+
+- Choose and codify the target Google Cloud runtime. The likely first target is Cloud Run for the application plus managed supporting services, unless continuous websocket/session behavior or latency requirements force GKE or a VM-based deployment.
+- Provision environments for demo and real with separate projects or strict environment separation.
+- Add infrastructure as code for service accounts, IAM, Artifact Registry, Secret Manager, Cloud Run or GKE, VPC/network controls if needed, logging, monitoring, alert policies, and deployment variables.
+- Store Binance credentials and operator tokens in Secret Manager, never in source-controlled config.
+- Add runtime config overlays for demo and real that select endpoints, credentials, risk budgets, executor policy, and promotion gates without changing application code.
+- Define rollout, rollback, emergency stop, and disaster recovery procedures.
+- Definition of done: a clean Google Cloud environment can be created reproducibly and can run the bot with secrets and config injected securely.
+
+### Roadmap Slice 7: CI/CD Pipeline
+
+- Keep GitHub Actions as the source CI gate for formatting, tests, static analysis, dependency checks, secret scanning, and container build checks.
+- Add container image build and publish to Artifact Registry after CI passes.
+- Add signed or traceable build metadata so a deployment can be tied back to a commit.
+- Add deployment workflows for demo and real with separate approvals, environment variables, secrets, and rollout policies.
+- Add smoke tests after deployment: app health, config load, exchange server time, market-data connectivity, user-data stream connectivity, and no unintended exchange action on startup.
+- Add deployment rollback workflow.
+- Definition of done: merging to the deployment branch can build, publish, deploy to demo, run smoke tests, and require explicit approval before any real deployment.
+
+### Roadmap Slice 8: Demo-Live Burn-In
+
+- Run the bot in Google Cloud against Binance USD-M futures demo with strategy execution disabled first, then strategy shadow mode, then bounded small-order demo trading.
+- Validate that market-data streams, user-data streams, order lifecycle, reconciliation, journal replay, remediation, alerts, and dashboards work continuously.
+- Track burn-in metrics for uptime, latency, reconciliation confidence, unknown order count, duplicate prevention, intervention count, remediation outcome, and strategy PnL.
+- Add incident drills: restart during open order, network outage, stale user-data stream, external manual order, bad config, failed deployment, and emergency stop.
+- Definition of done: demo-live operation has passed the agreed burn-in period with no unresolved critical incidents and with documented evidence.
+
+### Roadmap Slice 9: Real Trading Readiness And Promotion
+
+- Keep real trading disabled until demo-live promotion gates pass.
+- Require explicit real environment config: real credentials, real endpoint, real risk budgets, real executor policy, real alert routing, real emergency stop, and real deployment approval.
+- Start real trading with smallest practical risk limits, restricted symbol allowlist, conservative order limits, and remediation executor policy still constrained to proven operations.
+- Monitor real trading with tighter alerts and a defined manual kill switch.
+- Increase limits only by explicit config changes after evidence review.
+- Definition of done: real trading is a controlled production rollout using the same codebase and deployment path as demo, with separate credentials, config, approvals, and monitoring.
+
+### Roadmap Slice 10: Production Operations Maturity
+
+- Add runbooks for deployment, rollback, emergency stop, exchange outage, reconciliation degradation, external intervention, unknown order, credential rotation, secret compromise, and incident review.
+- Add periodic credential rotation and least-privilege IAM review.
+- Add cost monitoring and budget alerts for Google Cloud.
+- Add release notes and audit trail for every promoted deployment.
+- Add long-term data retention policy for journals, logs, metrics, and backtest/demo evidence.
+- Definition of done: the system is maintainable as a production service, not only runnable as a developer project.
+
 ## Next Work In Dependency Order
 
 1. Add pause governance state for `PAUSE_SYMBOL` and `PAUSE_ACCOUNT` decisions.
