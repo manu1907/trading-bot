@@ -665,12 +665,17 @@ Pause governance metrics:
   queried through the operator API.
 - Prometheus-compatible alert rules for pause governance live in
   `ops/prometheus/pause-governance-alerts.yml`.
+- Alertmanager routing for those pause governance alerts lives in
+  `ops/alertmanager/pause-governance-alertmanager.yml`.
 - An importable Grafana dashboard for pause governance lives in
   `ops/grafana/pause-governance-dashboard.json`.
-- Deployment-specific routing still has to map alert labels such as `severity`
-  and `routing_hint` to real notification channels.
+- The Alertmanager profile maps alert labels such as `severity` and
+  `routing_hint` to operator/platform PagerDuty and Slack receivers.
+- Real webhook URLs, Slack channels, and PagerDuty routing keys must be injected
+  through deployment secrets.
 - Concrete external notification-channel routing and a production-grade indexed
-  audit backend are still planned work.
+  audit backend beyond the source-controlled Alertmanager profile are still
+  planned work.
 
 List recent pause governance audit records:
 

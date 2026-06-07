@@ -21,6 +21,7 @@ underscores and adding `_total` for counters. For example,
 - Pause audit-store record or query failures.
 
 The rules intentionally use low-cardinality labels and generic `routing_hint`
-values. Deployment-specific routing, for example PagerDuty, Slack, email, or
-Google Cloud Monitoring notification channels, should map `routing_hint` and
-`severity` to the actual destination in the deployment layer.
+values. `ops/alertmanager/pause-governance-alertmanager.yml` provides the
+source-controlled Alertmanager routing profile for mapping `routing_hint` and
+`severity` to operator/platform PagerDuty and Slack receivers. Deployment should
+inject the real receiver secrets through the selected secret system.

@@ -606,10 +606,12 @@ persistence or query failures increment
 type, so dashboards and alert rules can detect degradation even when the
 in-memory fallback still serves recent events. Prometheus-compatible alert rules
 for the pause governance metrics live in
-`ops/prometheus/pause-governance-alerts.yml`, and an importable Grafana dashboard
-lives in `ops/grafana/pause-governance-dashboard.json`; deployment-specific
-routing still has to map rule labels such as `severity` and `routing_hint` to
-actual notification channels.
+`ops/prometheus/pause-governance-alerts.yml`; Alertmanager routing for operator
+and platform notification channels lives in
+`ops/alertmanager/pause-governance-alertmanager.yml`; and an importable Grafana
+dashboard lives in `ops/grafana/pause-governance-dashboard.json`. Real webhook
+URLs and PagerDuty routing keys must be injected through deployment secrets, not
+source-controlled config.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and
