@@ -16,6 +16,8 @@ public final class PauseGovernanceMetrics {
 
     static final String RELEASE_EVENTS = "trading.pause_governance.release.events";
     static final String OVERRIDE_EVENTS = "trading.pause_governance.override.events";
+    static final String ACTIVATION_EVENTS = "trading.pause_governance.activation.events";
+    static final String EXPIRY_CONFIGURED_EVENTS = "trading.pause_governance.expiry.configured.events";
 
     private final MeterRegistry meterRegistry;
 
@@ -34,6 +36,30 @@ public final class PauseGovernanceMetrics {
 
     public void pauseReleaseFailed(RemediationDecisionEvent event, String pauseScope) {
         pauseRelease(event, pauseScope, "publish_failed");
+    }
+
+    public void pauseActivationDecision(RemediationDecisionEvent event, String pauseScope, boolean expiryConfigured) {
+        Counter.builder(ACTIVATION_EVENTS)
+                .description("Pause governance activation decisions observed on the live event path")
+                .tag("provider", value(event.getProvider()))
+                .tag("environment", value(event.getEnvironment()))
+                .tag("account", value(event.getAccount()))
+                .tag("market", value(event.getMarket()))
+                .tag("scope", tagValue(pauseScope, "unknown"))
+                .tag("expiry_configured", Boolean.toString(expiryConfigured))
+                .register(meterRegistry)
+                .increment();
+        if (expiryConfigured) {
+            Counter.builder(EXPIRY_CONFIGURED_EVENTS)
+                    .description("Pause governance activation decisions with a valid configured expiry")
+                    .tag("provider", value(event.getProvider()))
+                    .tag("environment", value(event.getEnvironment()))
+                    .tag("account", value(event.getAccount()))
+                    .tag("market", value(event.getMarket()))
+                    .tag("scope", tagValue(pauseScope, "unknown"))
+                    .register(meterRegistry)
+                    .increment();
+        }
     }
 
     public void pauseOverrideEvaluated(OrderCommandEvent command, RiskDecisionEvent decision) {

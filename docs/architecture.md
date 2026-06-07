@@ -571,8 +571,12 @@ counters for Prometheus scraping: release publication outcomes use
 `trading.pause_governance.release.events`, and explicit override evaluations
 use `trading.pause_governance.override.events`. Effective active pause counts
 are exposed as low-cardinality gauges with
-`trading.pause_governance.active.states` tagged by pause scope. Dashboards,
-alerts, audit-query endpoints, and activation/expiry counters are still future
+`trading.pause_governance.active.states` tagged by pause scope. Live-only
+pause activation decision counters use
+`trading.pause_governance.activation.events`; pause activations with a valid
+`pause_expires_at` also increment
+`trading.pause_governance.expiry.configured.events`. Dashboards, alerts,
+audit-query endpoints, and actual expiry-transition alerts are still future
 work.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
