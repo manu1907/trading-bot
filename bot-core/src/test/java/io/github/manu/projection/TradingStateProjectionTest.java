@@ -1004,6 +1004,37 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void release_pause_decision_deactivates_matching_pause_governance() {
+        projection.apply(pauseRemediationDecision(
+                "evt-pause-symbol",
+                "remediation-pause-symbol",
+                "POSITION",
+                "PAUSE_SYMBOL",
+                SYMBOL,
+                timestamp(52)
+        ));
+
+        projection.apply(pauseRemediationDecision(
+                "evt-release-symbol-pause",
+                "pause-release-symbol",
+                "PAUSE_GOVERNANCE",
+                "RELEASE_SYMBOL_PAUSE",
+                SYMBOL,
+                timestamp(53)
+        ));
+
+        assertThat(projection.pauseGovernanceStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .singleElement()
+                .satisfies(pause -> {
+                    assertThat(pause.pauseScope()).isEqualTo("SYMBOL");
+                    assertThat(pause.pauseTarget()).isEqualTo(SYMBOL);
+                    assertThat(pause.action()).isEqualTo("RELEASE_SYMBOL_PAUSE");
+                    assertThat(pause.active()).isFalse();
+                });
+        assertThat(projection.symbolPaused(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL)).isFalse();
+    }
+
+    @Test
     void ignores_inactive_pause_governance_for_pause_lookup_helpers() {
         projection.restore(new TradingStateSnapshot(
                 List.of(),

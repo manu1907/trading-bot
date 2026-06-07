@@ -561,6 +561,29 @@ commands for paused accounts or symbols. Cancel commands can still pass the
 risk gate when their target-order checks pass, because cancelling can reduce
 existing risk.
 
+Release active pause governance:
+
+```bash
+curl -X POST \
+  -H 'X-Operator-Token: <operator-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "provider": "binance",
+    "environment": "demo",
+    "account": "main",
+    "market": "usdm_futures",
+    "pauseScope": "SYMBOL",
+    "pauseTarget": "BTCUSDT",
+    "releasedBy": "operator",
+    "releaseReason": "risk cleared"
+  }' \
+  'http://localhost:8080/internal/interventions/pauses/releases'
+```
+
+The release endpoint requires a matching active pause. It publishes a
+`REMEDIATION_DECISION` release event, and projection replay restores the pause
+as inactive.
+
 List remediation command plans for persisted remediation decisions:
 
 ```bash
@@ -1126,6 +1149,9 @@ Current automated remediation execution state:
   state that can be listed through the operator API.
 - Pause governance suppresses strategy-planned order commands and rejects
   non-cancel order commands at the risk gate for paused accounts or symbols.
+- Active pause governance can be released through the operator API; release is
+  recorded as a remediation decision event and projected as inactive pause
+  state.
 - Order `CLOSE` becomes an exchange-executable `CANCEL_ORDER` plan with the
   projected target order identity.
 - Position `CLOSE`, `REDUCE`, `HEDGE`, and `HEDGE_OR_REPLAN` become

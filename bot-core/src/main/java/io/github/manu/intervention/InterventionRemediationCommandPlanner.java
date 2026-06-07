@@ -13,6 +13,7 @@ public final class InterventionRemediationCommandPlanner {
 
     private static final String SCOPE_ORDER = "ORDER";
     private static final String SCOPE_POSITION = "POSITION";
+    private static final String SCOPE_PAUSE_GOVERNANCE = "PAUSE_GOVERNANCE";
     private static final String ACTION_OPERATOR_REVIEW = "OPERATOR_REVIEW";
     private static final String ACTION_REPLAN_FROM_PROJECTION = "REPLAN_FROM_PROJECTION";
     private static final String ACTION_HEDGE_OR_REPLAN = "HEDGE_OR_REPLAN";
@@ -23,6 +24,8 @@ public final class InterventionRemediationCommandPlanner {
     private static final String ACTION_HEDGE = "HEDGE";
     private static final String ACTION_PAUSE_SYMBOL = "PAUSE_SYMBOL";
     private static final String ACTION_PAUSE_ACCOUNT = "PAUSE_ACCOUNT";
+    private static final String ACTION_RELEASE_SYMBOL_PAUSE = "RELEASE_SYMBOL_PAUSE";
+    private static final String ACTION_RELEASE_ACCOUNT_PAUSE = "RELEASE_ACCOUNT_PAUSE";
     private static final String ACTION_IGNORE = "IGNORE";
 
     private final TradingStateProjection projection;
@@ -38,7 +41,24 @@ public final class InterventionRemediationCommandPlanner {
         return switch (scope) {
             case SCOPE_ORDER -> orderPlan(event, action);
             case SCOPE_POSITION -> positionPlan(event, action);
+            case SCOPE_PAUSE_GOVERNANCE -> pauseGovernancePlan(event, action);
             default -> unsupported(event, Operation.UNSUPPORTED, "remediation:unsupported_scope");
+        };
+    }
+
+    private RemediationCommandPlan pauseGovernancePlan(RemediationDecisionEvent event, String action) {
+        Map<String, String> attributes = baseAttributes(event);
+        put(attributes, "pause_scope", attribute(event, "pause_scope"));
+        put(attributes, "pause_target", attribute(event, "pause_target"));
+        put(attributes, "source_pause_remediation_id", attribute(event, "source_pause_remediation_id"));
+        return switch (action) {
+            case ACTION_RELEASE_SYMBOL_PAUSE, ACTION_RELEASE_ACCOUNT_PAUSE -> noAction(
+                    event,
+                    Operation.RELEASE_PAUSE,
+                    "remediation:pause_release_recorded",
+                    attributes
+            );
+            default -> unsupported(event, Operation.UNSUPPORTED, "remediation:unsupported_pause_governance_action");
         };
     }
 
@@ -285,6 +305,13 @@ public final class InterventionRemediationCommandPlanner {
         }
     }
 
+    private String attribute(RemediationDecisionEvent event, String key) {
+        if (event.getAttributes() == null) {
+            return null;
+        }
+        return text(event.getAttributes().get(key));
+    }
+
     private BigDecimal decimal(String value) {
         String text = text(value);
         if (text == null) {
@@ -332,6 +359,7 @@ public final class InterventionRemediationCommandPlanner {
         HEDGE_POSITION,
         PAUSE_SYMBOL,
         PAUSE_ACCOUNT,
+        RELEASE_PAUSE,
         IGNORE,
         UNSUPPORTED
     }

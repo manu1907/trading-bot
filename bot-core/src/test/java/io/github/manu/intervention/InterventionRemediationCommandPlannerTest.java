@@ -102,6 +102,21 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     @Test
+    void marks_pause_release_as_completed_governance_no_action() {
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = planner.plan(pauseReleaseDecision());
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.NO_ACTION);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.RELEASE_PAUSE);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.reasons()).containsExactly("remediation:pause_release_recorded");
+        assertThat(plan.attributes())
+                .containsEntry("pause_scope", "SYMBOL")
+                .containsEntry("pause_target", "BTCUSDT")
+                .containsEntry("source_pause_remediation_id", "remediation-pause-001")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
     void marks_operator_review_as_not_supported_for_command_planning() {
         restoreOrderIntervention("external_order_observed", true);
 
@@ -142,6 +157,25 @@ class InterventionRemediationCommandPlannerTest {
                 .setPositionSide("BOTH")
                 .setInterventionReason("external_position_change")
                 .setReasons(List.of("intervention:external_position_change"))
+                .build();
+    }
+
+    private RemediationDecisionEvent pauseReleaseDecision() {
+        return RemediationDecisionEvent.newBuilder(orderDecision("RELEASE_SYMBOL_PAUSE"))
+                .setRemediationId("pause-release-001")
+                .setScope("PAUSE_GOVERNANCE")
+                .setClientOrderId(null)
+                .setPositionSide(null)
+                .setInterventionReason("external_position_change")
+                .setReasons(List.of("pause_governance:release"))
+                .setAttributes(Map.of(
+                        "pause_scope",
+                        "SYMBOL",
+                        "pause_target",
+                        "BTCUSDT",
+                        "source_pause_remediation_id",
+                        "remediation-pause-001"
+                ))
                 .build();
     }
 

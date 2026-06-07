@@ -554,6 +554,9 @@ through the operator API, suppresses strategy-planned order commands for paused
 targets, and makes the order risk gate reject non-cancel commands for paused
 accounts or symbols. Cancel commands remain admissible under pause governance
 so the bot can still reduce risk by cancelling unsafe or unwanted open orders.
+Pause releases are also recorded as remediation decision events, allowing
+operator-controlled release of a symbol or account pause to replay and restore
+as inactive pause governance state instead of a transient toggle.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

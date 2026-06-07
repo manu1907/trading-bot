@@ -345,7 +345,7 @@ public final class InterventionRemediationExecutorService {
             case ADOPT_ORDER, AMEND_ORDER, CANCEL_ORDER -> text(plan.clientOrderId()) != null;
             case ADOPT_POSITION, CLOSE_POSITION, REDUCE_POSITION, HEDGE_POSITION -> text(plan.positionSide()) != null;
             case PAUSE_SYMBOL -> text(plan.symbol()) != null;
-            case PAUSE_ACCOUNT, REPLAN_FROM_PROJECTION, IGNORE -> true;
+            case PAUSE_ACCOUNT, RELEASE_PAUSE, REPLAN_FROM_PROJECTION, IGNORE -> true;
             case OPERATOR_REVIEW, UNSUPPORTED -> false;
         };
     }
@@ -372,7 +372,7 @@ public final class InterventionRemediationExecutorService {
             case PAUSE_SYMBOL -> InterventionProperties.ExecutableOperation.PAUSE_SYMBOL;
             case PAUSE_ACCOUNT -> InterventionProperties.ExecutableOperation.PAUSE_ACCOUNT;
             case IGNORE -> InterventionProperties.ExecutableOperation.IGNORE;
-            case OPERATOR_REVIEW, UNSUPPORTED -> null;
+            case RELEASE_PAUSE, OPERATOR_REVIEW, UNSUPPORTED -> null;
         };
     }
 

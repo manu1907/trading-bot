@@ -35,6 +35,15 @@ public class InterventionConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(TradingEventBus.class)
+    PauseGovernanceControlService pauseGovernanceControlService(
+            TradingEventBus eventBus,
+            TradingStateProjection projection
+    ) {
+        return new PauseGovernanceControlService(eventBus, projection);
+    }
+
+    @Bean
     InterventionRemediationAdvisor interventionRemediationAdvisor(
             TradingStateProjection projection,
             InterventionProperties properties

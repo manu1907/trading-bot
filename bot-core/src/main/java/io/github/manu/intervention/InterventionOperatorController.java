@@ -30,6 +30,7 @@ public final class InterventionOperatorController {
 
     private final InterventionAcknowledgementService acknowledgementService;
     private final InterventionRemediationDecisionService remediationDecisionService;
+    private final PauseGovernanceControlService pauseGovernanceControlService;
     private final InterventionAutomatedDecisionService automatedDecisionService;
     private final InterventionRemediationAdvisor remediationAdvisor;
     private final InterventionRemediationExecutorService remediationExecutorService;
@@ -39,6 +40,7 @@ public final class InterventionOperatorController {
     public InterventionOperatorController(
             InterventionAcknowledgementService acknowledgementService,
             InterventionRemediationDecisionService remediationDecisionService,
+            PauseGovernanceControlService pauseGovernanceControlService,
             InterventionAutomatedDecisionService automatedDecisionService,
             InterventionRemediationAdvisor remediationAdvisor,
             InterventionRemediationExecutorService remediationExecutorService,
@@ -47,6 +49,8 @@ public final class InterventionOperatorController {
     ) {
         this.acknowledgementService = Objects.requireNonNull(acknowledgementService, "acknowledgementService");
         this.remediationDecisionService = Objects.requireNonNull(remediationDecisionService, "remediationDecisionService");
+        this.pauseGovernanceControlService =
+                Objects.requireNonNull(pauseGovernanceControlService, "pauseGovernanceControlService");
         this.automatedDecisionService = Objects.requireNonNull(automatedDecisionService, "automatedDecisionService");
         this.remediationAdvisor = Objects.requireNonNull(remediationAdvisor, "remediationAdvisor");
         this.remediationExecutorService = Objects.requireNonNull(remediationExecutorService, "remediationExecutorService");
@@ -304,6 +308,22 @@ public final class InterventionOperatorController {
                 .onErrorResume(IllegalStateException.class, this::conflict);
     }
 
+    @PostMapping("/pauses/releases")
+    public Mono<ResponseEntity<?>> releasePause(
+            @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
+            @RequestBody Mono<PauseReleaseHttpRequest> request
+    ) {
+        if (!authorized(operatorToken)) {
+            return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
+        }
+        Mono<ResponseEntity<?>> response = request
+                .flatMap(this::releasePause)
+                .map(published -> accepted(published));
+        return response
+                .onErrorResume(IllegalArgumentException.class, this::badRequest)
+                .onErrorResume(IllegalStateException.class, this::conflict);
+    }
+
     @PostMapping("/orders/acknowledgements")
     public Mono<ResponseEntity<?>> acknowledgeOrder(
             @RequestHeader(name = OPERATOR_TOKEN_HEADER, required = false) String operatorToken,
@@ -346,6 +366,10 @@ public final class InterventionOperatorController {
 
     private Mono<PublishedTradingEvent> decide(RemediationDecisionHttpRequest request) {
         return Mono.fromFuture(remediationDecisionService.decide(request.toServiceRequest()));
+    }
+
+    private Mono<PublishedTradingEvent> releasePause(PauseReleaseHttpRequest request) {
+        return Mono.fromFuture(pauseGovernanceControlService.release(request.toServiceRequest()));
     }
 
     private Mono<InterventionAutomatedDecisionService.AutomatedDecisionBatch> decideAutomated(
@@ -529,6 +553,37 @@ public final class InterventionOperatorController {
             String account,
             String market
     ) {
+    }
+
+    record PauseReleaseHttpRequest(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String pauseScope,
+            String pauseTarget,
+            String releasedBy,
+            String releaseReason,
+            Map<CharSequence, CharSequence> attributes
+    ) {
+
+        PauseReleaseHttpRequest {
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+
+        PauseGovernanceControlService.PauseReleaseRequest toServiceRequest() {
+            return new PauseGovernanceControlService.PauseReleaseRequest(
+                    provider,
+                    environment,
+                    account,
+                    market,
+                    pauseScope,
+                    pauseTarget,
+                    releasedBy,
+                    releaseReason,
+                    attributes
+            );
+        }
     }
 
     record ExecutorHttpRequest(

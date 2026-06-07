@@ -42,6 +42,13 @@ class InterventionOperatorControllerTest {
                     Clock.fixed(NOW, ZoneOffset.UTC),
                     () -> "remediation-001"
             );
+    private final PauseGovernanceControlService pauseGovernanceControlService =
+            new PauseGovernanceControlService(
+                    eventBus,
+                    projection,
+                    Clock.fixed(NOW, ZoneOffset.UTC),
+                    () -> "pause-release-001"
+            );
     private final InterventionAutomatedDecisionService automatedDecisionService = automatedDecisionService(
             remediationAdvisor,
             new InterventionProperties.AutomatedDecisionService(false, false, 100, null, null)
@@ -70,6 +77,7 @@ class InterventionOperatorControllerTest {
     private final InterventionOperatorController controller = new InterventionOperatorController(
             service,
             remediationDecisionService,
+            pauseGovernanceControlService,
             automatedDecisionService,
             remediationAdvisor,
             remediationExecutorService,
@@ -315,6 +323,76 @@ class InterventionOperatorControllerTest {
                 .expectBody()
                 .jsonPath("$.error")
                 .isEqualTo("unauthorized");
+    }
+
+    @Test
+    void releases_pause_governance_when_token_matches() {
+        restorePauseGovernance();
+
+        client.post()
+                .uri("/internal/interventions/pauses/releases")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(pauseReleaseRequest())
+                .exchange()
+                .expectStatus()
+                .isAccepted()
+                .expectBody()
+                .jsonPath("$.status")
+                .isEqualTo("accepted")
+                .jsonPath("$.eventType")
+                .isEqualTo("REMEDIATION_DECISION");
+
+        assertThat(eventBus.envelope).isNotNull();
+        assertThat(eventBus.envelope.eventType()).isEqualTo(TradingEventType.REMEDIATION_DECISION);
+        RemediationDecisionEvent event = (RemediationDecisionEvent) eventBus.envelope.value();
+        assertThat(event.getRemediationId()).hasToString("pause-release:pause-release-001");
+        assertThat(event.getScope()).hasToString("PAUSE_GOVERNANCE");
+        assertThat(event.getAction()).hasToString("RELEASE_SYMBOL_PAUSE");
+        assertThat(event.getSymbol()).hasToString("BTCUSDT");
+        assertThat(event.getDecidedBy()).hasToString("operator");
+        assertThat(event.getDecisionReason()).hasToString("risk cleared");
+        assertThat(event.getAttributes())
+                .containsEntry("pause_governance_control", "release")
+                .containsEntry("pause_scope", "SYMBOL")
+                .containsEntry("pause_target", "BTCUSDT")
+                .containsEntry("source_pause_remediation_id", "remediation-pause-1")
+                .containsEntry("ticket", "ops-123");
+    }
+
+    @Test
+    void rejects_pause_release_when_token_is_invalid() {
+        restorePauseGovernance();
+
+        client.post()
+                .uri("/internal/interventions/pauses/releases")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "wrong-token")
+                .bodyValue(pauseReleaseRequest())
+                .exchange()
+                .expectStatus()
+                .isUnauthorized()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("unauthorized");
+
+        assertThat(eventBus.envelope).isNull();
+    }
+
+    @Test
+    void maps_missing_pause_release_target_to_conflict() {
+        client.post()
+                .uri("/internal/interventions/pauses/releases")
+                .header(InterventionOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(pauseReleaseRequest())
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("conflict")
+                .jsonPath("$.message")
+                .isEqualTo("No active pause governance state matches the release target");
+
+        assertThat(eventBus.envelope).isNull();
     }
 
     @Test
@@ -875,6 +953,20 @@ class InterventionOperatorControllerTest {
         );
     }
 
+    private Map<String, Object> pauseReleaseRequest() {
+        return Map.of(
+                "provider", "binance",
+                "environment", "demo",
+                "account", "main",
+                "market", "usd_m_futures",
+                "pauseScope", "SYMBOL",
+                "pauseTarget", "BTCUSDT",
+                "releasedBy", "operator",
+                "releaseReason", "risk cleared",
+                "attributes", Map.of("ticket", "ops-123")
+        );
+    }
+
     private InterventionOperatorController controller(
             InterventionRemediationAdvisor advisor,
             InterventionAutomatedDecisionService automatedDecisionService
@@ -896,6 +988,7 @@ class InterventionOperatorControllerTest {
         return new InterventionOperatorController(
                 service,
                 decisionService,
+                pauseGovernanceControlService,
                 automatedDecisionService,
                 advisor,
                 remediationExecutorService,

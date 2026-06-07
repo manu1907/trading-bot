@@ -971,6 +971,12 @@ public final class TradingStateProjection implements TradingEventHandler {
         if (pauseTarget == null) {
             return;
         }
+        String key = key(state.provider(), state.environment(), state.account(), state.market(), pauseScope, pauseTarget);
+        PauseGovernanceState current = pauseGovernance.get(key);
+        if (current != null && state.updatedAt().isBefore(current.updatedAt())) {
+            return;
+        }
+        boolean active = !pauseRelease(state.action());
         PauseGovernanceState pauseState = new PauseGovernanceState(
                 state.provider(),
                 state.environment(),
@@ -987,18 +993,27 @@ public final class TradingStateProjection implements TradingEventHandler {
                 state.decidedBy(),
                 state.decisionReason(),
                 state.attributes(),
-                true,
+                active,
                 state.updatedAt(),
                 state.eventId()
         );
-        pauseGovernance.put(key(state.provider(), state.environment(), state.account(), state.market(), pauseScope, pauseTarget), pauseState);
+        pauseGovernance.put(key, pauseState);
     }
 
     private String pauseScope(String action) {
         return switch (action == null ? "" : action) {
             case "PAUSE_ACCOUNT" -> "ACCOUNT";
             case "PAUSE_SYMBOL" -> "SYMBOL";
+            case "RELEASE_ACCOUNT_PAUSE" -> "ACCOUNT";
+            case "RELEASE_SYMBOL_PAUSE" -> "SYMBOL";
             default -> null;
+        };
+    }
+
+    private boolean pauseRelease(String action) {
+        return switch (action == null ? "" : action) {
+            case "RELEASE_ACCOUNT_PAUSE", "RELEASE_SYMBOL_PAUSE" -> true;
+            default -> false;
         };
     }
 
