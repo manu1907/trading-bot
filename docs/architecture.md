@@ -659,13 +659,15 @@ execution disabled, report-only mode enabled, real environments blocked, and
 executable operation names empty for safe startup. It also keeps
 `position_order_policy.one_way_reduce_only_enabled=false`; the provider, market,
 position side, order type, reduce-only requirement, close-position prohibition,
-hedge-mode block, symbol allowlist, quantity cap, notional cap, and unbounded
-notional behavior are all explicit catalog policy values. Demo-live exchange
-execution is an explicit runtime override state: the policy must be enabled,
-`exchange_execution_enabled=true`, `report_only=false`, the operation must be
-allowlisted, one-way position order execution must be explicitly enabled, and
-the position symbol/quantity/notional caps must admit the projected target
-before the checked-in demo runtime may submit position close/reduce commands.
+hedge-mode block, symbol allowlist, quantity cap, notional cap, unbounded
+notional behavior, required margin type, leverage bounds, and missing
+account-risk metadata behavior are all explicit catalog policy values.
+Demo-live exchange execution is an explicit runtime override state: the policy
+must be enabled, `exchange_execution_enabled=true`, `report_only=false`, the
+operation must be allowlisted, one-way position order execution must be
+explicitly enabled, and the position symbol/quantity/notional/account-risk caps
+must admit the projected target before the checked-in demo runtime may submit
+position close/reduce commands.
 For `CLOSE` decisions only, an explicit chunking policy can convert an
 oversized full close into a capped close chunk so the scheduled remediation
 runner can reduce risk over multiple projected ticks without breaching the

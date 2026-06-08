@@ -845,7 +845,10 @@ The remediation execution portion of that runtime override is:
           ],
           "max_position_quantity": "0.001",
           "chunk_close_when_max_quantity_exceeded": true,
-          "max_position_notional": "250"
+          "max_position_notional": "250",
+          "required_margin_type": "cross",
+          "min_leverage": "1",
+          "max_leverage": "5"
         }
       }
     }
@@ -865,8 +868,10 @@ remaining position-order policy fields are inherited from the catalog defaults:
 `hedge_mode_execution_enabled=false`. The checked-in demo runtime explicitly
 limits automated position remediation to `BTCUSDT`, `max_position_quantity=0.001`,
 `chunk_close_when_max_quantity_exceeded=true`, and
-`max_position_notional=250`; change those runtime values before first start if
-the demo target should use a different symbol or cap.
+`max_position_notional=250`, and requires projected futures account metadata to
+show `margin_type=cross` with leverage between `1` and `5`; change those runtime
+values before first start if the demo target should use a different symbol,
+cap, margin mode, or leverage.
 
 Hedge-mode `LONG` or `SHORT` position close/reduce command construction is
 implemented, but the checked-in demo runtime keeps it disabled. Enabling it
@@ -1437,6 +1442,12 @@ Default intervention config:
   `null`
 - `remediation_executor_policy.position_order_policy.reject_unbounded_position_notional`:
   `true`
+- `remediation_executor_policy.position_order_policy.required_margin_type`:
+  `null`
+- `remediation_executor_policy.position_order_policy.min_leverage`: `null`
+- `remediation_executor_policy.position_order_policy.max_leverage`: `null`
+- `remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata`:
+  `true`
 
 The executor policy defaults describe a safe startup state. Demo-live exchange
 execution is a runtime override state: set `enabled=true`,
@@ -1445,8 +1456,9 @@ operation, currently `CANCEL_ORDER`, `CLOSE_POSITION`, or `REDUCE_POSITION`,
 plus `position_order_policy.one_way_reduce_only_enabled=true` for one-way
 position remediation. For the checked-in demo runtime, position remediation is
 also restricted to `allowed_symbols=["BTCUSDT"]`, `max_position_quantity=0.001`,
-`chunk_close_when_max_quantity_exceeded=true`, and `max_position_notional=250`
-before using
+`chunk_close_when_max_quantity_exceeded=true`, `max_position_notional=250`,
+`required_margin_type=cross`, `min_leverage=1`, and `max_leverage=5` before
+using
 `POST /internal/interventions/remediation/executor/execute`.
 
 The system can track and expose:
@@ -1550,6 +1562,10 @@ Current automated remediation execution state:
   `chunk_close_when_max_quantity_exceeded=true` converts an oversized full close
   into a capped close chunk; explicit `REDUCE` decisions still block when they
   exceed `max_position_quantity`.
+- Position close/reduce plans remain non-executable when a configured
+  `required_margin_type`, `min_leverage`, or `max_leverage` does not match the
+  projected futures account metadata. If the metadata is missing and
+  `reject_missing_account_risk_metadata=true`, the plan is also blocked.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` default to the projected absolute
   position amount and mark `hedge_mode_required=true`.
 - Hedge-mode close/reduce execution remains disabled in the checked-in demo

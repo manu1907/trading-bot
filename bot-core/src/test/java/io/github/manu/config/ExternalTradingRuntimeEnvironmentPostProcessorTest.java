@@ -75,6 +75,15 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty(
                 "trading.intervention.remediation-executor-policy.position-order-policy.max-position-notional"
         )).isEqualTo("250");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.required-margin-type"
+        )).isEqualTo("cross");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.min-leverage"
+        )).isEqualTo("1");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.max-leverage"
+        )).isEqualTo("5");
     }
 
     @Test

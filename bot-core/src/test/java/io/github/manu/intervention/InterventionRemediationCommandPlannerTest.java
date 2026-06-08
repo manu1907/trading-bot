@@ -225,6 +225,10 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         false,
                         null,
+                        true,
+                        null,
+                        null,
+                        null,
                         true
                 )
         );
@@ -351,6 +355,48 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("position_order_max_notional", "100")
                 .containsEntry("position_order_estimated_notional", "6251.25")
                 .containsEntry("exchange_execution_blocker", "position_order_max_notional_exceeded")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_close_non_executable_when_margin_type_does_not_match_position_policy() {
+        restorePositionIntervention("0.25", true, "BOTH", "5", "isolated");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                accountRiskPositionOrderPolicy("cross", null, "5")
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_margin_type", "isolated")
+                .containsEntry("position_order_required_margin_type", "CROSS")
+                .containsEntry("exchange_execution_blocker", "position_order_margin_type_policy_missing")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_close_non_executable_when_leverage_exceeds_position_policy_cap() {
+        restorePositionIntervention("0.25", true, "BOTH", "10", "cross");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                accountRiskPositionOrderPolicy("cross", "1", "5")
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_leverage", "10")
+                .containsEntry("position_order_max_leverage", "5")
+                .containsEntry("exchange_execution_blocker", "position_order_max_leverage_violated")
                 .containsEntry("exchange_executable", "false");
     }
 
@@ -548,6 +594,16 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     private void restorePositionIntervention(String positionAmount, boolean externalIntervention, String positionSide) {
+        restorePositionIntervention(positionAmount, externalIntervention, positionSide, "5", "cross");
+    }
+
+    private void restorePositionIntervention(
+            String positionAmount,
+            boolean externalIntervention,
+            String positionSide,
+            String leverage,
+            String marginType
+    ) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(new TradingStateProjection.PositionState(
@@ -561,6 +617,9 @@ class InterventionRemediationCommandPlannerTest {
                         "50000.00",
                         "50010.00",
                         "12.50",
+                        leverage,
+                        marginType,
+                        null,
                         "USER_DATA",
                         externalIntervention,
                         "external_position_change",
@@ -587,6 +646,10 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 false,
                 null,
+                true,
+                null,
+                null,
+                null,
                 true
         );
     }
@@ -605,6 +668,10 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 false,
                 null,
+                true,
+                null,
+                null,
+                null,
                 true
         );
     }
@@ -621,6 +688,32 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 maxNotional,
                 rejectUnboundedNotional
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy accountRiskPositionOrderPolicy(
+            String requiredMarginType,
+            String minLeverage,
+            String maxLeverage
+    ) {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                false,
+                List.of("BTCUSDT"),
+                null,
+                false,
+                null,
+                true,
+                requiredMarginType,
+                minLeverage,
+                maxLeverage,
+                true
         );
     }
 
@@ -644,7 +737,11 @@ class InterventionRemediationCommandPlannerTest {
                 maxQuantity,
                 chunkClose,
                 maxNotional,
-                rejectUnboundedNotional
+                rejectUnboundedNotional,
+                null,
+                null,
+                null,
+                true
         );
     }
 }

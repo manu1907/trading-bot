@@ -419,6 +419,10 @@ class InterventionRemediationExecutorServiceTest {
                 null,
                 false,
                 null,
+                true,
+                null,
+                null,
+                null,
                 true
         );
     }
@@ -436,6 +440,10 @@ class InterventionRemediationExecutorServiceTest {
                 List.of(),
                 null,
                 false,
+                null,
+                true,
+                null,
+                null,
                 null,
                 true
         );
@@ -489,6 +497,9 @@ class InterventionRemediationExecutorServiceTest {
                         "50000.00",
                         "50010.00",
                         "0",
+                        "5",
+                        "cross",
+                        null,
                         "USER_DATA",
                         true,
                         "external_position_change",
@@ -548,6 +559,9 @@ class InterventionRemediationExecutorServiceTest {
                         "50000.00",
                         "50010.00",
                         "12.50",
+                        "5",
+                        "cross",
+                        null,
                         "USER_DATA",
                         true,
                         "external_position_change",

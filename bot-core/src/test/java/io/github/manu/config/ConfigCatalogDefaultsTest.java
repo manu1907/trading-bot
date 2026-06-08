@@ -109,6 +109,15 @@ class ConfigCatalogDefaultsTest {
         assertBoolean(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.reject_unbounded_position_notional",
                 true);
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.required_margin_type");
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.min_leverage");
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.max_leverage");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata",
+                true);
     }
 
     private void assertBoolean(JsonNode root, String path, boolean expected) {

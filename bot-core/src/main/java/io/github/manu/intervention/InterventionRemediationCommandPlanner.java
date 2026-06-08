@@ -263,9 +263,16 @@ public final class InterventionRemediationCommandPlanner {
         }
         put(attributes, "position_order_max_quantity", positionOrderPolicy.maxPositionQuantity());
         put(attributes, "position_order_max_notional", positionOrderPolicy.maxPositionNotional());
+        put(attributes, "position_order_required_margin_type", positionOrderPolicy.requiredMarginType());
+        put(attributes, "position_order_min_leverage", positionOrderPolicy.minLeverage());
+        put(attributes, "position_order_max_leverage", positionOrderPolicy.maxLeverage());
         attributes.put(
                 "position_order_reject_unbounded_notional",
                 Boolean.toString(positionOrderPolicy.rejectUnboundedPositionNotional())
+        );
+        attributes.put(
+                "position_order_reject_missing_account_risk_metadata",
+                Boolean.toString(positionOrderPolicy.rejectMissingAccountRiskMetadata())
         );
         BigDecimal maxNotional = decimal(positionOrderPolicy.maxPositionNotional());
         BigDecimal markPrice = decimal(position.markPrice());
@@ -339,6 +346,10 @@ public final class InterventionRemediationCommandPlanner {
                 && (symbol == null || !positionOrderPolicy.allowedSymbols().contains(symbol.toUpperCase(Locale.ROOT)))) {
             return "position_order_symbol_policy_missing";
         }
+        String accountRiskPolicyBlocker = positionOrderAccountRiskPolicyBlocker(position);
+        if (accountRiskPolicyBlocker != null) {
+            return accountRiskPolicyBlocker;
+        }
         BigDecimal maxQuantity = decimal(positionOrderPolicy.maxPositionQuantity());
         if (maxQuantity != null
                 && size.quantity().compareTo(maxQuantity) > 0
@@ -360,6 +371,38 @@ public final class InterventionRemediationCommandPlanner {
         BigDecimal estimatedNotional = size.quantity().multiply(markPrice.abs());
         if (estimatedNotional.compareTo(maxNotional) > 0) {
             return "position_order_max_notional_exceeded";
+        }
+        return null;
+    }
+
+    private String positionOrderAccountRiskPolicyBlocker(TradingStateProjection.PositionState position) {
+        String requiredMarginType = text(positionOrderPolicy.requiredMarginType());
+        if (requiredMarginType != null) {
+            String marginType = text(position.marginType());
+            if (marginType == null) {
+                if (positionOrderPolicy.rejectMissingAccountRiskMetadata()) {
+                    return "position_order_margin_type_missing";
+                }
+            } else if (!requiredMarginType.equalsIgnoreCase(marginType)) {
+                return "position_order_margin_type_policy_missing";
+            }
+        }
+        Integer minLeverage = integer(positionOrderPolicy.minLeverage());
+        Integer maxLeverage = integer(positionOrderPolicy.maxLeverage());
+        if (minLeverage == null && maxLeverage == null) {
+            return null;
+        }
+        Integer leverage = integer(position.leverage());
+        if (leverage == null) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_leverage_missing"
+                    : null;
+        }
+        if (minLeverage != null && leverage < minLeverage) {
+            return "position_order_min_leverage_violated";
+        }
+        if (maxLeverage != null && leverage > maxLeverage) {
+            return "position_order_max_leverage_violated";
         }
         return null;
     }
@@ -598,6 +641,9 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "entry_price", position.entryPrice());
         put(attributes, "mark_price", position.markPrice());
         put(attributes, "unrealized_pnl", position.unrealizedPnl());
+        put(attributes, "position_leverage", position.leverage());
+        put(attributes, "position_margin_type", position.marginType());
+        put(attributes, "position_isolated_margin", position.isolatedMargin());
         put(attributes, "target_update_source", position.updateSource());
         put(attributes, "target_event_id", position.eventId());
     }
@@ -623,6 +669,18 @@ public final class InterventionRemediationCommandPlanner {
         }
         try {
             return new BigDecimal(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private Integer integer(String value) {
+        String text = text(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(text);
         } catch (NumberFormatException ignored) {
             return null;
         }

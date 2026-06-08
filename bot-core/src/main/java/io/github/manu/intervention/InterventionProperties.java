@@ -334,7 +334,11 @@ public record InterventionProperties(
             String maxPositionQuantity,
             Boolean chunkCloseWhenMaxQuantityExceeded,
             String maxPositionNotional,
-            Boolean rejectUnboundedPositionNotional
+            Boolean rejectUnboundedPositionNotional,
+            String requiredMarginType,
+            String minLeverage,
+            String maxLeverage,
+            Boolean rejectMissingAccountRiskMetadata
     ) {
 
         public PositionOrderPolicy {
@@ -354,6 +358,14 @@ public record InterventionProperties(
             maxPositionNotional = text(maxPositionNotional);
             rejectUnboundedPositionNotional = rejectUnboundedPositionNotional == null
                     || Boolean.TRUE.equals(rejectUnboundedPositionNotional);
+            requiredMarginType = normalizeOptionalUpper(requiredMarginType);
+            validatePositiveInteger("minLeverage", minLeverage);
+            validatePositiveInteger("maxLeverage", maxLeverage);
+            minLeverage = text(minLeverage);
+            maxLeverage = text(maxLeverage);
+            validateRange("leverage", minLeverage, maxLeverage);
+            rejectMissingAccountRiskMetadata = rejectMissingAccountRiskMetadata == null
+                    || Boolean.TRUE.equals(rejectMissingAccountRiskMetadata);
         }
 
         static PositionOrderPolicy disabled() {
@@ -369,6 +381,10 @@ public record InterventionProperties(
                     List.of(),
                     null,
                     false,
+                    null,
+                    true,
+                    null,
+                    null,
                     null,
                     true
             );
@@ -391,6 +407,11 @@ public record InterventionProperties(
                 return null;
             }
             return value.trim();
+        }
+
+        private static String normalizeOptionalUpper(String value) {
+            String text = text(value);
+            return text == null ? null : text.toUpperCase(Locale.ROOT);
         }
 
         private static List<String> normalizeSymbols(List<String> values) {
@@ -419,6 +440,29 @@ public record InterventionProperties(
                 }
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException(field + " must be a decimal number", e);
+            }
+        }
+
+        private static void validatePositiveInteger(String field, String value) {
+            String text = text(value);
+            if (text == null) {
+                return;
+            }
+            try {
+                if (Integer.parseInt(text) <= 0) {
+                    throw new IllegalArgumentException(field + " must be positive when configured");
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(field + " must be an integer", e);
+            }
+        }
+
+        private static void validateRange(String field, String min, String max) {
+            if (min == null || max == null) {
+                return;
+            }
+            if (Integer.parseInt(min) > Integer.parseInt(max)) {
+                throw new IllegalArgumentException(field + " min must be less than or equal to max");
             }
         }
     }

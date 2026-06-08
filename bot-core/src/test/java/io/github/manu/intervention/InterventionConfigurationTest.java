@@ -200,6 +200,10 @@ class InterventionConfigurationTest {
             assertThat(policy.positionOrderPolicy().chunkCloseWhenMaxQuantityExceeded()).isFalse();
             assertThat(policy.positionOrderPolicy().maxPositionNotional()).isNull();
             assertThat(policy.positionOrderPolicy().rejectUnboundedPositionNotional()).isTrue();
+            assertThat(policy.positionOrderPolicy().requiredMarginType()).isNull();
+            assertThat(policy.positionOrderPolicy().minLeverage()).isNull();
+            assertThat(policy.positionOrderPolicy().maxLeverage()).isNull();
+            assertThat(policy.positionOrderPolicy().rejectMissingAccountRiskMetadata()).isTrue();
         });
     }
 
@@ -223,7 +227,11 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-position-quantity=0.001",
                         "trading.intervention.remediation-executor-policy.position-order-policy.chunk-close-when-max-quantity-exceeded=true",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-position-notional=250",
-                        "trading.intervention.remediation-executor-policy.position-order-policy.reject-unbounded-position-notional=false"
+                        "trading.intervention.remediation-executor-policy.position-order-policy.reject-unbounded-position-notional=false",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.required-margin-type=cross",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.min-leverage=1",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.max-leverage=5",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.reject-missing-account-risk-metadata=false"
                 )
                 .run(context -> {
                     InterventionProperties.RemediationExecutorPolicy policy =
@@ -249,6 +257,10 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().chunkCloseWhenMaxQuantityExceeded()).isTrue();
                     assertThat(policy.positionOrderPolicy().maxPositionNotional()).isEqualTo("250");
                     assertThat(policy.positionOrderPolicy().rejectUnboundedPositionNotional()).isFalse();
+                    assertThat(policy.positionOrderPolicy().requiredMarginType()).isEqualTo("CROSS");
+                    assertThat(policy.positionOrderPolicy().minLeverage()).isEqualTo("1");
+                    assertThat(policy.positionOrderPolicy().maxLeverage()).isEqualTo("5");
+                    assertThat(policy.positionOrderPolicy().rejectMissingAccountRiskMetadata()).isFalse();
                 });
     }
 

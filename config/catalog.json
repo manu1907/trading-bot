@@ -219,7 +219,11 @@
           "max_position_quantity": null,
           "chunk_close_when_max_quantity_exceeded": false,
           "max_position_notional": null,
-          "reject_unbounded_position_notional": true
+          "reject_unbounded_position_notional": true,
+          "required_margin_type": null,
+          "min_leverage": null,
+          "max_leverage": null,
+          "reject_missing_account_risk_metadata": true
         }
       }
     }

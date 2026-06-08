@@ -26,9 +26,16 @@ create table if not exists trading_projection_positions (
     entry_price varchar(128),
     mark_price varchar(128),
     unrealized_pnl varchar(128),
+    leverage varchar(128),
+    margin_type varchar(128),
+    isolated_margin varchar(128),
     updated_at varchar(64) not null,
     event_id varchar(512)
 );
+
+alter table trading_projection_positions add column if not exists leverage varchar(128);
+alter table trading_projection_positions add column if not exists margin_type varchar(128);
+alter table trading_projection_positions add column if not exists isolated_margin varchar(128);
 
 create table if not exists trading_projection_orders (
     state_key varchar(512) primary key,
