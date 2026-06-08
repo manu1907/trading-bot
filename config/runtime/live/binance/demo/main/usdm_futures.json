@@ -84,6 +84,7 @@
             "BTCUSDT"
           ],
           "max_position_quantity": "0.001",
+          "chunk_close_when_max_quantity_exceeded": true,
           "max_position_notional": "250"
         }
       }

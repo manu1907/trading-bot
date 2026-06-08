@@ -223,6 +223,7 @@ class InterventionRemediationCommandPlannerTest {
                         false,
                         List.of(),
                         null,
+                        false,
                         null,
                         true
                 )
@@ -276,6 +277,55 @@ class InterventionRemediationCommandPlannerTest {
         assertThat(plan.attributes())
                 .containsEntry("position_order_allowed_symbols", "BTCUSDT")
                 .containsEntry("position_order_max_quantity", "0.10")
+                .containsEntry("exchange_execution_blocker", "position_order_max_quantity_exceeded")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void plans_position_close_as_executable_chunk_when_close_chunking_policy_is_enabled() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner chunkingPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                constrainedPositionOrderPolicy(List.of("BTCUSDT"), "0.10", true, "10000", true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                chunkingPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("target_position_quantity", "0.1")
+                .containsEntry("position_sizing_policy", "bounded_projection_chunked_close")
+                .containsEntry("position_close_chunked", "true")
+                .containsEntry("position_close_remaining_quantity_estimate", "0.15")
+                .containsEntry("position_order_max_quantity", "0.10")
+                .containsEntry("position_order_estimated_notional", "5001")
+                .containsEntry("position_execution_mode", "one_way_reduce_only")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void keeps_position_reduce_non_executable_when_quantity_cap_is_exceeded_even_if_close_chunking_is_enabled() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner chunkingPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                constrainedPositionOrderPolicy(List.of("BTCUSDT"), "0.10", true, null, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = chunkingPlanner.plan(positionDecision(
+                "REDUCE",
+                Map.of("reduce_quantity", "0.125")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("target_position_quantity", "0.125")
+                .containsEntry("position_close_chunked", "false")
                 .containsEntry("exchange_execution_blocker", "position_order_max_quantity_exceeded")
                 .containsEntry("exchange_executable", "false");
     }
@@ -535,6 +585,7 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 List.of(),
                 null,
+                false,
                 null,
                 true
         );
@@ -552,6 +603,7 @@ class InterventionRemediationCommandPlannerTest {
                 true,
                 List.of(),
                 null,
+                false,
                 null,
                 true
         );
@@ -560,6 +612,22 @@ class InterventionRemediationCommandPlannerTest {
     private InterventionProperties.PositionOrderPolicy constrainedPositionOrderPolicy(
             List<String> allowedSymbols,
             String maxQuantity,
+            String maxNotional,
+            boolean rejectUnboundedNotional
+    ) {
+        return constrainedPositionOrderPolicy(
+                allowedSymbols,
+                maxQuantity,
+                false,
+                maxNotional,
+                rejectUnboundedNotional
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy constrainedPositionOrderPolicy(
+            List<String> allowedSymbols,
+            String maxQuantity,
+            boolean chunkClose,
             String maxNotional,
             boolean rejectUnboundedNotional
     ) {
@@ -574,6 +642,7 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 allowedSymbols,
                 maxQuantity,
+                chunkClose,
                 maxNotional,
                 rejectUnboundedNotional
         );

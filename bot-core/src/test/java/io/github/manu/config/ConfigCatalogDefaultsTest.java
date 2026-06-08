@@ -101,6 +101,9 @@ class ConfigCatalogDefaultsTest {
                 .isEmpty();
         assertNull(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.max_position_quantity");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.chunk_close_when_max_quantity_exceeded",
+                false);
         assertNull(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.max_position_notional");
         assertBoolean(catalog,

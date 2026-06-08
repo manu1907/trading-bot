@@ -197,6 +197,7 @@ class InterventionConfigurationTest {
             assertThat(policy.positionOrderPolicy().hedgeModeExecutionEnabled()).isFalse();
             assertThat(policy.positionOrderPolicy().allowedSymbols()).isEmpty();
             assertThat(policy.positionOrderPolicy().maxPositionQuantity()).isNull();
+            assertThat(policy.positionOrderPolicy().chunkCloseWhenMaxQuantityExceeded()).isFalse();
             assertThat(policy.positionOrderPolicy().maxPositionNotional()).isNull();
             assertThat(policy.positionOrderPolicy().rejectUnboundedPositionNotional()).isTrue();
         });
@@ -220,6 +221,7 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.order-type=MARKET",
                         "trading.intervention.remediation-executor-policy.position-order-policy.allowed-symbols[0]=btcusdt",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-position-quantity=0.001",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.chunk-close-when-max-quantity-exceeded=true",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-position-notional=250",
                         "trading.intervention.remediation-executor-policy.position-order-policy.reject-unbounded-position-notional=false"
                 )
@@ -244,6 +246,7 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().orderType()).isEqualTo("MARKET");
                     assertThat(policy.positionOrderPolicy().allowedSymbols()).containsExactly("BTCUSDT");
                     assertThat(policy.positionOrderPolicy().maxPositionQuantity()).isEqualTo("0.001");
+                    assertThat(policy.positionOrderPolicy().chunkCloseWhenMaxQuantityExceeded()).isTrue();
                     assertThat(policy.positionOrderPolicy().maxPositionNotional()).isEqualTo("250");
                     assertThat(policy.positionOrderPolicy().rejectUnboundedPositionNotional()).isFalse();
                 });

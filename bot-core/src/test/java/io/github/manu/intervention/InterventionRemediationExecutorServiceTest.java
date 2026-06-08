@@ -417,6 +417,7 @@ class InterventionRemediationExecutorServiceTest {
                 false,
                 List.of(),
                 null,
+                false,
                 null,
                 true
         );
@@ -434,6 +435,7 @@ class InterventionRemediationExecutorServiceTest {
                 true,
                 List.of(),
                 null,
+                false,
                 null,
                 true
         );

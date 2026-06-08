@@ -207,11 +207,16 @@ public final class InterventionRemediationCommandPlanner {
         if (!size.valid()) {
             return insufficientData(event, operation, size.invalidReason(), attributes);
         }
+        size = chunkedCloseSize(operation, size);
         attributes.put("position_abs_amount", normalize(amount.abs()));
         attributes.put("position_direction", amount.signum() > 0 ? "LONG" : "SHORT");
         attributes.put("remediation_order_side", amount.signum() > 0 ? "SELL" : "BUY");
         attributes.put("target_position_quantity", normalize(size.quantity()));
         attributes.put("position_sizing_policy", size.policy());
+        attributes.put("position_close_chunked", Boolean.toString(size.closeChunked()));
+        if (size.closeChunked()) {
+            attributes.put("position_close_remaining_quantity_estimate", normalize(amount.abs().subtract(size.quantity())));
+        }
         attributes.put("reduce_only_required", Boolean.toString(size.reduceOnlyRequired()));
         attributes.put("hedge_mode_required", Boolean.toString(size.hedgeModeRequired()));
         putPositionOrderRiskPolicyAttributes(attributes, position, size);
@@ -228,6 +233,24 @@ public final class InterventionRemediationCommandPlanner {
             attributes.put("exchange_execution_blocker", executionBlocker);
         }
         return ready(event, operation, exchangeExecutable, reason, attributes);
+    }
+
+    private PositionRemediationSize chunkedCloseSize(Operation operation, PositionRemediationSize size) {
+        if (operation != Operation.CLOSE_POSITION || !positionOrderPolicy.chunkCloseWhenMaxQuantityExceeded()) {
+            return size;
+        }
+        BigDecimal maxQuantity = decimal(positionOrderPolicy.maxPositionQuantity());
+        if (maxQuantity == null || size.quantity().compareTo(maxQuantity) <= 0) {
+            return size;
+        }
+        return PositionRemediationSize.valid(
+                maxQuantity,
+                "bounded_projection_chunked_close",
+                size.reduceOnlyRequired(),
+                size.hedgeModeRequired(),
+                size.exchangeExecutionBlocker(),
+                true
+        );
     }
 
     private void putPositionOrderRiskPolicyAttributes(
@@ -317,7 +340,11 @@ public final class InterventionRemediationCommandPlanner {
             return "position_order_symbol_policy_missing";
         }
         BigDecimal maxQuantity = decimal(positionOrderPolicy.maxPositionQuantity());
-        if (maxQuantity != null && size.quantity().compareTo(maxQuantity) > 0) {
+        if (maxQuantity != null
+                && size.quantity().compareTo(maxQuantity) > 0
+                && (!positionOrderPolicy.chunkCloseWhenMaxQuantityExceeded()
+                        || size.policy() == null
+                        || !size.policy().equals("bounded_projection_full_close"))) {
             return "position_order_max_quantity_exceeded";
         }
         BigDecimal maxNotional = decimal(positionOrderPolicy.maxPositionNotional());
@@ -675,6 +702,7 @@ public final class InterventionRemediationCommandPlanner {
             boolean reduceOnlyRequired,
             boolean hedgeModeRequired,
             String exchangeExecutionBlocker,
+            boolean closeChunked,
             String invalidReason
     ) {
 
@@ -689,18 +717,30 @@ public final class InterventionRemediationCommandPlanner {
                 boolean hedgeModeRequired,
                 String exchangeExecutionBlocker
         ) {
+            return valid(quantity, policy, reduceOnlyRequired, hedgeModeRequired, exchangeExecutionBlocker, false);
+        }
+
+        private static PositionRemediationSize valid(
+                BigDecimal quantity,
+                String policy,
+                boolean reduceOnlyRequired,
+                boolean hedgeModeRequired,
+                String exchangeExecutionBlocker,
+                boolean closeChunked
+        ) {
             return new PositionRemediationSize(
                     quantity,
                     policy,
                     reduceOnlyRequired,
                     hedgeModeRequired,
                     exchangeExecutionBlocker,
+                    closeChunked,
                     null
             );
         }
 
         private static PositionRemediationSize invalid(String reason) {
-            return new PositionRemediationSize(null, null, false, false, null, reason);
+            return new PositionRemediationSize(null, null, false, false, null, false, reason);
         }
     }
 

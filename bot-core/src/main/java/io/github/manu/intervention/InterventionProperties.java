@@ -332,6 +332,7 @@ public record InterventionProperties(
             Boolean hedgeModeExecutionEnabled,
             List<String> allowedSymbols,
             String maxPositionQuantity,
+            Boolean chunkCloseWhenMaxQuantityExceeded,
             String maxPositionNotional,
             Boolean rejectUnboundedPositionNotional
     ) {
@@ -349,6 +350,7 @@ public record InterventionProperties(
             validatePositiveDecimal("maxPositionQuantity", maxPositionQuantity);
             validatePositiveDecimal("maxPositionNotional", maxPositionNotional);
             maxPositionQuantity = text(maxPositionQuantity);
+            chunkCloseWhenMaxQuantityExceeded = Boolean.TRUE.equals(chunkCloseWhenMaxQuantityExceeded);
             maxPositionNotional = text(maxPositionNotional);
             rejectUnboundedPositionNotional = rejectUnboundedPositionNotional == null
                     || Boolean.TRUE.equals(rejectUnboundedPositionNotional);
@@ -366,6 +368,7 @@ public record InterventionProperties(
                     false,
                     List.of(),
                     null,
+                    false,
                     null,
                     true
             );

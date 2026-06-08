@@ -844,6 +844,7 @@ The remediation execution portion of that runtime override is:
             "BTCUSDT"
           ],
           "max_position_quantity": "0.001",
+          "chunk_close_when_max_quantity_exceeded": true,
           "max_position_notional": "250"
         }
       }
@@ -863,8 +864,9 @@ remaining position-order policy fields are inherited from the catalog defaults:
 `reject_unbounded_position_notional=true`, and
 `hedge_mode_execution_enabled=false`. The checked-in demo runtime explicitly
 limits automated position remediation to `BTCUSDT`, `max_position_quantity=0.001`,
-and `max_position_notional=250`; change those runtime values before first start
-if the demo target should use a different symbol or cap.
+`chunk_close_when_max_quantity_exceeded=true`, and
+`max_position_notional=250`; change those runtime values before first start if
+the demo target should use a different symbol or cap.
 
 Hedge-mode `LONG` or `SHORT` position close/reduce command construction is
 implemented, but the checked-in demo runtime keeps it disabled. Enabling it
@@ -1429,6 +1431,8 @@ Default intervention config:
   list
 - `remediation_executor_policy.position_order_policy.max_position_quantity`:
   `null`
+- `remediation_executor_policy.position_order_policy.chunk_close_when_max_quantity_exceeded`:
+  `false`
 - `remediation_executor_policy.position_order_policy.max_position_notional`:
   `null`
 - `remediation_executor_policy.position_order_policy.reject_unbounded_position_notional`:
@@ -1441,7 +1445,8 @@ operation, currently `CANCEL_ORDER`, `CLOSE_POSITION`, or `REDUCE_POSITION`,
 plus `position_order_policy.one_way_reduce_only_enabled=true` for one-way
 position remediation. For the checked-in demo runtime, position remediation is
 also restricted to `allowed_symbols=["BTCUSDT"]`, `max_position_quantity=0.001`,
-and `max_position_notional=250` before using
+`chunk_close_when_max_quantity_exceeded=true`, and `max_position_notional=250`
+before using
 `POST /internal/interventions/remediation/executor/execute`.
 
 The system can track and expose:
@@ -1541,7 +1546,10 @@ Current automated remediation execution state:
   not in `allowed_symbols`, the target remediation quantity exceeds
   `max_position_quantity`, the estimated mark-price notional exceeds
   `max_position_notional`, or notional cannot be computed while
-  `reject_unbounded_position_notional=true`.
+  `reject_unbounded_position_notional=true`. For `CLOSE` only,
+  `chunk_close_when_max_quantity_exceeded=true` converts an oversized full close
+  into a capped close chunk; explicit `REDUCE` decisions still block when they
+  exceed `max_position_quantity`.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` default to the projected absolute
   position amount and mark `hedge_mode_required=true`.
 - Hedge-mode close/reduce execution remains disabled in the checked-in demo

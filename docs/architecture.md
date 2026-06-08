@@ -666,6 +666,11 @@ execution is an explicit runtime override state: the policy must be enabled,
 allowlisted, one-way position order execution must be explicitly enabled, and
 the position symbol/quantity/notional caps must admit the projected target
 before the checked-in demo runtime may submit position close/reduce commands.
+For `CLOSE` decisions only, an explicit chunking policy can convert an
+oversized full close into a capped close chunk so the scheduled remediation
+runner can reduce risk over multiple projected ticks without breaching the
+configured max position quantity. Explicit `REDUCE` decisions still remain
+strictly bounded by their requested size and the same caps.
 Hedge-mode close/reduce requires a separate explicit
 `hedge_mode_execution_enabled=true` runtime override. Enabling exchange
 execution requires the ready-plan, fresh-projection, target-identity, and

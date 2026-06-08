@@ -217,6 +217,7 @@
 
           ],
           "max_position_quantity": null,
+          "chunk_close_when_max_quantity_exceeded": false,
           "max_position_notional": null,
           "reject_unbounded_position_notional": true
         }

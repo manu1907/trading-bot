@@ -69,6 +69,10 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 "trading.intervention.remediation-executor-policy.position-order-policy.max-position-quantity"
         )).isEqualTo("0.001");
         assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.chunk-close-when-max-quantity-exceeded",
+                Boolean.class
+        )).isTrue();
+        assertThat(environment.getProperty(
                 "trading.intervention.remediation-executor-policy.position-order-policy.max-position-notional"
         )).isEqualTo("250");
     }
