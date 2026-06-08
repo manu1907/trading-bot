@@ -213,13 +213,14 @@ public final class InterventionRemediationCommandPlanner {
         attributes.put("position_sizing_policy", size.policy());
         attributes.put("reduce_only_required", Boolean.toString(size.reduceOnlyRequired()));
         attributes.put("hedge_mode_required", Boolean.toString(size.hedgeModeRequired()));
+        PositionOrderExecutionPolicy executionPolicy = positionOrderExecutionPolicy(event, position, operation, size);
         attributes.put("position_order_type", "MARKET");
-        attributes.put("position_order_reduce_only", Boolean.toString(size.reduceOnlyRequired()));
+        attributes.put("position_order_reduce_only", Boolean.toString(executionPolicy.reduceOnly()));
         attributes.put("position_order_close_position", "false");
-        String executionBlocker = positionOrderExecutionBlocker(event, position, operation, size);
+        String executionBlocker = executionPolicy.blocker();
         boolean exchangeExecutable = executionBlocker == null;
         if (exchangeExecutable) {
-            attributes.put("position_execution_mode", "one_way_reduce_only");
+            attributes.put("position_execution_mode", executionPolicy.executionMode());
             exchangeExecutionAttributes(attributes, "order_execution_pipeline");
         } else {
             attributes.put("exchange_execution_blocker", executionBlocker);
@@ -227,49 +228,55 @@ public final class InterventionRemediationCommandPlanner {
         return ready(event, operation, exchangeExecutable, reason, attributes);
     }
 
-    private String positionOrderExecutionBlocker(
+    private PositionOrderExecutionPolicy positionOrderExecutionPolicy(
             RemediationDecisionEvent event,
             TradingStateProjection.PositionState position,
             Operation operation,
             PositionRemediationSize size
     ) {
         if (operation == Operation.HEDGE_POSITION) {
-            return size.exchangeExecutionBlocker();
+            return PositionOrderExecutionPolicy.blocked(false, size.exchangeExecutionBlocker());
         }
         if (operation != Operation.CLOSE_POSITION && operation != Operation.REDUCE_POSITION) {
-            return "position_order_execution_policy_missing";
-        }
-        if (!positionOrderPolicy.oneWayReduceOnlyEnabled()) {
-            return "position_order_execution_policy_disabled";
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_execution_policy_missing");
         }
         if (!size.reduceOnlyRequired()) {
-            return "position_order_reduce_only_required";
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_reduce_only_required");
+        }
+        if (!positionOrderPolicy.oneWayReduceOnlyEnabled() && !positionOrderPolicy.hedgeModeExecutionEnabled()) {
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_execution_policy_disabled");
         }
         String provider = text(event.getProvider());
         if (!positionOrderPolicy.provider().equalsIgnoreCase(provider)) {
-            return "position_order_provider_policy_missing";
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_provider_policy_missing");
         }
         String market = text(event.getMarket());
         if (!positionOrderPolicy.market().equalsIgnoreCase(market)) {
-            return "position_order_market_policy_missing";
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_market_policy_missing");
         }
         if (!"MARKET".equalsIgnoreCase(positionOrderPolicy.orderType())) {
-            return "position_order_type_policy_unsupported";
-        }
-        if (!positionOrderPolicy.requireReduceOnly()) {
-            return "position_order_reduce_only_policy_required";
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_type_policy_unsupported");
         }
         if (!positionOrderPolicy.requireClosePositionFalse()) {
-            return "position_order_close_position_policy_required";
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_close_position_policy_required");
         }
         String positionSide = text(position.positionSide());
-        if (!positionOrderPolicy.positionSide().equalsIgnoreCase(positionSide)) {
-            if (positionOrderPolicy.hedgeModeExecutionEnabled()) {
-                return "hedge_mode_execution_policy_not_implemented";
+        if (positionOrderPolicy.positionSide().equalsIgnoreCase(positionSide)) {
+            if (!positionOrderPolicy.oneWayReduceOnlyEnabled()) {
+                return PositionOrderExecutionPolicy.blocked(false, "position_order_execution_policy_disabled");
             }
-            return "hedge_mode_reduce_only_position_side_unsupported";
+            if (!positionOrderPolicy.requireReduceOnly()) {
+                return PositionOrderExecutionPolicy.blocked(false, "position_order_reduce_only_policy_required");
+            }
+            return PositionOrderExecutionPolicy.executable(true, "one_way_reduce_only");
         }
-        return null;
+        if (!"LONG".equals(positionSide) && !"SHORT".equals(positionSide)) {
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_position_side_policy_missing");
+        }
+        if (!positionOrderPolicy.hedgeModeExecutionEnabled()) {
+            return PositionOrderExecutionPolicy.blocked(false, "hedge_mode_reduce_only_position_side_unsupported");
+        }
+        return PositionOrderExecutionPolicy.executable(false, "hedge_mode_position_side_close_reduce");
     }
 
     private PositionRemediationSize positionRemediationSize(
@@ -636,6 +643,21 @@ public final class InterventionRemediationCommandPlanner {
 
         private static PositionRemediationSize invalid(String reason) {
             return new PositionRemediationSize(null, null, false, false, null, reason);
+        }
+    }
+
+    private record PositionOrderExecutionPolicy(
+            boolean reduceOnly,
+            String executionMode,
+            String blocker
+    ) {
+
+        private static PositionOrderExecutionPolicy executable(boolean reduceOnly, String executionMode) {
+            return new PositionOrderExecutionPolicy(reduceOnly, executionMode, null);
+        }
+
+        private static PositionOrderExecutionPolicy blocked(boolean reduceOnly, String blocker) {
+            return new PositionOrderExecutionPolicy(reduceOnly, null, blocker);
         }
     }
 }

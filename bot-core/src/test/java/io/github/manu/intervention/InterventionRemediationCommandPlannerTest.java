@@ -138,6 +138,61 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     @Test
+    void plans_hedge_mode_position_close_as_position_side_market_order_when_policy_is_enabled() {
+        restorePositionIntervention("0.25", true, "LONG");
+        InterventionRemediationCommandPlanner hedgePlanner =
+                new InterventionRemediationCommandPlanner(projection, hedgePositionOrderPolicy());
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                hedgePlanner.plan(positionDecision("CLOSE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("position_side", "LONG")
+                .containsEntry("position_abs_amount", "0.25")
+                .containsEntry("target_position_quantity", "0.25")
+                .containsEntry("remediation_order_side", "SELL")
+                .containsEntry("position_sizing_policy", "bounded_projection_full_close")
+                .containsEntry("reduce_only_required", "true")
+                .containsEntry("position_order_type", "MARKET")
+                .containsEntry("position_order_reduce_only", "false")
+                .containsEntry("position_order_close_position", "false")
+                .containsEntry("position_execution_mode", "hedge_mode_position_side_close_reduce")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void plans_hedge_mode_position_reduce_with_explicit_fraction_bounded_by_projected_size() {
+        restorePositionIntervention("-0.25", true, "SHORT");
+        InterventionRemediationCommandPlanner hedgePlanner =
+                new InterventionRemediationCommandPlanner(projection, hedgePositionOrderPolicy());
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = hedgePlanner.plan(positionDecision(
+                "REDUCE",
+                "SHORT",
+                Map.of("reduce_fraction", "0.5")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("position_side", "SHORT")
+                .containsEntry("position_abs_amount", "0.25")
+                .containsEntry("target_position_quantity", "0.125")
+                .containsEntry("position_direction", "SHORT")
+                .containsEntry("remediation_order_side", "BUY")
+                .containsEntry("position_sizing_policy", "bounded_projection_reduce")
+                .containsEntry("position_order_reduce_only", "false")
+                .containsEntry("position_execution_mode", "hedge_mode_position_side_close_reduce")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
     void keeps_position_close_non_executable_when_position_order_policy_is_disabled() {
         restorePositionIntervention("0.25", true);
         InterventionRemediationCommandPlanner disabledPlanner = new InterventionRemediationCommandPlanner(projection);
@@ -409,6 +464,19 @@ class InterventionRemediationCommandPlannerTest {
                 true,
                 true,
                 false
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy hedgePositionOrderPolicy() {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                true
         );
     }
 }

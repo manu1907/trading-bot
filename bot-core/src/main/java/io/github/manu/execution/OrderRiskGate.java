@@ -312,11 +312,9 @@ public final class OrderRiskGate {
     }
 
     private boolean externalPositionRemediationCommand(OrderCommandEvent command) {
-        return action(command) == OrderCommandAction.NEW
+        boolean commonRemediationCommand = action(command) == OrderCommandAction.NEW
                 && command.getOrderType() == OrderCommandType.MARKET
-                && Boolean.TRUE.equals(command.getReduceOnly())
                 && !Boolean.TRUE.equals(command.getClosePosition())
-                && command.getPositionSide() == OrderCommandPositionSide.BOTH
                 && value(command.getQuantity()) != null
                 && command.getSide() != null
                 && "intervention_remediation_executor".equals(attribute(command, "command_source"))
@@ -325,6 +323,14 @@ public final class OrderRiskGate {
                 && List.of("CLOSE_POSITION", "REDUCE_POSITION").contains(attribute(command, "remediation_operation"))
                 && value(attribute(command, "remediation_id")) != null
                 && value(attribute(command, "target_position_quantity")) != null;
+        boolean oneWayReduceOnly = command.getPositionSide() == OrderCommandPositionSide.BOTH
+                && Boolean.TRUE.equals(command.getReduceOnly())
+                && "one_way_reduce_only".equals(attribute(command, "position_execution_mode"));
+        boolean hedgePositionSideCloseReduce = (command.getPositionSide() == OrderCommandPositionSide.LONG
+                || command.getPositionSide() == OrderCommandPositionSide.SHORT)
+                && !Boolean.TRUE.equals(command.getReduceOnly())
+                && "hedge_mode_position_side_close_reduce".equals(attribute(command, "position_execution_mode"));
+        return commonRemediationCommand && (oneWayReduceOnly || hedgePositionSideCloseReduce);
     }
 
     private ManualInterventionDecision unknownOrderStatusDecision(

@@ -647,9 +647,12 @@ position amount, reduce requires explicit `reduce_quantity` or
 `reduce_fraction` decision attributes bounded by the projected amount, and both
 submit `NEW MARKET` orders on the opposite side with `reduceOnly=true` and
 `closePosition=false` through the normal order execution pipeline. Hedge-mode
-position sides remain non-executable until explicit mode, margin, leverage,
-capability, and account-risk policies exist. Pause/adopt/ignore remain
-governance intents until bounded command-specific executors are implemented.
+position `CLOSE` and bounded `REDUCE` plans can also become exchange-executable
+when `position_order_policy.hedge_mode_execution_enabled=true`; they submit
+`NEW MARKET` orders on the opposite side with the projected `positionSide`
+(`LONG` or `SHORT`), bounded quantity, `reduceOnly=false`, and
+`closePosition=false`. Pause/adopt/ignore remain governance intents until
+bounded command-specific executors are implemented.
 `trading.intervention.remediation-executor-policy` is the explicit executor
 safety boundary. The checked-in catalog keeps the executor disabled, exchange
 execution disabled, report-only mode enabled, real environments blocked, and
@@ -660,7 +663,9 @@ and hedge-mode block are all explicit catalog policy values. Demo-live exchange
 execution is an explicit runtime override state: the policy must be enabled,
 `exchange_execution_enabled=true`, `report_only=false`, the operation must be
 allowlisted, and one-way position order execution must be explicitly enabled
-before the executor may submit position close/reduce commands. Enabling exchange
+before the checked-in demo runtime may submit position close/reduce commands.
+Hedge-mode close/reduce requires a separate explicit
+`hedge_mode_execution_enabled=true` runtime override. Enabling exchange
 execution requires the ready-plan, fresh-projection, target-identity, and
 managed-pipeline gates to remain enabled, so remediation cannot be configured to
 bypass the normal execution pipeline.
@@ -670,9 +675,11 @@ plan against the executor policy, caps each batch, and returns blocked, preview,
 submitted, or no-action reports. The preview endpoint is a pre-execution report
 surface and never submits commands. Execute mode currently supports
 external-order `CLOSE` as `CANCEL_ORDER` plus one-way position `CLOSE` and
-bounded `REDUCE` as reduce-only market orders routed through
-`OrderExecutionPipeline`; the normal risk gate, idempotency, event bus, journal,
-projection, reconciliation, and provider gateway remain authoritative.
+bounded `REDUCE` as reduce-only market orders and config-gated hedge-mode
+position-side `CLOSE` and bounded `REDUCE` as `reduceOnly=false` market orders,
+all routed through `OrderExecutionPipeline`; the normal risk gate, idempotency,
+event bus, journal, projection, reconciliation, and provider gateway remain
+authoritative.
 `InterventionAutomatedRemediationRunner` is the scheduled live automation layer.
 It is disabled by default. When enabled, each tick resolves either its explicit
 target or the current active runtime target, executes already-projected

@@ -244,7 +244,7 @@ public final class InterventionRemediationExecutorService {
         }
         OrderCommandEvent command = plan.operation() == InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER
                 ? cancelOrderCommand(plan, attributes)
-                : positionReduceOnlyOrderCommand(plan, attributes);
+                : positionRemediationOrderCommand(plan, attributes);
         try {
             orderExecutionPipeline.handleOrderCommand(command).join();
         } catch (RuntimeException exception) {
@@ -321,7 +321,7 @@ public final class InterventionRemediationExecutorService {
                 .build();
     }
 
-    private OrderCommandEvent positionReduceOnlyOrderCommand(
+    private OrderCommandEvent positionRemediationOrderCommand(
             InterventionRemediationCommandPlanner.RemediationCommandPlan plan,
             Map<String, String> reportAttributes
     ) {
@@ -332,15 +332,19 @@ public final class InterventionRemediationExecutorService {
         String side = requireText(plan.attributes().get("remediation_order_side"), "remediationOrderSide");
         String quantity = requireText(plan.attributes().get("target_position_quantity"), "targetPositionQuantity");
         String positionSide = text(plan.positionSide());
+        String orderType = requireText(plan.attributes().get("position_order_type"), "positionOrderType");
+        boolean reduceOnly = requiredBooleanPlanAttribute(plan, "position_order_reduce_only");
+        boolean closePosition = requiredBooleanPlanAttribute(plan, "position_order_close_position");
+        String executionMode = requireText(plan.attributes().get("position_execution_mode"), "positionExecutionMode");
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         attributes.putAll(plan.attributes());
         attributes.put("command_source", COMMAND_SOURCE);
         attributes.put("remediation_operation", plan.operation().name());
         attributes.put("remediation_executor_policy_enabled", Boolean.toString(policy.enabled()));
-        attributes.put("position_order_type", "MARKET");
-        attributes.put("position_order_reduce_only", "true");
-        attributes.put("position_order_close_position", "false");
-        attributes.put("position_execution_mode", "one_way_reduce_only");
+        attributes.put("position_order_type", orderType);
+        attributes.put("position_order_reduce_only", Boolean.toString(reduceOnly));
+        attributes.put("position_order_close_position", Boolean.toString(closePosition));
+        attributes.put("position_execution_mode", executionMode);
         reportAttributes.put("executor_command_id", commandId);
         reportAttributes.put("executor_command_client_order_id", commandClientOrderId);
         return OrderCommandEvent.newBuilder()
@@ -357,7 +361,7 @@ public final class InterventionRemediationExecutorService {
                 .setTargetClientOrderId(null)
                 .setTargetExchangeOrderId(null)
                 .setSide(OrderCommandSide.valueOf(side))
-                .setOrderType(OrderCommandType.MARKET)
+                .setOrderType(OrderCommandType.valueOf(orderType))
                 .setPositionSide(positionSide == null ? null : OrderCommandPositionSide.valueOf(positionSide))
                 .setTimeInForce(null)
                 .setQuantity(quantity)
@@ -366,13 +370,24 @@ public final class InterventionRemediationExecutorService {
                 .setStopPrice(null)
                 .setActivationPrice(null)
                 .setCallbackRate(null)
-                .setReduceOnly(true)
-                .setClosePosition(false)
+                .setReduceOnly(reduceOnly)
+                .setClosePosition(closePosition)
                 .setClientOrderId(commandClientOrderId)
                 .setIdempotencyKey(commandId)
                 .setRequestedAtMicros(Instant.now(clock))
                 .setAttributes(Map.copyOf(attributes))
                 .build();
+    }
+
+    private boolean requiredBooleanPlanAttribute(
+            InterventionRemediationCommandPlanner.RemediationCommandPlan plan,
+            String name
+    ) {
+        String value = requireText(plan.attributes().get(name), name);
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+            throw new IllegalArgumentException(name + " must be true or false");
+        }
+        return Boolean.parseBoolean(value);
     }
 
     private RemediationExecutionReport report(

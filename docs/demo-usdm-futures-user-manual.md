@@ -749,9 +749,11 @@ Plan responses include `status`, `operation`, `exchangeExecutable`, `reasons`,
 and target attributes. Order `CLOSE` for a projected external order can now be
 planned as `operation=CANCEL_ORDER` with `exchangeExecutable=true`. Position
 `CLOSE` and bounded one-way position `REDUCE` decisions can now be planned as
-`CLOSE_POSITION` or `REDUCE_POSITION` with `exchangeExecutable=true`; hedge-mode
-position sides, pause, adopt, amend, ignore, and replan plans remain
-non-executable until their specific policies exist.
+`CLOSE_POSITION` or `REDUCE_POSITION` with `exchangeExecutable=true`. Hedge-mode
+`LONG` or `SHORT` position `CLOSE` and bounded `REDUCE` can also be planned as
+exchange-executable when `hedge_mode_execution_enabled=true`; the checked-in
+demo runtime leaves that switch off. Pause, adopt, amend, ignore, and replan
+plans remain non-executable until their specific policies exist.
 
 Preview the remediation executor reports for persisted remediation decisions:
 
@@ -854,6 +856,14 @@ remaining position-order policy fields are inherited from the catalog defaults:
 `order_type=MARKET`, `require_reduce_only=true`,
 `require_close_position_false=true`, and
 `hedge_mode_execution_enabled=false`.
+
+Hedge-mode `LONG` or `SHORT` position close/reduce command construction is
+implemented, but the checked-in demo runtime keeps it disabled. Enabling it
+requires an explicit runtime override of
+`position_order_policy.hedge_mode_execution_enabled=true`. The generated
+hedge-mode remediation order is `NEW MARKET` on the opposite side with the
+projected `positionSide`, bounded quantity, `reduceOnly=false`, and
+`closePosition=false`.
 
 Operator API authentication is not hardcoded in that runtime file. Set operator
 tokens and exchange credentials through environment variables or the deployment
@@ -1504,19 +1514,22 @@ Current automated remediation execution state:
   reduce requests as `INSUFFICIENT_DATA`; eligible reduce submissions use the
   same reduce-only market-order path when executor policy allows
   `REDUCE_POSITION`.
+- Hedge-mode position `CLOSE` and bounded `REDUCE` use the same sizing rules but
+  submit `MARKET` orders with `positionSide=LONG` or `SHORT`,
+  `reduceOnly=false`, and `closePosition=false` when
+  `hedge_mode_execution_enabled=true`.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` default to the projected absolute
   position amount and mark `hedge_mode_required=true`.
-- Hedge-mode position sides still carry an execution blocker because hedge-mode
-  close/reduce semantics require explicit mode, margin, leverage, capability,
-  and account-risk policies before execution.
+- Hedge-mode close/reduce execution remains disabled in the checked-in demo
+  runtime until that runtime explicitly opts into hedge execution.
 - `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `ADOPT`, `IGNORE`, and
   `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
   commands yet.
 
-As of this version, only external order `CLOSE` remediation can become
-`exchangeExecutable=true`, and it can only submit a cancel through the existing
-order execution pipeline. The codebase still does not directly amend, reduce,
-close, or hedge positions from remediation plans.
+As of this version, external order `CLOSE`, position `CLOSE`, and bounded
+position `REDUCE` remediation can become `exchangeExecutable=true` when the
+executor and matching position-order policy are enabled. The codebase still does
+not directly amend, adopt, or hedge positions from remediation plans.
 
 The remediation executor policy is the configuration boundary for the future
 executor. It is disabled by default and cannot allow exchange execution unless
