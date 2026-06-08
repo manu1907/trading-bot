@@ -220,7 +220,11 @@ class InterventionRemediationCommandPlannerTest {
                         "MARKET",
                         true,
                         true,
-                        false
+                        false,
+                        List.of(),
+                        null,
+                        null,
+                        true
                 )
         );
 
@@ -233,6 +237,71 @@ class InterventionRemediationCommandPlannerTest {
         assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
         assertThat(plan.exchangeExecutable()).isFalse();
         assertThat(plan.attributes()).containsEntry("exchange_execution_blocker", "position_order_market_policy_missing");
+    }
+
+    @Test
+    void keeps_position_close_non_executable_when_symbol_is_not_allowlisted_by_position_policy() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                constrainedPositionOrderPolicy(List.of("ETHUSDT"), null, null, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_allowed_symbols", "ETHUSDT")
+                .containsEntry("exchange_execution_blocker", "position_order_symbol_policy_missing")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_close_non_executable_when_quantity_exceeds_position_policy_cap() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                constrainedPositionOrderPolicy(List.of("BTCUSDT"), "0.10", null, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_allowed_symbols", "BTCUSDT")
+                .containsEntry("position_order_max_quantity", "0.10")
+                .containsEntry("exchange_execution_blocker", "position_order_max_quantity_exceeded")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_reduce_non_executable_when_estimated_notional_exceeds_position_policy_cap() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                constrainedPositionOrderPolicy(List.of("BTCUSDT"), "0.25", "100", true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = restrictedPlanner.plan(positionDecision(
+                "REDUCE",
+                Map.of("reduce_fraction", "0.5")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("target_position_quantity", "0.125")
+                .containsEntry("position_order_max_notional", "100")
+                .containsEntry("position_order_estimated_notional", "6251.25")
+                .containsEntry("exchange_execution_blocker", "position_order_max_notional_exceeded")
+                .containsEntry("exchange_executable", "false");
     }
 
     @Test
@@ -463,7 +532,11 @@ class InterventionRemediationCommandPlannerTest {
                 "MARKET",
                 true,
                 true,
-                false
+                false,
+                List.of(),
+                null,
+                null,
+                true
         );
     }
 
@@ -476,7 +549,33 @@ class InterventionRemediationCommandPlannerTest {
                 "MARKET",
                 true,
                 true,
+                true,
+                List.of(),
+                null,
+                null,
                 true
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy constrainedPositionOrderPolicy(
+            List<String> allowedSymbols,
+            String maxQuantity,
+            String maxNotional,
+            boolean rejectUnboundedNotional
+    ) {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                false,
+                allowedSymbols,
+                maxQuantity,
+                maxNotional,
+                rejectUnboundedNotional
         );
     }
 }

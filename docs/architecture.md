@@ -659,10 +659,12 @@ execution disabled, report-only mode enabled, real environments blocked, and
 executable operation names empty for safe startup. It also keeps
 `position_order_policy.one_way_reduce_only_enabled=false`; the provider, market,
 position side, order type, reduce-only requirement, close-position prohibition,
-and hedge-mode block are all explicit catalog policy values. Demo-live exchange
+hedge-mode block, symbol allowlist, quantity cap, notional cap, and unbounded
+notional behavior are all explicit catalog policy values. Demo-live exchange
 execution is an explicit runtime override state: the policy must be enabled,
 `exchange_execution_enabled=true`, `report_only=false`, the operation must be
-allowlisted, and one-way position order execution must be explicitly enabled
+allowlisted, one-way position order execution must be explicitly enabled, and
+the position symbol/quantity/notional caps must admit the projected target
 before the checked-in demo runtime may submit position close/reduce commands.
 Hedge-mode close/reduce requires a separate explicit
 `hedge_mode_execution_enabled=true` runtime override. Enabling exchange

@@ -195,6 +195,10 @@ class InterventionConfigurationTest {
             assertThat(policy.positionOrderPolicy().requireReduceOnly()).isTrue();
             assertThat(policy.positionOrderPolicy().requireClosePositionFalse()).isTrue();
             assertThat(policy.positionOrderPolicy().hedgeModeExecutionEnabled()).isFalse();
+            assertThat(policy.positionOrderPolicy().allowedSymbols()).isEmpty();
+            assertThat(policy.positionOrderPolicy().maxPositionQuantity()).isNull();
+            assertThat(policy.positionOrderPolicy().maxPositionNotional()).isNull();
+            assertThat(policy.positionOrderPolicy().rejectUnboundedPositionNotional()).isTrue();
         });
     }
 
@@ -213,7 +217,11 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.provider=binance",
                         "trading.intervention.remediation-executor-policy.position-order-policy.market=usdm_futures",
                         "trading.intervention.remediation-executor-policy.position-order-policy.position-side=BOTH",
-                        "trading.intervention.remediation-executor-policy.position-order-policy.order-type=MARKET"
+                        "trading.intervention.remediation-executor-policy.position-order-policy.order-type=MARKET",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.allowed-symbols[0]=btcusdt",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.max-position-quantity=0.001",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.max-position-notional=250",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.reject-unbounded-position-notional=false"
                 )
                 .run(context -> {
                     InterventionProperties.RemediationExecutorPolicy policy =
@@ -234,6 +242,10 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().market()).isEqualTo("usdm_futures");
                     assertThat(policy.positionOrderPolicy().positionSide()).isEqualTo("BOTH");
                     assertThat(policy.positionOrderPolicy().orderType()).isEqualTo("MARKET");
+                    assertThat(policy.positionOrderPolicy().allowedSymbols()).containsExactly("BTCUSDT");
+                    assertThat(policy.positionOrderPolicy().maxPositionQuantity()).isEqualTo("0.001");
+                    assertThat(policy.positionOrderPolicy().maxPositionNotional()).isEqualTo("250");
+                    assertThat(policy.positionOrderPolicy().rejectUnboundedPositionNotional()).isFalse();
                 });
     }
 

@@ -839,7 +839,12 @@ The remediation execution portion of that runtime override is:
           "REDUCE_POSITION"
         ],
         "position_order_policy": {
-          "one_way_reduce_only_enabled": true
+          "one_way_reduce_only_enabled": true,
+          "allowed_symbols": [
+            "BTCUSDT"
+          ],
+          "max_position_quantity": "0.001",
+          "max_position_notional": "250"
         }
       }
     }
@@ -854,8 +859,12 @@ projection, identity, freshness, risk, policy, and idempotency gates pass. The
 remaining position-order policy fields are inherited from the catalog defaults:
 `provider=binance`, `market=usdm_futures`, `position_side=BOTH`,
 `order_type=MARKET`, `require_reduce_only=true`,
-`require_close_position_false=true`, and
-`hedge_mode_execution_enabled=false`.
+`require_close_position_false=true`,
+`reject_unbounded_position_notional=true`, and
+`hedge_mode_execution_enabled=false`. The checked-in demo runtime explicitly
+limits automated position remediation to `BTCUSDT`, `max_position_quantity=0.001`,
+and `max_position_notional=250`; change those runtime values before first start
+if the demo target should use a different symbol or cap.
 
 Hedge-mode `LONG` or `SHORT` position close/reduce command construction is
 implemented, but the checked-in demo runtime keeps it disabled. Enabling it
@@ -1416,13 +1425,23 @@ Default intervention config:
   `true`
 - `remediation_executor_policy.position_order_policy.hedge_mode_execution_enabled`:
   `false`
+- `remediation_executor_policy.position_order_policy.allowed_symbols`: empty
+  list
+- `remediation_executor_policy.position_order_policy.max_position_quantity`:
+  `null`
+- `remediation_executor_policy.position_order_policy.max_position_notional`:
+  `null`
+- `remediation_executor_policy.position_order_policy.reject_unbounded_position_notional`:
+  `true`
 
 The executor policy defaults describe a safe startup state. Demo-live exchange
 execution is a runtime override state: set `enabled=true`,
 `exchange_execution_enabled=true`, `report_only=false`, and allow the exact
 operation, currently `CANCEL_ORDER`, `CLOSE_POSITION`, or `REDUCE_POSITION`,
 plus `position_order_policy.one_way_reduce_only_enabled=true` for one-way
-position remediation, before using
+position remediation. For the checked-in demo runtime, position remediation is
+also restricted to `allowed_symbols=["BTCUSDT"]`, `max_position_quantity=0.001`,
+and `max_position_notional=250` before using
 `POST /internal/interventions/remediation/executor/execute`.
 
 The system can track and expose:
@@ -1518,6 +1537,11 @@ Current automated remediation execution state:
   submit `MARKET` orders with `positionSide=LONG` or `SHORT`,
   `reduceOnly=false`, and `closePosition=false` when
   `hedge_mode_execution_enabled=true`.
+- Position close/reduce plans remain non-executable when the projected symbol is
+  not in `allowed_symbols`, the target remediation quantity exceeds
+  `max_position_quantity`, the estimated mark-price notional exceeds
+  `max_position_notional`, or notional cannot be computed while
+  `reject_unbounded_position_notional=true`.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` default to the projected absolute
   position amount and mark `hedge_mode_required=true`.
 - Hedge-mode close/reduce execution remains disabled in the checked-in demo

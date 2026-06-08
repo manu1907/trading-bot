@@ -95,6 +95,17 @@ class ConfigCatalogDefaultsTest {
         assertBoolean(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.hedge_mode_execution_enabled",
                 false);
+        assertThat(requiredNode(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.allowed_symbols"))
+                .as("trading.intervention.remediation_executor_policy.position_order_policy.allowed_symbols")
+                .isEmpty();
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.max_position_quantity");
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.max_position_notional");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.reject_unbounded_position_notional",
+                true);
     }
 
     private void assertBoolean(JsonNode root, String path, boolean expected) {

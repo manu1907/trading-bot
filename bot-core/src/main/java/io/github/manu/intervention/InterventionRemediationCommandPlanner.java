@@ -6,6 +6,7 @@ import io.github.manu.projection.TradingStateProjection;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -213,6 +214,7 @@ public final class InterventionRemediationCommandPlanner {
         attributes.put("position_sizing_policy", size.policy());
         attributes.put("reduce_only_required", Boolean.toString(size.reduceOnlyRequired()));
         attributes.put("hedge_mode_required", Boolean.toString(size.hedgeModeRequired()));
+        putPositionOrderRiskPolicyAttributes(attributes, position, size);
         PositionOrderExecutionPolicy executionPolicy = positionOrderExecutionPolicy(event, position, operation, size);
         attributes.put("position_order_type", "MARKET");
         attributes.put("position_order_reduce_only", Boolean.toString(executionPolicy.reduceOnly()));
@@ -226,6 +228,27 @@ public final class InterventionRemediationCommandPlanner {
             attributes.put("exchange_execution_blocker", executionBlocker);
         }
         return ready(event, operation, exchangeExecutable, reason, attributes);
+    }
+
+    private void putPositionOrderRiskPolicyAttributes(
+            Map<String, String> attributes,
+            TradingStateProjection.PositionState position,
+            PositionRemediationSize size
+    ) {
+        if (!positionOrderPolicy.allowedSymbols().isEmpty()) {
+            attributes.put("position_order_allowed_symbols", String.join(",", positionOrderPolicy.allowedSymbols()));
+        }
+        put(attributes, "position_order_max_quantity", positionOrderPolicy.maxPositionQuantity());
+        put(attributes, "position_order_max_notional", positionOrderPolicy.maxPositionNotional());
+        attributes.put(
+                "position_order_reject_unbounded_notional",
+                Boolean.toString(positionOrderPolicy.rejectUnboundedPositionNotional())
+        );
+        BigDecimal maxNotional = decimal(positionOrderPolicy.maxPositionNotional());
+        BigDecimal markPrice = decimal(position.markPrice());
+        if (maxNotional != null && markPrice != null && markPrice.compareTo(BigDecimal.ZERO) > 0) {
+            attributes.put("position_order_estimated_notional", normalize(size.quantity().multiply(markPrice.abs())));
+        }
     }
 
     private PositionOrderExecutionPolicy positionOrderExecutionPolicy(
@@ -260,6 +283,10 @@ public final class InterventionRemediationCommandPlanner {
         if (!positionOrderPolicy.requireClosePositionFalse()) {
             return PositionOrderExecutionPolicy.blocked(false, "position_order_close_position_policy_required");
         }
+        String riskPolicyBlocker = positionOrderRiskPolicyBlocker(event, position, size);
+        if (riskPolicyBlocker != null) {
+            return PositionOrderExecutionPolicy.blocked(false, riskPolicyBlocker);
+        }
         String positionSide = text(position.positionSide());
         if (positionOrderPolicy.positionSide().equalsIgnoreCase(positionSide)) {
             if (!positionOrderPolicy.oneWayReduceOnlyEnabled()) {
@@ -277,6 +304,37 @@ public final class InterventionRemediationCommandPlanner {
             return PositionOrderExecutionPolicy.blocked(false, "hedge_mode_reduce_only_position_side_unsupported");
         }
         return PositionOrderExecutionPolicy.executable(false, "hedge_mode_position_side_close_reduce");
+    }
+
+    private String positionOrderRiskPolicyBlocker(
+            RemediationDecisionEvent event,
+            TradingStateProjection.PositionState position,
+            PositionRemediationSize size
+    ) {
+        String symbol = text(event.getSymbol());
+        if (!positionOrderPolicy.allowedSymbols().isEmpty()
+                && (symbol == null || !positionOrderPolicy.allowedSymbols().contains(symbol.toUpperCase(Locale.ROOT)))) {
+            return "position_order_symbol_policy_missing";
+        }
+        BigDecimal maxQuantity = decimal(positionOrderPolicy.maxPositionQuantity());
+        if (maxQuantity != null && size.quantity().compareTo(maxQuantity) > 0) {
+            return "position_order_max_quantity_exceeded";
+        }
+        BigDecimal maxNotional = decimal(positionOrderPolicy.maxPositionNotional());
+        if (maxNotional == null) {
+            return null;
+        }
+        BigDecimal markPrice = decimal(position.markPrice());
+        if (markPrice == null || markPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            return positionOrderPolicy.rejectUnboundedPositionNotional()
+                    ? "position_order_notional_unbounded"
+                    : null;
+        }
+        BigDecimal estimatedNotional = size.quantity().multiply(markPrice.abs());
+        if (estimatedNotional.compareTo(maxNotional) > 0) {
+            return "position_order_max_notional_exceeded";
+        }
+        return null;
     }
 
     private PositionRemediationSize positionRemediationSize(

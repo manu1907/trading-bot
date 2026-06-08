@@ -3,7 +3,10 @@ package io.github.manu.intervention;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @ConfigurationProperties(prefix = "trading.intervention")
 public record InterventionProperties(
@@ -326,7 +329,11 @@ public record InterventionProperties(
             String orderType,
             Boolean requireReduceOnly,
             Boolean requireClosePositionFalse,
-            Boolean hedgeModeExecutionEnabled
+            Boolean hedgeModeExecutionEnabled,
+            List<String> allowedSymbols,
+            String maxPositionQuantity,
+            String maxPositionNotional,
+            Boolean rejectUnboundedPositionNotional
     ) {
 
         public PositionOrderPolicy {
@@ -338,10 +345,35 @@ public record InterventionProperties(
             requireReduceOnly = requireReduceOnly == null || Boolean.TRUE.equals(requireReduceOnly);
             requireClosePositionFalse = requireClosePositionFalse == null || Boolean.TRUE.equals(requireClosePositionFalse);
             hedgeModeExecutionEnabled = Boolean.TRUE.equals(hedgeModeExecutionEnabled);
+            allowedSymbols = normalizeSymbols(allowedSymbols);
+            validatePositiveDecimal("maxPositionQuantity", maxPositionQuantity);
+            validatePositiveDecimal("maxPositionNotional", maxPositionNotional);
+            maxPositionQuantity = text(maxPositionQuantity);
+            maxPositionNotional = text(maxPositionNotional);
+            rejectUnboundedPositionNotional = rejectUnboundedPositionNotional == null
+                    || Boolean.TRUE.equals(rejectUnboundedPositionNotional);
         }
 
         static PositionOrderPolicy disabled() {
-            return new PositionOrderPolicy(false, "binance", "usdm_futures", "BOTH", "MARKET", true, true, false);
+            return new PositionOrderPolicy(
+                    false,
+                    "binance",
+                    "usdm_futures",
+                    "BOTH",
+                    "MARKET",
+                    true,
+                    true,
+                    false,
+                    List.of(),
+                    null,
+                    null,
+                    true
+            );
+        }
+
+        @Override
+        public List<String> allowedSymbols() {
+            return List.copyOf(allowedSymbols);
         }
 
         private static String normalize(String value, String defaultValue) {
@@ -349,6 +381,42 @@ public record InterventionProperties(
                 return defaultValue;
             }
             return value.trim();
+        }
+
+        private static String text(String value) {
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            return value.trim();
+        }
+
+        private static List<String> normalizeSymbols(List<String> values) {
+            if (values == null || values.isEmpty()) {
+                return List.of();
+            }
+            List<String> normalized = new ArrayList<>();
+            for (String value : values) {
+                String symbol = text(value);
+                if (symbol == null) {
+                    throw new IllegalArgumentException("allowedSymbols must not contain blank values");
+                }
+                normalized.add(symbol.toUpperCase(Locale.ROOT));
+            }
+            return List.copyOf(normalized);
+        }
+
+        private static void validatePositiveDecimal(String field, String value) {
+            String text = text(value);
+            if (text == null) {
+                return;
+            }
+            try {
+                if (new BigDecimal(text).compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new IllegalArgumentException(field + " must be positive when configured");
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(field + " must be a decimal number", e);
+            }
         }
     }
 

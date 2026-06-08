@@ -62,6 +62,15 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty(
                 "trading.intervention.remediation-executor-policy.position-order-policy.position-side"
         )).isEqualTo("BOTH");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.allowed-symbols[0]"
+        )).isEqualTo("BTCUSDT");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.max-position-quantity"
+        )).isEqualTo("0.001");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.max-position-notional"
+        )).isEqualTo("250");
     }
 
     @Test

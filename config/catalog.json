@@ -212,7 +212,13 @@
           "order_type": "MARKET",
           "require_reduce_only": true,
           "require_close_position_false": true,
-          "hedge_mode_execution_enabled": false
+          "hedge_mode_execution_enabled": false,
+          "allowed_symbols": [
+
+          ],
+          "max_position_quantity": null,
+          "max_position_notional": null,
+          "reject_unbounded_position_notional": true
         }
       }
     }

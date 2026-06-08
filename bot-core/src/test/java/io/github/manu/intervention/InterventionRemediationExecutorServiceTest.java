@@ -414,7 +414,11 @@ class InterventionRemediationExecutorServiceTest {
                 "MARKET",
                 true,
                 true,
-                false
+                false,
+                List.of(),
+                null,
+                null,
+                true
         );
     }
 
@@ -427,6 +431,10 @@ class InterventionRemediationExecutorServiceTest {
                 "MARKET",
                 true,
                 true,
+                true,
+                List.of(),
+                null,
+                null,
                 true
         );
     }

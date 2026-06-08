@@ -79,7 +79,12 @@
           "REDUCE_POSITION"
         ],
         "position_order_policy": {
-          "one_way_reduce_only_enabled": true
+          "one_way_reduce_only_enabled": true,
+          "allowed_symbols": [
+            "BTCUSDT"
+          ],
+          "max_position_quantity": "0.001",
+          "max_position_notional": "250"
         }
       }
     }
