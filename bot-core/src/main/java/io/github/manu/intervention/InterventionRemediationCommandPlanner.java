@@ -265,6 +265,7 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "position_order_max_quantity", positionOrderPolicy.maxPositionQuantity());
         put(attributes, "position_order_max_notional", positionOrderPolicy.maxPositionNotional());
         put(attributes, "position_order_required_margin_type", positionOrderPolicy.requiredMarginType());
+        put(attributes, "position_order_required_position_mode", positionOrderPolicy.requiredPositionMode());
         put(attributes, "position_order_min_leverage", positionOrderPolicy.minLeverage());
         put(attributes, "position_order_max_leverage", positionOrderPolicy.maxLeverage());
         attributes.put(
@@ -334,6 +335,10 @@ public final class InterventionRemediationCommandPlanner {
         if (!positionOrderPolicy.hedgeModeExecutionEnabled()) {
             return PositionOrderExecutionPolicy.blocked(false, "hedge_mode_reduce_only_position_side_unsupported");
         }
+        String positionModeBlocker = hedgePositionModePolicyBlocker(position);
+        if (positionModeBlocker != null) {
+            return PositionOrderExecutionPolicy.blocked(false, positionModeBlocker);
+        }
         return PositionOrderExecutionPolicy.executable(false, "hedge_mode_position_side_close_reduce");
     }
 
@@ -368,6 +373,10 @@ public final class InterventionRemediationCommandPlanner {
         String riskPolicyBlocker = positionOrderRiskPolicyBlocker(event, position, size);
         if (riskPolicyBlocker != null) {
             return PositionOrderExecutionPolicy.blocked(false, riskPolicyBlocker);
+        }
+        String positionModeBlocker = hedgePositionModePolicyBlocker(position);
+        if (positionModeBlocker != null) {
+            return PositionOrderExecutionPolicy.blocked(false, positionModeBlocker);
         }
         return PositionOrderExecutionPolicy.executable(false, "hedge_mode_position_side_hedge");
     }
@@ -439,6 +448,21 @@ public final class InterventionRemediationCommandPlanner {
         }
         if (maxLeverage != null && leverage > maxLeverage) {
             return "position_order_max_leverage_violated";
+        }
+        return null;
+    }
+
+    private String hedgePositionModePolicyBlocker(TradingStateProjection.PositionState position) {
+        String requiredPositionMode = text(positionOrderPolicy.requiredPositionMode());
+        if (requiredPositionMode == null) {
+            return null;
+        }
+        String positionMode = text(position.positionMode());
+        if (positionMode == null) {
+            return "position_order_position_mode_missing";
+        }
+        if (!requiredPositionMode.equalsIgnoreCase(positionMode)) {
+            return "position_order_position_mode_policy_missing";
         }
         return null;
     }
@@ -686,6 +710,7 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "unrealized_pnl", position.unrealizedPnl());
         put(attributes, "position_leverage", position.leverage());
         put(attributes, "position_margin_type", position.marginType());
+        put(attributes, "position_mode", position.positionMode());
         put(attributes, "position_isolated_margin", position.isolatedMargin());
         put(attributes, "target_update_source", position.updateSource());
         put(attributes, "target_event_id", position.eventId());

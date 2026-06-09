@@ -1454,6 +1454,8 @@ Default intervention config:
   `true`
 - `remediation_executor_policy.position_order_policy.required_margin_type`:
   `null`
+- `remediation_executor_policy.position_order_policy.required_position_mode`:
+  `HEDGE`
 - `remediation_executor_policy.position_order_policy.min_leverage`: `null`
 - `remediation_executor_policy.position_order_policy.max_leverage`: `null`
 - `remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata`:
@@ -1563,10 +1565,12 @@ Current automated remediation execution state:
 - Hedge-mode position `CLOSE` and bounded `REDUCE` use the same sizing rules but
   submit `MARKET` orders with `positionSide=LONG` or `SHORT`,
   `reduceOnly=false`, and `closePosition=false` when
-  `hedge_mode_execution_enabled=true`.
+  `hedge_mode_execution_enabled=true` and projected position metadata proves
+  the account position mode matches `required_position_mode=HEDGE`.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` can construct opposite-position-side
   hedge-mode `MARKET` orders only when both `hedge_mode_execution_enabled=true`
-  and `hedge_position_order_enabled=true`. These commands use
+  and `hedge_position_order_enabled=true`, and the projected account position
+  mode matches `required_position_mode=HEDGE`. These commands use
   `reduceOnly=false`, `closePosition=false`, and
   `position_execution_mode=hedge_mode_position_side_hedge`.
 - Position close/reduce plans remain non-executable when the projected symbol is
@@ -1581,6 +1585,9 @@ Current automated remediation execution state:
   `required_margin_type`, `min_leverage`, or `max_leverage` does not match the
   projected futures account metadata. If the metadata is missing and
   `reject_missing_account_risk_metadata=true`, the plan is also blocked.
+- Hedge-mode plans remain non-executable when projected position-mode metadata
+  is missing or does not match `required_position_mode`; the catalog default is
+  `HEDGE`.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` default to the projected absolute
   position amount and mark `hedge_mode_required=true`.
 - Hedge-mode close/reduce and hedge-order execution remain disabled in the

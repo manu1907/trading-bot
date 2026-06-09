@@ -149,7 +149,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
 
     private List<TradingStateProjection.PositionState> loadPositions(Connection connection) throws SQLException {
         String sql = "select provider, environment, account, market, symbol, position_side, position_amount,"
-                + " entry_price, mark_price, unrealized_pnl, leverage, margin_type, isolated_margin,"
+                + " position_mode, entry_price, mark_price, unrealized_pnl, leverage, margin_type, isolated_margin,"
                 + " update_source, external_intervention,"
                 + " intervention_reason, updated_at, event_id from "
                 + table("positions")
@@ -164,6 +164,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         rows.getString("market"),
                         rows.getString("symbol"),
                         rows.getString("position_side"),
+                        rows.getString("position_mode"),
                         rows.getString("position_amount"),
                         rows.getString("entry_price"),
                         rows.getString("mark_price"),
@@ -396,10 +397,10 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
         String sql = "insert into "
                 + table("positions")
                 + " (state_key, provider, environment, account, market, symbol, position_side, position_amount,"
-                + " entry_price, mark_price, unrealized_pnl, leverage, margin_type, isolated_margin,"
+                + " position_mode, entry_price, mark_price, unrealized_pnl, leverage, margin_type, isolated_margin,"
                 + " update_source, external_intervention,"
                 + " intervention_reason, updated_at, event_id)"
-                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (TradingStateProjection.PositionState state : states) {
                 int index = 1;
@@ -418,6 +419,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                 statement.setString(index++, state.symbol());
                 statement.setString(index++, state.positionSide());
                 statement.setString(index++, state.positionAmount());
+                statement.setString(index++, state.positionMode());
                 statement.setString(index++, state.entryPrice());
                 statement.setString(index++, state.markPrice());
                 statement.setString(index++, state.unrealizedPnl());
@@ -673,7 +675,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         + "environment varchar(64) not null, account varchar(128) not null,"
                         + "market varchar(128) not null, symbol varchar(128) not null,"
                         + "position_side varchar(64) not null, position_amount varchar(128), entry_price varchar(128),"
-                        + "mark_price varchar(128), unrealized_pnl varchar(128), leverage varchar(128),"
+                        + "position_mode varchar(64), mark_price varchar(128), unrealized_pnl varchar(128), leverage varchar(128),"
                         + "margin_type varchar(128), isolated_margin varchar(128), update_source varchar(64),"
                         + "external_intervention boolean not null default false, intervention_reason varchar(256),"
                         + "updated_at varchar(64) not null,"
@@ -681,6 +683,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                 "alter table " + table("positions") + " add column if not exists leverage varchar(128)",
                 "alter table " + table("positions") + " add column if not exists margin_type varchar(128)",
                 "alter table " + table("positions") + " add column if not exists isolated_margin varchar(128)",
+                "alter table " + table("positions") + " add column if not exists position_mode varchar(64)",
                 "create table if not exists " + table("orders") + " ("
                         + "state_key varchar(512) primary key, provider varchar(64) not null,"
                         + "environment varchar(64) not null, account varchar(128) not null,"

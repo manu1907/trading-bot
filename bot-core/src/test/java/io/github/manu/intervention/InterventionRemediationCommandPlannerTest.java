@@ -74,11 +74,11 @@ class InterventionRemediationCommandPlannerTest {
 
     @Test
     void keeps_position_hedge_non_executable_when_hedge_order_policy_is_disabled() {
-        restorePositionIntervention("0.25", true);
+        restorePositionIntervention("0.25", true, "LONG");
         InterventionRemediationCommandPlanner hedgePlanner =
                 new InterventionRemediationCommandPlanner(projection, hedgePositionOrderPolicy());
 
-        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = hedgePlanner.plan(positionDecision("HEDGE"));
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = hedgePlanner.plan(positionDecision("HEDGE", "LONG"));
 
         assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
         assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
@@ -91,11 +91,11 @@ class InterventionRemediationCommandPlannerTest {
 
     @Test
     void plans_position_hedge_as_position_side_market_order_when_hedge_order_policy_is_enabled() {
-        restorePositionIntervention("0.25", true);
+        restorePositionIntervention("0.25", true, "LONG", "5", "cross", "HEDGE");
         InterventionRemediationCommandPlanner hedgePlanner =
                 new InterventionRemediationCommandPlanner(projection, executableHedgePositionOrderPolicy());
 
-        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = hedgePlanner.plan(positionDecision("HEDGE"));
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = hedgePlanner.plan(positionDecision("HEDGE", "LONG"));
 
         assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
         assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
@@ -110,6 +110,23 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("position_execution_mode", "hedge_mode_position_side_hedge")
                 .containsEntry("exchange_execution_path", "order_execution_pipeline")
                 .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void keeps_hedge_position_order_non_executable_when_position_mode_is_not_observed() {
+        restorePositionIntervention("0.25", true, "LONG");
+        InterventionRemediationCommandPlanner hedgePlanner =
+                new InterventionRemediationCommandPlanner(projection, executableHedgePositionOrderPolicy());
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = hedgePlanner.plan(positionDecision("HEDGE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_required_position_mode", "HEDGE")
+                .containsEntry("exchange_execution_blocker", "position_order_position_mode_missing")
+                .containsEntry("exchange_executable", "false");
     }
 
     @Test
@@ -179,7 +196,7 @@ class InterventionRemediationCommandPlannerTest {
 
     @Test
     void plans_hedge_mode_position_close_as_position_side_market_order_when_policy_is_enabled() {
-        restorePositionIntervention("0.25", true, "LONG");
+        restorePositionIntervention("0.25", true, "LONG", "5", "cross", "HEDGE");
         InterventionRemediationCommandPlanner hedgePlanner =
                 new InterventionRemediationCommandPlanner(projection, hedgePositionOrderPolicy());
 
@@ -206,7 +223,7 @@ class InterventionRemediationCommandPlannerTest {
 
     @Test
     void plans_hedge_mode_position_reduce_with_explicit_fraction_bounded_by_projected_size() {
-        restorePositionIntervention("-0.25", true, "SHORT");
+        restorePositionIntervention("-0.25", true, "SHORT", "5", "cross", "HEDGE");
         InterventionRemediationCommandPlanner hedgePlanner =
                 new InterventionRemediationCommandPlanner(projection, hedgePositionOrderPolicy());
 
@@ -267,6 +284,7 @@ class InterventionRemediationCommandPlannerTest {
                         false,
                         null,
                         true,
+                        null,
                         null,
                         null,
                         null,
@@ -645,6 +663,17 @@ class InterventionRemediationCommandPlannerTest {
             String leverage,
             String marginType
     ) {
+        restorePositionIntervention(positionAmount, externalIntervention, positionSide, leverage, marginType, null);
+    }
+
+    private void restorePositionIntervention(
+            String positionAmount,
+            boolean externalIntervention,
+            String positionSide,
+            String leverage,
+            String marginType,
+            String positionMode
+    ) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(new TradingStateProjection.PositionState(
@@ -654,6 +683,7 @@ class InterventionRemediationCommandPlannerTest {
                         "usd_m_futures",
                         "BTCUSDT",
                         positionSide,
+                        positionMode,
                         positionAmount,
                         "50000.00",
                         "50010.00",
@@ -692,6 +722,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -715,6 +746,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -735,6 +767,7 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 null,
                 true,
+                null,
                 null,
                 null,
                 null,
@@ -778,6 +811,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 true,
                 requiredMarginType,
+                null,
                 minLeverage,
                 maxLeverage,
                 true
@@ -806,6 +840,7 @@ class InterventionRemediationCommandPlannerTest {
                 chunkClose,
                 maxNotional,
                 rejectUnboundedNotional,
+                null,
                 null,
                 null,
                 null,

@@ -222,6 +222,7 @@
           "max_position_notional": null,
           "reject_unbounded_position_notional": true,
           "required_margin_type": null,
+          "required_position_mode": "HEDGE",
           "min_leverage": null,
           "max_leverage": null,
           "reject_missing_account_risk_metadata": true

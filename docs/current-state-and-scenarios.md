@@ -71,6 +71,7 @@ Supported config-gated hedge-mode remediation today:
 - Hedge-mode `CLOSE` and bounded `REDUCE` can become exchange-executable for projected `positionSide=LONG` or `SHORT` only when `position_order_policy.hedge_mode_execution_enabled=true`.
 - Hedge-mode commands use the opposite side, `MARKET`, projected `positionSide`, bounded quantity, `reduceOnly=false`, and `closePosition=false`.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` can construct opposite-position-side hedge-mode `MARKET` orders only when both `position_order_policy.hedge_mode_execution_enabled=true` and `position_order_policy.hedge_position_order_enabled=true`.
+- Hedge-mode close/reduce and hedge-order plans require projected account position-mode proof matching `position_order_policy.required_position_mode=HEDGE`; missing or mismatched metadata blocks exchange execution.
 - The checked-in demo runtime keeps hedge-mode close/reduce and hedge-order execution disabled.
 
 Position plans remain non-executable when any configured policy gate fails, including:
@@ -135,12 +136,14 @@ Catalog defaults keep these fields explicit and overridable:
 - `trading.intervention.remediation_executor_policy.position_order_policy.require_reduce_only=true`
 - `trading.intervention.remediation_executor_policy.position_order_policy.require_close_position_false=true`
 - `trading.intervention.remediation_executor_policy.position_order_policy.hedge_mode_execution_enabled=false`
+- `trading.intervention.remediation_executor_policy.position_order_policy.hedge_position_order_enabled=false`
 - `trading.intervention.remediation_executor_policy.position_order_policy.allowed_symbols=[]`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_position_quantity=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.chunk_close_when_max_quantity_exceeded=false`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_position_notional=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.reject_unbounded_position_notional=true`
 - `trading.intervention.remediation_executor_policy.position_order_policy.required_margin_type=null`
+- `trading.intervention.remediation_executor_policy.position_order_policy.required_position_mode=HEDGE`
 - `trading.intervention.remediation_executor_policy.position_order_policy.min_leverage=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_leverage=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata=true`
@@ -152,7 +155,7 @@ Remaining work includes:
 - Broader provider preflight coverage for non-new command families where exchange-specific validation is more than target identity.
 - Account-level risk budgets, symbol budgets, exposure caps, drawdown limits, and daily loss limits.
 - External order adoption and managed amendment policies.
-- More complete hedge account-mode reconciliation and operational runbooks.
+- Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - Backtesting, replay validation, demo soak criteria, promotion gates, and real-trading runbooks.
 - CI/CD and cloud deployment completion for Google Cloud first, with provider-neutral deployment abstractions so AWS can be added without changing the trading code.

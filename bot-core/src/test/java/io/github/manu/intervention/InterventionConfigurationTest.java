@@ -231,6 +231,7 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-position-notional=250",
                         "trading.intervention.remediation-executor-policy.position-order-policy.reject-unbounded-position-notional=false",
                         "trading.intervention.remediation-executor-policy.position-order-policy.required-margin-type=cross",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.required-position-mode=hedge",
                         "trading.intervention.remediation-executor-policy.position-order-policy.min-leverage=1",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-leverage=5",
                         "trading.intervention.remediation-executor-policy.position-order-policy.reject-missing-account-risk-metadata=false"
@@ -261,6 +262,7 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().maxPositionNotional()).isEqualTo("250");
                     assertThat(policy.positionOrderPolicy().rejectUnboundedPositionNotional()).isFalse();
                     assertThat(policy.positionOrderPolicy().requiredMarginType()).isEqualTo("CROSS");
+                    assertThat(policy.positionOrderPolicy().requiredPositionMode()).isEqualTo("HEDGE");
                     assertThat(policy.positionOrderPolicy().minLeverage()).isEqualTo("1");
                     assertThat(policy.positionOrderPolicy().maxLeverage()).isEqualTo("5");
                     assertThat(policy.positionOrderPolicy().rejectMissingAccountRiskMetadata()).isFalse();

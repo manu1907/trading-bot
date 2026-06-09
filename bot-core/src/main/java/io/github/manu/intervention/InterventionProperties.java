@@ -337,6 +337,7 @@ public record InterventionProperties(
             String maxPositionNotional,
             Boolean rejectUnboundedPositionNotional,
             String requiredMarginType,
+            String requiredPositionMode,
             String minLeverage,
             String maxLeverage,
             Boolean rejectMissingAccountRiskMetadata
@@ -361,6 +362,7 @@ public record InterventionProperties(
             rejectUnboundedPositionNotional = rejectUnboundedPositionNotional == null
                     || Boolean.TRUE.equals(rejectUnboundedPositionNotional);
             requiredMarginType = normalizeOptionalUpper(requiredMarginType);
+            requiredPositionMode = normalizeOptionalUpper(requiredPositionMode == null ? "HEDGE" : requiredPositionMode);
             validatePositiveInteger("minLeverage", minLeverage);
             validatePositiveInteger("maxLeverage", maxLeverage);
             minLeverage = text(minLeverage);
@@ -387,6 +389,7 @@ public record InterventionProperties(
                     null,
                     true,
                     null,
+                    "HEDGE",
                     null,
                     null,
                     true

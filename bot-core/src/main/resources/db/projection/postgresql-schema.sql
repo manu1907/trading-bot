@@ -23,6 +23,7 @@ create table if not exists trading_projection_positions (
     symbol varchar(128) not null,
     position_side varchar(64) not null,
     position_amount varchar(128),
+    position_mode varchar(64),
     entry_price varchar(128),
     mark_price varchar(128),
     unrealized_pnl varchar(128),
@@ -36,6 +37,7 @@ create table if not exists trading_projection_positions (
 alter table trading_projection_positions add column if not exists leverage varchar(128);
 alter table trading_projection_positions add column if not exists margin_type varchar(128);
 alter table trading_projection_positions add column if not exists isolated_margin varchar(128);
+alter table trading_projection_positions add column if not exists position_mode varchar(64);
 
 create table if not exists trading_projection_orders (
     state_key varchar(512) primary key,

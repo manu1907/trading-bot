@@ -39,7 +39,12 @@ class TradingStateProjectionTest {
     @Test
     void projects_balance_position_and_risk_state() {
         ProjectionUpdate balanceUpdate = projection.apply(balance("evt-balance", "1000", "950", timestamp(10)));
-        ProjectionUpdate positionUpdate = projection.apply(position("evt-position", "-0.10", timestamp(11)));
+        ProjectionUpdate positionUpdate = projection.apply(position(
+                "evt-position",
+                "-0.10",
+                timestamp(11),
+                Map.of("dualSidePosition", "true")
+        ));
         ProjectionUpdate riskUpdate = projection.apply(risk("evt-risk", "-0.01304097", timestamp(12)));
 
         assertThat(balanceUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
@@ -56,6 +61,7 @@ class TradingStateProjectionTest {
                 .get()
                 .satisfies(position -> {
                     assertThat(position.positionAmount()).isEqualTo("-0.10");
+                    assertThat(position.positionMode()).isEqualTo("HEDGE");
                     assertThat(position.open()).isTrue();
                     assertThat(position.updateSource()).isEqualTo("POSITION_UPDATE");
                     assertThat(position.externalIntervention()).isFalse();

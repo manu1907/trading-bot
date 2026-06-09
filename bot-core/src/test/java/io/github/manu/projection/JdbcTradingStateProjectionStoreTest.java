@@ -39,7 +39,10 @@ class JdbcTradingStateProjectionStoreTest {
             assertThat(balance.walletBalance()).isEqualTo("1000");
         });
         assertThat(loaded.get().positions()).singleElement()
-                .satisfies(position -> assertThat(position.positionAmount()).isEqualTo("-0.10"));
+                .satisfies(position -> {
+                    assertThat(position.positionAmount()).isEqualTo("-0.10");
+                    assertThat(position.positionMode()).isEqualTo("HEDGE");
+                });
         assertThat(loaded.get().orders()).singleElement()
                 .satisfies(order -> assertThat(order.exchangeStatus()).isEqualTo("NEW"));
         assertThat(loaded.get().risks()).singleElement()
@@ -124,6 +127,7 @@ class JdbcTradingStateProjectionStoreTest {
                         "options",
                         "BTC-251123-126000-C",
                         "SHORT",
+                        "HEDGE",
                         "-0.10",
                         "1200",
                         "1210",

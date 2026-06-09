@@ -661,8 +661,8 @@ executable operation names empty for safe startup. It also keeps
 position side, order type, reduce-only requirement, close-position prohibition,
 hedge-mode block, symbol allowlist, quantity cap, notional cap, unbounded
 notional behavior, separately disabled hedge-order execution, required margin
-type, leverage bounds, and missing account-risk metadata behavior are all
-explicit catalog policy values.
+type, required hedge account position mode, leverage bounds, and missing
+account-risk metadata behavior are all explicit catalog policy values.
 Demo-live exchange execution is an explicit runtime override state: the policy
 must be enabled, `exchange_execution_enabled=true`, `report_only=false`, the
 operation must be allowlisted, one-way position order execution must be
@@ -678,8 +678,12 @@ Hedge-mode close/reduce requires a separate explicit
 `hedge_mode_execution_enabled=true` runtime override. Hedge orders require both
 `hedge_mode_execution_enabled=true` and
 `hedge_position_order_enabled=true`; they open the opposite hedge-mode
-`positionSide` with `reduceOnly=false`, so they remain off in the checked-in
-demo runtime. Enabling exchange execution requires the ready-plan,
+`positionSide` with `reduceOnly=false`. Hedge-mode close/reduce and hedge
+orders also require projected position-mode proof matching
+`position_order_policy.required_position_mode=HEDGE`; missing or mismatched
+account-mode metadata blocks the plan before it can reach execution. These
+paths remain off in the checked-in demo runtime. Enabling exchange execution
+requires the ready-plan,
 fresh-projection, target-identity, and managed-pipeline gates to remain enabled,
 so remediation cannot be configured to bypass the normal execution pipeline.
 `InterventionRemediationExecutorService` consumes persisted remediation

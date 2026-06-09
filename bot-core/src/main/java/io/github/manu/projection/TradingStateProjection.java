@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -514,6 +515,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getMarket()),
                 value(event.getSymbol()),
                 value(event.getPositionSide()),
+                positionMode(event),
                 value(event.getPositionAmount()),
                 value(event.getEntryPrice()),
                 value(event.getMarkPrice()),
@@ -1153,6 +1155,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                     current.market(),
                     current.symbol(),
                     current.positionSide(),
+                    current.positionMode(),
                     current.positionAmount(),
                     current.entryPrice(),
                     current.markPrice(),
@@ -1438,6 +1441,39 @@ public final class TradingStateProjection implements TradingEventHandler {
         return value(event.getAttributes().get(key));
     }
 
+    private String positionMode(PositionUpdateEvent event) {
+        String explicit = firstValue(
+                attribute(event, "position_mode"),
+                attribute(event, "positionMode"),
+                attribute(event, "account_position_mode"),
+                attribute(event, "accountPositionMode")
+        );
+        if (explicit != null) {
+            return explicit.toUpperCase(Locale.ROOT);
+        }
+        String dualSidePosition = firstValue(attribute(event, "dualSidePosition"), attribute(event, "dual_side_position"));
+        if (dualSidePosition == null) {
+            return null;
+        }
+        if ("true".equalsIgnoreCase(dualSidePosition)) {
+            return "HEDGE";
+        }
+        if ("false".equalsIgnoreCase(dualSidePosition)) {
+            return "ONE_WAY";
+        }
+        return null;
+    }
+
+    private String firstValue(String... values) {
+        for (String candidate : values) {
+            String normalized = value(candidate);
+            if (normalized != null) {
+                return normalized;
+            }
+        }
+        return null;
+    }
+
     public interface TimedState {
         Instant updatedAt();
     }
@@ -1465,6 +1501,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             String market,
             String symbol,
             String positionSide,
+            String positionMode,
             String positionAmount,
             String entryPrice,
             String markPrice,
@@ -1478,6 +1515,49 @@ public final class TradingStateProjection implements TradingEventHandler {
             Instant updatedAt,
             String eventId
     ) implements TimedState {
+        public PositionState(
+                String provider,
+                String environment,
+                String account,
+                String market,
+                String symbol,
+                String positionSide,
+                String positionAmount,
+                String entryPrice,
+                String markPrice,
+                String unrealizedPnl,
+                String leverage,
+                String marginType,
+                String isolatedMargin,
+                String updateSource,
+                Boolean externalIntervention,
+                String interventionReason,
+                Instant updatedAt,
+                String eventId
+        ) {
+            this(
+                    provider,
+                    environment,
+                    account,
+                    market,
+                    symbol,
+                    positionSide,
+                    null,
+                    positionAmount,
+                    entryPrice,
+                    markPrice,
+                    unrealizedPnl,
+                    leverage,
+                    marginType,
+                    isolatedMargin,
+                    updateSource,
+                    externalIntervention,
+                    interventionReason,
+                    updatedAt,
+                    eventId
+            );
+        }
+
         public PositionState {
             externalIntervention = Boolean.TRUE.equals(externalIntervention);
         }

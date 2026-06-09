@@ -290,7 +290,7 @@ class InterventionRemediationExecutorServiceTest {
 
     @Test
     void submits_position_hedge_remediation_as_opposite_position_side_market_order_when_policy_allows() {
-        restorePositionCloseRemediationDecision("0.25", "HEDGE", Map.of());
+        restorePositionCloseRemediationDecision("0.25", "HEDGE", Map.of(), "LONG");
         CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
         ReconciliationConfidenceTracker reconciliationTracker =
                 new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
@@ -509,6 +509,7 @@ class InterventionRemediationExecutorServiceTest {
                 null,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -532,6 +533,7 @@ class InterventionRemediationExecutorServiceTest {
                 null,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -552,6 +554,7 @@ class InterventionRemediationExecutorServiceTest {
                 false,
                 null,
                 true,
+                null,
                 null,
                 null,
                 null,
@@ -656,6 +659,17 @@ class InterventionRemediationExecutorServiceTest {
             Map<String, String> attributes,
             String positionSide
     ) {
+        String positionMode = "LONG".equals(positionSide) || "SHORT".equals(positionSide) ? "HEDGE" : null;
+        restorePositionCloseRemediationDecision(positionAmount, action, attributes, positionSide, positionMode);
+    }
+
+    private void restorePositionCloseRemediationDecision(
+            String positionAmount,
+            String action,
+            Map<String, String> attributes,
+            String positionSide,
+            String positionMode
+    ) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(new TradingStateProjection.PositionState(
@@ -665,6 +679,7 @@ class InterventionRemediationExecutorServiceTest {
                         "usd_m_futures",
                         "BTCUSDT",
                         positionSide,
+                        positionMode,
                         positionAmount,
                         "50000.00",
                         "50010.00",

@@ -114,6 +114,9 @@ class ConfigCatalogDefaultsTest {
                 true);
         assertNull(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.required_margin_type");
+        assertText(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.required_position_mode",
+                "HEDGE");
         assertNull(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.min_leverage");
         assertNull(catalog,
