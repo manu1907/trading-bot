@@ -211,6 +211,7 @@ public final class InterventionRemediationCommandPlanner {
         attributes.put("position_abs_amount", normalize(amount.abs()));
         attributes.put("position_direction", amount.signum() > 0 ? "LONG" : "SHORT");
         attributes.put("remediation_order_side", amount.signum() > 0 ? "SELL" : "BUY");
+        put(attributes, "position_order_command_position_side", commandPositionSide(operation, amount));
         attributes.put("target_position_quantity", normalize(size.quantity()));
         attributes.put("position_sizing_policy", size.policy());
         attributes.put("position_close_chunked", Boolean.toString(size.closeChunked()));
@@ -288,7 +289,7 @@ public final class InterventionRemediationCommandPlanner {
             PositionRemediationSize size
     ) {
         if (operation == Operation.HEDGE_POSITION) {
-            return PositionOrderExecutionPolicy.blocked(false, size.exchangeExecutionBlocker());
+            return hedgePositionOrderExecutionPolicy(event, position, size);
         }
         if (operation != Operation.CLOSE_POSITION && operation != Operation.REDUCE_POSITION) {
             return PositionOrderExecutionPolicy.blocked(false, "position_order_execution_policy_missing");
@@ -334,6 +335,41 @@ public final class InterventionRemediationCommandPlanner {
             return PositionOrderExecutionPolicy.blocked(false, "hedge_mode_reduce_only_position_side_unsupported");
         }
         return PositionOrderExecutionPolicy.executable(false, "hedge_mode_position_side_close_reduce");
+    }
+
+    private PositionOrderExecutionPolicy hedgePositionOrderExecutionPolicy(
+            RemediationDecisionEvent event,
+            TradingStateProjection.PositionState position,
+            PositionRemediationSize size
+    ) {
+        if (!size.hedgeModeRequired()) {
+            return PositionOrderExecutionPolicy.blocked(false, "hedge_mode_required");
+        }
+        if (!positionOrderPolicy.hedgePositionOrderEnabled()) {
+            return PositionOrderExecutionPolicy.blocked(false, "hedge_position_order_policy_disabled");
+        }
+        if (!positionOrderPolicy.hedgeModeExecutionEnabled()) {
+            return PositionOrderExecutionPolicy.blocked(false, "hedge_mode_execution_policy_disabled");
+        }
+        String provider = text(event.getProvider());
+        if (!positionOrderPolicy.provider().equalsIgnoreCase(provider)) {
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_provider_policy_missing");
+        }
+        String market = text(event.getMarket());
+        if (!positionOrderPolicy.market().equalsIgnoreCase(market)) {
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_market_policy_missing");
+        }
+        if (!"MARKET".equalsIgnoreCase(positionOrderPolicy.orderType())) {
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_type_policy_unsupported");
+        }
+        if (!positionOrderPolicy.requireClosePositionFalse()) {
+            return PositionOrderExecutionPolicy.blocked(false, "position_order_close_position_policy_required");
+        }
+        String riskPolicyBlocker = positionOrderRiskPolicyBlocker(event, position, size);
+        if (riskPolicyBlocker != null) {
+            return PositionOrderExecutionPolicy.blocked(false, riskPolicyBlocker);
+        }
+        return PositionOrderExecutionPolicy.executable(false, "hedge_mode_position_side_hedge");
     }
 
     private String positionOrderRiskPolicyBlocker(
@@ -447,6 +483,13 @@ public final class InterventionRemediationCommandPlanner {
             );
             default -> PositionRemediationSize.invalid("remediation:unsupported_position_sizing_operation");
         };
+    }
+
+    private String commandPositionSide(Operation operation, BigDecimal positionAmount) {
+        if (operation != Operation.HEDGE_POSITION) {
+            return null;
+        }
+        return positionAmount.signum() > 0 ? "SHORT" : "LONG";
     }
 
     private PositionRemediationSize boundedQuantity(

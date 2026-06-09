@@ -1440,6 +1440,8 @@ Default intervention config:
   `true`
 - `remediation_executor_policy.position_order_policy.hedge_mode_execution_enabled`:
   `false`
+- `remediation_executor_policy.position_order_policy.hedge_position_order_enabled`:
+  `false`
 - `remediation_executor_policy.position_order_policy.allowed_symbols`: empty
   list
 - `remediation_executor_policy.position_order_policy.max_position_quantity`:
@@ -1562,6 +1564,11 @@ Current automated remediation execution state:
   submit `MARKET` orders with `positionSide=LONG` or `SHORT`,
   `reduceOnly=false`, and `closePosition=false` when
   `hedge_mode_execution_enabled=true`.
+- Position `HEDGE` and `HEDGE_OR_REPLAN` can construct opposite-position-side
+  hedge-mode `MARKET` orders only when both `hedge_mode_execution_enabled=true`
+  and `hedge_position_order_enabled=true`. These commands use
+  `reduceOnly=false`, `closePosition=false`, and
+  `position_execution_mode=hedge_mode_position_side_hedge`.
 - Position close/reduce plans remain non-executable when the projected symbol is
   not in `allowed_symbols`, the target remediation quantity exceeds
   `max_position_quantity`, the estimated mark-price notional exceeds
@@ -1576,8 +1583,9 @@ Current automated remediation execution state:
   `reject_missing_account_risk_metadata=true`, the plan is also blocked.
 - Position `HEDGE` and `HEDGE_OR_REPLAN` default to the projected absolute
   position amount and mark `hedge_mode_required=true`.
-- Hedge-mode close/reduce execution remains disabled in the checked-in demo
-  runtime until that runtime explicitly opts into hedge execution.
+- Hedge-mode close/reduce and hedge-order execution remain disabled in the
+  checked-in demo runtime until that runtime explicitly opts into the relevant
+  hedge policies.
 - `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `ADOPT`, `IGNORE`, and
   `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
   commands yet.

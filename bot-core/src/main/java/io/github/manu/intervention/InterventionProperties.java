@@ -330,6 +330,7 @@ public record InterventionProperties(
             Boolean requireReduceOnly,
             Boolean requireClosePositionFalse,
             Boolean hedgeModeExecutionEnabled,
+            Boolean hedgePositionOrderEnabled,
             List<String> allowedSymbols,
             String maxPositionQuantity,
             Boolean chunkCloseWhenMaxQuantityExceeded,
@@ -350,6 +351,7 @@ public record InterventionProperties(
             requireReduceOnly = requireReduceOnly == null || Boolean.TRUE.equals(requireReduceOnly);
             requireClosePositionFalse = requireClosePositionFalse == null || Boolean.TRUE.equals(requireClosePositionFalse);
             hedgeModeExecutionEnabled = Boolean.TRUE.equals(hedgeModeExecutionEnabled);
+            hedgePositionOrderEnabled = Boolean.TRUE.equals(hedgePositionOrderEnabled);
             allowedSymbols = normalizeSymbols(allowedSymbols);
             validatePositiveDecimal("maxPositionQuantity", maxPositionQuantity);
             validatePositiveDecimal("maxPositionNotional", maxPositionNotional);
@@ -377,6 +379,7 @@ public record InterventionProperties(
                     "MARKET",
                     true,
                     true,
+                    false,
                     false,
                     List.of(),
                     null,

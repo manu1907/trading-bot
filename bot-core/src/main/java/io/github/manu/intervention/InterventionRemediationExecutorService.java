@@ -239,7 +239,8 @@ public final class InterventionRemediationExecutorService {
         }
         if (plan.operation() != InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER
                 && plan.operation() != InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION
-                && plan.operation() != InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION) {
+                && plan.operation() != InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION
+                && plan.operation() != InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION) {
             return report(plan, ExecutionStatus.BLOCKED, "executor:operation_execution_not_implemented", attributes);
         }
         OrderCommandEvent command = plan.operation() == InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER
@@ -331,7 +332,10 @@ public final class InterventionRemediationExecutorService {
         String commandClientOrderId = "rm-pos-" + safeId(remediationId);
         String side = requireText(plan.attributes().get("remediation_order_side"), "remediationOrderSide");
         String quantity = requireText(plan.attributes().get("target_position_quantity"), "targetPositionQuantity");
-        String positionSide = text(plan.positionSide());
+        String positionSide = text(plan.attributes().get("position_order_command_position_side"));
+        if (positionSide == null) {
+            positionSide = text(plan.positionSide());
+        }
         String orderType = requireText(plan.attributes().get("position_order_type"), "positionOrderType");
         boolean reduceOnly = requiredBooleanPlanAttribute(plan, "position_order_reduce_only");
         boolean closePosition = requiredBooleanPlanAttribute(plan, "position_order_close_position");

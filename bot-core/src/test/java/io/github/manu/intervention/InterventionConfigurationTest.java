@@ -195,6 +195,7 @@ class InterventionConfigurationTest {
             assertThat(policy.positionOrderPolicy().requireReduceOnly()).isTrue();
             assertThat(policy.positionOrderPolicy().requireClosePositionFalse()).isTrue();
             assertThat(policy.positionOrderPolicy().hedgeModeExecutionEnabled()).isFalse();
+            assertThat(policy.positionOrderPolicy().hedgePositionOrderEnabled()).isFalse();
             assertThat(policy.positionOrderPolicy().allowedSymbols()).isEmpty();
             assertThat(policy.positionOrderPolicy().maxPositionQuantity()).isNull();
             assertThat(policy.positionOrderPolicy().chunkCloseWhenMaxQuantityExceeded()).isFalse();
@@ -223,6 +224,7 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.market=usdm_futures",
                         "trading.intervention.remediation-executor-policy.position-order-policy.position-side=BOTH",
                         "trading.intervention.remediation-executor-policy.position-order-policy.order-type=MARKET",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.hedge-position-order-enabled=true",
                         "trading.intervention.remediation-executor-policy.position-order-policy.allowed-symbols[0]=btcusdt",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-position-quantity=0.001",
                         "trading.intervention.remediation-executor-policy.position-order-policy.chunk-close-when-max-quantity-exceeded=true",
@@ -252,6 +254,7 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().market()).isEqualTo("usdm_futures");
                     assertThat(policy.positionOrderPolicy().positionSide()).isEqualTo("BOTH");
                     assertThat(policy.positionOrderPolicy().orderType()).isEqualTo("MARKET");
+                    assertThat(policy.positionOrderPolicy().hedgePositionOrderEnabled()).isTrue();
                     assertThat(policy.positionOrderPolicy().allowedSymbols()).containsExactly("BTCUSDT");
                     assertThat(policy.positionOrderPolicy().maxPositionQuantity()).isEqualTo("0.001");
                     assertThat(policy.positionOrderPolicy().chunkCloseWhenMaxQuantityExceeded()).isTrue();

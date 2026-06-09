@@ -213,6 +213,7 @@
           "require_reduce_only": true,
           "require_close_position_false": true,
           "hedge_mode_execution_enabled": false,
+          "hedge_position_order_enabled": false,
           "allowed_symbols": [
 
           ],

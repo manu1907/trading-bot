@@ -95,6 +95,9 @@ class ConfigCatalogDefaultsTest {
         assertBoolean(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.hedge_mode_execution_enabled",
                 false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.hedge_position_order_enabled",
+                false);
         assertThat(requiredNode(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.allowed_symbols"))
                 .as("trading.intervention.remediation_executor_policy.position_order_policy.allowed_symbols")

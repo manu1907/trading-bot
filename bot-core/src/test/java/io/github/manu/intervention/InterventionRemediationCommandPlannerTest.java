@@ -69,7 +69,47 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("reduce_only_required", "false")
                 .containsEntry("hedge_mode_required", "true")
                 .containsEntry("alternative_operation", "REPLAN_FROM_PROJECTION")
-                .containsEntry("exchange_execution_blocker", "hedge_mode_provider_policy_missing");
+                .containsEntry("exchange_execution_blocker", "hedge_position_order_policy_disabled");
+    }
+
+    @Test
+    void keeps_position_hedge_non_executable_when_hedge_order_policy_is_disabled() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner hedgePlanner =
+                new InterventionRemediationCommandPlanner(projection, hedgePositionOrderPolicy());
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = hedgePlanner.plan(positionDecision("HEDGE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_command_position_side", "SHORT")
+                .containsEntry("exchange_execution_blocker", "hedge_position_order_policy_disabled")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void plans_position_hedge_as_position_side_market_order_when_hedge_order_policy_is_enabled() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner hedgePlanner =
+                new InterventionRemediationCommandPlanner(projection, executableHedgePositionOrderPolicy());
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = hedgePlanner.plan(positionDecision("HEDGE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_command_position_side", "SHORT")
+                .containsEntry("remediation_order_side", "SELL")
+                .containsEntry("position_sizing_policy", "bounded_projection_hedge")
+                .containsEntry("reduce_only_required", "false")
+                .containsEntry("hedge_mode_required", "true")
+                .containsEntry("position_order_reduce_only", "false")
+                .containsEntry("position_execution_mode", "hedge_mode_position_side_hedge")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
     }
 
     @Test
@@ -220,6 +260,7 @@ class InterventionRemediationCommandPlannerTest {
                         "MARKET",
                         true,
                         true,
+                        false,
                         false,
                         List.of(),
                         null,
@@ -642,6 +683,7 @@ class InterventionRemediationCommandPlannerTest {
                 true,
                 true,
                 false,
+                false,
                 List.of(),
                 null,
                 false,
@@ -661,6 +703,30 @@ class InterventionRemediationCommandPlannerTest {
                 "usd_m_futures",
                 "BOTH",
                 "MARKET",
+                true,
+                true,
+                true,
+                false,
+                List.of(),
+                null,
+                false,
+                null,
+                true,
+                null,
+                null,
+                null,
+                true
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy executableHedgePositionOrderPolicy() {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
                 true,
                 true,
                 true,
@@ -705,6 +771,7 @@ class InterventionRemediationCommandPlannerTest {
                 true,
                 true,
                 false,
+                false,
                 List.of("BTCUSDT"),
                 null,
                 false,
@@ -732,6 +799,7 @@ class InterventionRemediationCommandPlannerTest {
                 "MARKET",
                 true,
                 true,
+                false,
                 false,
                 allowedSymbols,
                 maxQuantity,

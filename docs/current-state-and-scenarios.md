@@ -70,7 +70,8 @@ Supported config-gated hedge-mode remediation today:
 
 - Hedge-mode `CLOSE` and bounded `REDUCE` can become exchange-executable for projected `positionSide=LONG` or `SHORT` only when `position_order_policy.hedge_mode_execution_enabled=true`.
 - Hedge-mode commands use the opposite side, `MARKET`, projected `positionSide`, bounded quantity, `reduceOnly=false`, and `closePosition=false`.
-- The checked-in demo runtime keeps hedge-mode execution disabled.
+- Position `HEDGE` and `HEDGE_OR_REPLAN` can construct opposite-position-side hedge-mode `MARKET` orders only when both `position_order_policy.hedge_mode_execution_enabled=true` and `position_order_policy.hedge_position_order_enabled=true`.
+- The checked-in demo runtime keeps hedge-mode close/reduce and hedge-order execution disabled.
 
 Position plans remain non-executable when any configured policy gate fails, including:
 
@@ -86,7 +87,7 @@ Position plans remain non-executable when any configured policy gate fails, incl
 - provider or market mismatch
 - unsupported order type
 - unsupported position side
-- disabled one-way or hedge-mode policy
+- disabled one-way, hedge-mode, or hedge-order policy
 
 ## Supported Governance Scenarios
 
@@ -151,7 +152,7 @@ Remaining work includes:
 - Broader provider preflight coverage for non-new command families where exchange-specific validation is more than target identity.
 - Account-level risk budgets, symbol budgets, exposure caps, drawdown limits, and daily loss limits.
 - External order adoption and managed amendment policies.
-- More complete hedge command lifecycle and account-mode reconciliation.
+- More complete hedge account-mode reconciliation and operational runbooks.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - Backtesting, replay validation, demo soak criteria, promotion gates, and real-trading runbooks.
 - CI/CD and cloud deployment completion for Google Cloud first, with provider-neutral deployment abstractions so AWS can be added without changing the trading code.

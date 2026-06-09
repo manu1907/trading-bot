@@ -660,8 +660,9 @@ executable operation names empty for safe startup. It also keeps
 `position_order_policy.one_way_reduce_only_enabled=false`; the provider, market,
 position side, order type, reduce-only requirement, close-position prohibition,
 hedge-mode block, symbol allowlist, quantity cap, notional cap, unbounded
-notional behavior, required margin type, leverage bounds, and missing
-account-risk metadata behavior are all explicit catalog policy values.
+notional behavior, separately disabled hedge-order execution, required margin
+type, leverage bounds, and missing account-risk metadata behavior are all
+explicit catalog policy values.
 Demo-live exchange execution is an explicit runtime override state: the policy
 must be enabled, `exchange_execution_enabled=true`, `report_only=false`, the
 operation must be allowlisted, one-way position order execution must be
@@ -674,10 +675,13 @@ runner can reduce risk over multiple projected ticks without breaching the
 configured max position quantity. Explicit `REDUCE` decisions still remain
 strictly bounded by their requested size and the same caps.
 Hedge-mode close/reduce requires a separate explicit
-`hedge_mode_execution_enabled=true` runtime override. Enabling exchange
-execution requires the ready-plan, fresh-projection, target-identity, and
-managed-pipeline gates to remain enabled, so remediation cannot be configured to
-bypass the normal execution pipeline.
+`hedge_mode_execution_enabled=true` runtime override. Hedge orders require both
+`hedge_mode_execution_enabled=true` and
+`hedge_position_order_enabled=true`; they open the opposite hedge-mode
+`positionSide` with `reduceOnly=false`, so they remain off in the checked-in
+demo runtime. Enabling exchange execution requires the ready-plan,
+fresh-projection, target-identity, and managed-pipeline gates to remain enabled,
+so remediation cannot be configured to bypass the normal execution pipeline.
 `InterventionRemediationExecutorService` consumes persisted remediation
 decisions, regenerates current command plans through the planner, evaluates each
 plan against the executor policy, caps each batch, and returns blocked, preview,
@@ -686,7 +690,9 @@ surface and never submits commands. Execute mode currently supports
 external-order `CLOSE` as `CANCEL_ORDER` plus one-way position `CLOSE` and
 bounded `REDUCE` as reduce-only market orders and config-gated hedge-mode
 position-side `CLOSE` and bounded `REDUCE` as `reduceOnly=false` market orders,
-all routed through `OrderExecutionPipeline`; the normal risk gate, idempotency,
+plus separately policy-gated hedge orders as opposite-position-side market
+orders, all routed through `OrderExecutionPipeline`; the normal risk gate,
+idempotency,
 event bus, journal, projection, reconciliation, and provider gateway remain
 authoritative. Provider gateways can now reject an approved command during
 preflight before gateway submission; the pipeline publishes that as a rejected

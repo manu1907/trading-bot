@@ -289,6 +289,69 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     @Test
+    void submits_position_hedge_remediation_as_opposite_position_side_market_order_when_policy_allows() {
+        restorePositionCloseRemediationDecision("0.25", "HEDGE", Map.of());
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        ReconciliationConfidenceTracker reconciliationTracker =
+                new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
+        reconciliationTracker.record(new ReconciliationObservation(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                TradingEventType.ORDER_RESULT,
+                "binance|demo|main|usd_m_futures|BTCUSDT",
+                ReconciliationConfidenceStatus.CONFIDENT,
+                List.of()
+        ));
+        OrderExecutionPipeline pipeline = new OrderExecutionPipeline(
+                new OrderRiskGate(new ExecutionProperties(null), reconciliationTracker, projection),
+                eventBus,
+                List.of(new PositionOrderGateway())
+        );
+        InterventionRemediationCommandPlanner hedgeCommandPlanner =
+                new InterventionRemediationCommandPlanner(projection, executableHedgePositionOrderPolicy());
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service(
+                        liveExecutableHedgePositionPolicy(InterventionProperties.ExecutableOperation.HEDGE_POSITION),
+                        pipeline,
+                        hedgeCommandPlanner
+                ).execute("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isZero();
+        assertThat(batch.submittedCount()).isEqualTo(1);
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.status())
+                    .isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.SUBMITTED_TO_PIPELINE);
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+            assertThat(report.attributes())
+                    .containsEntry("position_execution_mode", "hedge_mode_position_side_hedge")
+                    .containsEntry("executor_submitted_side", "SELL")
+                    .containsEntry("executor_submitted_order_type", "MARKET")
+                    .containsEntry("executor_submitted_position_side", "SHORT")
+                    .containsEntry("executor_submitted_quantity", "0.25")
+                    .containsEntry("executor_submitted_reduce_only", "false")
+                    .containsEntry("executor_submitted_close_position", "false");
+        });
+        assertThat(eventBus.values(RiskDecisionEvent.class))
+                .singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+                    assertThat(decision.getAttributes())
+                            .containsEntry("external_position_remediation_executor_command", "true");
+                });
+        assertThat(eventBus.values(OrderResultEvent.class))
+                .singleElement()
+                .satisfies(result -> {
+                    assertThat(result.getStatus()).isEqualTo(OrderResultStatus.FILLED);
+                    assertThat(result.getOriginalQuantity()).isEqualTo("0.25");
+                    assertThat(result.getExecutedQuantity()).isEqualTo("0.25");
+                });
+    }
+
+    @Test
     void blocks_position_reduce_execution_when_operation_is_not_allowlisted() {
         restorePositionCloseRemediationDecision("0.25", "REDUCE", Map.of("reduce_fraction", "0.5"));
 
@@ -405,6 +468,28 @@ class InterventionRemediationExecutorServiceTest {
         );
     }
 
+    private InterventionProperties.RemediationExecutorPolicy liveExecutableHedgePositionPolicy(
+            InterventionProperties.ExecutableOperation operation
+    ) {
+        return new InterventionProperties.RemediationExecutorPolicy(
+                true,
+                true,
+                false,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                25,
+                List.of(operation),
+                executableHedgePositionOrderPolicy()
+        );
+    }
+
     private static InterventionProperties.PositionOrderPolicy enabledPositionOrderPolicy() {
         return new InterventionProperties.PositionOrderPolicy(
                 true,
@@ -414,6 +499,7 @@ class InterventionRemediationExecutorServiceTest {
                 "MARKET",
                 true,
                 true,
+                false,
                 false,
                 List.of(),
                 null,
@@ -434,6 +520,30 @@ class InterventionRemediationExecutorServiceTest {
                 "usd_m_futures",
                 "BOTH",
                 "MARKET",
+                true,
+                true,
+                true,
+                false,
+                List.of(),
+                null,
+                false,
+                null,
+                true,
+                null,
+                null,
+                null,
+                true
+        );
+    }
+
+    private static InterventionProperties.PositionOrderPolicy executableHedgePositionOrderPolicy() {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
                 true,
                 true,
                 true,
