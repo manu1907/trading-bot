@@ -45,6 +45,7 @@ Supported exchange-executable order remediation today:
 - External order close: an external order with a matching projected intervention can produce a `CANCEL_ORDER` plan.
 - The cancel plan routes through `OrderExecutionPipeline` when executor policy is enabled, exchange execution is enabled, report-only is false, the operation is allowlisted, and the risk gate accepts the command.
 - Cancel commands are allowed even under pause governance so the bot can reduce existing order risk.
+- Provider gateways can reject approved commands during preflight before gateway submission. Binance uses this for `NEW` order capability and exchange-filter validation.
 
 Current non-executable order intents:
 
@@ -147,8 +148,7 @@ Catalog defaults keep these fields explicit and overridable:
 
 Remaining work includes:
 
-- Exchange-filter pre-admission for remediation orders before provider submission.
-- Provider capability enforcement for every executable remediation command.
+- Broader provider preflight coverage for non-new command families where exchange-specific validation is more than target identity.
 - Account-level risk budgets, symbol budgets, exposure caps, drawdown limits, and daily loss limits.
 - External order adoption and managed amendment policies.
 - More complete hedge command lifecycle and account-mode reconciliation.

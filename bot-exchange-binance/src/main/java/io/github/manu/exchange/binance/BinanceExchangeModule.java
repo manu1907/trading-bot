@@ -18,6 +18,7 @@ import io.github.manu.events.TradingEventKeys;
 import io.github.manu.exchange.ExchangeModule;
 import io.github.manu.exchange.ResolvedExchangeConfig;
 import io.github.manu.execution.OrderExecutionGateway;
+import io.github.manu.execution.OrderExecutionPreflightRejection;
 import io.github.manu.journal.JournaledTradingEvent;
 import io.github.manu.journal.TradingEventJournal;
 import io.github.manu.messaging.TradingEventBus;
@@ -39,6 +40,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -191,6 +193,43 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
     }
 
     @Override
+    public Optional<OrderExecutionPreflightRejection> preflight(OrderCommandEvent command) {
+        Objects.requireNonNull(command, "command");
+        ensureConfigured();
+        if (!supports(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket())
+        )) {
+            return Optional.of(OrderExecutionPreflightRejection.rejected(
+                    "execution:provider_preflight_rejected",
+                    Map.of(
+                            "provider_preflight_stage",
+                            "target",
+                            "provider_preflight_message",
+                            "Binance module is not configured for order target"
+                    )
+            ));
+        }
+        if (action(command) != OrderCommandAction.NEW) {
+            return Optional.empty();
+        }
+        BinanceProperties binance = requireBinance(config);
+        try {
+            BinanceOrderCommand binanceCommand = toBinanceOrderCommand(command, binance);
+            BinanceOrderCommandValidator.validate(binanceCommand, binance.trading());
+            validatePreflightExchangeFilters(binanceCommand, binance);
+            return Optional.empty();
+        } catch (IllegalArgumentException e) {
+            return Optional.of(OrderExecutionPreflightRejection.rejected(
+                    "execution:provider_preflight_rejected",
+                    providerPreflightAttributes(e)
+            ));
+        }
+    }
+
+    @Override
     public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
         Objects.requireNonNull(command, "command");
         ensureConfigured();
@@ -207,12 +246,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
             ));
         }
         BinanceProperties binance = requireBinance(config);
-        BinanceHttpTransport httpTransport = httpTransportOverride == null
-                ? new BinanceJdkHttpTransport(
-                Duration.ofMillis(binance.rest().connectTimeoutMillis()),
-                Duration.ofMillis(binance.rest().responseTimeoutMillis())
-        )
-                : httpTransportOverride;
+        BinanceHttpTransport httpTransport = httpTransport(binance);
         BinanceOrderResult result;
         try {
             BinanceOrderClient orderClient = new BinanceOrderClient(
@@ -247,6 +281,38 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
             ));
         }
         return CompletableFuture.completedFuture(toEnvelope(command, result, null, null, null));
+    }
+
+    private void validatePreflightExchangeFilters(BinanceOrderCommand command, BinanceProperties binance) {
+        if (!binance.trading().enforceExchangeFilters()) {
+            return;
+        }
+        new BinanceExchangeFilterValidator(
+                binance.trading().enforcePercentPriceFilters(),
+                referencePriceProvider(binance, httpTransport(binance))
+        ).validate(command, resolveExchangeMetadata(binance));
+    }
+
+    private BinanceHttpTransport httpTransport(BinanceProperties binance) {
+        return httpTransportOverride == null
+                ? new BinanceJdkHttpTransport(
+                Duration.ofMillis(binance.rest().connectTimeoutMillis()),
+                Duration.ofMillis(binance.rest().responseTimeoutMillis())
+        )
+                : httpTransportOverride;
+    }
+
+    private Map<CharSequence, CharSequence> providerPreflightAttributes(IllegalArgumentException exception) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.put("provider_preflight_provider", "binance");
+        attributes.put("provider_preflight_reject_code", "VALIDATION");
+        attributes.put(
+                "provider_preflight_message",
+                exception.getMessage() == null || exception.getMessage().isBlank()
+                        ? exception.getClass().getSimpleName()
+                        : exception.getMessage()
+        );
+        return Map.copyOf(attributes);
     }
 
     private Map<CharSequence, CharSequence> apiFailureAttributes(

@@ -1284,6 +1284,14 @@ including:
 - `reduceOnly` on hedge-mode `LONG` or `SHORT` orders
 - close-position flags on non-close-all order types
 
+The execution pipeline also calls provider preflight after the risk gate
+approves a command but before gateway submission. For Binance `NEW` orders,
+preflight reuses the same configured capability checks and exchange-filter
+validation used by the gateway. If preflight fails, the pipeline publishes a
+rejected risk decision with `execution:provider_preflight_rejected` and does not
+call the exchange gateway. This applies to remediation-generated position
+`MARKET` orders as well as strategy-generated new orders.
+
 ## Execution Pipeline Options
 
 The execution pipeline is disabled by default:

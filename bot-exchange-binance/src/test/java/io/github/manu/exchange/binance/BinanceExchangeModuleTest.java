@@ -16,6 +16,7 @@ import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.OrderResultEvent;
 import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.exchange.ResolvedExchangeConfig;
+import io.github.manu.execution.OrderExecutionPreflightRejection;
 import io.github.manu.journal.JournaledTradingEvent;
 import io.github.manu.journal.TradingEventJournal;
 import io.github.manu.messaging.DeadLetterTradingEvent;
@@ -683,6 +684,35 @@ class BinanceExchangeModuleTest {
             assertThat(value.getRejectCode()).isEqualTo("VALIDATION");
             assertThat(value.getRejectMessage()).contains("quantity 0.0005 is below exchangeInfo minimum 0.001");
         });
+    }
+
+    @Test
+    void rejects_order_command_in_preflight_when_exchange_filter_fails() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
+
+        runtimeModule.configure(config);
+        OrderExecutionPreflightRejection rejection = runtimeModule.preflight(OrderCommandEvent.newBuilder(orderCommand())
+                .setQuantity("0.0005")
+                .build()).orElseThrow();
+
+        assertThat(httpTransport.calls()).isEmpty();
+        assertThat(rejection.reason()).isEqualTo("execution:provider_preflight_rejected");
+        assertThat(rejection.attributes())
+                .containsEntry("provider_preflight_provider", "binance")
+                .containsEntry("provider_preflight_reject_code", "VALIDATION");
+        assertThat(rejection.attributes().get("provider_preflight_message").toString())
+                .contains("quantity 0.0005 is below exchangeInfo minimum 0.001");
     }
 
     private ResolvedExchangeConfig checkedInResolvedConfig() throws IOException {

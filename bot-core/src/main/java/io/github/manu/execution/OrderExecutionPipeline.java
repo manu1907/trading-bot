@@ -108,6 +108,14 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
             gateway = gatewayFor(command);
             if (gateway.isEmpty()) {
                 riskDecision = executionRejectedDecision(command, NO_GATEWAY_REASON, noGatewayAttributes(command));
+            } else {
+                Optional<OrderExecutionPreflightRejection> preflightRejection =
+                        gateway.orElseThrow().preflight(command);
+                if (preflightRejection.isPresent()) {
+                    OrderExecutionPreflightRejection rejection = preflightRejection.orElseThrow();
+                    riskDecision = executionRejectedDecision(command, rejection.reason(), rejection.attributes());
+                    gateway = Optional.empty();
+                }
             }
         }
 

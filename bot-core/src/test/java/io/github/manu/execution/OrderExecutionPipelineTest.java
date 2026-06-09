@@ -26,6 +26,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,6 +89,27 @@ class OrderExecutionPipelineTest {
             assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
             assertThat(decision.getReasons()).containsExactly("execution:no_gateway");
             assertThat(decision.getAttributes()).containsEntry("execution_provider", PROVIDER);
+        });
+    }
+
+    @Test
+    void rejects_approved_command_when_gateway_preflight_rejects_before_submission() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        PreflightRejectingGateway gateway = new PreflightRejectingGateway();
+
+        pipeline(List.of(gateway)).handleOrderCommand(command()).join();
+
+        assertThat(gateway.submissions).isZero();
+        assertThat(eventBus.envelopes).singleElement().satisfies(envelope -> {
+            assertThat(envelope.eventType()).isEqualTo(TradingEventType.RISK_DECISION);
+            RiskDecisionEvent decision = (RiskDecisionEvent) envelope.value();
+            assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+            assertThat(decision.getReasons()).containsExactly("execution:provider_preflight_rejected");
+            assertThat(decision.getAttributes())
+                    .containsEntry("command_action", "NEW")
+                    .containsEntry("provider_preflight_provider", "binance")
+                    .containsEntry("provider_preflight_reject_code", "VALIDATION")
+                    .containsEntry("provider_preflight_message", "quantity is below LOT_SIZE");
         });
     }
 
@@ -521,6 +543,37 @@ class OrderExecutionPipelineTest {
         @Override
         public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
             throw new IllegalStateException("socket closed before write");
+        }
+    }
+
+    private final class PreflightRejectingGateway implements OrderExecutionGateway {
+
+        private int submissions;
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public Optional<OrderExecutionPreflightRejection> preflight(OrderCommandEvent command) {
+            return Optional.of(OrderExecutionPreflightRejection.rejected(
+                    "execution:provider_preflight_rejected",
+                    Map.of(
+                            "provider_preflight_provider",
+                            "binance",
+                            "provider_preflight_reject_code",
+                            "VALIDATION",
+                            "provider_preflight_message",
+                            "quantity is below LOT_SIZE"
+                    )
+            ));
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            submissions++;
+            return CompletableFuture.completedFuture(resultEnvelope(command));
         }
     }
 
