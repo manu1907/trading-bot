@@ -859,6 +859,33 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void adoption_acknowledgement_transfers_external_order_to_bot_management() {
+        projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
+
+        ProjectionUpdate acknowledgementUpdate = projection.apply(interventionAcknowledgement(
+                "evt-adopt",
+                "external_order_observed",
+                timestamp(41),
+                Map.of(
+                        "adoption", "true",
+                        "adoption_operation", "ADOPT_ORDER"
+                )
+        ));
+
+        assertThat(acknowledgementUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.hasExternalOrderInterventions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.managedByBot()).isTrue();
+                    assertThat(order.externalIntervention()).isFalse();
+                    assertThat(order.interventionReason()).isNull();
+                    assertThat(order.updateSource()).isEqualTo("INTERVENTION_ADOPTION");
+                    assertThat(order.eventId()).isEqualTo("evt-adopt");
+                });
+    }
+
+    @Test
     void acknowledgement_with_wrong_reason_does_not_clear_intervention() {
         projection.apply(executionReport("evt-external", "NEW", "0", timestamp(40)));
 
@@ -1869,6 +1896,15 @@ class TradingStateProjectionTest {
             String interventionReason,
             Instant acknowledgedAt
     ) {
+        return interventionAcknowledgement(eventId, interventionReason, acknowledgedAt, Map.of());
+    }
+
+    private TradingEventEnvelope<InterventionAcknowledgementEvent> interventionAcknowledgement(
+            String eventId,
+            String interventionReason,
+            Instant acknowledgedAt,
+            Map<CharSequence, CharSequence> attributes
+    ) {
         InterventionAcknowledgementEvent event = InterventionAcknowledgementEvent.newBuilder()
                 .setEventId(eventId)
                 .setSchemaVersion(1)
@@ -1883,7 +1919,7 @@ class TradingStateProjectionTest {
                 .setAcknowledgedBy("operator")
                 .setAcknowledgementReason("reviewed")
                 .setAcknowledgedAtMicros(acknowledgedAt)
-                .setAttributes(Map.of())
+                .setAttributes(attributes)
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,

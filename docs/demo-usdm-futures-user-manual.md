@@ -64,6 +64,8 @@ attach live streams automatically:
 - `reconciliation.runtime_enabled`: `false`
 - `trading.intervention.operator_api.enabled`: `false`
 - `trading.intervention.remediation_orchestrator.enabled`: `false`
+- `trading.intervention.remediation_orchestrator.order_adoption_acknowledgement_enabled`:
+  `false`
 - `trading.intervention.remediation_executor_policy.enabled`: `false`
 - `trading.intervention.remediation_executor_policy.exchange_execution_enabled`:
   `false`
@@ -753,8 +755,10 @@ planned as `operation=CANCEL_ORDER` with `exchangeExecutable=true`. Position
 `CLOSE_POSITION` or `REDUCE_POSITION` with `exchangeExecutable=true`. Hedge-mode
 `LONG` or `SHORT` position `CLOSE` and bounded `REDUCE` can also be planned as
 exchange-executable when `hedge_mode_execution_enabled=true`; the checked-in
-demo runtime leaves that switch off. Pause, adopt, amend, ignore, and replan
-plans remain non-executable until their specific policies exist.
+demo runtime leaves that switch off. Pause, amend, ignore, and replan plans
+remain non-executable until their specific policies exist. Order `ADOPT` is not
+exchange-executable; it can publish a projection ownership-transfer
+acknowledgement only when `order_adoption_acknowledgement_enabled=true`.
 
 Preview the remediation executor reports for persisted remediation decisions:
 
@@ -1408,6 +1412,7 @@ Default intervention config:
 - `operator_api.operator_token`: `null`
 - `remediation_orchestrator.enabled`: `false`
 - `operator_review_acknowledgement_enabled`: `true`
+- `order_adoption_acknowledgement_enabled`: `false`
 - `max_tracked_decision_ids`: `100000`
 - `automated_policy.external_order_action`: `OPERATOR_REVIEW`
 - `automated_policy.managed_order_change_action`: `REPLAN_FROM_PROJECTION`
@@ -1669,14 +1674,19 @@ Current automated remediation execution state:
 - Hedge-mode close/reduce and hedge-order execution remain disabled in the
   checked-in demo runtime until that runtime explicitly opts into the relevant
   hedge policies.
-- `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `ADOPT`, `IGNORE`, and
-  `REPLAN_FROM_PROJECTION` are governance or planning intents, not exchange
-  commands yet.
+- `PAUSE_SYMBOL`, `PAUSE_ACCOUNT`, `IGNORE`, and `REPLAN_FROM_PROJECTION` are
+  governance or planning intents, not exchange commands yet. `ADOPT` is also not
+  an exchange command; when `order_adoption_acknowledgement_enabled=true`, an
+  order-scope `ADOPT` decision for a matching external order publishes an
+  auditable acknowledgement with adoption metadata. Projection replay then marks
+  that order as bot-managed and clears the external intervention.
 
 As of this version, external order `CLOSE`, position `CLOSE`, and bounded
 position `REDUCE` remediation can become `exchangeExecutable=true` when the
-executor and matching position-order policy are enabled. The codebase still does
-not directly amend, adopt, or hedge positions from remediation plans.
+executor and matching position-order policy are enabled. External order `ADOPT`
+can become a projection ownership transfer when its orchestrator switch is
+enabled. The codebase still does not directly amend orders or hedge positions
+from remediation plans.
 
 The remediation executor policy is the configuration boundary for the future
 executor. It is disabled by default and cannot allow exchange execution unless

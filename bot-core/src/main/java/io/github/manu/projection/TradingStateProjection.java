@@ -1177,6 +1177,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             if (event.getAcknowledgedAtMicros().isBefore(current.updatedAt())) {
                 return ProjectionUpdate.stale(envelope.eventType(), entityKey, eventId);
             }
+            boolean adoption = orderAdoptionAcknowledgement(event);
             OrderState acknowledged = new OrderState(
                     current.provider(),
                     current.environment(),
@@ -1193,9 +1194,9 @@ public final class TradingStateProjection implements TradingEventHandler {
                     current.executedQuantity(),
                     current.averagePrice(),
                     current.cumulativeQuote(),
-                    "INTERVENTION_ACKNOWLEDGEMENT",
+                    adoption ? "INTERVENTION_ADOPTION" : "INTERVENTION_ACKNOWLEDGEMENT",
                     current.executionType(),
-                    current.managedByBot(),
+                    adoption || current.managedByBot(),
                     false,
                     null,
                     event.getAcknowledgedAtMicros(),
@@ -1263,6 +1264,11 @@ public final class TradingStateProjection implements TradingEventHandler {
     private boolean interventionReasonMatches(OrderState current, InterventionAcknowledgementEvent event) {
         String expectedReason = value(event.getInterventionReason());
         return expectedReason == null || expectedReason.equals(current.interventionReason());
+    }
+
+    private boolean orderAdoptionAcknowledgement(InterventionAcknowledgementEvent event) {
+        return "true".equalsIgnoreCase(acknowledgementAttribute(event, "adoption"))
+                || "ADOPT_ORDER".equalsIgnoreCase(acknowledgementAttribute(event, "adoption_operation"));
     }
 
     private boolean interventionReasonMatches(PositionState current, InterventionAcknowledgementEvent event) {

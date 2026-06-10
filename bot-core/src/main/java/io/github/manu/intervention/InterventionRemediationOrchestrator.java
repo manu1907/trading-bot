@@ -22,6 +22,7 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
     private static final String SCOPE_POSITION = "POSITION";
     private static final String SCOPE_MANUAL_REVIEW = "MANUAL_REVIEW";
     private static final String ACTION_OPERATOR_REVIEW = "OPERATOR_REVIEW";
+    private static final String ACTION_ADOPT = "ADOPT";
 
     private final TradingEventBus eventBus;
     private final TradingStateProjection projection;
@@ -50,20 +51,96 @@ public final class InterventionRemediationOrchestrator implements TradingEventHa
 
     public CompletableFuture<Void> orchestrate(RemediationDecisionEvent event) {
         Objects.requireNonNull(event, "event");
-        if (!properties.enabled() || !properties.operatorReviewAcknowledgementEnabled()) {
+        if (!properties.enabled()) {
             return CompletableFuture.completedFuture(null);
         }
         String action = requireText(event.getAction(), "action");
-        if (!ACTION_OPERATOR_REVIEW.equals(action)) {
+        if (ACTION_OPERATOR_REVIEW.equals(action)) {
+            if (!properties.operatorReviewAcknowledgementEnabled()) {
+                return CompletableFuture.completedFuture(null);
+            }
+            String scope = requireText(event.getScope(), "scope");
+            return switch (scope) {
+                case SCOPE_ORDER -> acknowledgeOrder(event);
+                case SCOPE_POSITION -> acknowledgePosition(event);
+                case SCOPE_MANUAL_REVIEW -> acknowledgeManualReview(event);
+                default -> CompletableFuture.completedFuture(null);
+            };
+        }
+        if (ACTION_ADOPT.equals(action)) {
+            if (!properties.orderAdoptionAcknowledgementEnabled()) {
+                return CompletableFuture.completedFuture(null);
+            }
+            String scope = requireText(event.getScope(), "scope");
+            return switch (scope) {
+                case SCOPE_ORDER -> adoptOrder(event);
+                default -> CompletableFuture.completedFuture(null);
+            };
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
+    private CompletableFuture<Void> adoptOrder(RemediationDecisionEvent event) {
+        String provider = requireText(event.getProvider(), "provider");
+        String environment = requireText(event.getEnvironment(), "environment");
+        String account = requireText(event.getAccount(), "account");
+        String market = requireText(event.getMarket(), "market");
+        String symbol = requireText(event.getSymbol(), "symbol");
+        String clientOrderId = requireText(event.getClientOrderId(), "clientOrderId");
+        String interventionReason = requireText(event.getInterventionReason(), "interventionReason");
+        TradingStateProjection.OrderState order = projection.order(
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        clientOrderId
+                )
+                .orElseThrow(() -> new IllegalStateException("No projected order exists for remediation"));
+        if (!order.externalIntervention()) {
             return CompletableFuture.completedFuture(null);
         }
-        String scope = requireText(event.getScope(), "scope");
-        return switch (scope) {
-            case SCOPE_ORDER -> acknowledgeOrder(event);
-            case SCOPE_POSITION -> acknowledgePosition(event);
-            case SCOPE_MANUAL_REVIEW -> acknowledgeManualReview(event);
-            default -> CompletableFuture.completedFuture(null);
-        };
+        if (order.managedByBot()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        if (!interventionReason.equals(order.interventionReason())) {
+            throw new IllegalStateException("Projected order intervention reason does not match remediation");
+        }
+        String remediationId = requireText(event.getRemediationId(), "remediationId");
+        if (!admit(remediationId)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>(attributes(event, null));
+        attributes.put("adoption", "true");
+        attributes.put("adoption_scope", "ORDER");
+        attributes.put("adoption_operation", "ADOPT_ORDER");
+        put(attributes, "adopted_client_order_id", clientOrderId);
+        put(attributes, "adopted_exchange_order_id", order.exchangeOrderId());
+        InterventionAcknowledgementEvent acknowledgement = acknowledgementBuilder(event)
+                .setProvider(provider)
+                .setEnvironment(environment)
+                .setAccount(account)
+                .setMarket(market)
+                .setSymbol(symbol)
+                .setClientOrderId(clientOrderId)
+                .setInterventionReason(interventionReason)
+                .setAttributes(Map.copyOf(attributes))
+                .build();
+        return eventBus.publish(TradingEventEnvelope.of(
+                        TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                        TradingEventKeys.order(
+                                TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
+                                provider,
+                                environment,
+                                account,
+                                market,
+                                symbol,
+                                clientOrderId
+                        ),
+                        acknowledgement
+                ))
+                .whenComplete((ignored, failure) -> forgetOnFailure(remediationId, failure))
+                .thenApply(ignored -> null);
     }
 
     private CompletableFuture<Void> acknowledgeOrder(RemediationDecisionEvent event) {

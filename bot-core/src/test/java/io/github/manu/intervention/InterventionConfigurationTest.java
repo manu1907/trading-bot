@@ -65,9 +65,14 @@ class InterventionConfigurationTest {
     @Test
     void creates_live_only_remediation_orchestrator_when_enabled() {
         contextRunner
-                .withPropertyValues("trading.intervention.remediation-orchestrator.enabled=true")
+                .withPropertyValues(
+                        "trading.intervention.remediation-orchestrator.enabled=true",
+                        "trading.intervention.remediation-orchestrator.order-adoption-acknowledgement-enabled=true"
+                )
                 .run(context -> {
                     assertThat(context).hasSingleBean(InterventionRemediationOrchestrator.class);
+                    InterventionProperties properties = context.getBean(InterventionProperties.class);
+                    assertThat(properties.remediationOrchestrator().orderAdoptionAcknowledgementEnabled()).isTrue();
                     TradingEventHandlerRegistration registration =
                             context.getBean("interventionRemediationOrchestratorHandler", TradingEventHandlerRegistration.class);
                     assertThat(registration.eventType()).isEqualTo(TradingEventType.REMEDIATION_DECISION);

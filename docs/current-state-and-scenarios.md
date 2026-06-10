@@ -55,6 +55,11 @@ Supported exchange-executable order remediation today:
 - Cancel commands are allowed even under pause governance so the bot can reduce existing order risk.
 - Provider gateways can reject approved commands during preflight before gateway submission. Binance uses this for `NEW` order capability and exchange-filter validation, `CANCEL` target identity validation, and futures `MODIFY` target/parameter validation.
 
+Supported non-exchange order remediation today:
+
+- External order adoption: an order-scope `ADOPT` remediation decision can publish an auditable intervention acknowledgement when `trading.intervention.remediation_orchestrator.enabled=true` and `order_adoption_acknowledgement_enabled=true`.
+- Adoption acknowledgement replay marks the projected external order as bot-managed and clears the unresolved external-order intervention. It does not submit, amend, or cancel an exchange order.
+
 Current non-executable order intents:
 
 - `ADOPT`
@@ -186,7 +191,7 @@ Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Broader account-level and symbol-level risk budgets, including symbol-level realized-PnL budgets, beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account daily realized-loss caps.
-- External order adoption and managed amendment policies.
+- Managed amendment policies and broader adopted-order lifecycle controls.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - Backtesting, replay validation, demo soak criteria, promotion gates, and real-trading runbooks.

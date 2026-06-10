@@ -663,8 +663,13 @@ position `CLOSE` and bounded `REDUCE` plans can also become exchange-executable
 when `position_order_policy.hedge_mode_execution_enabled=true`; they submit
 `NEW MARKET` orders on the opposite side with the projected `positionSide`
 (`LONG` or `SHORT`), bounded quantity, `reduceOnly=false`, and
-`closePosition=false`. Pause/adopt/ignore remain governance intents until
-bounded command-specific executors are implemented.
+`closePosition=false`. Pause and ignore remain governance intents until bounded
+command-specific executors are implemented. Order adoption is a gated
+projection-governance transition rather than an exchange command: when
+`order_adoption_acknowledgement_enabled=true`, an order-scope `ADOPT`
+remediation decision for a matching non-managed external order publishes an
+auditable intervention acknowledgement with adoption metadata, and replay marks
+the order as bot-managed while clearing the external intervention.
 `trading.intervention.remediation-executor-policy` is the explicit executor
 safety boundary. The checked-in catalog keeps the executor disabled, exchange
 execution disabled, report-only mode enabled, real environments blocked, and

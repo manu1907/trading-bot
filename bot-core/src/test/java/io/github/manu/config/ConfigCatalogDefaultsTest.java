@@ -55,6 +55,15 @@ class ConfigCatalogDefaultsTest {
         assertBoolean(catalog, "trading.observability.pause_governance.expiry_monitor.enabled", true);
         assertInt(catalog, "trading.observability.pause_governance.expiry_monitor.interval_millis", 30000);
 
+        assertBoolean(catalog, "trading.intervention.remediation_orchestrator.enabled", false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_orchestrator.operator_review_acknowledgement_enabled",
+                true);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_orchestrator.order_adoption_acknowledgement_enabled",
+                false);
+        assertInt(catalog, "trading.intervention.remediation_orchestrator.max_tracked_decision_ids", 100000);
+
         assertBoolean(catalog, "trading.intervention.automated_remediation_runner.enabled", false);
         assertInt(catalog, "trading.intervention.automated_remediation_runner.interval_millis", 30000);
         assertInt(catalog, "trading.intervention.automated_remediation_runner.initial_delay_millis", 30000);

@@ -78,6 +78,7 @@ public record InterventionProperties(
     public record RemediationOrchestrator(
             Boolean enabled,
             Boolean operatorReviewAcknowledgementEnabled,
+            Boolean orderAdoptionAcknowledgementEnabled,
             Integer maxTrackedDecisionIds
     ) {
 
@@ -85,6 +86,7 @@ public record InterventionProperties(
             enabled = Boolean.TRUE.equals(enabled);
             operatorReviewAcknowledgementEnabled = operatorReviewAcknowledgementEnabled == null
                     || Boolean.TRUE.equals(operatorReviewAcknowledgementEnabled);
+            orderAdoptionAcknowledgementEnabled = Boolean.TRUE.equals(orderAdoptionAcknowledgementEnabled);
             int normalizedMaxTrackedDecisionIds = maxTrackedDecisionIds == null ? 100_000 : maxTrackedDecisionIds;
             if (normalizedMaxTrackedDecisionIds <= 0) {
                 throw new IllegalArgumentException("maxTrackedDecisionIds must be positive");
@@ -93,7 +95,7 @@ public record InterventionProperties(
         }
 
         static RemediationOrchestrator disabled() {
-            return new RemediationOrchestrator(false, true, 100_000);
+            return new RemediationOrchestrator(false, true, false, 100_000);
         }
     }
 

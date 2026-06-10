@@ -158,6 +158,7 @@
       "remediation_orchestrator": {
         "enabled": false,
         "operator_review_acknowledgement_enabled": true,
+        "order_adoption_acknowledgement_enabled": false,
         "max_tracked_decision_ids": 100000
       },
       "automated_policy": {

@@ -62,6 +62,42 @@ class InterventionRemediationOrchestratorTest {
     }
 
     @Test
+    void publishes_order_adoption_acknowledgement_when_adoption_workflow_is_enabled() {
+        restoreOrderIntervention();
+        InterventionRemediationOrchestrator adoptionOrchestrator = new InterventionRemediationOrchestrator(
+                eventBus,
+                projection,
+                properties(true, true, true)
+        );
+
+        adoptionOrchestrator.handle(envelope(orderDecision("ADOPT"))).join();
+
+        assertThat(eventBus.envelopes).singleElement().satisfies(envelope -> {
+            assertThat(envelope.eventType()).isEqualTo(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT);
+            InterventionAcknowledgementEvent event = (InterventionAcknowledgementEvent) envelope.value();
+            assertThat(event.getClientOrderId()).hasToString("client-1");
+            assertThat(event.getInterventionReason()).hasToString("external_order_observed");
+            assertThat(event.getAcknowledgementReason()).hasToString("reviewed current projection");
+            assertThat(event.getAttributes())
+                    .containsEntry("remediation_action", "ADOPT")
+                    .containsEntry("adoption", "true")
+                    .containsEntry("adoption_scope", "ORDER")
+                    .containsEntry("adoption_operation", "ADOPT_ORDER")
+                    .containsEntry("adopted_client_order_id", "client-1")
+                    .containsEntry("adopted_exchange_order_id", "12345");
+        });
+    }
+
+    @Test
+    void ignores_order_adoption_decision_when_adoption_workflow_is_disabled() {
+        restoreOrderIntervention();
+
+        orchestrator.handle(envelope(orderDecision("ADOPT"))).join();
+
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void suppresses_duplicate_live_order_decisions_after_acknowledgement_publish() {
         restoreOrderIntervention();
 
@@ -378,9 +414,22 @@ class InterventionRemediationOrchestratorTest {
     }
 
     private InterventionProperties properties(boolean enabled, boolean operatorReviewAcknowledgementEnabled) {
+        return properties(enabled, operatorReviewAcknowledgementEnabled, false);
+    }
+
+    private InterventionProperties properties(
+            boolean enabled,
+            boolean operatorReviewAcknowledgementEnabled,
+            boolean orderAdoptionAcknowledgementEnabled
+    ) {
         return new InterventionProperties(
                 InterventionProperties.OperatorApi.disabled(),
-                new InterventionProperties.RemediationOrchestrator(enabled, operatorReviewAcknowledgementEnabled, 100_000),
+                new InterventionProperties.RemediationOrchestrator(
+                        enabled,
+                        operatorReviewAcknowledgementEnabled,
+                        orderAdoptionAcknowledgementEnabled,
+                        100_000
+                ),
                 null,
                 null,
                 null
