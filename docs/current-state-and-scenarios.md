@@ -45,7 +45,7 @@ Supported exchange-executable order remediation today:
 - External order close: an external order with a matching projected intervention can produce a `CANCEL_ORDER` plan.
 - The cancel plan routes through `OrderExecutionPipeline` when executor policy is enabled, exchange execution is enabled, report-only is false, the operation is allowlisted, and the risk gate accepts the command.
 - Cancel commands are allowed even under pause governance so the bot can reduce existing order risk.
-- Provider gateways can reject approved commands during preflight before gateway submission. Binance uses this for `NEW` order capability and exchange-filter validation.
+- Provider gateways can reject approved commands during preflight before gateway submission. Binance uses this for `NEW` order capability and exchange-filter validation, `CANCEL` target identity validation, and futures `MODIFY` target/parameter validation.
 
 Current non-executable order intents:
 
@@ -85,6 +85,7 @@ Position plans remain non-executable when any configured policy gate fails, incl
 - projected leverage missing while leverage bounds are configured and `reject_missing_account_risk_metadata=true`
 - projected leverage below `min_leverage`
 - projected leverage above `max_leverage`
+- missing or mismatched hedge-mode position metadata while `required_position_mode=HEDGE`
 - provider or market mismatch
 - unsupported order type
 - unsupported position side
@@ -152,7 +153,7 @@ Catalog defaults keep these fields explicit and overridable:
 
 Remaining work includes:
 
-- Broader provider preflight coverage for non-new command families where exchange-specific validation is more than target identity.
+- Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Account-level risk budgets, symbol budgets, exposure caps, drawdown limits, and daily loss limits.
 - External order adoption and managed amendment policies.
 - Broader operational runbooks for hedge-mode remediation.

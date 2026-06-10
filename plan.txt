@@ -55,7 +55,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 - Binance provider foundations exist for REST signing, server time handling, exchange information, order gateway behavior, user-data handling, and reconciliation support.
 - Binance USD-M futures demo usage is the current documented target profile.
-- Provider capability and exchange metadata constrain Binance `NEW` order construction and validation before live exchange calls through gateway preflight and provider-side submission validation.
+- Provider capability and exchange metadata constrain Binance `NEW` order construction and validation before live exchange calls through gateway preflight and provider-side submission validation. Binance preflight also validates `CANCEL` target identity and futures `MODIFY` target/parameter requirements before gateway submission.
 - Binance order execution already supports cancel commands routed by target client order id and/or exchange order id through the provider gateway.
 
 ### Manual Intervention Detection
@@ -225,7 +225,7 @@ Estimated remaining delivery: 37 to 61 commits/slices.
 - Google Cloud real secret binding names now exist for isolated real Binance credentials, operator token, Alertmanager receiver substitutions, and the selected JDBC audit backend.
 - The remaining pause governance deployment work is creating the real secret values, provisioning the selected managed PostgreSQL backend, rendering Alertmanager from secrets, and wiring the deployment pipeline.
 - Bounded position sizing metadata exists for `REDUCE`, `CLOSE`, and `HEDGE`.
-- Position close/reduce/hedge command construction now exists for one-way reduce-only execution, config-gated hedge-mode position-side close/reduce execution, and separately config-gated hedge-order execution. Planner-side symbol allowlist, quantity cap, close chunking, estimated-notional cap, required margin type, required hedge position mode, leverage bounds, and missing account-risk metadata blockers now exist. Position projection and JDBC snapshots retain observed `position_mode` when provided by exchange/account metadata. `OrderExecutionGateway` preflight now lets provider modules reject approved commands before gateway submission, and Binance preflight uses configured `NEW` order capability plus exchange-filter validation. The remaining position-remediation work is broader non-new provider preflight coverage and broader account-risk constraints such as exposure budgets, drawdown limits, and daily loss limits.
+- Position close/reduce/hedge command construction now exists for one-way reduce-only execution, config-gated hedge-mode position-side close/reduce execution, and separately config-gated hedge-order execution. Planner-side symbol allowlist, quantity cap, close chunking, estimated-notional cap, required margin type, required hedge position mode, leverage bounds, and missing account-risk metadata blockers now exist. Position projection and JDBC snapshots retain observed `position_mode` when provided by exchange/account metadata. `OrderExecutionGateway` preflight now lets provider modules reject approved commands before gateway submission, and Binance preflight uses configured `NEW` order capability plus exchange-filter validation, `CANCEL` target identity validation, and futures `MODIFY` target/parameter validation. The remaining position-remediation work is broader account-risk constraints such as exposure budgets, drawdown limits, and daily loss limits, plus preflight coverage for future command families as they become executable.
 - Implement order adoption policy only after ownership transfer, client order id handling, reconciliation, and rollback behavior are defined.
 - Implement managed order amendment policy only after allowed field drift, stale-state handling, and cancel/replace behavior are defined.
 - Scheduled remediation runner exists; the remaining work is persistence/recovery hardening, metrics/alerts, and expansion beyond external-order cancel.
@@ -315,7 +315,7 @@ Estimated remaining delivery: 37 to 61 commits/slices.
 
 ## Next Work In Dependency Order
 
-1. Continue hardening position-remediation execution with broader non-new provider preflight coverage and broader account-risk constraints before broadening runtime enablement.
+1. Continue hardening position-remediation execution with broader account-risk constraints before broadening runtime enablement.
 2. Define and implement external order adoption policy, including ownership transfer, client order id handling, risk checks, and projection reconciliation.
 3. Define and implement managed order amendment policy, including allowed fields, drift limits, cancel/replace behavior, and stale-state handling.
 4. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.

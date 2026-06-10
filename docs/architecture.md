@@ -703,7 +703,8 @@ preflight before gateway submission; the pipeline publishes that as a rejected
 risk decision with provider preflight attributes instead of sending a command to
 the exchange. The Binance gateway uses this hook for new-order capability and
 exchange-filter validation, including remediation-generated position market
-orders.
+orders, cancel target-identity validation, and futures modify target/parameter
+validation.
 `InterventionAutomatedRemediationRunner` is the scheduled live automation layer.
 It is disabled by default. When enabled, each tick resolves either its explicit
 target or the current active runtime target, executes already-projected

@@ -40,6 +40,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -715,9 +716,83 @@ class BinanceExchangeModuleTest {
                 .contains("quantity 0.0005 is below exchangeInfo minimum 0.001");
     }
 
+    @Test
+    void accepts_cancel_order_command_in_preflight_when_target_identity_is_present() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceExchangeModule runtimeModule = runtimeModule(httpTransport);
+
+        runtimeModule.configure(config);
+        Optional<OrderExecutionPreflightRejection> rejection = runtimeModule.preflight(OrderCommandEvent.newBuilder(orderCommand())
+                .setAction(OrderCommandAction.CANCEL)
+                .setTargetClientOrderId("tb-lfa-001")
+                .build());
+
+        assertThat(rejection).isEmpty();
+        assertThat(httpTransport.calls()).isEmpty();
+    }
+
+    @Test
+    void rejects_cancel_order_command_in_preflight_when_target_identity_is_missing() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceExchangeModule runtimeModule = runtimeModule(httpTransport);
+
+        runtimeModule.configure(config);
+        OrderExecutionPreflightRejection rejection = runtimeModule.preflight(OrderCommandEvent.newBuilder(orderCommand())
+                .setAction(OrderCommandAction.CANCEL)
+                .setTargetClientOrderId(null)
+                .setTargetExchangeOrderId(null)
+                .build()).orElseThrow();
+
+        assertThat(httpTransport.calls()).isEmpty();
+        assertThat(rejection.reason()).isEqualTo("execution:provider_preflight_rejected");
+        assertThat(rejection.attributes())
+                .containsEntry("provider_preflight_provider", "binance")
+                .containsEntry("provider_preflight_reject_code", "VALIDATION");
+        assertThat(rejection.attributes().get("provider_preflight_message").toString())
+                .contains("orderId or origClientOrderId is required");
+    }
+
+    @Test
+    void rejects_modify_order_command_in_preflight_when_modify_parameters_are_invalid() throws Exception {
+        ResolvedExchangeConfig config = checkedInResolvedConfig();
+        FakeHttpTransport httpTransport = new FakeHttpTransport(new BinanceHttpResponse(200, "{}"));
+        BinanceExchangeModule runtimeModule = runtimeModule(httpTransport);
+
+        runtimeModule.configure(config);
+        OrderExecutionPreflightRejection rejection = runtimeModule.preflight(OrderCommandEvent.newBuilder(orderCommand())
+                .setAction(OrderCommandAction.MODIFY)
+                .setTargetClientOrderId("tb-lfa-001")
+                .setPrice(null)
+                .setAttributes(Map.of())
+                .build()).orElseThrow();
+
+        assertThat(httpTransport.calls()).isEmpty();
+        assertThat(rejection.reason()).isEqualTo("execution:provider_preflight_rejected");
+        assertThat(rejection.attributes())
+                .containsEntry("provider_preflight_provider", "binance")
+                .containsEntry("provider_preflight_reject_code", "VALIDATION");
+        assertThat(rejection.attributes().get("provider_preflight_message").toString())
+                .contains("price or priceMatch is required for futures modify order");
+    }
+
     private ResolvedExchangeConfig checkedInResolvedConfig() throws IOException {
         return checkedInResolvedConfig(market -> {
         });
+    }
+
+    private BinanceExchangeModule runtimeModule(FakeHttpTransport httpTransport) {
+        return new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                httpTransport,
+                null
+        );
     }
 
     private ResolvedExchangeConfig checkedInResolvedConfig(ConfigMutation mutation) throws IOException {

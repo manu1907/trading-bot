@@ -212,20 +212,34 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
                     )
             ));
         }
-        if (action(command) != OrderCommandAction.NEW) {
-            return Optional.empty();
-        }
         BinanceProperties binance = requireBinance(config);
         try {
-            BinanceOrderCommand binanceCommand = toBinanceOrderCommand(command, binance);
-            BinanceOrderCommandValidator.validate(binanceCommand, binance.trading());
-            validatePreflightExchangeFilters(binanceCommand, binance);
+            validatePreflightCommand(command, binance);
             return Optional.empty();
         } catch (IllegalArgumentException e) {
             return Optional.of(OrderExecutionPreflightRejection.rejected(
                     "execution:provider_preflight_rejected",
                     providerPreflightAttributes(e)
             ));
+        }
+    }
+
+    private void validatePreflightCommand(OrderCommandEvent command, BinanceProperties binance) {
+        switch (action(command)) {
+            case NEW -> {
+                BinanceOrderCommand binanceCommand = toBinanceOrderCommand(command, binance);
+                BinanceOrderCommandValidator.validate(binanceCommand, binance.trading());
+                validatePreflightExchangeFilters(binanceCommand, binance);
+            }
+            case CANCEL -> new BinanceOrderRequestFactory(binance, clock, 0L)
+                    .cancelOrder(
+                            value(command.getSymbol()),
+                            optionalTargetExchangeOrderId(command),
+                            optionalTargetClientOrderId(command),
+                            "preflight-secret"
+                    );
+            case MODIFY -> new BinanceOrderRequestFactory(binance, clock, 0L)
+                    .modifyOrder(toBinanceModifyOrderCommand(command), "preflight-secret");
         }
     }
 

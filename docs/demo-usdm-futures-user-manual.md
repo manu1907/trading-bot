@@ -1287,10 +1287,14 @@ including:
 The execution pipeline also calls provider preflight after the risk gate
 approves a command but before gateway submission. For Binance `NEW` orders,
 preflight reuses the same configured capability checks and exchange-filter
-validation used by the gateway. If preflight fails, the pipeline publishes a
-rejected risk decision with `execution:provider_preflight_rejected` and does not
-call the exchange gateway. This applies to remediation-generated position
-`MARKET` orders as well as strategy-generated new orders.
+validation used by the gateway. For Binance `CANCEL` commands, preflight
+requires a target client order id or exchange order id before the gateway can
+send a delete request. For Binance futures `MODIFY` commands, preflight checks
+the target identity, side, quantity, price, and price-match combination before
+submission. If preflight fails, the pipeline publishes a rejected risk decision
+with `execution:provider_preflight_rejected` and does not call the exchange
+gateway. This applies to remediation-generated cancels and position `MARKET`
+orders as well as strategy-generated new or modify orders.
 
 ## Execution Pipeline Options
 
