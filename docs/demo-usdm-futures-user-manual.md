@@ -892,10 +892,10 @@ remaining position-order policy fields are inherited from the catalog defaults:
 `reject_unbounded_position_notional=true`, and
 `hedge_mode_execution_enabled=false`, and
 `max_account_position_notional=null`, `max_symbol_position_notional=null`,
-`max_account_unrealized_loss=null`, `max_symbol_unrealized_loss=null`, and
+`max_account_unrealized_loss=null`, `max_symbol_unrealized_loss=null`,
 `min_account_margin_balance=null`, `max_account_margin_drawdown_fraction=null`,
-`max_account_margin_utilization=null`, and
-`max_account_daily_realized_loss=null`. The checked-in demo runtime explicitly
+`max_account_margin_utilization=null`, `max_account_daily_realized_loss=null`,
+and `max_symbol_daily_realized_loss=null`. The checked-in demo runtime explicitly
 limits automated position remediation to `BTCUSDT`,
 `max_position_quantity=0.001`, `chunk_close_when_max_quantity_exceeded=true`,
 and `max_position_notional=250`, and requires projected futures account
@@ -1536,6 +1536,8 @@ Default intervention config:
   `null`
 - `remediation_executor_policy.position_order_policy.max_account_daily_realized_loss`:
   `null`
+- `remediation_executor_policy.position_order_policy.max_symbol_daily_realized_loss`:
+  `null`
 - `remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata`:
   `true`
 - `remediation_executor_policy.managed_order_amendment_policy.enabled`:
@@ -1788,14 +1790,15 @@ Current automated remediation execution state:
   projection is configured for the target.
 - Execution reports can contribute realized PnL into projection state when they
   carry `realizedProfit`, `realizedPnl`, or `realized_pnl` attributes. The bot
-  accumulates those values per UTC trading day and persists them in file/JDBC
-  projection snapshots. When `max_account_daily_realized_loss` is configured,
-  position hedge plans remain non-executable once the current UTC account daily
-  realized loss exceeds that cap. Risk-reducing close/reduce plans can still
-  proceed. If daily realized PnL state is missing or invalid and
+  accumulates those values per UTC trading day at account and symbol scope, then
+  persists them in file/JDBC projection snapshots. When
+  `max_account_daily_realized_loss` or `max_symbol_daily_realized_loss` is
+  configured, position hedge plans remain non-executable once the matching
+  current UTC daily realized loss exceeds that cap. Risk-reducing close/reduce
+  plans can still proceed. If daily realized PnL state is missing or invalid and
   `reject_missing_account_risk_metadata=true`, additive hedge plans are blocked.
-  The checked-in demo runtime leaves this cap unset until daily loss limits are
-  calibrated for the target.
+  The checked-in demo runtime leaves these caps unset until daily loss limits
+  are calibrated for the target.
 - Hedge-mode plans remain non-executable when projected position-mode metadata
   is missing or does not match `required_position_mode`; the catalog default is
   `HEDGE`.

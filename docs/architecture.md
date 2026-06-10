@@ -555,9 +555,10 @@ position interventions are unresolved unless the configured action is
 Execution reports can also carry realized-PnL attributes. After an execution
 report passes projection duplicate and stale-update checks, the projection
 accumulates `realizedProfit`, `realizedPnl`, or `realized_pnl` into
-`DailyRealizedPnlState` keyed by provider, environment, account, market, and UTC
-trading day. This state is accounting/recovery input for later realized-loss
-policy enforcement; it does not by itself authorize or block exchange actions.
+account-scope and symbol-scope `DailyRealizedPnlState` keyed by provider,
+environment, account, market, optional symbol, and UTC trading day. This state
+is accounting/recovery input for realized-loss policy enforcement; it does not
+by itself authorize or block exchange actions.
 Position fill-to-delta causality still needs durable execution-state wiring
 before live automation can be called complete. The remediation advisor now
 keeps position remediation conservative: a flat external position recommends
@@ -713,16 +714,17 @@ catalog also exposes optional `max_account_position_notional`,
 `max_symbol_position_notional`, `max_account_unrealized_loss`,
 `max_symbol_unrealized_loss`, `min_account_margin_balance`,
 `max_account_margin_drawdown_fraction`, `max_account_margin_utilization`, and
-`max_account_daily_realized_loss` caps. The position-notional caps use projected
-gross open-position notional after the planned remediation action and are
-risk-reduction aware, so close/reduce actions that lower already-excessive
-exposure are not blocked solely because current exposure was already above the
-cap. The unrealized-loss caps read current projected open-position unrealized
-PnL and block non-reducing hedge remediation once account or symbol loss exceeds
-the configured cap, while still allowing close/reduce plans that lower risk. The
-account daily realized-loss cap reads projected UTC daily realized PnL and blocks
-non-reducing hedge remediation once account realized loss exceeds the configured
-cap, while still allowing close/reduce risk reduction. The account margin-balance
+`max_account_daily_realized_loss` and `max_symbol_daily_realized_loss` caps. The
+position-notional caps use projected gross open-position notional after the
+planned remediation action and are risk-reduction aware, so close/reduce actions
+that lower already-excessive exposure are not blocked solely because current
+exposure was already above the cap. The unrealized-loss caps read current
+projected open-position unrealized PnL and block non-reducing hedge remediation
+once account or symbol loss exceeds the configured cap, while still allowing
+close/reduce plans that lower risk. The daily realized-loss caps read projected
+UTC account and symbol daily realized PnL and block non-reducing hedge
+remediation once configured realized-loss caps are exceeded, while still
+allowing close/reduce risk reduction. The account margin-balance
 floor blocks non-reducing hedge remediation when current projected account equity
 is below the configured floor, while still allowing validated close/reduce risk
 reduction. The account margin drawdown cap compares current projected margin

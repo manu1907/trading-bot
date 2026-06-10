@@ -174,7 +174,25 @@ public final class TradingStateProjection implements TradingEventHandler {
             String market,
             String tradingDay
     ) {
-        return Optional.ofNullable(dailyRealizedPnl.get(key(provider, environment, account, market, tradingDay)));
+        return dailyRealizedPnl(provider, environment, account, market, null, tradingDay);
+    }
+
+    public Optional<DailyRealizedPnlState> dailyRealizedPnl(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String tradingDay
+    ) {
+        return Optional.ofNullable(dailyRealizedPnl.get(dailyRealizedPnlKey(
+                provider,
+                environment,
+                account,
+                market,
+                symbol,
+                tradingDay
+        )));
     }
 
     public boolean hasOpenPositions(String provider, String environment, String account, String market) {
@@ -469,11 +487,12 @@ public final class TradingStateProjection implements TradingEventHandler {
                 ), state);
             }
             for (DailyRealizedPnlState state : snapshot.dailyRealizedPnl()) {
-                dailyRealizedPnl.put(key(
+                dailyRealizedPnl.put(dailyRealizedPnlKey(
                         state.provider(),
                         state.environment(),
                         state.account(),
                         state.market(),
+                        state.symbol(),
                         state.tradingDay()
                 ), state);
             }
@@ -710,11 +729,24 @@ public final class TradingStateProjection implements TradingEventHandler {
             return;
         }
         String tradingDay = tradingDay(eventTime);
-        String entityKey = key(
+        applyDailyRealizedPnlState(event, eventTime, eventId, tradingDay, null, realizedPnl);
+        applyDailyRealizedPnlState(event, eventTime, eventId, tradingDay, value(event.getSymbol()), realizedPnl);
+    }
+
+    private void applyDailyRealizedPnlState(
+            ExecutionReportEvent event,
+            Instant eventTime,
+            String eventId,
+            String tradingDay,
+            String symbol,
+            BigDecimal realizedPnl
+    ) {
+        String entityKey = dailyRealizedPnlKey(
                 event.getProvider(),
                 event.getEnvironment(),
                 event.getAccount(),
                 event.getMarket(),
+                symbol,
                 tradingDay
         );
         DailyRealizedPnlState current = dailyRealizedPnl.get(entityKey);
@@ -727,6 +759,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getEnvironment()),
                 value(event.getAccount()),
                 value(event.getMarket()),
+                symbol,
                 tradingDay,
                 normalizeDecimal(currentPnl.add(realizedPnl)),
                 eventTime,
@@ -1389,6 +1422,17 @@ public final class TradingStateProjection implements TradingEventHandler {
         return builder.toString();
     }
 
+    private String dailyRealizedPnlKey(
+            CharSequence provider,
+            CharSequence environment,
+            CharSequence account,
+            CharSequence market,
+            CharSequence symbol,
+            CharSequence tradingDay
+    ) {
+        return key(provider, environment, account, market, keyPart(symbol), tradingDay);
+    }
+
     private String keyPart(CharSequence value) {
         if (value == null || value.toString().isBlank()) {
             return "-";
@@ -1870,6 +1914,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             String environment,
             String account,
             String market,
+            String symbol,
             String tradingDay,
             String realizedPnl,
             Instant updatedAt,

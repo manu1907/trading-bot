@@ -559,6 +559,7 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         null,
                         true,
+                        null,
                         null
                 )
         );
@@ -986,6 +987,49 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("current_account_daily_realized_pnl_trading_day", "2026-06-06")
                 .containsEntry("exchange_execution_blocker", "position_order_account_daily_realized_loss_exceeded")
                 .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_hedge_non_executable_when_symbol_daily_realized_loss_exceeds_cap() {
+        restorePositionInterventionWithDailyRealizedPnl("0.25", "LONG", "HEDGE", "5.00", "-25.00");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                dailyRealizedLossPositionOrderPolicy(null, "10", true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("HEDGE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_symbol_daily_realized_loss", "10")
+                .containsEntry("current_symbol_daily_realized_pnl", "-25")
+                .containsEntry("current_symbol_daily_realized_loss", "25")
+                .containsEntry("exchange_execution_blocker", "position_order_symbol_daily_realized_loss_exceeded")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void allows_position_close_when_symbol_daily_realized_loss_cap_is_exceeded_because_it_reduces_risk() {
+        restorePositionInterventionWithDailyRealizedPnl("0.25", "BOTH", null, "5.00", "-25.00");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                dailyRealizedLossPositionOrderPolicy(null, "10", false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_symbol_daily_realized_loss", "10")
+                .containsEntry("current_symbol_daily_realized_pnl", "-25")
+                .containsEntry("current_symbol_daily_realized_loss", "25")
+                .containsEntry("exchange_executable", "true");
     }
 
     @Test
@@ -1425,6 +1469,16 @@ class InterventionRemediationCommandPlannerTest {
             String positionMode,
             String dailyRealizedPnl
     ) {
+        restorePositionInterventionWithDailyRealizedPnl(positionAmount, positionSide, positionMode, dailyRealizedPnl, null);
+    }
+
+    private void restorePositionInterventionWithDailyRealizedPnl(
+            String positionAmount,
+            String positionSide,
+            String positionMode,
+            String accountDailyRealizedPnl,
+            String symbolDailyRealizedPnl
+    ) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(new TradingStateProjection.PositionState(
@@ -1450,16 +1504,33 @@ class InterventionRemediationCommandPlannerTest {
                 )),
                 List.of(),
                 List.of(),
-                List.of(new TradingStateProjection.DailyRealizedPnlState(
-                        "binance",
-                        "demo",
-                        "main",
-                        "usd_m_futures",
-                        "2026-06-06",
-                        dailyRealizedPnl,
-                        NOW.minusSeconds(1),
-                        "evt-daily-realized-pnl"
-                )),
+                java.util.stream.Stream.of(
+                                new TradingStateProjection.DailyRealizedPnlState(
+                                        "binance",
+                                        "demo",
+                                        "main",
+                                        "usd_m_futures",
+                                        null,
+                                        "2026-06-06",
+                                        accountDailyRealizedPnl,
+                                        NOW.minusSeconds(1),
+                                        "evt-daily-realized-pnl"
+                                ),
+                                symbolDailyRealizedPnl == null
+                                        ? null
+                                        : new TradingStateProjection.DailyRealizedPnlState(
+                                                "binance",
+                                                "demo",
+                                                "main",
+                                                "usd_m_futures",
+                                                "BTCUSDT",
+                                                "2026-06-06",
+                                                symbolDailyRealizedPnl,
+                                                NOW.minusSeconds(1),
+                                                "evt-symbol-daily-realized-pnl"
+                                        ))
+                        .filter(java.util.Objects::nonNull)
+                        .toList(),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -1495,6 +1566,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 true,
+                null,
                 null
         );
     }
@@ -1591,6 +1663,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 true,
+                null,
                 null
         );
     }
@@ -1623,6 +1696,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 true,
+                null,
                 null
         );
     }
@@ -1683,6 +1757,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 maxAccountMarginUtilization,
                 true,
+                null,
                 null
         );
     }
@@ -1719,6 +1794,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 true,
+                null,
                 null
         );
     }
@@ -1755,12 +1831,21 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 true,
+                null,
                 null
         );
     }
 
     private InterventionProperties.PositionOrderPolicy dailyRealizedLossPositionOrderPolicy(
             String maxAccountDailyRealizedLoss,
+            boolean hedgePositionOrderEnabled
+    ) {
+        return dailyRealizedLossPositionOrderPolicy(maxAccountDailyRealizedLoss, null, hedgePositionOrderEnabled);
+    }
+
+    private InterventionProperties.PositionOrderPolicy dailyRealizedLossPositionOrderPolicy(
+            String maxAccountDailyRealizedLoss,
+            String maxSymbolDailyRealizedLoss,
             boolean hedgePositionOrderEnabled
     ) {
         return new InterventionProperties.PositionOrderPolicy(
@@ -1790,7 +1875,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 true,
-                maxAccountDailyRealizedLoss
+                maxAccountDailyRealizedLoss,
+                maxSymbolDailyRealizedLoss
         );
     }
 
@@ -1826,6 +1912,7 @@ class InterventionRemediationCommandPlannerTest {
                 maxAccountMarginDrawdownFraction,
                 null,
                 true,
+                null,
                 null
         );
     }
@@ -1864,6 +1951,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 true,
+                null,
                 null
         );
     }

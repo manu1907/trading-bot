@@ -97,11 +97,14 @@ create table if not exists trading_projection_daily_realized_pnl (
     environment varchar(64) not null,
     account varchar(128) not null,
     market varchar(128) not null,
+    symbol varchar(128),
     trading_day varchar(32) not null,
     realized_pnl varchar(128) not null,
     updated_at varchar(64) not null,
     event_id varchar(512)
 );
+
+alter table trading_projection_daily_realized_pnl add column if not exists symbol varchar(128);
 
 create table if not exists trading_projection_manual_review_decisions (
     state_key varchar(512) primary key,

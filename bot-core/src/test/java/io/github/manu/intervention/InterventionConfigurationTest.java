@@ -266,6 +266,7 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-account-margin-drawdown-fraction=0.25",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-account-margin-utilization=0.80",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-account-daily-realized-loss=300",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.max-symbol-daily-realized-loss=150",
                         "trading.intervention.remediation-executor-policy.position-order-policy.reject-missing-account-risk-metadata=false",
                         "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.enabled=true",
                         "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.provider=binance",
@@ -340,6 +341,7 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().maxAccountMarginDrawdownFraction()).isEqualTo("0.25");
                     assertThat(policy.positionOrderPolicy().maxAccountMarginUtilization()).isEqualTo("0.80");
                     assertThat(policy.positionOrderPolicy().maxAccountDailyRealizedLoss()).isEqualTo("300");
+                    assertThat(policy.positionOrderPolicy().maxSymbolDailyRealizedLoss()).isEqualTo("150");
                     assertThat(policy.positionOrderPolicy().rejectMissingAccountRiskMetadata()).isFalse();
                     assertThat(policy.managedOrderAmendmentPolicy().enabled()).isTrue();
                     assertThat(policy.managedOrderAmendmentPolicy().provider()).isEqualTo("binance");

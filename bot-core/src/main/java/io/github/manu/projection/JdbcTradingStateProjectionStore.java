@@ -263,7 +263,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
 
     private List<TradingStateProjection.DailyRealizedPnlState> loadDailyRealizedPnl(Connection connection)
             throws SQLException {
-        String sql = "select provider, environment, account, market, trading_day, realized_pnl, updated_at, event_id from "
+        String sql = "select provider, environment, account, market, symbol, trading_day, realized_pnl, updated_at, event_id from "
                 + table("daily_realized_pnl")
                 + " order by state_key";
         List<TradingStateProjection.DailyRealizedPnlState> states = new ArrayList<>();
@@ -274,6 +274,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         rows.getString("environment"),
                         rows.getString("account"),
                         rows.getString("market"),
+                        rows.getString("symbol"),
                         rows.getString("trading_day"),
                         rows.getString("realized_pnl"),
                         instant(rows.getString("updated_at")),
@@ -564,8 +565,8 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
     ) throws SQLException {
         String sql = "insert into "
                 + table("daily_realized_pnl")
-                + " (state_key, provider, environment, account, market, trading_day, realized_pnl, updated_at, event_id)"
-                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + " (state_key, provider, environment, account, market, symbol, trading_day, realized_pnl, updated_at, event_id)"
+                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (TradingStateProjection.DailyRealizedPnlState state : states) {
                 int index = 1;
@@ -574,12 +575,14 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         state.environment(),
                         state.account(),
                         state.market(),
+                        keyPart(state.symbol()),
                         state.tradingDay()
                 ));
                 statement.setString(index++, state.provider());
                 statement.setString(index++, state.environment());
                 statement.setString(index++, state.account());
                 statement.setString(index++, state.market());
+                statement.setString(index++, state.symbol());
                 statement.setString(index++, state.tradingDay());
                 statement.setString(index++, state.realizedPnl());
                 statement.setString(index++, string(state.updatedAt()));
@@ -777,8 +780,9 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                 "create table if not exists " + table("daily_realized_pnl") + " ("
                         + "state_key varchar(512) primary key, provider varchar(64) not null,"
                         + "environment varchar(64) not null, account varchar(128) not null,"
-                        + "market varchar(128) not null, trading_day varchar(32) not null,"
+                        + "market varchar(128) not null, symbol varchar(128), trading_day varchar(32) not null,"
                         + "realized_pnl varchar(128) not null, updated_at varchar(64) not null, event_id varchar(512))",
+                "alter table " + table("daily_realized_pnl") + " add column if not exists symbol varchar(128)",
                 "create table if not exists " + table("manual_review_decisions") + " ("
                         + "state_key varchar(512) primary key, provider varchar(64) not null,"
                         + "environment varchar(64) not null, account varchar(128) not null,"
@@ -814,6 +818,13 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
 
     private String key(String... parts) {
         return String.join("|", parts);
+    }
+
+    private String keyPart(String value) {
+        if (value == null || value.isBlank()) {
+            return "-";
+        }
+        return value.trim();
     }
 
     private String riskEntityId(TradingStateProjection.RiskState state) {

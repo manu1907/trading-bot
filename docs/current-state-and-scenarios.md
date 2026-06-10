@@ -49,6 +49,7 @@ The position-order policy for the first-start demo runtime also restricts automa
 - inherited `max_account_margin_drawdown_fraction=null`
 - inherited `max_account_margin_utilization=null`
 - inherited `max_account_daily_realized_loss=null`
+- inherited `max_symbol_daily_realized_loss=null`
 - inherited `reject_unbounded_position_notional=true`
 - inherited `reject_missing_account_risk_metadata=true`
 
@@ -154,7 +155,8 @@ Position plans remain non-executable when any configured policy gate fails, incl
 - projected account margin-utilization above `max_account_margin_utilization`
 - projected account margin risk missing or invalid while `max_account_margin_utilization` is configured and `reject_missing_account_risk_metadata=true`
 - current account daily realized loss above `max_account_daily_realized_loss` for non-reducing hedge plans
-- projected account daily realized PnL missing or invalid while `max_account_daily_realized_loss` is configured and `reject_missing_account_risk_metadata=true`
+- current symbol daily realized loss above `max_symbol_daily_realized_loss` for non-reducing hedge plans
+- projected account or symbol daily realized PnL missing or invalid while the matching daily realized-loss cap is configured and `reject_missing_account_risk_metadata=true`
 - missing or mismatched hedge-mode position metadata while `required_position_mode=HEDGE`
 - provider or market mismatch
 - unsupported order type
@@ -193,7 +195,7 @@ Implemented persistence/recovery surfaces include:
 - Projection snapshot lifecycle.
 - JDBC projection snapshot store.
 - Position projection metadata now retains `leverage`, `margin_type`, and `isolated_margin` so recovered snapshots keep the account-risk data used by remediation policy.
-- Daily realized PnL projection now accumulates non-duplicate, non-stale execution-report attributes (`realizedProfit`, `realizedPnl`, or `realized_pnl`) by provider, environment, account, market, and UTC trading day. File and JDBC snapshots persist this accounting state for recovery and future risk policy.
+- Daily realized PnL projection now accumulates non-duplicate, non-stale execution-report attributes (`realizedProfit`, `realizedPnl`, or `realized_pnl`) by provider, environment, account, market, optional symbol, and UTC trading day. File and JDBC snapshots persist account-scope and symbol-scope accounting state for recovery and risk policy.
 - Audit persistence for supported intervention and pause governance flows.
 
 ## Configuration Surface Added For Position Remediation
@@ -226,6 +228,7 @@ Catalog defaults keep these fields explicit and overridable:
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_drawdown_fraction=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_utilization=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_account_daily_realized_loss=null`
+- `trading.intervention.remediation_executor_policy.position_order_policy.max_symbol_daily_realized_loss=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata=true`
 - `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.enabled=false`
 - `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.provider=binance`
@@ -260,7 +263,7 @@ Managed order amendment state:
 Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
-- Broader account-level and symbol-level risk budgets, including symbol-level realized-PnL budgets, beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account daily realized-loss caps.
+- Broader account-level and symbol-level risk budgets beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account/symbol daily realized-loss caps.
 - Cancel/replace fallback for unsupported amendments and executable rollback behavior for ambiguous adopted-order lifecycle outcomes.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.

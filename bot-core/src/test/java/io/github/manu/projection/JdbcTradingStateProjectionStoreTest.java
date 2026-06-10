@@ -203,6 +203,7 @@ class JdbcTradingStateProjectionStoreTest {
                         "demo",
                         "main",
                         "options",
+                        null,
                         "2026-05-26",
                         "-12.50",
                         now.plusSeconds(4),

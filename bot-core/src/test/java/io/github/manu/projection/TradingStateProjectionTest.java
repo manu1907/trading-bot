@@ -268,6 +268,15 @@ class TradingStateProjectionTest {
         assertThat(projection.dailyRealizedPnl(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "2026-05-26"))
                 .get()
                 .satisfies(pnl -> {
+                    assertThat(pnl.symbol()).isNull();
+                    assertThat(pnl.realizedPnl()).isEqualTo("-1.25");
+                    assertThat(pnl.updatedAt()).isEqualTo(timestamp(32));
+                    assertThat(pnl.eventId()).isEqualTo("evt-realized-2");
+                });
+        assertThat(projection.dailyRealizedPnl(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "2026-05-26"))
+                .get()
+                .satisfies(pnl -> {
+                    assertThat(pnl.symbol()).isEqualTo(SYMBOL);
                     assertThat(pnl.realizedPnl()).isEqualTo("-1.25");
                     assertThat(pnl.updatedAt()).isEqualTo(timestamp(32));
                     assertThat(pnl.eventId()).isEqualTo("evt-realized-2");

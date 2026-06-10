@@ -413,6 +413,7 @@ public final class InterventionRemediationCommandPlanner {
         );
         put(attributes, "position_order_max_account_margin_utilization", positionOrderPolicy.maxAccountMarginUtilization());
         put(attributes, "position_order_max_account_daily_realized_loss", positionOrderPolicy.maxAccountDailyRealizedLoss());
+        put(attributes, "position_order_max_symbol_daily_realized_loss", positionOrderPolicy.maxSymbolDailyRealizedLoss());
         PositionExposure exposure = projectedPositionExposure(position, operation, size);
         if (exposure.valid()) {
             attributes.put("current_account_position_notional", normalize(exposure.currentAccountNotional()));
@@ -427,8 +428,10 @@ public final class InterventionRemediationCommandPlanner {
         }
         DailyRealizedLoss dailyRealizedLoss = currentDailyRealizedLoss(position, event);
         if (dailyRealizedLoss.valid()) {
-            attributes.put("current_account_daily_realized_loss", normalize(dailyRealizedLoss.accountLoss()));
-            attributes.put("current_account_daily_realized_pnl", normalize(dailyRealizedLoss.accountPnl()));
+            put(attributes, "current_account_daily_realized_loss", normalize(dailyRealizedLoss.accountLoss()));
+            put(attributes, "current_account_daily_realized_pnl", normalize(dailyRealizedLoss.accountPnl()));
+            put(attributes, "current_symbol_daily_realized_loss", normalize(dailyRealizedLoss.symbolLoss()));
+            put(attributes, "current_symbol_daily_realized_pnl", normalize(dailyRealizedLoss.symbolPnl()));
             attributes.put("current_account_daily_realized_pnl_trading_day", dailyRealizedLoss.tradingDay());
         }
         projection.risk(
@@ -576,7 +579,7 @@ public final class InterventionRemediationCommandPlanner {
         if (lossPolicyBlocker != null) {
             return lossPolicyBlocker;
         }
-        String dailyRealizedLossPolicyBlocker = accountDailyRealizedLossPolicyBlocker(position, operation, event);
+        String dailyRealizedLossPolicyBlocker = dailyRealizedLossPolicyBlocker(position, operation, event);
         if (dailyRealizedLossPolicyBlocker != null) {
             return dailyRealizedLossPolicyBlocker;
         }
@@ -789,13 +792,14 @@ public final class InterventionRemediationCommandPlanner {
         return PositionLoss.valid(accountLoss, symbolLoss);
     }
 
-    private String accountDailyRealizedLossPolicyBlocker(
+    private String dailyRealizedLossPolicyBlocker(
             TradingStateProjection.PositionState position,
             Operation operation,
             RemediationDecisionEvent event
     ) {
         BigDecimal maxAccountLoss = decimal(positionOrderPolicy.maxAccountDailyRealizedLoss());
-        if (maxAccountLoss == null) {
+        BigDecimal maxSymbolLoss = decimal(positionOrderPolicy.maxSymbolDailyRealizedLoss());
+        if (maxAccountLoss == null && maxSymbolLoss == null) {
             return null;
         }
         if (operation != Operation.HEDGE_POSITION) {
@@ -807,8 +811,21 @@ public final class InterventionRemediationCommandPlanner {
                     ? "position_order_daily_realized_pnl_missing"
                     : null;
         }
-        if (loss.accountLoss().compareTo(maxAccountLoss) > 0) {
+        if (maxAccountLoss != null && loss.accountPnl() == null) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_daily_realized_pnl_missing"
+                    : null;
+        }
+        if (maxSymbolLoss != null && loss.symbolPnl() == null) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_daily_realized_pnl_missing"
+                    : null;
+        }
+        if (maxAccountLoss != null && loss.accountLoss().compareTo(maxAccountLoss) > 0) {
             return "position_order_account_daily_realized_loss_exceeded";
+        }
+        if (maxSymbolLoss != null && loss.symbolLoss().compareTo(maxSymbolLoss) > 0) {
+            return "position_order_symbol_daily_realized_loss_exceeded";
         }
         return null;
     }
@@ -822,7 +839,7 @@ public final class InterventionRemediationCommandPlanner {
             return DailyRealizedLoss.invalid();
         }
         String tradingDay = tradingDay(decidedAt);
-        TradingStateProjection.DailyRealizedPnlState realizedPnl = projection.dailyRealizedPnl(
+        TradingStateProjection.DailyRealizedPnlState accountRealizedPnl = projection.dailyRealizedPnl(
                         position.provider(),
                         position.environment(),
                         position.account(),
@@ -830,15 +847,23 @@ public final class InterventionRemediationCommandPlanner {
                         tradingDay
                 )
                 .orElse(null);
-        if (realizedPnl == null) {
+        TradingStateProjection.DailyRealizedPnlState symbolRealizedPnl = projection.dailyRealizedPnl(
+                        position.provider(),
+                        position.environment(),
+                        position.account(),
+                        position.market(),
+                        position.symbol(),
+                        tradingDay
+                )
+                .orElse(null);
+        BigDecimal accountPnl = accountRealizedPnl == null ? null : decimal(accountRealizedPnl.realizedPnl());
+        BigDecimal symbolPnl = symbolRealizedPnl == null ? null : decimal(symbolRealizedPnl.realizedPnl());
+        if (accountPnl == null && symbolPnl == null) {
             return DailyRealizedLoss.invalid();
         }
-        BigDecimal pnl = decimal(realizedPnl.realizedPnl());
-        if (pnl == null) {
-            return DailyRealizedLoss.invalid();
-        }
-        BigDecimal loss = pnl.signum() < 0 ? pnl.abs() : BigDecimal.ZERO;
-        return DailyRealizedLoss.valid(pnl, loss, tradingDay);
+        BigDecimal accountLoss = accountPnl == null || accountPnl.signum() >= 0 ? BigDecimal.ZERO : accountPnl.abs();
+        BigDecimal symbolLoss = symbolPnl == null || symbolPnl.signum() >= 0 ? BigDecimal.ZERO : symbolPnl.abs();
+        return DailyRealizedLoss.valid(accountPnl, accountLoss, symbolPnl, symbolLoss, tradingDay);
     }
 
     private String accountMarginUtilizationBlocker(TradingStateProjection.PositionState position) {
@@ -1870,16 +1895,24 @@ public final class InterventionRemediationCommandPlanner {
     private record DailyRealizedLoss(
             BigDecimal accountPnl,
             BigDecimal accountLoss,
+            BigDecimal symbolPnl,
+            BigDecimal symbolLoss,
             String tradingDay,
             boolean valid
     ) {
 
-        private static DailyRealizedLoss valid(BigDecimal accountPnl, BigDecimal accountLoss, String tradingDay) {
-            return new DailyRealizedLoss(accountPnl, accountLoss, tradingDay, true);
+        private static DailyRealizedLoss valid(
+                BigDecimal accountPnl,
+                BigDecimal accountLoss,
+                BigDecimal symbolPnl,
+                BigDecimal symbolLoss,
+                String tradingDay
+        ) {
+            return new DailyRealizedLoss(accountPnl, accountLoss, symbolPnl, symbolLoss, tradingDay, true);
         }
 
         private static DailyRealizedLoss invalid() {
-            return new DailyRealizedLoss(BigDecimal.ZERO, BigDecimal.ZERO, null, false);
+            return new DailyRealizedLoss(null, BigDecimal.ZERO, null, BigDecimal.ZERO, null, false);
         }
     }
 }
