@@ -239,7 +239,8 @@ public record InterventionProperties(
             Integer maxPlansPerRun,
             List<ExecutableOperation> allowedOperations,
             PositionOrderPolicy positionOrderPolicy,
-            ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy
+            ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy,
+            AdoptedOrderLifecyclePolicy adoptedOrderLifecyclePolicy
     ) {
         @ConstructorBinding
         public RemediationExecutorPolicy {
@@ -279,6 +280,9 @@ public record InterventionProperties(
             managedOrderAmendmentPolicy = managedOrderAmendmentPolicy == null
                     ? ManagedOrderAmendmentPolicy.disabled()
                     : managedOrderAmendmentPolicy;
+            adoptedOrderLifecyclePolicy = adoptedOrderLifecyclePolicy == null
+                    ? AdoptedOrderLifecyclePolicy.disabled()
+                    : adoptedOrderLifecyclePolicy;
             if (Boolean.TRUE.equals(exchangeExecutionEnabled)) {
                 if (!Boolean.TRUE.equals(enabled)) {
                     throw new IllegalArgumentException("exchangeExecutionEnabled requires remediation executor policy to be enabled");
@@ -340,7 +344,47 @@ public record InterventionProperties(
                     maxPlansPerRun,
                     allowedOperations,
                     positionOrderPolicy,
-                    ManagedOrderAmendmentPolicy.disabled()
+                    ManagedOrderAmendmentPolicy.disabled(),
+                    AdoptedOrderLifecyclePolicy.disabled()
+            );
+        }
+
+        public RemediationExecutorPolicy(
+                Boolean enabled,
+                Boolean exchangeExecutionEnabled,
+                Boolean reportOnly,
+                Boolean allowRealEnvironment,
+                Boolean requireReadyPlan,
+                Boolean requireFreshProjectionMatch,
+                Boolean requireProjectionTargetIdentity,
+                Boolean requireManagedExecutionPipeline,
+                Boolean rejectStaleProjection,
+                Boolean rejectUnsupportedPlans,
+                Boolean rejectOperatorReviewPlans,
+                Boolean rejectInsufficientDataPlans,
+                Integer maxPlansPerRun,
+                List<ExecutableOperation> allowedOperations,
+                PositionOrderPolicy positionOrderPolicy,
+                ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy
+        ) {
+            this(
+                    enabled,
+                    exchangeExecutionEnabled,
+                    reportOnly,
+                    allowRealEnvironment,
+                    requireReadyPlan,
+                    requireFreshProjectionMatch,
+                    requireProjectionTargetIdentity,
+                    requireManagedExecutionPipeline,
+                    rejectStaleProjection,
+                    rejectUnsupportedPlans,
+                    rejectOperatorReviewPlans,
+                    rejectInsufficientDataPlans,
+                    maxPlansPerRun,
+                    allowedOperations,
+                    positionOrderPolicy,
+                    managedOrderAmendmentPolicy,
+                    AdoptedOrderLifecyclePolicy.disabled()
             );
         }
 
@@ -361,8 +405,110 @@ public record InterventionProperties(
                     25,
                     List.of(),
                     PositionOrderPolicy.disabled(),
-                    ManagedOrderAmendmentPolicy.disabled()
+                    ManagedOrderAmendmentPolicy.disabled(),
+                    AdoptedOrderLifecyclePolicy.disabled()
             );
+        }
+    }
+
+    public record AdoptedOrderLifecyclePolicy(
+            Boolean enabled,
+            String provider,
+            String market,
+            Boolean preserveByDefault,
+            Boolean allowCancel,
+            Boolean allowAmend,
+            Boolean allowReplace,
+            Boolean rollbackOnAmbiguousOutcome,
+            Boolean rejectStaleProjection,
+            Long maxProjectionAgeMillis,
+            Boolean requireOpenOrderStatus,
+            Boolean requireExchangeOrderId,
+            Boolean rejectPendingOrUnknownModify,
+            List<String> allowedSymbols,
+            List<String> allowedStatuses
+    ) {
+
+        public AdoptedOrderLifecyclePolicy {
+            enabled = Boolean.TRUE.equals(enabled);
+            provider = normalize(provider, "binance");
+            market = normalize(market, "usdm_futures");
+            preserveByDefault = preserveByDefault == null || Boolean.TRUE.equals(preserveByDefault);
+            allowCancel = Boolean.TRUE.equals(allowCancel);
+            allowAmend = Boolean.TRUE.equals(allowAmend);
+            allowReplace = Boolean.TRUE.equals(allowReplace);
+            rollbackOnAmbiguousOutcome = Boolean.TRUE.equals(rollbackOnAmbiguousOutcome);
+            rejectStaleProjection = rejectStaleProjection == null || Boolean.TRUE.equals(rejectStaleProjection);
+            if (maxProjectionAgeMillis != null && maxProjectionAgeMillis <= 0L) {
+                throw new IllegalArgumentException("maxProjectionAgeMillis must be positive when configured");
+            }
+            requireOpenOrderStatus = requireOpenOrderStatus == null || Boolean.TRUE.equals(requireOpenOrderStatus);
+            requireExchangeOrderId = Boolean.TRUE.equals(requireExchangeOrderId);
+            rejectPendingOrUnknownModify = rejectPendingOrUnknownModify == null
+                    || Boolean.TRUE.equals(rejectPendingOrUnknownModify);
+            allowedSymbols = normalizeUpperList(allowedSymbols, "allowedSymbols");
+            allowedStatuses = allowedStatuses == null || allowedStatuses.isEmpty()
+                    ? List.of("ACCEPTED", "PARTIALLY_FILLED")
+                    : normalizeUpperList(allowedStatuses, "allowedStatuses");
+        }
+
+        static AdoptedOrderLifecyclePolicy disabled() {
+            return new AdoptedOrderLifecyclePolicy(
+                    false,
+                    "binance",
+                    "usdm_futures",
+                    true,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    null,
+                    true,
+                    false,
+                    true,
+                    List.of(),
+                    List.of("ACCEPTED", "PARTIALLY_FILLED")
+            );
+        }
+
+        @Override
+        public List<String> allowedSymbols() {
+            return List.copyOf(allowedSymbols);
+        }
+
+        @Override
+        public List<String> allowedStatuses() {
+            return List.copyOf(allowedStatuses);
+        }
+
+        private static String normalize(String value, String defaultValue) {
+            if (value == null || value.isBlank()) {
+                return defaultValue;
+            }
+            return value.trim();
+        }
+
+        private static String text(String value) {
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            return value.trim();
+        }
+
+        private static List<String> normalizeUpperList(List<String> values, String field) {
+            if (values == null || values.isEmpty()) {
+                return List.of();
+            }
+            List<String> normalized = new ArrayList<>();
+            for (String value : values) {
+                String text = text(value);
+                if (text == null) {
+                    throw new IllegalArgumentException(field + " must not contain blank values");
+                }
+                normalized.add(text.toUpperCase(Locale.ROOT));
+            }
+            return List.copyOf(normalized);
         }
     }
 

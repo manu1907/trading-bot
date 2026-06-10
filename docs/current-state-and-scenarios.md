@@ -70,6 +70,18 @@ The managed-order amendment policy for the first-start demo runtime restricts au
 - inherited `allow_bot_created_orders=true`
 - inherited `allow_adopted_orders=false`
 
+The first-start demo runtime also enables adopted-order lifecycle policy for:
+
+- `allowed_symbols=["BTCUSDT"]`
+- `allow_cancel=true`
+- `allow_amend=true`
+- `reject_stale_projection=true`
+- `max_projection_age_millis=30000`
+- inherited `preserve_by_default=true`
+- inherited `allow_replace=false`
+- inherited `require_open_order_status=true`
+- inherited `reject_pending_or_unknown_modify=true`
+
 ## Supported External Order Scenarios
 
 The bot can project external or manually created orders as interventions. It can recommend and decide remediation, then build executor command plans.
@@ -89,7 +101,7 @@ Supported non-exchange order remediation today:
 
 - External order adoption: an order-scope `ADOPT` remediation decision can publish an auditable intervention acknowledgement when `trading.intervention.remediation_orchestrator.enabled=true` and `order_adoption_acknowledgement_enabled=true`.
 - Adoption acknowledgement replay marks the projected external order as bot-managed and clears the unresolved external-order intervention. It does not submit, amend, or cancel an exchange order.
-- Adopted orders remain protected after ownership transfer. The order risk gate treats a managed target with no bot command id as adopted and blocks ordinary target-order commands unless `trading.execution.risk_gate.target_order.allow_adopted_target_orders=true`. Policy-qualified adopted managed amendments can still pass when the amendment policy explicitly allowed adopted orders.
+- Adopted orders remain protected after ownership transfer. The order risk gate treats a managed target with no bot command id as adopted and blocks ordinary target-order commands unless `trading.execution.risk_gate.target_order.allow_adopted_target_orders=true`. Policy-qualified adopted cancels can pass only when `adopted_order_lifecycle_policy.allow_cancel=true` and the executor command carries matching lifecycle metadata. Policy-qualified adopted amendments can pass only when both `managed_order_amendment_policy.allow_adopted_orders=true` and `adopted_order_lifecycle_policy.allow_amend=true`.
 
 Current non-executable order intents:
 
@@ -249,7 +261,7 @@ Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Broader account-level and symbol-level risk budgets, including symbol-level realized-PnL budgets, beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account daily realized-loss caps.
-- Cancel/replace fallback for unsupported amendments and broader adopted-order lifecycle controls.
+- Cancel/replace fallback for unsupported amendments and executable rollback behavior for ambiguous adopted-order lifecycle outcomes.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - V1 live validation, demo soak criteria, promotion gates, and real-trading runbooks.

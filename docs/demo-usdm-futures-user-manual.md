@@ -1438,6 +1438,10 @@ Important defaults:
   (`target_order.allow_adopted_target_orders=false`). Runtime config must
   explicitly set that switch to true before normal cancel/modify target commands
   can operate on adopted orders.
+- Adopted remediation executor commands have a narrower policy path:
+  `adopted_order_lifecycle_policy` must explicitly allow cancel or amend before
+  the executor can submit a policy-qualified adopted-order cancel or amendment
+  through the normal execution pipeline.
 
 This means enabling execution without also configuring appropriate risk limits
 is intentionally restrictive.
@@ -1572,6 +1576,36 @@ Default intervention config:
   `false`
 - `remediation_executor_policy.managed_order_amendment_policy.allowed_statuses`:
   `ACCEPTED`, `PARTIALLY_FILLED`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.enabled`:
+  `false`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.provider`:
+  `binance`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.market`:
+  `usdm_futures`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.preserve_by_default`:
+  `true`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.allow_cancel`:
+  `false`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.allow_amend`:
+  `false`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.allow_replace`:
+  `false`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.rollback_on_ambiguous_outcome`:
+  `false`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.reject_stale_projection`:
+  `true`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.max_projection_age_millis`:
+  `null`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.require_open_order_status`:
+  `true`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.require_exchange_order_id`:
+  `false`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.reject_pending_or_unknown_modify`:
+  `true`
+- `remediation_executor_policy.adopted_order_lifecycle_policy.allowed_symbols`:
+  empty list
+- `remediation_executor_policy.adopted_order_lifecycle_policy.allowed_statuses`:
+  `ACCEPTED`, `PARTIALLY_FILLED`
 
 The executor policy defaults describe a safe startup state. Demo-live exchange
 execution is a runtime override state: set `enabled=true`,
@@ -1586,6 +1620,12 @@ also restricted to `allowed_symbols=["BTCUSDT"]`, `max_position_quantity=0.001`,
 `required_margin_type=cross`, `min_leverage=1`, and `max_leverage=5` before
 using
 `POST /internal/interventions/remediation/executor/execute`.
+The checked-in demo runtime also enables
+`adopted_order_lifecycle_policy.enabled=true`, `allow_cancel=true`,
+`allow_amend=true`, `allowed_symbols=["BTCUSDT"]`, and
+`max_projection_age_millis=30000`, while inheriting `allow_replace=false`, so
+adopted BTCUSDT orders can be automatically canceled or amended only through the
+same executor, risk gate, and pipeline.
 
 Managed order amendment planning and execution are also configurable. An
 `AMEND` remediation decision can be policy-qualified or blocked by
@@ -1595,6 +1635,7 @@ builds a `MODIFY` command with projected side/order type and requested or
 retained price/quantity, then submits it through the normal order execution
 pipeline. If a previous `MODIFY` is still pending or produced an unknown result,
 the planner blocks another amendment until reconciliation refreshes the target.
+Adopted-order amendments must also pass `adopted_order_lifecycle_policy`.
 Cancel/replace fallback remains unimplemented, so unsupported amendment shapes
 are blocked with an explicit fallback blocker instead of replaced.
 

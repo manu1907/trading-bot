@@ -41,12 +41,14 @@ public final class InterventionRemediationCommandPlanner {
     private final TradingStateProjection projection;
     private final InterventionProperties.PositionOrderPolicy positionOrderPolicy;
     private final InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy;
+    private final InterventionProperties.AdoptedOrderLifecyclePolicy adoptedOrderLifecyclePolicy;
 
     public InterventionRemediationCommandPlanner(TradingStateProjection projection) {
         this(
                 projection,
                 InterventionProperties.PositionOrderPolicy.disabled(),
-                InterventionProperties.ManagedOrderAmendmentPolicy.disabled()
+                InterventionProperties.ManagedOrderAmendmentPolicy.disabled(),
+                InterventionProperties.AdoptedOrderLifecyclePolicy.disabled()
         );
     }
 
@@ -54,7 +56,12 @@ public final class InterventionRemediationCommandPlanner {
             TradingStateProjection projection,
             InterventionProperties.PositionOrderPolicy positionOrderPolicy
     ) {
-        this(projection, positionOrderPolicy, InterventionProperties.ManagedOrderAmendmentPolicy.disabled());
+        this(
+                projection,
+                positionOrderPolicy,
+                InterventionProperties.ManagedOrderAmendmentPolicy.disabled(),
+                InterventionProperties.AdoptedOrderLifecyclePolicy.disabled()
+        );
     }
 
     public InterventionRemediationCommandPlanner(
@@ -62,11 +69,29 @@ public final class InterventionRemediationCommandPlanner {
             InterventionProperties.PositionOrderPolicy positionOrderPolicy,
             InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy
     ) {
+        this(
+                projection,
+                positionOrderPolicy,
+                managedOrderAmendmentPolicy,
+                InterventionProperties.AdoptedOrderLifecyclePolicy.disabled()
+        );
+    }
+
+    public InterventionRemediationCommandPlanner(
+            TradingStateProjection projection,
+            InterventionProperties.PositionOrderPolicy positionOrderPolicy,
+            InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy,
+            InterventionProperties.AdoptedOrderLifecyclePolicy adoptedOrderLifecyclePolicy
+    ) {
         this.projection = Objects.requireNonNull(projection, "projection");
         this.positionOrderPolicy = Objects.requireNonNull(positionOrderPolicy, "positionOrderPolicy");
         this.managedOrderAmendmentPolicy = Objects.requireNonNull(
                 managedOrderAmendmentPolicy,
                 "managedOrderAmendmentPolicy"
+        );
+        this.adoptedOrderLifecyclePolicy = Objects.requireNonNull(
+                adoptedOrderLifecyclePolicy,
+                "adoptedOrderLifecyclePolicy"
         );
     }
 
@@ -130,13 +155,7 @@ public final class InterventionRemediationCommandPlanner {
         return switch (action) {
             case ACTION_ADOPT -> ready(event, Operation.ADOPT_ORDER, false, "remediation:adopt_order", attributes);
             case ACTION_AMEND -> amendOrderPlan(event, order, attributes);
-            case ACTION_CLOSE -> ready(
-                    event,
-                    Operation.CANCEL_ORDER,
-                    true,
-                    "remediation:cancel_external_order",
-                    exchangeExecutionAttributes(attributes, "order_execution_pipeline")
-            );
+            case ACTION_CLOSE -> cancelOrderPlan(event, order, attributes);
             case ACTION_REPLAN_FROM_PROJECTION -> ready(
                     event,
                     Operation.REPLAN_FROM_PROJECTION,
@@ -152,12 +171,42 @@ public final class InterventionRemediationCommandPlanner {
         };
     }
 
+    private RemediationCommandPlan cancelOrderPlan(
+            RemediationDecisionEvent event,
+            TradingStateProjection.OrderState order,
+            Map<String, String> attributes
+    ) {
+        if (!adoptedOrder(order)) {
+            return ready(
+                    event,
+                    Operation.CANCEL_ORDER,
+                    true,
+                    "remediation:cancel_external_order",
+                    exchangeExecutionAttributes(attributes, "order_execution_pipeline")
+            );
+        }
+        putAdoptedOrderLifecyclePolicyAttributes(attributes);
+        String blocker = adoptedOrderLifecycleBlocker(event, order, "CANCEL");
+        if (blocker != null) {
+            attributes.put("adopted_order_lifecycle_result", "blocked");
+            attributes.put("exchange_execution_blocker", blocker);
+            return ready(event, Operation.CANCEL_ORDER, false, "remediation:cancel_adopted_order", attributes);
+        }
+        attributes.put("adopted_order_lifecycle_result", "eligible");
+        attributes.put("adopted_order_lifecycle_operation", "CANCEL");
+        attributes.put("adopted_order_lifecycle_allow_cancel", "true");
+        put(attributes, "adopted_order_ownership", amendmentOrderOwnership(order));
+        exchangeExecutionAttributes(attributes, "order_execution_pipeline");
+        return ready(event, Operation.CANCEL_ORDER, true, "remediation:cancel_adopted_order", attributes);
+    }
+
     private RemediationCommandPlan amendOrderPlan(
             RemediationDecisionEvent event,
             TradingStateProjection.OrderState order,
             Map<String, String> attributes
     ) {
         putManagedOrderAmendmentPolicyAttributes(attributes);
+        putAdoptedOrderLifecyclePolicyAttributes(attributes);
         AmendmentRequest request = amendmentRequest(event);
         put(attributes, "amendment_requested_price", request.priceText());
         put(attributes, "amendment_requested_quantity", request.quantityText());
@@ -178,6 +227,10 @@ public final class InterventionRemediationCommandPlanner {
         }
         AmendmentDrift drift = amendmentDrift(order, request);
         put(attributes, "amendment_order_ownership", amendmentOrderOwnership(order));
+        if (adoptedOrder(order)) {
+            attributes.put("adopted_order_lifecycle_result", "eligible");
+            attributes.put("adopted_order_lifecycle_operation", "AMEND");
+        }
         put(attributes, "amendment_current_price", order.price());
         put(attributes, "amendment_current_quantity", order.originalQuantity());
         put(attributes, "amendment_price_drift_fraction", normalize(drift.priceDrift()));
@@ -1229,6 +1282,12 @@ public final class InterventionRemediationCommandPlanner {
         if ("ADOPTED".equals(ownership) && !managedOrderAmendmentPolicy.allowAdoptedOrders()) {
             return "managed_order_amendment_adopted_order_policy_disabled";
         }
+        if ("ADOPTED".equals(ownership)) {
+            String adoptedOrderBlocker = adoptedOrderLifecycleBlocker(event, order, "AMEND");
+            if (adoptedOrderBlocker != null) {
+                return adoptedOrderBlocker;
+            }
+        }
         if ("BOT_CREATED".equals(ownership) && !managedOrderAmendmentPolicy.allowBotCreatedOrders()) {
             return "managed_order_amendment_bot_created_order_policy_disabled";
         }
@@ -1282,6 +1341,61 @@ public final class InterventionRemediationCommandPlanner {
                 return "managed_order_amendment_cancel_replace_fallback_not_supported";
             }
             return "managed_order_amendment_quantity_field_not_allowed";
+        }
+        return null;
+    }
+
+    private String adoptedOrderLifecycleBlocker(
+            RemediationDecisionEvent event,
+            TradingStateProjection.OrderState order,
+            String operation
+    ) {
+        if (!adoptedOrder(order)) {
+            return null;
+        }
+        if (!adoptedOrderLifecyclePolicy.enabled()) {
+            return "adopted_order_lifecycle_policy_disabled";
+        }
+        if (!adoptedOrderLifecyclePolicy.provider().equalsIgnoreCase(requireText(event.getProvider(), "provider"))) {
+            return "adopted_order_lifecycle_provider_policy_missing";
+        }
+        if (!adoptedOrderLifecyclePolicy.market().equalsIgnoreCase(requireText(event.getMarket(), "market"))) {
+            return "adopted_order_lifecycle_market_policy_missing";
+        }
+        if (!adoptedOrderLifecyclePolicy.allowedSymbols().isEmpty()
+                && !adoptedOrderLifecyclePolicy.allowedSymbols().contains(requireText(event.getSymbol(), "symbol")
+                        .toUpperCase(Locale.ROOT))) {
+            return "adopted_order_lifecycle_symbol_policy_missing";
+        }
+        if ("CANCEL".equals(operation) && !adoptedOrderLifecyclePolicy.allowCancel()) {
+            return "adopted_order_lifecycle_cancel_not_allowed";
+        }
+        if ("AMEND".equals(operation) && !adoptedOrderLifecyclePolicy.allowAmend()) {
+            return "adopted_order_lifecycle_amend_not_allowed";
+        }
+        if (adoptedOrderLifecyclePolicy.rejectPendingOrUnknownModify()
+                && "MODIFY".equals(uppercase(order.executionType()))
+                && "COMMAND_RECEIVED".equals(uppercase(order.status()))) {
+            return "adopted_order_lifecycle_modify_pending_reconciliation";
+        }
+        if (adoptedOrderLifecyclePolicy.rejectPendingOrUnknownModify()
+                && "MODIFY".equals(uppercase(order.executionType()))
+                && "UNKNOWN".equals(uppercase(order.status()))) {
+            return "adopted_order_lifecycle_modify_unknown_reconciliation_required";
+        }
+        if (adoptedOrderLifecyclePolicy.requireOpenOrderStatus()
+                && !adoptedOrderLifecyclePolicy.allowedStatuses().contains(uppercase(order.status()))) {
+            return "adopted_order_lifecycle_order_status_not_open";
+        }
+        if (adoptedOrderLifecyclePolicy.requireExchangeOrderId() && text(order.exchangeOrderId()) == null) {
+            return "adopted_order_lifecycle_exchange_order_id_missing";
+        }
+        if (adoptedOrderLifecyclePolicy.rejectStaleProjection()
+                && adoptedOrderLifecyclePolicy.maxProjectionAgeMillis() != null) {
+            long ageMillis = Duration.between(order.updatedAt(), event.getDecidedAtMicros()).toMillis();
+            if (ageMillis < 0L || ageMillis > adoptedOrderLifecyclePolicy.maxProjectionAgeMillis()) {
+                return "adopted_order_lifecycle_projection_stale";
+            }
         }
         return null;
     }
@@ -1364,6 +1478,50 @@ public final class InterventionRemediationCommandPlanner {
             return "UNMANAGED";
         }
         return text(order.commandId()) == null ? "ADOPTED" : "BOT_CREATED";
+    }
+
+    private boolean adoptedOrder(TradingStateProjection.OrderState order) {
+        return order.managedByBot() && text(order.commandId()) == null;
+    }
+
+    private void putAdoptedOrderLifecyclePolicyAttributes(Map<String, String> attributes) {
+        attributes.put("adopted_order_lifecycle_policy_enabled",
+                Boolean.toString(adoptedOrderLifecyclePolicy.enabled()));
+        put(attributes, "adopted_order_lifecycle_policy_provider", adoptedOrderLifecyclePolicy.provider());
+        put(attributes, "adopted_order_lifecycle_policy_market", adoptedOrderLifecyclePolicy.market());
+        attributes.put("adopted_order_lifecycle_preserve_by_default",
+                Boolean.toString(adoptedOrderLifecyclePolicy.preserveByDefault()));
+        attributes.put("adopted_order_lifecycle_allow_cancel",
+                Boolean.toString(adoptedOrderLifecyclePolicy.allowCancel()));
+        attributes.put("adopted_order_lifecycle_allow_amend",
+                Boolean.toString(adoptedOrderLifecyclePolicy.allowAmend()));
+        attributes.put("adopted_order_lifecycle_allow_replace",
+                Boolean.toString(adoptedOrderLifecyclePolicy.allowReplace()));
+        attributes.put("adopted_order_lifecycle_rollback_on_ambiguous_outcome",
+                Boolean.toString(adoptedOrderLifecyclePolicy.rollbackOnAmbiguousOutcome()));
+        attributes.put("adopted_order_lifecycle_reject_stale_projection",
+                Boolean.toString(adoptedOrderLifecyclePolicy.rejectStaleProjection()));
+        put(
+                attributes,
+                "adopted_order_lifecycle_max_projection_age_millis",
+                adoptedOrderLifecyclePolicy.maxProjectionAgeMillis() == null
+                        ? null
+                        : adoptedOrderLifecyclePolicy.maxProjectionAgeMillis().toString()
+        );
+        attributes.put("adopted_order_lifecycle_require_open_order_status",
+                Boolean.toString(adoptedOrderLifecyclePolicy.requireOpenOrderStatus()));
+        attributes.put("adopted_order_lifecycle_require_exchange_order_id",
+                Boolean.toString(adoptedOrderLifecyclePolicy.requireExchangeOrderId()));
+        attributes.put("adopted_order_lifecycle_reject_pending_or_unknown_modify",
+                Boolean.toString(adoptedOrderLifecyclePolicy.rejectPendingOrUnknownModify()));
+        if (!adoptedOrderLifecyclePolicy.allowedSymbols().isEmpty()) {
+            attributes.put("adopted_order_lifecycle_allowed_symbols",
+                    String.join(",", adoptedOrderLifecyclePolicy.allowedSymbols()));
+        }
+        if (!adoptedOrderLifecyclePolicy.allowedStatuses().isEmpty()) {
+            attributes.put("adopted_order_lifecycle_allowed_statuses",
+                    String.join(",", adoptedOrderLifecyclePolicy.allowedStatuses()));
+        }
     }
 
     private void putOrderAttributes(Map<String, String> attributes, TradingStateProjection.OrderState order) {

@@ -267,6 +267,28 @@
             "ACCEPTED",
             "PARTIALLY_FILLED"
           ]
+        },
+        "adopted_order_lifecycle_policy": {
+          "enabled": false,
+          "provider": "binance",
+          "market": "usdm_futures",
+          "preserve_by_default": true,
+          "allow_cancel": false,
+          "allow_amend": false,
+          "allow_replace": false,
+          "rollback_on_ambiguous_outcome": false,
+          "reject_stale_projection": true,
+          "max_projection_age_millis": null,
+          "require_open_order_status": true,
+          "require_exchange_order_id": false,
+          "reject_pending_or_unknown_modify": true,
+          "allowed_symbols": [
+
+          ],
+          "allowed_statuses": [
+            "ACCEPTED",
+            "PARTIALLY_FILLED"
+          ]
         }
       }
     }

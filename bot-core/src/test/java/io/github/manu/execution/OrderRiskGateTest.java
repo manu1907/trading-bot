@@ -1015,16 +1015,46 @@ class OrderRiskGateTest {
     }
 
     @Test
-    void approves_adopted_managed_remediation_amend_when_amendment_policy_allowed_adoption() {
+    void requires_manual_review_for_adopted_managed_remediation_amend_without_lifecycle_policy() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
         RiskDecisionEvent decision = gate(defaultProperties(), projectionWithAdoptedTargetOrder("adopted-client-1"))
                 .evaluate(managedRemediationAmendCommand("adopted-client-1", true));
 
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_target:adopted_not_allowed");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_managed_remediation_amend", "true")
+                .containsEntry("target_order_adopted", "true")
+                .containsEntry("target_order_allow_adopted_target_orders", "false");
+    }
+
+    @Test
+    void approves_adopted_managed_remediation_amend_when_amendment_and_lifecycle_policies_allow_adoption() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithAdoptedTargetOrder("adopted-client-1"))
+                .evaluate(managedRemediationAmendCommand("adopted-client-1", true, true));
+
         assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
         assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
         assertThat(decision.getAttributes())
                 .containsEntry("target_order_managed_remediation_amend", "true")
+                .containsEntry("target_order_adopted", "true")
+                .containsEntry("target_order_allow_adopted_target_orders", "false");
+    }
+
+    @Test
+    void approves_adopted_remediation_cancel_when_lifecycle_policy_allows_cancel() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithAdoptedTargetOrder("adopted-client-1"))
+                .evaluate(adoptedRemediationCancelCommand("adopted-client-1"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_external_remediation_cancel", "true")
                 .containsEntry("target_order_adopted", "true")
                 .containsEntry("target_order_allow_adopted_target_orders", "false");
     }
@@ -1604,11 +1634,36 @@ class OrderRiskGateTest {
                 .build();
     }
 
+    private OrderCommandEvent adoptedRemediationCancelCommand(String targetClientOrderId) {
+        return OrderCommandEvent.newBuilder(cancelCommand(targetClientOrderId))
+                .setCommandId("remediation-command:remediation-001:cancel-order")
+                .setClientOrderId("rm-cxl-remediation-001")
+                .setAttributes(Map.of(
+                        "command_source", "intervention_remediation_executor",
+                        "remediation_id", "remediation-001",
+                        "remediation_scope", "ORDER",
+                        "remediation_action", "CLOSE",
+                        "remediation_operation", "CANCEL_ORDER",
+                        "adopted_order_ownership", "ADOPTED",
+                        "adopted_order_lifecycle_allow_cancel", "true",
+                        "target_client_order_id", targetClientOrderId
+                ))
+                .build();
+    }
+
     private OrderCommandEvent managedRemediationAmendCommand(String targetClientOrderId) {
         return managedRemediationAmendCommand(targetClientOrderId, false);
     }
 
     private OrderCommandEvent managedRemediationAmendCommand(String targetClientOrderId, boolean adoptedAllowed) {
+        return managedRemediationAmendCommand(targetClientOrderId, adoptedAllowed, false);
+    }
+
+    private OrderCommandEvent managedRemediationAmendCommand(
+            String targetClientOrderId,
+            boolean adoptedAllowed,
+            boolean adoptedLifecycleAllowed
+    ) {
         return OrderCommandEvent.newBuilder(modifyCommand(targetClientOrderId))
                 .setCommandId("remediation-command:remediation-001:amend-order")
                 .setClientOrderId("rm-amd-remediation-001")
@@ -1621,6 +1676,7 @@ class OrderRiskGateTest {
                         "amendment_execution_mode", "managed_order_modify",
                         "amendment_order_ownership", adoptedAllowed ? "ADOPTED" : "BOT_CREATED",
                         "managed_order_amendment_allow_adopted_orders", Boolean.toString(adoptedAllowed),
+                        "adopted_order_lifecycle_allow_amend", Boolean.toString(adoptedLifecycleAllowed),
                         "target_client_order_id", targetClientOrderId
                 ))
                 .build();

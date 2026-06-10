@@ -38,6 +38,48 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     @Test
+    void preserves_adopted_order_cancel_when_lifecycle_policy_is_disabled() {
+        restoreAdoptedOrderIntervention("external_order_observed");
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = planner.plan(orderDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("target_managed_by_bot", "true")
+                .containsEntry("adopted_order_lifecycle_policy_enabled", "false")
+                .containsEntry("adopted_order_lifecycle_result", "blocked")
+                .containsEntry("exchange_execution_blocker", "adopted_order_lifecycle_policy_disabled")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void qualifies_adopted_order_cancel_when_lifecycle_policy_allows_cancel() {
+        restoreAdoptedOrderIntervention("external_order_observed");
+        InterventionRemediationCommandPlanner adoptedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy(false),
+                adoptedOrderLifecyclePolicy(true, false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = adoptedPlanner.plan(orderDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("adopted_order_ownership", "ADOPTED")
+                .containsEntry("adopted_order_lifecycle_policy_enabled", "true")
+                .containsEntry("adopted_order_lifecycle_allow_cancel", "true")
+                .containsEntry("adopted_order_lifecycle_result", "eligible")
+                .containsEntry("adopted_order_lifecycle_operation", "CANCEL")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
     void keeps_managed_order_amend_non_executable_when_amendment_policy_is_disabled() {
         restoreManagedOrderIntervention();
 
@@ -95,6 +137,69 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("amendment_command_order_type", "LIMIT")
                 .containsEntry("amendment_command_price", "49950.00")
                 .containsEntry("amendment_command_quantity", "0.0009")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void blocks_adopted_order_amend_when_lifecycle_policy_is_disabled() {
+        restoreAdoptedOrderIntervention("unplanned_managed_order_change");
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy(true, false, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = amendPlanner.plan(orderDecision(
+                "AMEND",
+                "unplanned_managed_order_change",
+                Map.of(
+                        "target_order_type", "LIMIT",
+                        "amend_price", "49950.00"
+                )
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("managed_order_amendment_allow_adopted_orders", "true")
+                .containsEntry("adopted_order_lifecycle_policy_enabled", "false")
+                .containsEntry("amendment_policy_result", "blocked")
+                .containsEntry("exchange_execution_blocker", "adopted_order_lifecycle_policy_disabled")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void qualifies_adopted_order_amend_when_both_policies_allow_amendment() {
+        restoreAdoptedOrderIntervention("unplanned_managed_order_change");
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy(true, false, true),
+                adoptedOrderLifecyclePolicy(false, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = amendPlanner.plan(orderDecision(
+                "AMEND",
+                "unplanned_managed_order_change",
+                Map.of(
+                        "target_order_type", "LIMIT",
+                        "amend_price", "49950.00",
+                        "amend_quantity", "0.0009"
+                )
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("amendment_policy_result", "eligible")
+                .containsEntry("amendment_order_ownership", "ADOPTED")
+                .containsEntry("managed_order_amendment_allow_adopted_orders", "true")
+                .containsEntry("adopted_order_lifecycle_allow_amend", "true")
+                .containsEntry("adopted_order_lifecycle_result", "eligible")
+                .containsEntry("adopted_order_lifecycle_operation", "AMEND")
                 .containsEntry("exchange_execution_path", "order_execution_pipeline")
                 .containsEntry("exchange_executable", "true");
     }
@@ -1075,6 +1180,10 @@ class InterventionRemediationCommandPlannerTest {
         restoreOrderIntervention("unplanned_managed_order_change", true, true, "cmd-managed-1");
     }
 
+    private void restoreAdoptedOrderIntervention(String interventionReason) {
+        restoreOrderIntervention(interventionReason, true, true, null);
+    }
+
     private void restoreManagedOrderIntervention(
             String status,
             String exchangeStatus,
@@ -1400,12 +1509,20 @@ class InterventionRemediationCommandPlannerTest {
             boolean allowQuantityIncrease,
             boolean cancelReplaceOnUnsupportedChange
     ) {
+        return managedOrderAmendmentPolicy(allowQuantityIncrease, cancelReplaceOnUnsupportedChange, false);
+    }
+
+    private InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy(
+            boolean allowQuantityIncrease,
+            boolean cancelReplaceOnUnsupportedChange,
+            boolean allowAdoptedOrders
+    ) {
         return new InterventionProperties.ManagedOrderAmendmentPolicy(
                 true,
                 "binance",
                 "usd_m_futures",
                 true,
-                false,
+                allowAdoptedOrders,
                 List.of("BTCUSDT"),
                 List.of("LIMIT"),
                 List.of("PRICE", "QUANTITY"),
@@ -1419,6 +1536,29 @@ class InterventionRemediationCommandPlannerTest {
                 30_000L,
                 true,
                 false,
+                List.of("ACCEPTED", "PARTIALLY_FILLED")
+        );
+    }
+
+    private InterventionProperties.AdoptedOrderLifecyclePolicy adoptedOrderLifecyclePolicy(
+            boolean allowCancel,
+            boolean allowAmend
+    ) {
+        return new InterventionProperties.AdoptedOrderLifecyclePolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                true,
+                allowCancel,
+                allowAmend,
+                false,
+                false,
+                true,
+                30_000L,
+                true,
+                false,
+                true,
+                List.of("BTCUSDT"),
                 List.of("ACCEPTED", "PARTIALLY_FILLED")
         );
     }

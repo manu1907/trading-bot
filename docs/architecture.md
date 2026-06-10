@@ -678,16 +678,23 @@ the order as bot-managed while clearing the external intervention. Adopted
 orders are still distinct from bot-created orders at the risk-gate boundary:
 `target_order.allow_adopted_target_orders=false` by default blocks ordinary
 target-order commands for adopted targets, while explicit adopted-order
-remediation policy can allow a narrow command path. Order
-amendment is policy-gated and exchange-executable only for bounded managed-order
-changes: `AMEND` decisions for managed-order interventions are checked against
+remediation policy can allow a narrow command path.
+`adopted_order_lifecycle_policy` defaults to preserve adopted orders and can
+explicitly allow cancel or amend for configured provider, market, symbols,
+statuses, projection freshness, exchange-order-id requirements, and pending or
+unknown modify blockers. Replace and ambiguous-outcome rollback remain policy
+metadata only until dedicated execution semantics exist. Order amendment is
+policy-gated and exchange-executable only for bounded managed-order changes:
+`AMEND` decisions for managed-order interventions are checked against
 `managed_order_amendment_policy` for provider, market, symbol, ownership,
 allowed order type, allowed fields, quantity direction and drift, price drift,
-projection freshness, open-order status, and target identity requirements. A
-policy-qualified amendment builds an idempotent `MODIFY` command with projected
-side/order type and requested or retained price/quantity, then submits through
-`OrderExecutionPipeline`; Binance futures preflight validates the `MODIFY`
-target and parameters before gateway submission. Unknown `MODIFY` outcomes
+projection freshness, open-order status, and target identity requirements.
+Adopted-order amendments must pass both `managed_order_amendment_policy` and
+`adopted_order_lifecycle_policy`. A policy-qualified amendment builds an
+idempotent `MODIFY` command with projected side/order type and requested or
+retained price/quantity, then submits through `OrderExecutionPipeline`; Binance
+futures preflight validates the `MODIFY` target and parameters before gateway
+submission. Unknown `MODIFY` outcomes
 retain command-action metadata in projection, and the planner blocks repeat
 amendments while a prior modify is pending or unknown until reconciliation
 updates the target. Unsupported amendment shapes remain blocked rather than

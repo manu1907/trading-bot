@@ -286,7 +286,22 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.max-projection-age-millis=30000",
                         "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.require-open-order-status=true",
                         "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.require-exchange-order-id=true",
-                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-statuses[0]=accepted"
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-statuses[0]=accepted",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.enabled=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.provider=binance",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.market=usdm_futures",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.preserve-by-default=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.allow-cancel=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.allow-amend=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.allow-replace=false",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.rollback-on-ambiguous-outcome=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.reject-stale-projection=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.max-projection-age-millis=30000",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.require-open-order-status=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.require-exchange-order-id=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.reject-pending-or-unknown-modify=true",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.allowed-symbols[0]=btcusdt",
+                        "trading.intervention.remediation-executor-policy.adopted-order-lifecycle-policy.allowed-statuses[0]=accepted"
                 )
                 .run(context -> {
                     InterventionProperties.RemediationExecutorPolicy policy =
@@ -345,6 +360,21 @@ class InterventionConfigurationTest {
                     assertThat(policy.managedOrderAmendmentPolicy().requireOpenOrderStatus()).isTrue();
                     assertThat(policy.managedOrderAmendmentPolicy().requireExchangeOrderId()).isTrue();
                     assertThat(policy.managedOrderAmendmentPolicy().allowedStatuses()).containsExactly("ACCEPTED");
+                    assertThat(policy.adoptedOrderLifecyclePolicy().enabled()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().provider()).isEqualTo("binance");
+                    assertThat(policy.adoptedOrderLifecyclePolicy().market()).isEqualTo("usdm_futures");
+                    assertThat(policy.adoptedOrderLifecyclePolicy().preserveByDefault()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().allowCancel()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().allowAmend()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().allowReplace()).isFalse();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().rollbackOnAmbiguousOutcome()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().rejectStaleProjection()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().maxProjectionAgeMillis()).isEqualTo(30000L);
+                    assertThat(policy.adoptedOrderLifecyclePolicy().requireOpenOrderStatus()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().requireExchangeOrderId()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().rejectPendingOrUnknownModify()).isTrue();
+                    assertThat(policy.adoptedOrderLifecyclePolicy().allowedSymbols()).containsExactly("BTCUSDT");
+                    assertThat(policy.adoptedOrderLifecyclePolicy().allowedStatuses()).containsExactly("ACCEPTED");
                 });
     }
 

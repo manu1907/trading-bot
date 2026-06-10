@@ -676,9 +676,21 @@ public final class OrderRiskGate {
     }
 
     private boolean adoptedRemediationAllowed(OrderCommandEvent command) {
+        return adoptedManagedRemediationAmendAllowed(command)
+                || adoptedRemediationCancelAllowed(command);
+    }
+
+    private boolean adoptedManagedRemediationAmendAllowed(OrderCommandEvent command) {
         return managedRemediationAmend(command)
                 && "ADOPTED".equals(attribute(command, "amendment_order_ownership"))
-                && "true".equals(attribute(command, "managed_order_amendment_allow_adopted_orders"));
+                && "true".equals(attribute(command, "managed_order_amendment_allow_adopted_orders"))
+                && "true".equals(attribute(command, "adopted_order_lifecycle_allow_amend"));
+    }
+
+    private boolean adoptedRemediationCancelAllowed(OrderCommandEvent command) {
+        return externalRemediationCancel(properties.riskGate().targetOrder(), command)
+                && "ADOPTED".equals(attribute(command, "adopted_order_ownership"))
+                && "true".equals(attribute(command, "adopted_order_lifecycle_allow_cancel"));
     }
 
     private boolean adoptedTargetOrder(TradingStateProjection.OrderState state) {

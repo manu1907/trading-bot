@@ -209,6 +209,52 @@ class ConfigCatalogDefaultsTest {
                 "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_statuses"))
                 .as("trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_statuses")
                 .hasSize(2);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.enabled",
+                false);
+        assertText(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.provider",
+                "binance");
+        assertText(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.market",
+                "usdm_futures");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.preserve_by_default",
+                true);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.allow_cancel",
+                false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.allow_amend",
+                false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.allow_replace",
+                false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.rollback_on_ambiguous_outcome",
+                false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.reject_stale_projection",
+                true);
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.max_projection_age_millis");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.require_open_order_status",
+                true);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.require_exchange_order_id",
+                false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.reject_pending_or_unknown_modify",
+                true);
+        assertThat(requiredNode(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.allowed_symbols"))
+                .as("trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.allowed_symbols")
+                .isEmpty();
+        assertThat(requiredNode(catalog,
+                "trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.allowed_statuses"))
+                .as("trading.intervention.remediation_executor_policy.adopted_order_lifecycle_policy.allowed_statuses")
+                .hasSize(2);
     }
 
     private void assertBoolean(JsonNode root, String path, boolean expected) {
