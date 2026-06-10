@@ -238,8 +238,10 @@ public record InterventionProperties(
             Boolean rejectInsufficientDataPlans,
             Integer maxPlansPerRun,
             List<ExecutableOperation> allowedOperations,
-            PositionOrderPolicy positionOrderPolicy
+            PositionOrderPolicy positionOrderPolicy,
+            ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy
     ) {
+        @ConstructorBinding
         public RemediationExecutorPolicy {
             enabled = Boolean.TRUE.equals(enabled);
             exchangeExecutionEnabled = Boolean.TRUE.equals(exchangeExecutionEnabled);
@@ -274,6 +276,9 @@ public record InterventionProperties(
                 allowedOperations = List.copyOf(allowedOperations);
             }
             positionOrderPolicy = positionOrderPolicy == null ? PositionOrderPolicy.disabled() : positionOrderPolicy;
+            managedOrderAmendmentPolicy = managedOrderAmendmentPolicy == null
+                    ? ManagedOrderAmendmentPolicy.disabled()
+                    : managedOrderAmendmentPolicy;
             if (Boolean.TRUE.equals(exchangeExecutionEnabled)) {
                 if (!Boolean.TRUE.equals(enabled)) {
                     throw new IllegalArgumentException("exchangeExecutionEnabled requires remediation executor policy to be enabled");
@@ -302,6 +307,43 @@ public record InterventionProperties(
             }
         }
 
+        public RemediationExecutorPolicy(
+                Boolean enabled,
+                Boolean exchangeExecutionEnabled,
+                Boolean reportOnly,
+                Boolean allowRealEnvironment,
+                Boolean requireReadyPlan,
+                Boolean requireFreshProjectionMatch,
+                Boolean requireProjectionTargetIdentity,
+                Boolean requireManagedExecutionPipeline,
+                Boolean rejectStaleProjection,
+                Boolean rejectUnsupportedPlans,
+                Boolean rejectOperatorReviewPlans,
+                Boolean rejectInsufficientDataPlans,
+                Integer maxPlansPerRun,
+                List<ExecutableOperation> allowedOperations,
+                PositionOrderPolicy positionOrderPolicy
+        ) {
+            this(
+                    enabled,
+                    exchangeExecutionEnabled,
+                    reportOnly,
+                    allowRealEnvironment,
+                    requireReadyPlan,
+                    requireFreshProjectionMatch,
+                    requireProjectionTargetIdentity,
+                    requireManagedExecutionPipeline,
+                    rejectStaleProjection,
+                    rejectUnsupportedPlans,
+                    rejectOperatorReviewPlans,
+                    rejectInsufficientDataPlans,
+                    maxPlansPerRun,
+                    allowedOperations,
+                    positionOrderPolicy,
+                    ManagedOrderAmendmentPolicy.disabled()
+            );
+        }
+
         static RemediationExecutorPolicy disabled() {
             return new RemediationExecutorPolicy(
                     false,
@@ -318,8 +360,149 @@ public record InterventionProperties(
                     true,
                     25,
                     List.of(),
-                    PositionOrderPolicy.disabled()
+                    PositionOrderPolicy.disabled(),
+                    ManagedOrderAmendmentPolicy.disabled()
             );
+        }
+    }
+
+    public record ManagedOrderAmendmentPolicy(
+            Boolean enabled,
+            String provider,
+            String market,
+            Boolean allowBotCreatedOrders,
+            Boolean allowAdoptedOrders,
+            List<String> allowedSymbols,
+            List<String> allowedOrderTypes,
+            List<String> allowedFields,
+            Boolean allowQuantityIncrease,
+            Boolean allowQuantityDecrease,
+            String maxQuantityIncreaseFraction,
+            String maxQuantityDecreaseFraction,
+            String maxPriceDriftFraction,
+            Boolean cancelReplaceOnUnsupportedChange,
+            Boolean rejectStaleProjection,
+            Long maxProjectionAgeMillis,
+            Boolean requireOpenOrderStatus,
+            Boolean requireExchangeOrderId,
+            List<String> allowedStatuses
+    ) {
+
+        public ManagedOrderAmendmentPolicy {
+            enabled = Boolean.TRUE.equals(enabled);
+            provider = normalize(provider, "binance");
+            market = normalize(market, "usdm_futures");
+            allowBotCreatedOrders = allowBotCreatedOrders == null || Boolean.TRUE.equals(allowBotCreatedOrders);
+            allowAdoptedOrders = Boolean.TRUE.equals(allowAdoptedOrders);
+            allowedSymbols = normalizeUpperList(allowedSymbols, "allowedSymbols");
+            allowedOrderTypes = normalizeUpperList(allowedOrderTypes, "allowedOrderTypes");
+            allowedFields = normalizeUpperList(allowedFields, "allowedFields");
+            allowQuantityIncrease = Boolean.TRUE.equals(allowQuantityIncrease);
+            allowQuantityDecrease = allowQuantityDecrease == null || Boolean.TRUE.equals(allowQuantityDecrease);
+            validateFraction("maxQuantityIncreaseFraction", maxQuantityIncreaseFraction);
+            validateFraction("maxQuantityDecreaseFraction", maxQuantityDecreaseFraction);
+            validateFraction("maxPriceDriftFraction", maxPriceDriftFraction);
+            maxQuantityIncreaseFraction = text(maxQuantityIncreaseFraction);
+            maxQuantityDecreaseFraction = text(maxQuantityDecreaseFraction);
+            maxPriceDriftFraction = text(maxPriceDriftFraction);
+            cancelReplaceOnUnsupportedChange = Boolean.TRUE.equals(cancelReplaceOnUnsupportedChange);
+            rejectStaleProjection = rejectStaleProjection == null || Boolean.TRUE.equals(rejectStaleProjection);
+            if (maxProjectionAgeMillis != null && maxProjectionAgeMillis <= 0L) {
+                throw new IllegalArgumentException("maxProjectionAgeMillis must be positive when configured");
+            }
+            requireOpenOrderStatus = requireOpenOrderStatus == null || Boolean.TRUE.equals(requireOpenOrderStatus);
+            requireExchangeOrderId = Boolean.TRUE.equals(requireExchangeOrderId);
+            allowedStatuses = allowedStatuses == null || allowedStatuses.isEmpty()
+                    ? List.of("ACCEPTED", "PARTIALLY_FILLED")
+                    : normalizeUpperList(allowedStatuses, "allowedStatuses");
+        }
+
+        static ManagedOrderAmendmentPolicy disabled() {
+            return new ManagedOrderAmendmentPolicy(
+                    false,
+                    "binance",
+                    "usdm_futures",
+                    true,
+                    false,
+                    List.of(),
+                    List.of("LIMIT"),
+                    List.of("PRICE", "QUANTITY"),
+                    false,
+                    true,
+                    null,
+                    null,
+                    null,
+                    false,
+                    true,
+                    null,
+                    true,
+                    false,
+                    List.of("ACCEPTED", "PARTIALLY_FILLED")
+            );
+        }
+
+        @Override
+        public List<String> allowedSymbols() {
+            return List.copyOf(allowedSymbols);
+        }
+
+        @Override
+        public List<String> allowedOrderTypes() {
+            return List.copyOf(allowedOrderTypes);
+        }
+
+        @Override
+        public List<String> allowedFields() {
+            return List.copyOf(allowedFields);
+        }
+
+        @Override
+        public List<String> allowedStatuses() {
+            return List.copyOf(allowedStatuses);
+        }
+
+        private static String normalize(String value, String defaultValue) {
+            if (value == null || value.isBlank()) {
+                return defaultValue;
+            }
+            return value.trim();
+        }
+
+        private static String text(String value) {
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            return value.trim();
+        }
+
+        private static List<String> normalizeUpperList(List<String> values, String field) {
+            if (values == null || values.isEmpty()) {
+                return List.of();
+            }
+            List<String> normalized = new ArrayList<>();
+            for (String value : values) {
+                String text = text(value);
+                if (text == null) {
+                    throw new IllegalArgumentException(field + " must not contain blank values");
+                }
+                normalized.add(text.toUpperCase(Locale.ROOT));
+            }
+            return List.copyOf(normalized);
+        }
+
+        private static void validateFraction(String field, String value) {
+            String text = text(value);
+            if (text == null) {
+                return;
+            }
+            try {
+                BigDecimal decimal = new BigDecimal(text);
+                if (decimal.compareTo(BigDecimal.ZERO) <= 0 || decimal.compareTo(BigDecimal.ONE) > 0) {
+                    throw new IllegalArgumentException(field + " must be greater than 0 and less than or equal to 1");
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(field + " must be a decimal number", e);
+            }
         }
     }
 

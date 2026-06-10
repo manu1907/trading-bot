@@ -5,6 +5,7 @@ import io.github.manu.projection.TradingStateProjection;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -39,17 +40,34 @@ public final class InterventionRemediationCommandPlanner {
 
     private final TradingStateProjection projection;
     private final InterventionProperties.PositionOrderPolicy positionOrderPolicy;
+    private final InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy;
 
     public InterventionRemediationCommandPlanner(TradingStateProjection projection) {
-        this(projection, InterventionProperties.PositionOrderPolicy.disabled());
+        this(
+                projection,
+                InterventionProperties.PositionOrderPolicy.disabled(),
+                InterventionProperties.ManagedOrderAmendmentPolicy.disabled()
+        );
     }
 
     public InterventionRemediationCommandPlanner(
             TradingStateProjection projection,
             InterventionProperties.PositionOrderPolicy positionOrderPolicy
     ) {
+        this(projection, positionOrderPolicy, InterventionProperties.ManagedOrderAmendmentPolicy.disabled());
+    }
+
+    public InterventionRemediationCommandPlanner(
+            TradingStateProjection projection,
+            InterventionProperties.PositionOrderPolicy positionOrderPolicy,
+            InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy
+    ) {
         this.projection = Objects.requireNonNull(projection, "projection");
         this.positionOrderPolicy = Objects.requireNonNull(positionOrderPolicy, "positionOrderPolicy");
+        this.managedOrderAmendmentPolicy = Objects.requireNonNull(
+                managedOrderAmendmentPolicy,
+                "managedOrderAmendmentPolicy"
+        );
     }
 
     public RemediationCommandPlan plan(RemediationDecisionEvent event) {
@@ -111,7 +129,7 @@ public final class InterventionRemediationCommandPlanner {
         putOrderAttributes(attributes, order);
         return switch (action) {
             case ACTION_ADOPT -> ready(event, Operation.ADOPT_ORDER, false, "remediation:adopt_order", attributes);
-            case ACTION_AMEND -> ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
+            case ACTION_AMEND -> amendOrderPlan(event, order, attributes);
             case ACTION_CLOSE -> ready(
                     event,
                     Operation.CANCEL_ORDER,
@@ -132,6 +150,51 @@ public final class InterventionRemediationCommandPlanner {
             case ACTION_OPERATOR_REVIEW -> unsupported(event, Operation.OPERATOR_REVIEW, "remediation:operator_review_required");
             default -> unsupported(event, Operation.UNSUPPORTED, "remediation:unsupported_order_action");
         };
+    }
+
+    private RemediationCommandPlan amendOrderPlan(
+            RemediationDecisionEvent event,
+            TradingStateProjection.OrderState order,
+            Map<String, String> attributes
+    ) {
+        putManagedOrderAmendmentPolicyAttributes(attributes);
+        AmendmentRequest request = amendmentRequest(event);
+        put(attributes, "amendment_requested_price", request.priceText());
+        put(attributes, "amendment_requested_quantity", request.quantityText());
+        put(attributes, "amendment_requested_order_type", request.orderType());
+        String blocker = managedOrderAmendmentBlocker(event, order, request);
+        if (blocker != null) {
+            attributes.put("amendment_policy_result", "blocked");
+            attributes.put("exchange_execution_blocker", blocker);
+            return ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
+        }
+        if (!request.valid()) {
+            return insufficientData(event, Operation.AMEND_ORDER, request.invalidReason(), attributes);
+        }
+        if (!request.hasChange()) {
+            return insufficientData(event, Operation.AMEND_ORDER, "remediation:amendment_target_missing", attributes);
+        }
+        AmendmentDrift drift = amendmentDrift(order, request);
+        put(attributes, "amendment_order_ownership", amendmentOrderOwnership(order));
+        put(attributes, "amendment_current_price", order.price());
+        put(attributes, "amendment_current_quantity", order.originalQuantity());
+        put(attributes, "amendment_price_drift_fraction", normalize(drift.priceDrift()));
+        put(attributes, "amendment_quantity_drift_fraction", normalize(drift.quantityDrift()));
+        if (!drift.valid()) {
+            return insufficientData(event, Operation.AMEND_ORDER, drift.invalidReason(), attributes);
+        }
+        if (drift.noop()) {
+            return noAction(event, Operation.AMEND_ORDER, "remediation:amendment_already_matches_projection", attributes);
+        }
+        blocker = amendmentDriftBlocker(drift);
+        if (blocker != null) {
+            attributes.put("amendment_policy_result", "blocked");
+            attributes.put("exchange_execution_blocker", blocker);
+            return ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
+        }
+        attributes.put("amendment_policy_result", "eligible");
+        attributes.put("exchange_execution_blocker", "managed_order_amendment_executor_not_implemented");
+        return ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
     }
 
     private RemediationCommandPlan positionPlan(RemediationDecisionEvent event, String action) {
@@ -1071,6 +1134,199 @@ public final class InterventionRemediationCommandPlanner {
         return attributes;
     }
 
+    private void putManagedOrderAmendmentPolicyAttributes(Map<String, String> attributes) {
+        attributes.put("managed_order_amendment_policy_enabled",
+                Boolean.toString(managedOrderAmendmentPolicy.enabled()));
+        put(attributes, "managed_order_amendment_policy_provider", managedOrderAmendmentPolicy.provider());
+        put(attributes, "managed_order_amendment_policy_market", managedOrderAmendmentPolicy.market());
+        attributes.put("managed_order_amendment_allow_bot_created_orders",
+                Boolean.toString(managedOrderAmendmentPolicy.allowBotCreatedOrders()));
+        attributes.put("managed_order_amendment_allow_adopted_orders",
+                Boolean.toString(managedOrderAmendmentPolicy.allowAdoptedOrders()));
+        if (!managedOrderAmendmentPolicy.allowedSymbols().isEmpty()) {
+            attributes.put("managed_order_amendment_allowed_symbols",
+                    String.join(",", managedOrderAmendmentPolicy.allowedSymbols()));
+        }
+        if (!managedOrderAmendmentPolicy.allowedOrderTypes().isEmpty()) {
+            attributes.put("managed_order_amendment_allowed_order_types",
+                    String.join(",", managedOrderAmendmentPolicy.allowedOrderTypes()));
+        }
+        if (!managedOrderAmendmentPolicy.allowedFields().isEmpty()) {
+            attributes.put("managed_order_amendment_allowed_fields",
+                    String.join(",", managedOrderAmendmentPolicy.allowedFields()));
+        }
+        attributes.put("managed_order_amendment_allow_quantity_increase",
+                Boolean.toString(managedOrderAmendmentPolicy.allowQuantityIncrease()));
+        attributes.put("managed_order_amendment_allow_quantity_decrease",
+                Boolean.toString(managedOrderAmendmentPolicy.allowQuantityDecrease()));
+        put(
+                attributes,
+                "managed_order_amendment_max_quantity_increase_fraction",
+                managedOrderAmendmentPolicy.maxQuantityIncreaseFraction()
+        );
+        put(
+                attributes,
+                "managed_order_amendment_max_quantity_decrease_fraction",
+                managedOrderAmendmentPolicy.maxQuantityDecreaseFraction()
+        );
+        put(attributes, "managed_order_amendment_max_price_drift_fraction",
+                managedOrderAmendmentPolicy.maxPriceDriftFraction());
+        attributes.put("managed_order_amendment_cancel_replace_on_unsupported_change",
+                Boolean.toString(managedOrderAmendmentPolicy.cancelReplaceOnUnsupportedChange()));
+        attributes.put("managed_order_amendment_reject_stale_projection",
+                Boolean.toString(managedOrderAmendmentPolicy.rejectStaleProjection()));
+        put(
+                attributes,
+                "managed_order_amendment_max_projection_age_millis",
+                managedOrderAmendmentPolicy.maxProjectionAgeMillis() == null
+                        ? null
+                        : managedOrderAmendmentPolicy.maxProjectionAgeMillis().toString()
+        );
+        attributes.put("managed_order_amendment_require_open_order_status",
+                Boolean.toString(managedOrderAmendmentPolicy.requireOpenOrderStatus()));
+        attributes.put("managed_order_amendment_require_exchange_order_id",
+                Boolean.toString(managedOrderAmendmentPolicy.requireExchangeOrderId()));
+        if (!managedOrderAmendmentPolicy.allowedStatuses().isEmpty()) {
+            attributes.put("managed_order_amendment_allowed_statuses",
+                    String.join(",", managedOrderAmendmentPolicy.allowedStatuses()));
+        }
+    }
+
+    private String managedOrderAmendmentBlocker(
+            RemediationDecisionEvent event,
+            TradingStateProjection.OrderState order,
+            AmendmentRequest request
+    ) {
+        if (!managedOrderAmendmentPolicy.enabled()) {
+            return "managed_order_amendment_policy_disabled";
+        }
+        if (!managedOrderAmendmentPolicy.provider().equalsIgnoreCase(requireText(event.getProvider(), "provider"))) {
+            return "managed_order_amendment_provider_policy_missing";
+        }
+        if (!managedOrderAmendmentPolicy.market().equalsIgnoreCase(requireText(event.getMarket(), "market"))) {
+            return "managed_order_amendment_market_policy_missing";
+        }
+        if (!managedOrderAmendmentPolicy.allowedSymbols().isEmpty()
+                && !managedOrderAmendmentPolicy.allowedSymbols().contains(requireText(event.getSymbol(), "symbol")
+                        .toUpperCase(Locale.ROOT))) {
+            return "managed_order_amendment_symbol_policy_missing";
+        }
+        if (!order.managedByBot()) {
+            return "managed_order_amendment_unmanaged_order";
+        }
+        String ownership = amendmentOrderOwnership(order);
+        if ("ADOPTED".equals(ownership) && !managedOrderAmendmentPolicy.allowAdoptedOrders()) {
+            return "managed_order_amendment_adopted_order_policy_disabled";
+        }
+        if ("BOT_CREATED".equals(ownership) && !managedOrderAmendmentPolicy.allowBotCreatedOrders()) {
+            return "managed_order_amendment_bot_created_order_policy_disabled";
+        }
+        if (managedOrderAmendmentPolicy.requireOpenOrderStatus()
+                && !managedOrderAmendmentPolicy.allowedStatuses().contains(uppercase(order.status()))) {
+            return "managed_order_amendment_order_status_not_open";
+        }
+        if (managedOrderAmendmentPolicy.requireExchangeOrderId() && text(order.exchangeOrderId()) == null) {
+            return "managed_order_amendment_exchange_order_id_missing";
+        }
+        if (managedOrderAmendmentPolicy.rejectStaleProjection()
+                && managedOrderAmendmentPolicy.maxProjectionAgeMillis() != null) {
+            long ageMillis = Duration.between(order.updatedAt(), event.getDecidedAtMicros()).toMillis();
+            if (ageMillis < 0L || ageMillis > managedOrderAmendmentPolicy.maxProjectionAgeMillis()) {
+                return "managed_order_amendment_projection_stale";
+            }
+        }
+        if (!managedOrderAmendmentPolicy.allowedOrderTypes().isEmpty()) {
+            String orderType = text(request.orderType());
+            if (orderType == null) {
+                return "managed_order_amendment_order_type_missing";
+            }
+            if (!managedOrderAmendmentPolicy.allowedOrderTypes().contains(orderType.toUpperCase(Locale.ROOT))) {
+                return "managed_order_amendment_order_type_not_allowed";
+            }
+        }
+        if (request.price() != null && !managedOrderAmendmentPolicy.allowedFields().contains("PRICE")) {
+            return "managed_order_amendment_price_field_not_allowed";
+        }
+        if (request.quantity() != null && !managedOrderAmendmentPolicy.allowedFields().contains("QUANTITY")) {
+            return "managed_order_amendment_quantity_field_not_allowed";
+        }
+        return null;
+    }
+
+    private AmendmentRequest amendmentRequest(RemediationDecisionEvent event) {
+        String priceText = firstAttribute(event, "amend_price", "target_price", "new_price");
+        String quantityText = firstAttribute(event, "amend_quantity", "target_quantity", "new_quantity");
+        String orderType = firstAttribute(event, "amend_order_type", "target_order_type", "order_type");
+        BigDecimal price = decimal(priceText);
+        if (priceText != null && price == null) {
+            return AmendmentRequest.invalid(priceText, quantityText, orderType, "remediation:amend_price_invalid");
+        }
+        BigDecimal quantity = decimal(quantityText);
+        if (quantityText != null && quantity == null) {
+            return AmendmentRequest.invalid(priceText, quantityText, orderType, "remediation:amend_quantity_invalid");
+        }
+        if (price != null && price.compareTo(BigDecimal.ZERO) <= 0) {
+            return AmendmentRequest.invalid(priceText, quantityText, orderType, "remediation:amend_price_invalid");
+        }
+        if (quantity != null && quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            return AmendmentRequest.invalid(priceText, quantityText, orderType, "remediation:amend_quantity_invalid");
+        }
+        return new AmendmentRequest(priceText, price, quantityText, quantity, orderType, null);
+    }
+
+    private AmendmentDrift amendmentDrift(TradingStateProjection.OrderState order, AmendmentRequest request) {
+        BigDecimal currentPrice = decimal(order.price());
+        BigDecimal currentQuantity = decimal(order.originalQuantity());
+        BigDecimal priceDrift = null;
+        BigDecimal quantityDrift = null;
+        if (request.price() != null) {
+            if (currentPrice == null || currentPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                return AmendmentDrift.invalid("projection:order_price_invalid");
+            }
+            priceDrift = request.price().subtract(currentPrice).abs().divide(currentPrice, MathContext.DECIMAL64);
+        }
+        if (request.quantity() != null) {
+            if (currentQuantity == null || currentQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                return AmendmentDrift.invalid("projection:order_quantity_invalid");
+            }
+            quantityDrift = request.quantity().subtract(currentQuantity).divide(currentQuantity, MathContext.DECIMAL64);
+        }
+        return new AmendmentDrift(priceDrift, quantityDrift, null);
+    }
+
+    private String amendmentDriftBlocker(AmendmentDrift drift) {
+        if (drift.quantityDrift() != null && drift.quantityDrift().compareTo(BigDecimal.ZERO) > 0) {
+            if (!managedOrderAmendmentPolicy.allowQuantityIncrease()) {
+                return "managed_order_amendment_quantity_increase_not_allowed";
+            }
+            BigDecimal maxIncrease = decimal(managedOrderAmendmentPolicy.maxQuantityIncreaseFraction());
+            if (maxIncrease != null && drift.quantityDrift().compareTo(maxIncrease) > 0) {
+                return "managed_order_amendment_quantity_increase_drift_exceeded";
+            }
+        }
+        if (drift.quantityDrift() != null && drift.quantityDrift().compareTo(BigDecimal.ZERO) < 0) {
+            if (!managedOrderAmendmentPolicy.allowQuantityDecrease()) {
+                return "managed_order_amendment_quantity_decrease_not_allowed";
+            }
+            BigDecimal maxDecrease = decimal(managedOrderAmendmentPolicy.maxQuantityDecreaseFraction());
+            if (maxDecrease != null && drift.quantityDrift().abs().compareTo(maxDecrease) > 0) {
+                return "managed_order_amendment_quantity_decrease_drift_exceeded";
+            }
+        }
+        BigDecimal maxPriceDrift = decimal(managedOrderAmendmentPolicy.maxPriceDriftFraction());
+        if (maxPriceDrift != null && drift.priceDrift() != null && drift.priceDrift().compareTo(maxPriceDrift) > 0) {
+            return "managed_order_amendment_price_drift_exceeded";
+        }
+        return null;
+    }
+
+    private String amendmentOrderOwnership(TradingStateProjection.OrderState order) {
+        if (!order.managedByBot()) {
+            return "UNMANAGED";
+        }
+        return text(order.commandId()) == null ? "ADOPTED" : "BOT_CREATED";
+    }
+
     private void putOrderAttributes(Map<String, String> attributes, TradingStateProjection.OrderState order) {
         put(attributes, "target_client_order_id", order.clientOrderId());
         put(attributes, "target_exchange_order_id", order.exchangeOrderId());
@@ -1078,6 +1334,8 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "target_exchange_status", order.exchangeStatus());
         put(attributes, "target_update_source", order.updateSource());
         put(attributes, "target_event_id", order.eventId());
+        put(attributes, "target_order_price", order.price());
+        put(attributes, "target_order_quantity", order.originalQuantity());
         attributes.put("target_managed_by_bot", Boolean.toString(order.managedByBot()));
     }
 
@@ -1132,6 +1390,16 @@ public final class InterventionRemediationCommandPlanner {
         return text(event.getAttributes().get(key));
     }
 
+    private String firstAttribute(RemediationDecisionEvent event, String... keys) {
+        for (String key : keys) {
+            String value = attribute(event, key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     private BigDecimal decimal(String value) {
         String text = text(value);
         if (text == null) {
@@ -1157,6 +1425,9 @@ public final class InterventionRemediationCommandPlanner {
     }
 
     private String normalize(BigDecimal value) {
+        if (value == null) {
+            return null;
+        }
         return value.stripTrailingZeros().toPlainString();
     }
 
@@ -1188,6 +1459,11 @@ public final class InterventionRemediationCommandPlanner {
             return null;
         }
         return value.toString().trim();
+    }
+
+    private String uppercase(String value) {
+        String text = text(value);
+        return text == null ? null : text.toUpperCase(Locale.ROOT);
     }
 
     public enum PlanStatus {
@@ -1284,6 +1560,53 @@ public final class InterventionRemediationCommandPlanner {
 
         private static PositionRemediationSize invalid(String reason) {
             return new PositionRemediationSize(null, null, false, false, null, false, reason);
+        }
+    }
+
+    private record AmendmentRequest(
+            String priceText,
+            BigDecimal price,
+            String quantityText,
+            BigDecimal quantity,
+            String orderType,
+            String invalidReason
+    ) {
+
+        private boolean hasChange() {
+            return price != null || quantity != null;
+        }
+
+        private boolean valid() {
+            return invalidReason == null;
+        }
+
+        private static AmendmentRequest invalid(
+                String priceText,
+                String quantityText,
+                String orderType,
+                String invalidReason
+        ) {
+            return new AmendmentRequest(priceText, null, quantityText, null, orderType, invalidReason);
+        }
+    }
+
+    private record AmendmentDrift(
+            BigDecimal priceDrift,
+            BigDecimal quantityDrift,
+            String invalidReason
+    ) {
+
+        private boolean valid() {
+            return invalidReason == null;
+        }
+
+        private boolean noop() {
+            return (priceDrift == null || priceDrift.compareTo(BigDecimal.ZERO) == 0)
+                    && (quantityDrift == null || quantityDrift.compareTo(BigDecimal.ZERO) == 0);
+        }
+
+        private static AmendmentDrift invalid(String invalidReason) {
+            return new AmendmentDrift(null, null, invalidReason);
         }
     }
 

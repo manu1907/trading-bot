@@ -1496,6 +1496,44 @@ Default intervention config:
   `null`
 - `remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata`:
   `true`
+- `remediation_executor_policy.managed_order_amendment_policy.enabled`:
+  `false`
+- `remediation_executor_policy.managed_order_amendment_policy.provider`:
+  `binance`
+- `remediation_executor_policy.managed_order_amendment_policy.market`:
+  `usdm_futures`
+- `remediation_executor_policy.managed_order_amendment_policy.allow_bot_created_orders`:
+  `true`
+- `remediation_executor_policy.managed_order_amendment_policy.allow_adopted_orders`:
+  `false`
+- `remediation_executor_policy.managed_order_amendment_policy.allowed_symbols`:
+  empty list
+- `remediation_executor_policy.managed_order_amendment_policy.allowed_order_types`:
+  `LIMIT`
+- `remediation_executor_policy.managed_order_amendment_policy.allowed_fields`:
+  `PRICE`, `QUANTITY`
+- `remediation_executor_policy.managed_order_amendment_policy.allow_quantity_increase`:
+  `false`
+- `remediation_executor_policy.managed_order_amendment_policy.allow_quantity_decrease`:
+  `true`
+- `remediation_executor_policy.managed_order_amendment_policy.max_quantity_increase_fraction`:
+  `null`
+- `remediation_executor_policy.managed_order_amendment_policy.max_quantity_decrease_fraction`:
+  `null`
+- `remediation_executor_policy.managed_order_amendment_policy.max_price_drift_fraction`:
+  `null`
+- `remediation_executor_policy.managed_order_amendment_policy.cancel_replace_on_unsupported_change`:
+  `false`
+- `remediation_executor_policy.managed_order_amendment_policy.reject_stale_projection`:
+  `true`
+- `remediation_executor_policy.managed_order_amendment_policy.max_projection_age_millis`:
+  `null`
+- `remediation_executor_policy.managed_order_amendment_policy.require_open_order_status`:
+  `true`
+- `remediation_executor_policy.managed_order_amendment_policy.require_exchange_order_id`:
+  `false`
+- `remediation_executor_policy.managed_order_amendment_policy.allowed_statuses`:
+  `ACCEPTED`, `PARTIALLY_FILLED`
 
 The executor policy defaults describe a safe startup state. Demo-live exchange
 execution is a runtime override state: set `enabled=true`,
@@ -1508,6 +1546,13 @@ also restricted to `allowed_symbols=["BTCUSDT"]`, `max_position_quantity=0.001`,
 `required_margin_type=cross`, `min_leverage=1`, and `max_leverage=5` before
 using
 `POST /internal/interventions/remediation/executor/execute`.
+
+Managed order amendment planning is also configurable, but it is not executable
+yet. An `AMEND` remediation decision can be policy-qualified or blocked by
+`managed_order_amendment_policy`, including allowed fields, order type, symbol,
+ownership, drift limits, and stale projection age. Even when qualified, the plan
+remains `exchangeExecutable=false` until amend command construction,
+cancel/replace fallback, reconciliation, and rollback behavior are implemented.
 
 The system can track and expose:
 

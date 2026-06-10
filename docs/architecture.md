@@ -669,7 +669,16 @@ projection-governance transition rather than an exchange command: when
 `order_adoption_acknowledgement_enabled=true`, an order-scope `ADOPT`
 remediation decision for a matching non-managed external order publishes an
 auditable intervention acknowledgement with adoption metadata, and replay marks
-the order as bot-managed while clearing the external intervention.
+the order as bot-managed while clearing the external intervention. Order
+amendment is policy-planned but not exchange-executable: `AMEND` decisions for
+managed-order interventions are checked against
+`managed_order_amendment_policy` for provider, market, symbol, ownership,
+allowed order type, allowed fields, quantity direction and drift, price drift,
+projection freshness, open-order status, and target identity requirements. A
+policy-qualified amendment still carries
+`exchange_execution_blocker=managed_order_amendment_executor_not_implemented`
+until bounded amend or cancel/replace command execution and rollback semantics
+exist.
 `trading.intervention.remediation-executor-policy` is the explicit executor
 safety boundary. The checked-in catalog keeps the executor disabled, exchange
 execution disabled, report-only mode enabled, real environments blocked, and

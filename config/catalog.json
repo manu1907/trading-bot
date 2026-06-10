@@ -235,6 +235,37 @@
           "max_account_margin_utilization": null,
           "max_account_daily_realized_loss": null,
           "reject_missing_account_risk_metadata": true
+        },
+        "managed_order_amendment_policy": {
+          "enabled": false,
+          "provider": "binance",
+          "market": "usdm_futures",
+          "allow_bot_created_orders": true,
+          "allow_adopted_orders": false,
+          "allowed_symbols": [
+
+          ],
+          "allowed_order_types": [
+            "LIMIT"
+          ],
+          "allowed_fields": [
+            "PRICE",
+            "QUANTITY"
+          ],
+          "allow_quantity_increase": false,
+          "allow_quantity_decrease": true,
+          "max_quantity_increase_fraction": null,
+          "max_quantity_decrease_fraction": null,
+          "max_price_drift_fraction": null,
+          "cancel_replace_on_unsupported_change": false,
+          "reject_stale_projection": true,
+          "max_projection_age_millis": null,
+          "require_open_order_status": true,
+          "require_exchange_order_id": false,
+          "allowed_statuses": [
+            "ACCEPTED",
+            "PARTIALLY_FILLED"
+          ]
         }
       }
     }

@@ -149,6 +149,63 @@ class ConfigCatalogDefaultsTest {
         assertBoolean(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata",
                 true);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.enabled",
+                false);
+        assertText(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.provider",
+                "binance");
+        assertText(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.market",
+                "usdm_futures");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allow_bot_created_orders",
+                true);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allow_adopted_orders",
+                false);
+        assertThat(requiredNode(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_symbols"))
+                .as("trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_symbols")
+                .isEmpty();
+        assertThat(requiredNode(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_order_types"))
+                .as("trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_order_types")
+                .hasSize(1);
+        assertThat(requiredNode(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_fields"))
+                .as("trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_fields")
+                .hasSize(2);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allow_quantity_increase",
+                false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allow_quantity_decrease",
+                true);
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.max_quantity_increase_fraction");
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.max_quantity_decrease_fraction");
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.max_price_drift_fraction");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.cancel_replace_on_unsupported_change",
+                false);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.reject_stale_projection",
+                true);
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.max_projection_age_millis");
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.require_open_order_status",
+                true);
+        assertBoolean(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.require_exchange_order_id",
+                false);
+        assertThat(requiredNode(catalog,
+                "trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_statuses"))
+                .as("trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_statuses")
+                .hasSize(2);
     }
 
     private void assertBoolean(JsonNode root, String path, boolean expected) {

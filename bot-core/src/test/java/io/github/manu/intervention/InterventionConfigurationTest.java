@@ -210,6 +210,25 @@ class InterventionConfigurationTest {
             assertThat(policy.positionOrderPolicy().minLeverage()).isNull();
             assertThat(policy.positionOrderPolicy().maxLeverage()).isNull();
             assertThat(policy.positionOrderPolicy().rejectMissingAccountRiskMetadata()).isTrue();
+            assertThat(policy.managedOrderAmendmentPolicy().enabled()).isFalse();
+            assertThat(policy.managedOrderAmendmentPolicy().provider()).isEqualTo("binance");
+            assertThat(policy.managedOrderAmendmentPolicy().market()).isEqualTo("usdm_futures");
+            assertThat(policy.managedOrderAmendmentPolicy().allowBotCreatedOrders()).isTrue();
+            assertThat(policy.managedOrderAmendmentPolicy().allowAdoptedOrders()).isFalse();
+            assertThat(policy.managedOrderAmendmentPolicy().allowedSymbols()).isEmpty();
+            assertThat(policy.managedOrderAmendmentPolicy().allowedOrderTypes()).containsExactly("LIMIT");
+            assertThat(policy.managedOrderAmendmentPolicy().allowedFields()).containsExactly("PRICE", "QUANTITY");
+            assertThat(policy.managedOrderAmendmentPolicy().allowQuantityIncrease()).isFalse();
+            assertThat(policy.managedOrderAmendmentPolicy().allowQuantityDecrease()).isTrue();
+            assertThat(policy.managedOrderAmendmentPolicy().maxQuantityIncreaseFraction()).isNull();
+            assertThat(policy.managedOrderAmendmentPolicy().maxQuantityDecreaseFraction()).isNull();
+            assertThat(policy.managedOrderAmendmentPolicy().maxPriceDriftFraction()).isNull();
+            assertThat(policy.managedOrderAmendmentPolicy().cancelReplaceOnUnsupportedChange()).isFalse();
+            assertThat(policy.managedOrderAmendmentPolicy().rejectStaleProjection()).isTrue();
+            assertThat(policy.managedOrderAmendmentPolicy().maxProjectionAgeMillis()).isNull();
+            assertThat(policy.managedOrderAmendmentPolicy().requireOpenOrderStatus()).isTrue();
+            assertThat(policy.managedOrderAmendmentPolicy().requireExchangeOrderId()).isFalse();
+            assertThat(policy.managedOrderAmendmentPolicy().allowedStatuses()).containsExactly("ACCEPTED", "PARTIALLY_FILLED");
         });
     }
 
@@ -247,7 +266,27 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-account-margin-drawdown-fraction=0.25",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-account-margin-utilization=0.80",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-account-daily-realized-loss=300",
-                        "trading.intervention.remediation-executor-policy.position-order-policy.reject-missing-account-risk-metadata=false"
+                        "trading.intervention.remediation-executor-policy.position-order-policy.reject-missing-account-risk-metadata=false",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.enabled=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.provider=binance",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.market=usdm_futures",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allow-bot-created-orders=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allow-adopted-orders=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-symbols[0]=btcusdt",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-order-types[0]=limit",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-fields[0]=price",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-fields[1]=quantity",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allow-quantity-increase=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allow-quantity-decrease=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.max-quantity-increase-fraction=0.10",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.max-quantity-decrease-fraction=0.50",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.max-price-drift-fraction=0.02",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.cancel-replace-on-unsupported-change=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.reject-stale-projection=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.max-projection-age-millis=30000",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.require-open-order-status=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.require-exchange-order-id=true",
+                        "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-statuses[0]=accepted"
                 )
                 .run(context -> {
                     InterventionProperties.RemediationExecutorPolicy policy =
@@ -287,6 +326,25 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().maxAccountMarginUtilization()).isEqualTo("0.80");
                     assertThat(policy.positionOrderPolicy().maxAccountDailyRealizedLoss()).isEqualTo("300");
                     assertThat(policy.positionOrderPolicy().rejectMissingAccountRiskMetadata()).isFalse();
+                    assertThat(policy.managedOrderAmendmentPolicy().enabled()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().provider()).isEqualTo("binance");
+                    assertThat(policy.managedOrderAmendmentPolicy().market()).isEqualTo("usdm_futures");
+                    assertThat(policy.managedOrderAmendmentPolicy().allowBotCreatedOrders()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().allowAdoptedOrders()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().allowedSymbols()).containsExactly("BTCUSDT");
+                    assertThat(policy.managedOrderAmendmentPolicy().allowedOrderTypes()).containsExactly("LIMIT");
+                    assertThat(policy.managedOrderAmendmentPolicy().allowedFields()).containsExactly("PRICE", "QUANTITY");
+                    assertThat(policy.managedOrderAmendmentPolicy().allowQuantityIncrease()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().allowQuantityDecrease()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().maxQuantityIncreaseFraction()).isEqualTo("0.10");
+                    assertThat(policy.managedOrderAmendmentPolicy().maxQuantityDecreaseFraction()).isEqualTo("0.50");
+                    assertThat(policy.managedOrderAmendmentPolicy().maxPriceDriftFraction()).isEqualTo("0.02");
+                    assertThat(policy.managedOrderAmendmentPolicy().cancelReplaceOnUnsupportedChange()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().rejectStaleProjection()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().maxProjectionAgeMillis()).isEqualTo(30000L);
+                    assertThat(policy.managedOrderAmendmentPolicy().requireOpenOrderStatus()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().requireExchangeOrderId()).isTrue();
+                    assertThat(policy.managedOrderAmendmentPolicy().allowedStatuses()).containsExactly("ACCEPTED");
                 });
     }
 

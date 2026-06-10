@@ -65,7 +65,8 @@ public class InterventionConfiguration {
     ) {
         return new InterventionRemediationCommandPlanner(
                 projection,
-                properties.remediationExecutorPolicy().positionOrderPolicy()
+                properties.remediationExecutorPolicy().positionOrderPolicy(),
+                properties.remediationExecutorPolicy().managedOrderAmendmentPolicy()
         );
     }
 

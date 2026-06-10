@@ -184,6 +184,31 @@ Catalog defaults keep these fields explicit and overridable:
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_utilization=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_account_daily_realized_loss=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata=true`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.enabled=false`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.provider=binance`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.market=usdm_futures`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allow_bot_created_orders=true`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allow_adopted_orders=false`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_symbols=[]`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_order_types=[LIMIT]`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_fields=[PRICE,QUANTITY]`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allow_quantity_increase=false`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allow_quantity_decrease=true`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.max_quantity_increase_fraction=null`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.max_quantity_decrease_fraction=null`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.max_price_drift_fraction=null`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.cancel_replace_on_unsupported_change=false`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.reject_stale_projection=true`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.max_projection_age_millis=null`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.require_open_order_status=true`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.require_exchange_order_id=false`
+- `trading.intervention.remediation_executor_policy.managed_order_amendment_policy.allowed_statuses=[ACCEPTED,PARTIALLY_FILLED]`
+
+Managed order amendment state:
+
+- `AMEND` decisions for unresolved managed-order interventions now pass through a disabled-by-default planner policy.
+- The policy can qualify or block amendments by provider, market, symbol allowlist, bot-created versus adopted ownership, allowed order type, allowed fields, quantity increase/decrease permission, optional quantity drift fractions, optional price drift fraction, stale projection age, open-order status, and optional exchange-order-id requirement.
+- A policy-qualified amendment is still `exchangeExecutable=false` with `exchange_execution_blocker=managed_order_amendment_executor_not_implemented`. No order amend, cancel/replace, or provider mutation is submitted yet.
 
 ## Known Gaps Before Professional Autonomous Real Trading
 
@@ -191,7 +216,7 @@ Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Broader account-level and symbol-level risk budgets, including symbol-level realized-PnL budgets, beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account daily realized-loss caps.
-- Managed amendment policies and broader adopted-order lifecycle controls.
+- Managed amendment execution, cancel/replace fallback, and broader adopted-order lifecycle controls.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - Backtesting, replay validation, demo soak criteria, promotion gates, and real-trading runbooks.
