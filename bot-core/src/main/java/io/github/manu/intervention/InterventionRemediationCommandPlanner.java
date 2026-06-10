@@ -162,6 +162,8 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "amendment_requested_price", request.priceText());
         put(attributes, "amendment_requested_quantity", request.quantityText());
         put(attributes, "amendment_requested_order_type", request.orderType());
+        put(attributes, "amendment_projected_side", order.side());
+        put(attributes, "amendment_projected_order_type", order.orderType());
         String blocker = managedOrderAmendmentBlocker(event, order, request);
         if (blocker != null) {
             attributes.put("amendment_policy_result", "blocked");
@@ -193,8 +195,17 @@ public final class InterventionRemediationCommandPlanner {
             return ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
         }
         attributes.put("amendment_policy_result", "eligible");
-        attributes.put("exchange_execution_blocker", "managed_order_amendment_executor_not_implemented");
-        return ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
+        attributes.put("amendment_execution_mode", "managed_order_modify");
+        put(attributes, "amendment_command_side", order.side());
+        put(attributes, "amendment_command_order_type", order.orderType());
+        put(attributes, "amendment_command_price", request.priceText() == null ? order.price() : request.priceText());
+        put(
+                attributes,
+                "amendment_command_quantity",
+                request.quantityText() == null ? order.originalQuantity() : request.quantityText()
+        );
+        exchangeExecutionAttributes(attributes, "order_execution_pipeline");
+        return ready(event, Operation.AMEND_ORDER, true, "remediation:amend_order", attributes);
     }
 
     private RemediationCommandPlan positionPlan(RemediationDecisionEvent event, String action) {
@@ -1228,6 +1239,13 @@ public final class InterventionRemediationCommandPlanner {
         if (managedOrderAmendmentPolicy.requireExchangeOrderId() && text(order.exchangeOrderId()) == null) {
             return "managed_order_amendment_exchange_order_id_missing";
         }
+        if (uppercase(order.side()) == null) {
+            return "managed_order_amendment_side_missing";
+        }
+        String projectedOrderType = uppercase(order.orderType());
+        if (projectedOrderType == null) {
+            return "managed_order_amendment_order_type_missing";
+        }
         if (managedOrderAmendmentPolicy.rejectStaleProjection()
                 && managedOrderAmendmentPolicy.maxProjectionAgeMillis() != null) {
             long ageMillis = Duration.between(order.updatedAt(), event.getDecidedAtMicros()).toMillis();
@@ -1236,11 +1254,11 @@ public final class InterventionRemediationCommandPlanner {
             }
         }
         if (!managedOrderAmendmentPolicy.allowedOrderTypes().isEmpty()) {
-            String orderType = text(request.orderType());
-            if (orderType == null) {
-                return "managed_order_amendment_order_type_missing";
+            String requestedOrderType = uppercase(request.orderType());
+            if (requestedOrderType != null && !requestedOrderType.equals(projectedOrderType)) {
+                return "managed_order_amendment_order_type_change_not_allowed";
             }
-            if (!managedOrderAmendmentPolicy.allowedOrderTypes().contains(orderType.toUpperCase(Locale.ROOT))) {
+            if (!managedOrderAmendmentPolicy.allowedOrderTypes().contains(projectedOrderType)) {
                 return "managed_order_amendment_order_type_not_allowed";
             }
         }
@@ -1291,6 +1309,12 @@ public final class InterventionRemediationCommandPlanner {
             }
             quantityDrift = request.quantity().subtract(currentQuantity).divide(currentQuantity, MathContext.DECIMAL64);
         }
+        if (request.price() == null && (currentPrice == null || currentPrice.compareTo(BigDecimal.ZERO) <= 0)) {
+            return AmendmentDrift.invalid("projection:order_price_invalid");
+        }
+        if (request.quantity() == null && (currentQuantity == null || currentQuantity.compareTo(BigDecimal.ZERO) <= 0)) {
+            return AmendmentDrift.invalid("projection:order_quantity_invalid");
+        }
         return new AmendmentDrift(priceDrift, quantityDrift, null);
     }
 
@@ -1332,6 +1356,8 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "target_exchange_order_id", order.exchangeOrderId());
         put(attributes, "target_order_status", order.status());
         put(attributes, "target_exchange_status", order.exchangeStatus());
+        put(attributes, "target_order_side", order.side());
+        put(attributes, "target_order_type", order.orderType());
         put(attributes, "target_update_source", order.updateSource());
         put(attributes, "target_event_id", order.eventId());
         put(attributes, "target_order_price", order.price());

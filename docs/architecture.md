@@ -670,15 +670,16 @@ projection-governance transition rather than an exchange command: when
 remediation decision for a matching non-managed external order publishes an
 auditable intervention acknowledgement with adoption metadata, and replay marks
 the order as bot-managed while clearing the external intervention. Order
-amendment is policy-planned but not exchange-executable: `AMEND` decisions for
-managed-order interventions are checked against
+amendment is policy-gated and exchange-executable only for bounded managed-order
+changes: `AMEND` decisions for managed-order interventions are checked against
 `managed_order_amendment_policy` for provider, market, symbol, ownership,
 allowed order type, allowed fields, quantity direction and drift, price drift,
 projection freshness, open-order status, and target identity requirements. A
-policy-qualified amendment still carries
-`exchange_execution_blocker=managed_order_amendment_executor_not_implemented`
-until bounded amend or cancel/replace command execution and rollback semantics
-exist.
+policy-qualified amendment builds an idempotent `MODIFY` command with projected
+side/order type and requested or retained price/quantity, then submits through
+`OrderExecutionPipeline`; Binance futures preflight validates the `MODIFY`
+target and parameters before gateway submission. Unsupported amendment shapes
+remain blocked rather than using cancel/replace fallback.
 `trading.intervention.remediation-executor-policy` is the explicit executor
 safety boundary. The checked-in catalog keeps the executor disabled, exchange
 execution disabled, report-only mode enabled, real environments blocked, and

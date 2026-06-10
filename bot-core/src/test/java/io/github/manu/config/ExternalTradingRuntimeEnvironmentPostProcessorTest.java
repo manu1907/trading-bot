@@ -52,6 +52,8 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 .isEqualTo("CLOSE_POSITION");
         assertThat(environment.getProperty("trading.intervention.remediation-executor-policy.allowed-operations[2]"))
                 .isEqualTo("REDUCE_POSITION");
+        assertThat(environment.getProperty("trading.intervention.remediation-executor-policy.allowed-operations[3]"))
+                .isEqualTo("AMEND_ORDER");
         assertThat(environment.getProperty(
                 "trading.intervention.remediation-executor-policy.position-order-policy.one-way-reduce-only-enabled",
                 Boolean.class
@@ -84,6 +86,36 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty(
                 "trading.intervention.remediation-executor-policy.position-order-policy.max-leverage"
         )).isEqualTo("5");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.enabled",
+                Boolean.class
+        )).isTrue();
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-symbols[0]"
+        )).isEqualTo("BTCUSDT");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-order-types[0]"
+        )).isEqualTo("LIMIT");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-fields[0]"
+        )).isEqualTo("PRICE");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-fields[1]"
+        )).isEqualTo("QUANTITY");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allow-quantity-increase",
+                Boolean.class
+        )).isFalse();
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.max-quantity-decrease-fraction"
+        )).isEqualTo("0.50");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.max-price-drift-fraction"
+        )).isEqualTo("0.02");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.max-projection-age-millis",
+                Long.class
+        )).isEqualTo(30000L);
     }
 
     @Test

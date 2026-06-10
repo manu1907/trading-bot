@@ -60,7 +60,7 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     @Test
-    void qualifies_managed_order_amendment_but_keeps_exchange_execution_disabled_until_executor_exists() {
+    void qualifies_managed_order_amendment_as_executable_modify_command_plan() {
         restoreManagedOrderIntervention();
         InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
                 projection,
@@ -80,16 +80,23 @@ class InterventionRemediationCommandPlannerTest {
 
         assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
         assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
-        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.exchangeExecutable()).isTrue();
         assertThat(plan.attributes())
                 .containsEntry("amendment_policy_result", "eligible")
                 .containsEntry("amendment_order_ownership", "BOT_CREATED")
+                .containsEntry("amendment_projected_side", "BUY")
+                .containsEntry("amendment_projected_order_type", "LIMIT")
                 .containsEntry("amendment_requested_price", "49950.00")
                 .containsEntry("amendment_requested_quantity", "0.0009")
                 .containsEntry("amendment_requested_order_type", "LIMIT")
                 .containsEntry("managed_order_amendment_allowed_fields", "PRICE,QUANTITY")
-                .containsEntry("exchange_execution_blocker", "managed_order_amendment_executor_not_implemented")
-                .containsEntry("exchange_executable", "false");
+                .containsEntry("amendment_execution_mode", "managed_order_modify")
+                .containsEntry("amendment_command_side", "BUY")
+                .containsEntry("amendment_command_order_type", "LIMIT")
+                .containsEntry("amendment_command_price", "49950.00")
+                .containsEntry("amendment_command_quantity", "0.0009")
+                .containsEntry("exchange_execution_path", "order_execution_pipeline")
+                .containsEntry("exchange_executable", "true");
     }
 
     @Test
@@ -1019,6 +1026,8 @@ class InterventionRemediationCommandPlannerTest {
                         "12345",
                         "ACCEPTED",
                         "NEW",
+                        "BUY",
+                        "LIMIT",
                         "50000.00",
                         "0.001",
                         "0",

@@ -23,6 +23,7 @@ The checked-in demo runtime currently enables:
 - External-order `CANCEL_ORDER`
 - One-way external-position `CLOSE_POSITION`
 - One-way external-position `REDUCE_POSITION`
+- Managed-order `AMEND_ORDER`
 
 The position-order policy for the first-start demo runtime also restricts automated position remediation to:
 
@@ -44,6 +45,24 @@ The position-order policy for the first-start demo runtime also restricts automa
 - inherited `reject_unbounded_position_notional=true`
 - inherited `reject_missing_account_risk_metadata=true`
 
+The managed-order amendment policy for the first-start demo runtime restricts automated amendments to:
+
+- `enabled=true`
+- `allowed_symbols=["BTCUSDT"]`
+- `allowed_order_types=["LIMIT"]`
+- `allowed_fields=["PRICE","QUANTITY"]`
+- `allow_quantity_increase=false`
+- `allow_quantity_decrease=true`
+- `max_quantity_decrease_fraction="0.50"`
+- `max_price_drift_fraction="0.02"`
+- `reject_stale_projection=true`
+- `max_projection_age_millis=30000`
+- `require_open_order_status=true`
+- `require_exchange_order_id=false`
+- `allowed_statuses=["ACCEPTED","PARTIALLY_FILLED"]`
+- inherited `allow_bot_created_orders=true`
+- inherited `allow_adopted_orders=false`
+
 ## Supported External Order Scenarios
 
 The bot can project external or manually created orders as interventions. It can recommend and decide remediation, then build executor command plans.
@@ -53,6 +72,9 @@ Supported exchange-executable order remediation today:
 - External order close: an external order with a matching projected intervention can produce a `CANCEL_ORDER` plan.
 - The cancel plan routes through `OrderExecutionPipeline` when executor policy is enabled, exchange execution is enabled, report-only is false, the operation is allowlisted, and the risk gate accepts the command.
 - Cancel commands are allowed even under pause governance so the bot can reduce existing order risk.
+- Managed order amendment: an unresolved managed-order intervention with an `AMEND` remediation decision can produce an `AMEND_ORDER` plan when `managed_order_amendment_policy` admits the provider, market, symbol, ownership, order type, fields, quantity direction, drift, projection freshness, status, and target identity.
+- A qualified amendment is submitted as a `MODIFY` command through `OrderExecutionPipeline`. The command uses the projected target client/exchange identity, projected side, projected order type, requested or retained price, and requested or retained quantity.
+- Managed amendment commands are still checked by the order risk gate and provider preflight. Binance futures preflight validates `MODIFY` target identity, side, type, quantity, and price before gateway submission.
 - Provider gateways can reject approved commands during preflight before gateway submission. Binance uses this for `NEW` order capability and exchange-filter validation, `CANCEL` target identity validation, and futures `MODIFY` target/parameter validation.
 
 Supported non-exchange order remediation today:
@@ -64,7 +86,7 @@ Current non-executable order intents:
 
 - `ADOPT`
 - `IGNORE`
-- order amendment or enhancement
+- order amendment that requires cancel/replace fallback, order-type changes, unsupported fields, stale projection, unmanaged/adopted ownership outside policy, or symbols/types outside policy
 - strategy replan beyond command planning metadata
 
 ## Supported External Position Scenarios
@@ -206,9 +228,10 @@ Catalog defaults keep these fields explicit and overridable:
 
 Managed order amendment state:
 
-- `AMEND` decisions for unresolved managed-order interventions now pass through a disabled-by-default planner policy.
+- `AMEND` decisions for unresolved managed-order interventions now pass through a catalog-disabled planner policy that is explicitly enabled by the checked-in demo runtime for bounded BTCUSDT limit-order amendments.
 - The policy can qualify or block amendments by provider, market, symbol allowlist, bot-created versus adopted ownership, allowed order type, allowed fields, quantity increase/decrease permission, optional quantity drift fractions, optional price drift fraction, stale projection age, open-order status, and optional exchange-order-id requirement.
-- A policy-qualified amendment is still `exchangeExecutable=false` with `exchange_execution_blocker=managed_order_amendment_executor_not_implemented`. No order amend, cancel/replace, or provider mutation is submitted yet.
+- A policy-qualified amendment is `exchangeExecutable=true` only when projected side, projected order type, current price, current quantity, and target identity are available. The executor constructs an idempotent `MODIFY` command and submits it through the normal order execution pipeline.
+- Cancel/replace fallback remains intentionally unimplemented; unsupported amendment shapes are blocked instead of converted into destructive multi-step order replacement.
 
 ## Known Gaps Before Professional Autonomous Real Trading
 
@@ -216,7 +239,7 @@ Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Broader account-level and symbol-level risk budgets, including symbol-level realized-PnL budgets, beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account daily realized-loss caps.
-- Managed amendment execution, cancel/replace fallback, and broader adopted-order lifecycle controls.
+- Cancel/replace fallback for unsupported amendments and broader adopted-order lifecycle controls.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - Backtesting, replay validation, demo soak criteria, promotion gates, and real-trading runbooks.

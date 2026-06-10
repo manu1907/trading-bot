@@ -524,6 +524,8 @@ class TradingStateProjectionTest {
                     assertThat(order.commandId()).isEqualTo("cmd-modify");
                     assertThat(order.status()).isEqualTo("NEW");
                     assertThat(order.executionType()).isEqualTo("AMENDMENT");
+                    assertThat(order.side()).isEqualTo("BUY");
+                    assertThat(order.orderType()).isEqualTo("LIMIT");
                     assertThat(order.externalIntervention()).isFalse();
                 });
     }

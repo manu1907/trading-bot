@@ -83,7 +83,8 @@ override must enable the executor policy, enable exchange execution, set
 the supported demo exchange-executable remediation operations are `CANCEL_ORDER`
 for an external-order `CLOSE` decision plus one-way `CLOSE_POSITION` and
 `REDUCE_POSITION` as bounded reduce-only market orders for external-position
-remediation.
+remediation, plus bounded managed-order `AMEND_ORDER` for policy-qualified
+limit-order price/quantity amendments.
 
 ## Prerequisites
 
@@ -755,10 +756,14 @@ planned as `operation=CANCEL_ORDER` with `exchangeExecutable=true`. Position
 `CLOSE_POSITION` or `REDUCE_POSITION` with `exchangeExecutable=true`. Hedge-mode
 `LONG` or `SHORT` position `CLOSE` and bounded `REDUCE` can also be planned as
 exchange-executable when `hedge_mode_execution_enabled=true`; the checked-in
-demo runtime leaves that switch off. Pause, amend, ignore, and replan plans
-remain non-executable until their specific policies exist. Order `ADOPT` is not
-exchange-executable; it can publish a projection ownership-transfer
-acknowledgement only when `order_adoption_acknowledgement_enabled=true`.
+demo runtime leaves that switch off. Managed-order `AMEND` decisions can now be
+planned as `AMEND_ORDER` with `exchangeExecutable=true` when the active
+`managed_order_amendment_policy` admits the target and the projection has
+side, order type, current price, current quantity, and target identity. Pause,
+ignore, and replan plans remain non-executable until their specific policies
+exist. Order `ADOPT` is not exchange-executable; it can publish a projection
+ownership-transfer acknowledgement only when
+`order_adoption_acknowledgement_enabled=true`.
 
 Preview the remediation executor reports for persisted remediation decisions:
 
@@ -789,13 +794,15 @@ curl -X POST \
 ```
 
 This endpoint is still policy-gated. It submits only eligible `CANCEL_ORDER`,
-`CLOSE_POSITION`, and `REDUCE_POSITION` plans, and only when
+`CLOSE_POSITION`, `REDUCE_POSITION`, and `AMEND_ORDER` plans, and only when
 `remediation_executor_policy.enabled=true`,
 `exchange_execution_enabled=true`, `report_only=false`, the exact operation is
 in `allowed_operations`, the target identity is present, and the normal order
 execution pipeline is enabled. Position close/reduce submissions are `NEW`
 `MARKET` orders with the opposite side, bounded quantity, `positionSide=BOTH`,
-`reduceOnly=true`, and `closePosition=false`. It returns
+`reduceOnly=true`, and `closePosition=false`. Managed amendment submissions are
+`MODIFY` commands with the projected side/order type and requested or retained
+price/quantity. It returns
 `SUBMITTED_TO_PIPELINE` after the command has been accepted by the pipeline; the
 final risk decision and order result are recorded through the normal event path.
 
@@ -812,8 +819,9 @@ demo operation, enables the execution pipeline, configures the signal planner's
 default target as `binance/demo/main/usdm_futures` with `BTCUSDT`, enables
 automated remediation policy for external order close decisions, enables the
 scheduled remediation runner, and enables the executor policy for the currently
-supported `CANCEL_ORDER`, `CLOSE_POSITION`, and `REDUCE_POSITION` remediation
-paths. The same checked-in runtime file is loaded before Spring creates
+supported `CANCEL_ORDER`, `CLOSE_POSITION`, `REDUCE_POSITION`, and
+`AMEND_ORDER` remediation paths. The same checked-in runtime file is loaded
+before Spring creates
 conditional runtime services, so these `trading.*` values drive both external
 runtime config and Spring-managed service activation.
 Command-line arguments and OS environment variables still override the checked-in
@@ -841,7 +849,8 @@ The remediation execution portion of that runtime override is:
         "allowed_operations": [
           "CANCEL_ORDER",
           "CLOSE_POSITION",
-          "REDUCE_POSITION"
+          "REDUCE_POSITION",
+          "AMEND_ORDER"
         ],
         "position_order_policy": {
           "one_way_reduce_only_enabled": true,
@@ -854,6 +863,15 @@ The remediation execution portion of that runtime override is:
           "required_margin_type": "cross",
           "min_leverage": "1",
           "max_leverage": "5"
+        },
+        "managed_order_amendment_policy": {
+          "enabled": true,
+          "allowed_symbols": [
+            "BTCUSDT"
+          ],
+          "max_quantity_decrease_fraction": "0.50",
+          "max_price_drift_fraction": "0.02",
+          "max_projection_age_millis": 30000
         }
       }
     }
@@ -862,9 +880,10 @@ The remediation execution portion of that runtime override is:
 ```
 
 This checked-in override does not make every remediation action executable. It
-only allows the executor to submit currently supported cancel and one-way
-reduce-only position plans through the normal order execution pipeline when all
-projection, identity, freshness, risk, policy, and idempotency gates pass. The
+only allows the executor to submit currently supported cancel, one-way
+reduce-only position, and bounded managed-order amendment plans through the
+normal order execution pipeline when all projection, identity, freshness, risk,
+policy, and idempotency gates pass. The
 remaining position-order policy fields are inherited from the catalog defaults:
 `provider=binance`, `market=usdm_futures`, `position_side=BOTH`,
 `order_type=MARKET`, `require_reduce_only=true`,
@@ -887,6 +906,17 @@ Change those runtime values before
 first start if the demo target should use a different symbol, cap, margin mode,
 leverage, exposure budget, loss budget, account equity floor, margin drawdown
 budget, or account margin-utilization limit.
+
+Managed-order amendment policy fields are also inherited from catalog defaults
+unless overridden. The checked-in demo runtime enables amendments only for
+bot-created BTCUSDT `LIMIT` orders, permits `PRICE` and `QUANTITY`, rejects
+quantity increases, permits quantity decreases up to 50%, caps price drift at
+2%, rejects projections older than 30 seconds, and allows only projected
+`ACCEPTED` or `PARTIALLY_FILLED` target orders. The runtime file overrides only
+values that differ from the catalog default; inherited catalog defaults still
+define allowed order type, allowed fields, quantity direction, stale-projection
+rejection, open-order status enforcement, exchange-order-id requirement, and
+allowed statuses.
 
 Hedge-mode `LONG` or `SHORT` position close/reduce command construction is
 implemented, but the checked-in demo runtime keeps it disabled. Enabling it
@@ -1538,21 +1568,25 @@ Default intervention config:
 The executor policy defaults describe a safe startup state. Demo-live exchange
 execution is a runtime override state: set `enabled=true`,
 `exchange_execution_enabled=true`, `report_only=false`, and allow the exact
-operation, currently `CANCEL_ORDER`, `CLOSE_POSITION`, or `REDUCE_POSITION`,
-plus `position_order_policy.one_way_reduce_only_enabled=true` for one-way
-position remediation. For the checked-in demo runtime, position remediation is
+operation, currently `CANCEL_ORDER`, `CLOSE_POSITION`, `REDUCE_POSITION`, or
+`AMEND_ORDER`, plus `position_order_policy.one_way_reduce_only_enabled=true` for
+one-way position remediation and
+`managed_order_amendment_policy.enabled=true` for bounded managed-order
+amendments. For the checked-in demo runtime, position remediation is
 also restricted to `allowed_symbols=["BTCUSDT"]`, `max_position_quantity=0.001`,
 `chunk_close_when_max_quantity_exceeded=true`, `max_position_notional=250`,
 `required_margin_type=cross`, `min_leverage=1`, and `max_leverage=5` before
 using
 `POST /internal/interventions/remediation/executor/execute`.
 
-Managed order amendment planning is also configurable, but it is not executable
-yet. An `AMEND` remediation decision can be policy-qualified or blocked by
+Managed order amendment planning and execution are also configurable. An
+`AMEND` remediation decision can be policy-qualified or blocked by
 `managed_order_amendment_policy`, including allowed fields, order type, symbol,
-ownership, drift limits, and stale projection age. Even when qualified, the plan
-remains `exchangeExecutable=false` until amend command construction,
-cancel/replace fallback, reconciliation, and rollback behavior are implemented.
+ownership, drift limits, and stale projection age. When qualified, the executor
+builds a `MODIFY` command with projected side/order type and requested or
+retained price/quantity, then submits it through the normal order execution
+pipeline. Cancel/replace fallback remains unimplemented, so unsupported
+amendment shapes are blocked instead of replaced.
 
 The system can track and expose:
 
@@ -1726,12 +1760,12 @@ Current automated remediation execution state:
   auditable acknowledgement with adoption metadata. Projection replay then marks
   that order as bot-managed and clears the external intervention.
 
-As of this version, external order `CLOSE`, position `CLOSE`, and bounded
-position `REDUCE` remediation can become `exchangeExecutable=true` when the
-executor and matching position-order policy are enabled. External order `ADOPT`
-can become a projection ownership transfer when its orchestrator switch is
-enabled. The codebase still does not directly amend orders or hedge positions
-from remediation plans.
+As of this version, external order `CLOSE`, position `CLOSE`, bounded position
+`REDUCE`, and managed order `AMEND` remediation can become
+`exchangeExecutable=true` when the executor and matching operation policy are
+enabled. External order `ADOPT` can become a projection ownership transfer when
+its orchestrator switch is enabled. Hedge-position command construction also
+exists behind explicit hedge-mode policy switches.
 
 The remediation executor policy is the configuration boundary for the future
 executor. It is disabled by default and cannot allow exchange execution unless

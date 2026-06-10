@@ -946,6 +946,25 @@ class OrderRiskGateTest {
                 .containsEntry("target_order_external_intervention", "true");
     }
 
+    @Test
+    void approves_managed_remediation_amend_for_managed_external_intervention_target() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithTargetOrder(
+                "tb-lfa-open",
+                OrderResultStatus.ACCEPTED.name(),
+                true,
+                true
+        )).evaluate(managedRemediationAmendCommand("tb-lfa-open"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_managed_remediation_amend", "true")
+                .containsEntry("target_order_external_intervention", "true")
+                .containsEntry("target_order_managed_by_bot", "true");
+    }
+
     private OrderRiskGate gate(ExecutionProperties properties) {
         return new OrderRiskGate(properties, reconciliationTracker, clock);
     }
@@ -1481,6 +1500,22 @@ class OrderRiskGateTest {
                         "remediation_scope", "ORDER",
                         "remediation_action", "CLOSE",
                         "remediation_operation", "CANCEL_ORDER",
+                        "target_client_order_id", targetClientOrderId
+                ))
+                .build();
+    }
+
+    private OrderCommandEvent managedRemediationAmendCommand(String targetClientOrderId) {
+        return OrderCommandEvent.newBuilder(modifyCommand(targetClientOrderId))
+                .setCommandId("remediation-command:remediation-001:amend-order")
+                .setClientOrderId("rm-amd-remediation-001")
+                .setAttributes(Map.of(
+                        "command_source", "intervention_remediation_executor",
+                        "remediation_id", "remediation-001",
+                        "remediation_scope", "ORDER",
+                        "remediation_action", "AMEND",
+                        "remediation_operation", "AMEND_ORDER",
+                        "amendment_execution_mode", "managed_order_modify",
                         "target_client_order_id", targetClientOrderId
                 ))
                 .build();

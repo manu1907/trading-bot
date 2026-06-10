@@ -44,7 +44,11 @@ class JdbcTradingStateProjectionStoreTest {
                     assertThat(position.positionMode()).isEqualTo("HEDGE");
                 });
         assertThat(loaded.get().orders()).singleElement()
-                .satisfies(order -> assertThat(order.exchangeStatus()).isEqualTo("NEW"));
+                .satisfies(order -> {
+                    assertThat(order.exchangeStatus()).isEqualTo("NEW");
+                    assertThat(order.side()).isEqualTo("BUY");
+                    assertThat(order.orderType()).isEqualTo("LIMIT");
+                });
         assertThat(loaded.get().risks()).singleElement()
                 .satisfies(risk -> {
                     assertThat(risk.delta()).isEqualTo("-0.01304097");
@@ -160,6 +164,8 @@ class JdbcTradingStateProjectionStoreTest {
                         "12345",
                         "ACCEPTED",
                         "NEW",
+                        "BUY",
+                        "LIMIT",
                         "100",
                         "0.10",
                         "0",

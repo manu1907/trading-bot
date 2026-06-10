@@ -189,7 +189,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
 
     private List<TradingStateProjection.OrderState> loadOrders(Connection connection) throws SQLException {
         String sql = "select provider, environment, account, market, symbol, command_id, client_order_id, exchange_order_id,"
-                + " status, exchange_status, price, original_quantity, executed_quantity, average_price,"
+                + " status, exchange_status, side, order_type, price, original_quantity, executed_quantity, average_price,"
                 + " cumulative_quote, update_source, execution_type, managed_by_bot, external_intervention,"
                 + " intervention_reason, updated_at, event_id from "
                 + table("orders")
@@ -208,6 +208,8 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         rows.getString("exchange_order_id"),
                         rows.getString("status"),
                         rows.getString("exchange_status"),
+                        rows.getString("side"),
+                        rows.getString("order_type"),
                         rows.getString("price"),
                         rows.getString("original_quantity"),
                         rows.getString("executed_quantity"),
@@ -470,10 +472,10 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
         String sql = "insert into "
                 + table("orders")
                 + " (state_key, provider, environment, account, market, symbol, command_id, client_order_id,"
-                + " exchange_order_id, status, exchange_status, price, original_quantity, executed_quantity,"
+                + " exchange_order_id, status, exchange_status, side, order_type, price, original_quantity, executed_quantity,"
                 + " average_price, cumulative_quote, update_source, execution_type, managed_by_bot,"
                 + " external_intervention, intervention_reason, updated_at, event_id)"
-                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (TradingStateProjection.OrderState state : states) {
                 int index = 1;
@@ -495,6 +497,8 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                 statement.setString(index++, state.exchangeOrderId());
                 statement.setString(index++, state.status());
                 statement.setString(index++, state.exchangeStatus());
+                statement.setString(index++, state.side());
+                statement.setString(index++, state.orderType());
                 statement.setString(index++, state.price());
                 statement.setString(index++, state.originalQuantity());
                 statement.setString(index++, state.executedQuantity());
@@ -753,12 +757,14 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         + "market varchar(128) not null, symbol varchar(128) not null,"
                         + "command_id varchar(512), client_order_id varchar(256) not null,"
                         + "exchange_order_id varchar(256), status varchar(64), exchange_status varchar(64),"
-                        + "price varchar(128),"
+                        + "side varchar(32), order_type varchar(64), price varchar(128),"
                         + "original_quantity varchar(128), executed_quantity varchar(128),"
                         + "average_price varchar(128), cumulative_quote varchar(128), update_source varchar(64),"
                         + "execution_type varchar(64), managed_by_bot boolean not null default false,"
                         + "external_intervention boolean not null default false, intervention_reason varchar(256),"
                         + "updated_at varchar(64) not null, event_id varchar(512))",
+                "alter table " + table("orders") + " add column if not exists side varchar(32)",
+                "alter table " + table("orders") + " add column if not exists order_type varchar(64)",
                 "create table if not exists " + table("risks") + " ("
                         + "state_key varchar(512) primary key, provider varchar(64) not null,"
                         + "environment varchar(64) not null, account varchar(128) not null,"

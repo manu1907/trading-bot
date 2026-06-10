@@ -238,14 +238,17 @@ public final class InterventionRemediationExecutorService {
             return report(plan, ExecutionStatus.BLOCKED, "executor:order_execution_pipeline_missing", attributes);
         }
         if (plan.operation() != InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER
+                && plan.operation() != InterventionRemediationCommandPlanner.Operation.AMEND_ORDER
                 && plan.operation() != InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION
                 && plan.operation() != InterventionRemediationCommandPlanner.Operation.REDUCE_POSITION
                 && plan.operation() != InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION) {
             return report(plan, ExecutionStatus.BLOCKED, "executor:operation_execution_not_implemented", attributes);
         }
-        OrderCommandEvent command = plan.operation() == InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER
-                ? cancelOrderCommand(plan, attributes)
-                : positionRemediationOrderCommand(plan, attributes);
+        OrderCommandEvent command = switch (plan.operation()) {
+            case CANCEL_ORDER -> cancelOrderCommand(plan, attributes);
+            case AMEND_ORDER -> amendOrderCommand(plan, attributes);
+            default -> positionRemediationOrderCommand(plan, attributes);
+        };
         try {
             orderExecutionPipeline.handleOrderCommand(command).join();
         } catch (RuntimeException exception) {
@@ -265,6 +268,7 @@ public final class InterventionRemediationExecutorService {
         put(attributes, "executor_submitted_position_side",
                 command.getPositionSide() == null ? null : command.getPositionSide().name());
         put(attributes, "executor_submitted_quantity", command.getQuantity());
+        put(attributes, "executor_submitted_price", command.getPrice());
         attributes.put("executor_submitted_reduce_only", Boolean.toString(Boolean.TRUE.equals(command.getReduceOnly())));
         attributes.put("executor_submitted_close_position",
                 Boolean.toString(Boolean.TRUE.equals(command.getClosePosition())));
@@ -310,6 +314,61 @@ public final class InterventionRemediationExecutorService {
                 .setQuantity(null)
                 .setQuoteOrderQuantity(null)
                 .setPrice(null)
+                .setStopPrice(null)
+                .setActivationPrice(null)
+                .setCallbackRate(null)
+                .setReduceOnly(false)
+                .setClosePosition(false)
+                .setClientOrderId(commandClientOrderId)
+                .setIdempotencyKey(commandId)
+                .setRequestedAtMicros(Instant.now(clock))
+                .setAttributes(Map.copyOf(attributes))
+                .build();
+    }
+
+    private OrderCommandEvent amendOrderCommand(
+            InterventionRemediationCommandPlanner.RemediationCommandPlan plan,
+            Map<String, String> reportAttributes
+    ) {
+        String remediationId = requireText(plan.remediationId(), "remediationId");
+        String commandId = "remediation-command:" + remediationId + ":amend-order";
+        String commandClientOrderId = "rm-amd-" + safeId(remediationId);
+        String targetExchangeOrderId = text(plan.attributes().get("target_exchange_order_id"));
+        String side = requireText(plan.attributes().get("amendment_command_side"), "amendmentCommandSide");
+        String orderType = requireText(plan.attributes().get("amendment_command_order_type"), "amendmentCommandOrderType");
+        String quantity = requireText(plan.attributes().get("amendment_command_quantity"), "amendmentCommandQuantity");
+        String price = requireText(plan.attributes().get("amendment_command_price"), "amendmentCommandPrice");
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.putAll(plan.attributes());
+        attributes.put("command_source", COMMAND_SOURCE);
+        attributes.put("remediation_operation", plan.operation().name());
+        attributes.put("remediation_executor_policy_enabled", Boolean.toString(policy.enabled()));
+        attributes.put("target_client_order_id", requireText(plan.clientOrderId(), "clientOrderId"));
+        if (targetExchangeOrderId != null) {
+            attributes.put("target_exchange_order_id", targetExchangeOrderId);
+        }
+        reportAttributes.put("executor_command_id", commandId);
+        reportAttributes.put("executor_command_client_order_id", commandClientOrderId);
+        return OrderCommandEvent.newBuilder()
+                .setEventId(commandId)
+                .setSchemaVersion(1)
+                .setCommandId(commandId)
+                .setStrategyId(STRATEGY_ID)
+                .setProvider(requireText(plan.provider(), "provider"))
+                .setEnvironment(requireText(plan.environment(), "environment"))
+                .setAccount(requireText(plan.account(), "account"))
+                .setMarket(requireText(plan.market(), "market"))
+                .setSymbol(requireText(plan.symbol(), "symbol"))
+                .setAction(OrderCommandAction.MODIFY)
+                .setTargetClientOrderId(requireText(plan.clientOrderId(), "clientOrderId"))
+                .setTargetExchangeOrderId(targetExchangeOrderId)
+                .setSide(OrderCommandSide.valueOf(side))
+                .setOrderType(OrderCommandType.valueOf(orderType))
+                .setPositionSide(null)
+                .setTimeInForce(null)
+                .setQuantity(quantity)
+                .setQuoteOrderQuantity(null)
+                .setPrice(price)
                 .setStopPrice(null)
                 .setActivationPrice(null)
                 .setCallbackRate(null)

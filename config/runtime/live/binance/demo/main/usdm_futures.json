@@ -76,7 +76,8 @@
         "allowed_operations": [
           "CANCEL_ORDER",
           "CLOSE_POSITION",
-          "REDUCE_POSITION"
+          "REDUCE_POSITION",
+          "AMEND_ORDER"
         ],
         "position_order_policy": {
           "one_way_reduce_only_enabled": true,
@@ -89,6 +90,15 @@
           "required_margin_type": "cross",
           "min_leverage": "1",
           "max_leverage": "5"
+        },
+        "managed_order_amendment_policy": {
+          "enabled": true,
+          "allowed_symbols": [
+            "BTCUSDT"
+          ],
+          "max_quantity_decrease_fraction": "0.50",
+          "max_price_drift_fraction": "0.02",
+          "max_projection_age_millis": 30000
         }
       }
     }

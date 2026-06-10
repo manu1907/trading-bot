@@ -594,6 +594,8 @@ public final class TradingStateProjection implements TradingEventHandler {
                 firstText(target.exchangeOrderId(), current == null ? null : current.exchangeOrderId()),
                 "COMMAND_RECEIVED",
                 current == null ? null : current.exchangeStatus(),
+                event.getSide() == null ? current == null ? null : current.side() : event.getSide().name(),
+                event.getOrderType() == null ? current == null ? null : current.orderType() : event.getOrderType().name(),
                 firstText(value(event.getPrice()), current == null ? null : current.price()),
                 firstText(value(event.getQuantity()), current == null ? null : current.originalQuantity()),
                 current == null ? null : current.executedQuantity(),
@@ -679,6 +681,8 @@ public final class TradingStateProjection implements TradingEventHandler {
                 firstText(target.exchangeOrderId(), event.getExchangeOrderId()),
                 event.getStatus() == null ? null : event.getStatus().name(),
                 value(event.getExchangeStatus()),
+                current == null ? null : current.side(),
+                current == null ? null : current.orderType(),
                 value(event.getPrice()),
                 value(event.getOriginalQuantity()),
                 value(event.getExecutedQuantity()),
@@ -818,6 +822,8 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getExchangeOrderId()),
                 value(event.getOrderStatus()),
                 value(event.getOrderStatus()),
+                value(event.getSide()),
+                value(event.getOrderType()),
                 firstText(attribute(event, "orderPrice"), event.getLastExecutedPrice()),
                 attribute(event, "orderQuantity"),
                 value(event.getCumulativeFilledQuantity()),
@@ -1189,6 +1195,8 @@ public final class TradingStateProjection implements TradingEventHandler {
                     current.exchangeOrderId(),
                     current.status(),
                     current.exchangeStatus(),
+                    current.side(),
+                    current.orderType(),
                     current.price(),
                     current.originalQuantity(),
                     current.executedQuantity(),
@@ -1724,6 +1732,8 @@ public final class TradingStateProjection implements TradingEventHandler {
             String exchangeOrderId,
             String status,
             String exchangeStatus,
+            String side,
+            String orderType,
             String price,
             String originalQuantity,
             String executedQuantity,
@@ -1740,6 +1750,58 @@ public final class TradingStateProjection implements TradingEventHandler {
         public OrderState {
             managedByBot = Boolean.TRUE.equals(managedByBot);
             externalIntervention = Boolean.TRUE.equals(externalIntervention);
+        }
+
+        public OrderState(
+                String provider,
+                String environment,
+                String account,
+                String market,
+                String symbol,
+                String commandId,
+                String clientOrderId,
+                String exchangeOrderId,
+                String status,
+                String exchangeStatus,
+                String price,
+                String originalQuantity,
+                String executedQuantity,
+                String averagePrice,
+                String cumulativeQuote,
+                String updateSource,
+                String executionType,
+                Boolean managedByBot,
+                Boolean externalIntervention,
+                String interventionReason,
+                Instant updatedAt,
+                String eventId
+        ) {
+            this(
+                    provider,
+                    environment,
+                    account,
+                    market,
+                    symbol,
+                    commandId,
+                    clientOrderId,
+                    exchangeOrderId,
+                    status,
+                    exchangeStatus,
+                    null,
+                    null,
+                    price,
+                    originalQuantity,
+                    executedQuantity,
+                    averagePrice,
+                    cumulativeQuote,
+                    updateSource,
+                    executionType,
+                    managedByBot,
+                    externalIntervention,
+                    interventionReason,
+                    updatedAt,
+                    eventId
+            );
         }
 
         public boolean unknownStatus() {

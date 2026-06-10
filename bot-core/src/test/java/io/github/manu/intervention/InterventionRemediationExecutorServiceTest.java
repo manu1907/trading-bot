@@ -164,6 +164,73 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     @Test
+    void submits_managed_order_amend_remediation_modify_through_execution_pipeline_when_policy_allows() {
+        restoreManagedAmendRemediationDecisionWithOrder();
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        ReconciliationConfidenceTracker reconciliationTracker =
+                new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
+        reconciliationTracker.record(new ReconciliationObservation(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                TradingEventType.ORDER_RESULT,
+                "binance|demo|main|usd_m_futures|BTCUSDT|client-1",
+                ReconciliationConfidenceStatus.CONFIDENT,
+                List.of()
+        ));
+        OrderExecutionPipeline pipeline = new OrderExecutionPipeline(
+                new OrderRiskGate(new ExecutionProperties(null), reconciliationTracker, projection),
+                eventBus,
+                List.of(new AmendGateway())
+        );
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy()
+        );
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service(liveAmendPolicy(), pipeline, amendPlanner)
+                        .execute("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isZero();
+        assertThat(batch.submittedCount()).isEqualTo(1);
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.status())
+                    .isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.SUBMITTED_TO_PIPELINE);
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
+            assertThat(report.exchangeExecutable()).isTrue();
+            assertThat(report.attributes())
+                    .containsEntry("executor_submitted_command_id", "remediation-command:remediation-amend-1:amend-order")
+                    .containsEntry("executor_submitted_client_order_id", "rm-amd-remediation-amend-1")
+                    .containsEntry("executor_submitted_target_client_order_id", "client-1")
+                    .containsEntry("executor_submitted_target_exchange_order_id", "exchange-client-1")
+                    .containsEntry("executor_submitted_side", "BUY")
+                    .containsEntry("executor_submitted_order_type", "LIMIT")
+                    .containsEntry("executor_submitted_quantity", "0.0009")
+                    .containsEntry("executor_submitted_price", "49950.00");
+        });
+        assertThat(eventBus.values(RiskDecisionEvent.class))
+                .singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+                    assertThat(decision.getAttributes())
+                            .containsEntry("target_order_managed_remediation_amend", "true")
+                            .containsEntry("target_order_external_intervention", "true");
+                });
+        assertThat(eventBus.values(OrderResultEvent.class))
+                .singleElement()
+                .satisfies(result -> {
+                    assertThat(result.getStatus()).isEqualTo(OrderResultStatus.ACCEPTED);
+                    assertThat(result.getClientOrderId()).hasToString("client-1");
+                    assertThat(result.getPrice()).hasToString("49950.00");
+                    assertThat(result.getOriginalQuantity()).hasToString("0.0009");
+                });
+    }
+
+    @Test
     void submits_position_close_remediation_as_reduce_only_market_order_through_execution_pipeline_when_policy_allows() {
         restorePositionCloseRemediationDecision("0.25", "CLOSE", Map.of());
         CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
@@ -424,6 +491,27 @@ class InterventionRemediationExecutorServiceTest {
         return livePositionPolicy(InterventionProperties.ExecutableOperation.CANCEL_ORDER);
     }
 
+    private InterventionProperties.RemediationExecutorPolicy liveAmendPolicy() {
+        return new InterventionProperties.RemediationExecutorPolicy(
+                true,
+                true,
+                false,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                25,
+                List.of(InterventionProperties.ExecutableOperation.AMEND_ORDER),
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy()
+        );
+    }
+
     private InterventionProperties.RemediationExecutorPolicy livePositionPolicy(
             InterventionProperties.ExecutableOperation operation
     ) {
@@ -522,6 +610,30 @@ class InterventionRemediationExecutorServiceTest {
         );
     }
 
+    private static InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy() {
+        return new InterventionProperties.ManagedOrderAmendmentPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                true,
+                false,
+                List.of("BTCUSDT"),
+                List.of("LIMIT"),
+                List.of("PRICE", "QUANTITY"),
+                false,
+                true,
+                null,
+                "0.50",
+                "0.02",
+                false,
+                true,
+                30_000L,
+                true,
+                false,
+                List.of("ACCEPTED", "PARTIALLY_FILLED")
+        );
+    }
+
     private static InterventionProperties.PositionOrderPolicy hedgePositionOrderPolicy() {
         return new InterventionProperties.PositionOrderPolicy(
                 true,
@@ -599,6 +711,65 @@ class InterventionRemediationExecutorServiceTest {
                 List.of(),
                 List.of(orderDecision(clientOrderId, remediationId, eventId)),
                 List.of(eventId)
+        ));
+    }
+
+    private void restoreManagedAmendRemediationDecisionWithOrder() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "cmd-managed-1",
+                        "client-1",
+                        "exchange-client-1",
+                        "ACCEPTED",
+                        "NEW",
+                        "BUY",
+                        "LIMIT",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "USER_DATA",
+                        "AMENDMENT",
+                        true,
+                        true,
+                        "unplanned_managed_order_change",
+                        NOW.minusSeconds(1),
+                        "evt-managed-order-intervention"
+                )),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.RemediationDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "remediation-amend-1",
+                        "ORDER",
+                        "AMEND",
+                        "client-1",
+                        null,
+                        "unplanned_managed_order_change",
+                        List.of("intervention:unplanned_managed_order_change"),
+                        "automated_remediation_policy",
+                        "policy action selected",
+                        Map.of(
+                                "target_order_type", "LIMIT",
+                                "amend_price", "49950.00",
+                                "amend_quantity", "0.0009"
+                        ),
+                        NOW.minusSeconds(1),
+                        "evt-remediation-amend-1"
+                )),
+                List.of("evt-remediation-amend-1")
         ));
     }
 
@@ -755,6 +926,8 @@ class InterventionRemediationExecutorServiceTest {
                 "exchange-" + clientOrderId,
                 "ACCEPTED",
                 "NEW",
+                "BUY",
+                "LIMIT",
                 "50000.00",
                 "0.001",
                 "0",
@@ -864,6 +1037,59 @@ class InterventionRemediationExecutorServiceTest {
                     .setRejectCode(null)
                     .setRejectMessage(null)
                     .setAttributes(Map.of("source", "test-cancel-gateway"))
+                    .build();
+            return CompletableFuture.completedFuture(TradingEventEnvelope.of(
+                    TradingEventType.ORDER_RESULT,
+                    TradingEventKeys.order(
+                            TradingEventType.ORDER_RESULT,
+                            command.getProvider().toString(),
+                            command.getEnvironment().toString(),
+                            command.getAccount().toString(),
+                            command.getMarket().toString(),
+                            command.getSymbol().toString(),
+                            command.getTargetClientOrderId().toString()
+                    ),
+                    result
+            ));
+        }
+    }
+
+    private static final class AmendGateway implements OrderExecutionGateway {
+
+        @Override
+        public boolean supports(String provider, String environment, String account, String market) {
+            return true;
+        }
+
+        @Override
+        public CompletableFuture<TradingEventEnvelope<OrderResultEvent>> submit(OrderCommandEvent command) {
+            OrderResultEvent result = OrderResultEvent.newBuilder()
+                    .setEventId("order-result:" + command.getCommandId() + ":amended")
+                    .setSchemaVersion(1)
+                    .setCommandId(command.getCommandId())
+                    .setProvider(command.getProvider())
+                    .setEnvironment(command.getEnvironment())
+                    .setAccount(command.getAccount())
+                    .setMarket(command.getMarket())
+                    .setSymbol(command.getSymbol())
+                    .setClientOrderId(command.getTargetClientOrderId())
+                    .setExchangeOrderId(command.getTargetExchangeOrderId())
+                    .setStatus(OrderResultStatus.ACCEPTED)
+                    .setExchangeStatus("NEW")
+                    .setPrice(command.getPrice())
+                    .setOriginalQuantity(command.getQuantity())
+                    .setExecutedQuantity("0")
+                    .setAveragePrice(null)
+                    .setCumulativeQuote(null)
+                    .setExchangeTransactTimeMicros(NOW)
+                    .setObservedAtMicros(NOW)
+                    .setRejectCode(null)
+                    .setRejectMessage(null)
+                    .setAttributes(Map.of(
+                            "source", "test-amend-gateway",
+                            "target_client_order_id", command.getTargetClientOrderId().toString(),
+                            "target_exchange_order_id", command.getTargetExchangeOrderId().toString()
+                    ))
                     .build();
             return CompletableFuture.completedFuture(TradingEventEnvelope.of(
                     TradingEventType.ORDER_RESULT,
