@@ -171,6 +171,21 @@ public final class TradingStateProjection implements TradingEventHandler {
                 .anyMatch(PositionState::open);
     }
 
+    public List<PositionState> openPositionStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        String prefix = key(provider, environment, account, market);
+        return positions.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .filter(PositionState::open)
+                .toList();
+    }
+
     public long externalOrderInterventions(String provider, String environment, String account, String market) {
         return externalOrderInterventionStates(provider, environment, account, market).size();
     }

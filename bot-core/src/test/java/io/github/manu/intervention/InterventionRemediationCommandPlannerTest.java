@@ -289,6 +289,8 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         null,
                         null,
+                        null,
+                        null,
                         true
                 )
         );
@@ -500,6 +502,49 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("account_margin_utilization", "0.85")
                 .containsEntry("position_order_max_account_margin_utilization", "0.80")
                 .containsEntry("exchange_execution_blocker", "position_order_account_margin_utilization_exceeded")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void allows_position_close_when_it_reduces_exposure_below_symbol_notional_cap() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                exposurePositionOrderPolicy(null, "1000", false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_symbol_position_notional", "1000")
+                .containsEntry("current_symbol_position_notional", "12502.5")
+                .containsEntry("projected_symbol_position_notional", "0")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void keeps_position_hedge_non_executable_when_projected_account_exposure_exceeds_cap() {
+        restorePositionIntervention("0.25", true, "LONG", "5", "cross", "HEDGE");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                exposurePositionOrderPolicy("20000", null, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("HEDGE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_account_position_notional", "20000")
+                .containsEntry("current_account_position_notional", "12502.5")
+                .containsEntry("projected_account_position_notional", "25005")
+                .containsEntry("exchange_execution_blocker", "position_order_account_position_notional_exceeded")
                 .containsEntry("exchange_executable", "false");
     }
 
@@ -819,6 +864,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 true
         );
     }
@@ -844,6 +891,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 true
         );
     }
@@ -864,6 +913,8 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 null,
                 true,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -921,7 +972,40 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 minLeverage,
                 maxLeverage,
+                null,
+                null,
                 maxAccountMarginUtilization,
+                true
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy exposurePositionOrderPolicy(
+            String maxAccountPositionNotional,
+            String maxSymbolPositionNotional,
+            boolean hedgePositionOrderEnabled
+    ) {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                hedgePositionOrderEnabled,
+                hedgePositionOrderEnabled,
+                List.of("BTCUSDT"),
+                null,
+                false,
+                null,
+                true,
+                "cross",
+                "HEDGE",
+                "1",
+                "10",
+                maxAccountPositionNotional,
+                maxSymbolPositionNotional,
+                null,
                 true
         );
     }
@@ -948,6 +1032,8 @@ class InterventionRemediationCommandPlannerTest {
                 chunkClose,
                 maxNotional,
                 rejectUnboundedNotional,
+                null,
+                null,
                 null,
                 null,
                 null,

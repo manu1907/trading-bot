@@ -86,6 +86,9 @@ Position plans remain non-executable when any configured policy gate fails, incl
 - projected leverage missing while leverage bounds are configured and `reject_missing_account_risk_metadata=true`
 - projected leverage below `min_leverage`
 - projected leverage above `max_leverage`
+- projected gross account position notional above `max_account_position_notional` when the plan would not reduce current account exposure
+- projected gross symbol position notional above `max_symbol_position_notional` when the plan would not reduce current symbol exposure
+- missing or invalid projected position mark price while exposure caps are configured and `reject_unbounded_position_notional=true`
 - projected account margin-utilization above `max_account_margin_utilization`
 - projected account margin risk missing or invalid while `max_account_margin_utilization` is configured and `reject_missing_account_risk_metadata=true`
 - missing or mismatched hedge-mode position metadata while `required_position_mode=HEDGE`
@@ -150,6 +153,8 @@ Catalog defaults keep these fields explicit and overridable:
 - `trading.intervention.remediation_executor_policy.position_order_policy.required_position_mode=HEDGE`
 - `trading.intervention.remediation_executor_policy.position_order_policy.min_leverage=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_leverage=null`
+- `trading.intervention.remediation_executor_policy.position_order_policy.max_account_position_notional=null`
+- `trading.intervention.remediation_executor_policy.position_order_policy.max_symbol_position_notional=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_utilization=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata=true`
 
@@ -158,7 +163,7 @@ Catalog defaults keep these fields explicit and overridable:
 Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
-- Broader account-level and symbol-level risk budgets, exposure caps, drawdown limits, and daily loss limits beyond the current optional account margin-utilization cap.
+- Broader account-level and symbol-level risk budgets, drawdown limits, and daily loss limits beyond the current optional projected exposure and account margin-utilization caps.
 - External order adoption and managed amendment policies.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.

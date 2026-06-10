@@ -1467,6 +1467,10 @@ Default intervention config:
   `HEDGE`
 - `remediation_executor_policy.position_order_policy.min_leverage`: `null`
 - `remediation_executor_policy.position_order_policy.max_leverage`: `null`
+- `remediation_executor_policy.position_order_policy.max_account_position_notional`:
+  `null`
+- `remediation_executor_policy.position_order_policy.max_symbol_position_notional`:
+  `null`
 - `remediation_executor_policy.position_order_policy.max_account_margin_utilization`:
   `null`
 - `remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata`:
@@ -1596,6 +1600,14 @@ Current automated remediation execution state:
   `required_margin_type`, `min_leverage`, or `max_leverage` does not match the
   projected futures account metadata. If the metadata is missing and
   `reject_missing_account_risk_metadata=true`, the plan is also blocked.
+- Position close/reduce/hedge plans remain non-executable when
+  `max_account_position_notional` or `max_symbol_position_notional` is
+  configured and the projected gross account or symbol position notional would
+  exceed the configured cap without reducing the current exposure. The planner
+  uses projected open positions and mark prices for this check, so risk-reducing
+  close/reduce plans can still proceed even if current exposure is already above
+  the cap. If required mark-price data is missing or invalid and
+  `reject_unbounded_position_notional=true`, the plan is blocked.
 - Position close/reduce plans remain non-executable when
   `max_account_margin_utilization` is configured and the projected account
   maintenance-margin-to-margin-balance ratio exceeds that cap. If account

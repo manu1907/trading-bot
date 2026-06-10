@@ -221,7 +221,7 @@ public final class InterventionRemediationCommandPlanner {
         }
         attributes.put("reduce_only_required", Boolean.toString(size.reduceOnlyRequired()));
         attributes.put("hedge_mode_required", Boolean.toString(size.hedgeModeRequired()));
-        putPositionOrderRiskPolicyAttributes(attributes, position, size);
+        putPositionOrderRiskPolicyAttributes(attributes, position, operation, size);
         PositionOrderExecutionPolicy executionPolicy = positionOrderExecutionPolicy(event, position, operation, size);
         attributes.put("position_order_type", "MARKET");
         attributes.put("position_order_reduce_only", Boolean.toString(executionPolicy.reduceOnly()));
@@ -258,6 +258,7 @@ public final class InterventionRemediationCommandPlanner {
     private void putPositionOrderRiskPolicyAttributes(
             Map<String, String> attributes,
             TradingStateProjection.PositionState position,
+            Operation operation,
             PositionRemediationSize size
     ) {
         if (!positionOrderPolicy.allowedSymbols().isEmpty()) {
@@ -269,7 +270,16 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "position_order_required_position_mode", positionOrderPolicy.requiredPositionMode());
         put(attributes, "position_order_min_leverage", positionOrderPolicy.minLeverage());
         put(attributes, "position_order_max_leverage", positionOrderPolicy.maxLeverage());
+        put(attributes, "position_order_max_account_position_notional", positionOrderPolicy.maxAccountPositionNotional());
+        put(attributes, "position_order_max_symbol_position_notional", positionOrderPolicy.maxSymbolPositionNotional());
         put(attributes, "position_order_max_account_margin_utilization", positionOrderPolicy.maxAccountMarginUtilization());
+        PositionExposure exposure = projectedPositionExposure(position, operation, size);
+        if (exposure.valid()) {
+            attributes.put("current_account_position_notional", normalize(exposure.currentAccountNotional()));
+            attributes.put("current_symbol_position_notional", normalize(exposure.currentSymbolNotional()));
+            attributes.put("projected_account_position_notional", normalize(exposure.projectedAccountNotional()));
+            attributes.put("projected_symbol_position_notional", normalize(exposure.projectedSymbolNotional()));
+        }
         projection.risk(
                         position.provider(),
                         position.environment(),
@@ -326,7 +336,7 @@ public final class InterventionRemediationCommandPlanner {
         if (!positionOrderPolicy.requireClosePositionFalse()) {
             return PositionOrderExecutionPolicy.blocked(false, "position_order_close_position_policy_required");
         }
-        String riskPolicyBlocker = positionOrderRiskPolicyBlocker(event, position, size);
+        String riskPolicyBlocker = positionOrderRiskPolicyBlocker(event, position, operation, size);
         if (riskPolicyBlocker != null) {
             return PositionOrderExecutionPolicy.blocked(false, riskPolicyBlocker);
         }
@@ -381,7 +391,7 @@ public final class InterventionRemediationCommandPlanner {
         if (!positionOrderPolicy.requireClosePositionFalse()) {
             return PositionOrderExecutionPolicy.blocked(false, "position_order_close_position_policy_required");
         }
-        String riskPolicyBlocker = positionOrderRiskPolicyBlocker(event, position, size);
+        String riskPolicyBlocker = positionOrderRiskPolicyBlocker(event, position, Operation.HEDGE_POSITION, size);
         if (riskPolicyBlocker != null) {
             return PositionOrderExecutionPolicy.blocked(false, riskPolicyBlocker);
         }
@@ -395,6 +405,7 @@ public final class InterventionRemediationCommandPlanner {
     private String positionOrderRiskPolicyBlocker(
             RemediationDecisionEvent event,
             TradingStateProjection.PositionState position,
+            Operation operation,
             PositionRemediationSize size
     ) {
         String symbol = text(event.getSymbol());
@@ -405,6 +416,10 @@ public final class InterventionRemediationCommandPlanner {
         String accountRiskPolicyBlocker = positionOrderAccountRiskPolicyBlocker(position);
         if (accountRiskPolicyBlocker != null) {
             return accountRiskPolicyBlocker;
+        }
+        String exposurePolicyBlocker = positionExposurePolicyBlocker(position, operation, size);
+        if (exposurePolicyBlocker != null) {
+            return exposurePolicyBlocker;
         }
         BigDecimal maxQuantity = decimal(positionOrderPolicy.maxPositionQuantity());
         if (maxQuantity != null
@@ -465,6 +480,96 @@ public final class InterventionRemediationCommandPlanner {
             return "position_order_max_leverage_violated";
         }
         return null;
+    }
+
+    private String positionExposurePolicyBlocker(
+            TradingStateProjection.PositionState position,
+            Operation operation,
+            PositionRemediationSize size
+    ) {
+        BigDecimal maxAccountNotional = decimal(positionOrderPolicy.maxAccountPositionNotional());
+        BigDecimal maxSymbolNotional = decimal(positionOrderPolicy.maxSymbolPositionNotional());
+        if (maxAccountNotional == null && maxSymbolNotional == null) {
+            return null;
+        }
+        PositionExposure exposure = projectedPositionExposure(position, operation, size);
+        if (!exposure.valid()) {
+            return positionOrderPolicy.rejectUnboundedPositionNotional()
+                    ? "position_order_position_exposure_unbounded"
+                    : null;
+        }
+        if (maxAccountNotional != null
+                && exposure.projectedAccountNotional().compareTo(maxAccountNotional) > 0
+                && exposure.projectedAccountNotional().compareTo(exposure.currentAccountNotional()) >= 0) {
+            return "position_order_account_position_notional_exceeded";
+        }
+        if (maxSymbolNotional != null
+                && exposure.projectedSymbolNotional().compareTo(maxSymbolNotional) > 0
+                && exposure.projectedSymbolNotional().compareTo(exposure.currentSymbolNotional()) >= 0) {
+            return "position_order_symbol_position_notional_exceeded";
+        }
+        return null;
+    }
+
+    private PositionExposure projectedPositionExposure(
+            TradingStateProjection.PositionState target,
+            Operation operation,
+            PositionRemediationSize size
+    ) {
+        BigDecimal currentAccountNotional = BigDecimal.ZERO;
+        BigDecimal currentSymbolNotional = BigDecimal.ZERO;
+        BigDecimal projectedAccountNotional = BigDecimal.ZERO;
+        BigDecimal projectedSymbolNotional = BigDecimal.ZERO;
+        String targetSymbol = text(target.symbol());
+        String targetPositionSide = text(target.positionSide());
+        for (TradingStateProjection.PositionState position : projection.openPositionStates(
+                target.provider(),
+                target.environment(),
+                target.account(),
+                target.market()
+        )) {
+            BigDecimal amount = decimal(position.positionAmount());
+            BigDecimal markPrice = decimal(position.markPrice());
+            if (amount == null || markPrice == null || markPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                return PositionExposure.invalid();
+            }
+            BigDecimal currentNotional = amount.abs().multiply(markPrice.abs());
+            currentAccountNotional = currentAccountNotional.add(currentNotional);
+            if (sameSymbol(position.symbol(), targetSymbol)) {
+                currentSymbolNotional = currentSymbolNotional.add(currentNotional);
+            }
+
+            BigDecimal projectedNotional = currentNotional;
+            if (sameSymbol(position.symbol(), targetSymbol)
+                    && samePositionSide(position.positionSide(), targetPositionSide)
+                    && operation != Operation.HEDGE_POSITION) {
+                BigDecimal projectedAmount = amount.abs().subtract(size.quantity());
+                if (projectedAmount.compareTo(BigDecimal.ZERO) < 0) {
+                    projectedAmount = BigDecimal.ZERO;
+                }
+                projectedNotional = projectedAmount.multiply(markPrice.abs());
+            }
+            projectedAccountNotional = projectedAccountNotional.add(projectedNotional);
+            if (sameSymbol(position.symbol(), targetSymbol)) {
+                projectedSymbolNotional = projectedSymbolNotional.add(projectedNotional);
+            }
+        }
+
+        if (operation == Operation.HEDGE_POSITION) {
+            BigDecimal targetMarkPrice = decimal(target.markPrice());
+            if (targetMarkPrice == null || targetMarkPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                return PositionExposure.invalid();
+            }
+            BigDecimal hedgeNotional = size.quantity().multiply(targetMarkPrice.abs());
+            projectedAccountNotional = projectedAccountNotional.add(hedgeNotional);
+            projectedSymbolNotional = projectedSymbolNotional.add(hedgeNotional);
+        }
+        return PositionExposure.valid(
+                currentAccountNotional,
+                currentSymbolNotional,
+                projectedAccountNotional,
+                projectedSymbolNotional
+        );
     }
 
     private String accountMarginUtilizationBlocker(TradingStateProjection.PositionState position) {
@@ -825,6 +930,16 @@ public final class InterventionRemediationCommandPlanner {
         return value.stripTrailingZeros().toPlainString();
     }
 
+    private boolean sameSymbol(String value, String expected) {
+        String text = text(value);
+        return text != null && expected != null && text.equalsIgnoreCase(expected);
+    }
+
+    private boolean samePositionSide(String value, String expected) {
+        String text = text(value);
+        return text != null && expected != null && text.equalsIgnoreCase(expected);
+    }
+
     private String requireText(CharSequence value, String field) {
         String text = text(value);
         if (text == null) {
@@ -949,6 +1064,34 @@ public final class InterventionRemediationCommandPlanner {
 
         private static PositionOrderExecutionPolicy blocked(boolean reduceOnly, String blocker) {
             return new PositionOrderExecutionPolicy(reduceOnly, null, blocker);
+        }
+    }
+
+    private record PositionExposure(
+            BigDecimal currentAccountNotional,
+            BigDecimal currentSymbolNotional,
+            BigDecimal projectedAccountNotional,
+            BigDecimal projectedSymbolNotional,
+            boolean valid
+    ) {
+
+        private static PositionExposure valid(
+                BigDecimal currentAccountNotional,
+                BigDecimal currentSymbolNotional,
+                BigDecimal projectedAccountNotional,
+                BigDecimal projectedSymbolNotional
+        ) {
+            return new PositionExposure(
+                    currentAccountNotional,
+                    currentSymbolNotional,
+                    projectedAccountNotional,
+                    projectedSymbolNotional,
+                    true
+            );
+        }
+
+        private static PositionExposure invalid() {
+            return new PositionExposure(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false);
         }
     }
 }
