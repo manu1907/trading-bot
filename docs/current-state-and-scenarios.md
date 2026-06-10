@@ -33,6 +33,7 @@ The position-order policy for the first-start demo runtime also restricts automa
 - `required_margin_type="cross"`
 - `min_leverage="1"`
 - `max_leverage="5"`
+- inherited `max_account_margin_utilization=null`
 - inherited `reject_unbounded_position_notional=true`
 - inherited `reject_missing_account_risk_metadata=true`
 
@@ -85,6 +86,8 @@ Position plans remain non-executable when any configured policy gate fails, incl
 - projected leverage missing while leverage bounds are configured and `reject_missing_account_risk_metadata=true`
 - projected leverage below `min_leverage`
 - projected leverage above `max_leverage`
+- projected account margin-utilization above `max_account_margin_utilization`
+- projected account margin risk missing or invalid while `max_account_margin_utilization` is configured and `reject_missing_account_risk_metadata=true`
 - missing or mismatched hedge-mode position metadata while `required_position_mode=HEDGE`
 - provider or market mismatch
 - unsupported order type
@@ -147,6 +150,7 @@ Catalog defaults keep these fields explicit and overridable:
 - `trading.intervention.remediation_executor_policy.position_order_policy.required_position_mode=HEDGE`
 - `trading.intervention.remediation_executor_policy.position_order_policy.min_leverage=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_leverage=null`
+- `trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_utilization=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata=true`
 
 ## Known Gaps Before Professional Autonomous Real Trading
@@ -154,7 +158,7 @@ Catalog defaults keep these fields explicit and overridable:
 Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
-- Account-level risk budgets, symbol budgets, exposure caps, drawdown limits, and daily loss limits.
+- Broader account-level and symbol-level risk budgets, exposure caps, drawdown limits, and daily loss limits beyond the current optional account margin-utilization cap.
 - External order adoption and managed amendment policies.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.

@@ -865,13 +865,17 @@ remaining position-order policy fields are inherited from the catalog defaults:
 `order_type=MARKET`, `require_reduce_only=true`,
 `require_close_position_false=true`,
 `reject_unbounded_position_notional=true`, and
-`hedge_mode_execution_enabled=false`. The checked-in demo runtime explicitly
-limits automated position remediation to `BTCUSDT`, `max_position_quantity=0.001`,
-`chunk_close_when_max_quantity_exceeded=true`, and
-`max_position_notional=250`, and requires projected futures account metadata to
-show `margin_type=cross` with leverage between `1` and `5`; change those runtime
-values before first start if the demo target should use a different symbol,
-cap, margin mode, or leverage.
+`hedge_mode_execution_enabled=false`, and
+`max_account_margin_utilization=null`. The checked-in demo runtime explicitly
+limits automated position remediation to `BTCUSDT`,
+`max_position_quantity=0.001`, `chunk_close_when_max_quantity_exceeded=true`,
+and `max_position_notional=250`, and requires projected futures account
+metadata to show `margin_type=cross` with leverage between `1` and `5`. It does
+not set an account margin-utilization cap yet; set
+`max_account_margin_utilization` only when account-level risk projection is
+configured for the target. Change those runtime values before first start if the
+demo target should use a different symbol, cap, margin mode, leverage, or
+account margin-utilization limit.
 
 Hedge-mode `LONG` or `SHORT` position close/reduce command construction is
 implemented, but the checked-in demo runtime keeps it disabled. Enabling it
@@ -1462,6 +1466,8 @@ Default intervention config:
   `HEDGE`
 - `remediation_executor_policy.position_order_policy.min_leverage`: `null`
 - `remediation_executor_policy.position_order_policy.max_leverage`: `null`
+- `remediation_executor_policy.position_order_policy.max_account_margin_utilization`:
+  `null`
 - `remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata`:
   `true`
 
@@ -1589,6 +1595,13 @@ Current automated remediation execution state:
   `required_margin_type`, `min_leverage`, or `max_leverage` does not match the
   projected futures account metadata. If the metadata is missing and
   `reject_missing_account_risk_metadata=true`, the plan is also blocked.
+- Position close/reduce plans remain non-executable when
+  `max_account_margin_utilization` is configured and the projected account
+  maintenance-margin-to-margin-balance ratio exceeds that cap. If account
+  margin risk metadata is missing or invalid and
+  `reject_missing_account_risk_metadata=true`, the plan is also blocked. The
+  checked-in demo runtime leaves this cap unset until account-level risk
+  projection is configured for the target.
 - Hedge-mode plans remain non-executable when projected position-mode metadata
   is missing or does not match `required_position_mode`; the catalog default is
   `HEDGE`.

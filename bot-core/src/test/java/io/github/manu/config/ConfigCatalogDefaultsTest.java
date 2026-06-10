@@ -121,6 +121,8 @@ class ConfigCatalogDefaultsTest {
                 "trading.intervention.remediation_executor_policy.position_order_policy.min_leverage");
         assertNull(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.max_leverage");
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_utilization");
         assertBoolean(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata",
                 true);

@@ -340,6 +340,7 @@ public record InterventionProperties(
             String requiredPositionMode,
             String minLeverage,
             String maxLeverage,
+            String maxAccountMarginUtilization,
             Boolean rejectMissingAccountRiskMetadata
     ) {
 
@@ -368,6 +369,8 @@ public record InterventionProperties(
             minLeverage = text(minLeverage);
             maxLeverage = text(maxLeverage);
             validateRange("leverage", minLeverage, maxLeverage);
+            validatePositiveDecimal("maxAccountMarginUtilization", maxAccountMarginUtilization);
+            maxAccountMarginUtilization = text(maxAccountMarginUtilization);
             rejectMissingAccountRiskMetadata = rejectMissingAccountRiskMetadata == null
                     || Boolean.TRUE.equals(rejectMissingAccountRiskMetadata);
         }
@@ -390,6 +393,7 @@ public record InterventionProperties(
                     true,
                     null,
                     "HEDGE",
+                    null,
                     null,
                     null,
                     true

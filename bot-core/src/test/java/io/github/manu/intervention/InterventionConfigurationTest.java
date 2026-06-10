@@ -234,6 +234,7 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.required-position-mode=hedge",
                         "trading.intervention.remediation-executor-policy.position-order-policy.min-leverage=1",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-leverage=5",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.max-account-margin-utilization=0.80",
                         "trading.intervention.remediation-executor-policy.position-order-policy.reject-missing-account-risk-metadata=false"
                 )
                 .run(context -> {
@@ -265,6 +266,7 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().requiredPositionMode()).isEqualTo("HEDGE");
                     assertThat(policy.positionOrderPolicy().minLeverage()).isEqualTo("1");
                     assertThat(policy.positionOrderPolicy().maxLeverage()).isEqualTo("5");
+                    assertThat(policy.positionOrderPolicy().maxAccountMarginUtilization()).isEqualTo("0.80");
                     assertThat(policy.positionOrderPolicy().rejectMissingAccountRiskMetadata()).isFalse();
                 });
     }

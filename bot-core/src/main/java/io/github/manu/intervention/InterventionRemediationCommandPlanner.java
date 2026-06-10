@@ -4,6 +4,7 @@ import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.projection.TradingStateProjection;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -268,6 +269,16 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "position_order_required_position_mode", positionOrderPolicy.requiredPositionMode());
         put(attributes, "position_order_min_leverage", positionOrderPolicy.minLeverage());
         put(attributes, "position_order_max_leverage", positionOrderPolicy.maxLeverage());
+        put(attributes, "position_order_max_account_margin_utilization", positionOrderPolicy.maxAccountMarginUtilization());
+        projection.risk(
+                        position.provider(),
+                        position.environment(),
+                        position.account(),
+                        position.market(),
+                        "ACCOUNT",
+                        position.account()
+                )
+                .ifPresent(risk -> putAccountRiskAttributes(attributes, risk));
         attributes.put(
                 "position_order_reject_unbounded_notional",
                 Boolean.toString(positionOrderPolicy.rejectUnboundedPositionNotional())
@@ -434,6 +445,10 @@ public final class InterventionRemediationCommandPlanner {
         }
         Integer minLeverage = integer(positionOrderPolicy.minLeverage());
         Integer maxLeverage = integer(positionOrderPolicy.maxLeverage());
+        String marginUtilizationBlocker = accountMarginUtilizationBlocker(position);
+        if (marginUtilizationBlocker != null) {
+            return marginUtilizationBlocker;
+        }
         if (minLeverage == null && maxLeverage == null) {
             return null;
         }
@@ -448,6 +463,44 @@ public final class InterventionRemediationCommandPlanner {
         }
         if (maxLeverage != null && leverage > maxLeverage) {
             return "position_order_max_leverage_violated";
+        }
+        return null;
+    }
+
+    private String accountMarginUtilizationBlocker(TradingStateProjection.PositionState position) {
+        BigDecimal maxUtilization = decimal(positionOrderPolicy.maxAccountMarginUtilization());
+        if (maxUtilization == null) {
+            return null;
+        }
+        TradingStateProjection.RiskState accountRisk = projection.risk(
+                        position.provider(),
+                        position.environment(),
+                        position.account(),
+                        position.market(),
+                        "ACCOUNT",
+                        position.account()
+                )
+                .orElse(null);
+        if (accountRisk == null) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_account_risk_missing"
+                    : null;
+        }
+        BigDecimal marginBalance = decimal(accountRisk.marginBalance());
+        if (marginBalance == null || marginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_margin_balance_missing"
+                    : null;
+        }
+        BigDecimal maintenanceMargin = decimal(accountRisk.maintenanceMargin());
+        if (maintenanceMargin == null || maintenanceMargin.compareTo(BigDecimal.ZERO) < 0) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_maintenance_margin_missing"
+                    : null;
+        }
+        BigDecimal utilization = maintenanceMargin.divide(marginBalance, MathContext.DECIMAL64);
+        if (utilization.compareTo(maxUtilization) > 0) {
+            return "position_order_account_margin_utilization_exceeded";
         }
         return null;
     }
@@ -714,6 +767,20 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "position_isolated_margin", position.isolatedMargin());
         put(attributes, "target_update_source", position.updateSource());
         put(attributes, "target_event_id", position.eventId());
+    }
+
+    private void putAccountRiskAttributes(Map<String, String> attributes, TradingStateProjection.RiskState risk) {
+        put(attributes, "account_risk_level", risk.riskLevel());
+        put(attributes, "account_margin_balance", risk.marginBalance());
+        put(attributes, "account_maintenance_margin", risk.maintenanceMargin());
+        BigDecimal marginBalance = decimal(risk.marginBalance());
+        BigDecimal maintenanceMargin = decimal(risk.maintenanceMargin());
+        if (marginBalance != null && marginBalance.compareTo(BigDecimal.ZERO) > 0
+                && maintenanceMargin != null && maintenanceMargin.compareTo(BigDecimal.ZERO) >= 0) {
+            put(attributes, "account_margin_utilization", normalize(
+                    maintenanceMargin.divide(marginBalance, MathContext.DECIMAL64)
+            ));
+        }
     }
 
     private void put(Map<String, String> attributes, String key, CharSequence value) {

@@ -288,6 +288,7 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         null,
                         null,
+                        null,
                         true
                 )
         );
@@ -456,6 +457,49 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("position_leverage", "10")
                 .containsEntry("position_order_max_leverage", "5")
                 .containsEntry("exchange_execution_blocker", "position_order_max_leverage_violated")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_close_non_executable_when_account_margin_risk_is_missing() {
+        restorePositionIntervention("0.25", true);
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                accountRiskPositionOrderPolicy("cross", null, null, "0.80")
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_account_margin_utilization", "0.80")
+                .containsEntry("exchange_execution_blocker", "position_order_account_risk_missing")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_close_non_executable_when_account_margin_utilization_exceeds_policy_cap() {
+        restorePositionInterventionWithAccountRisk("0.25", "1000", "850");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                accountRiskPositionOrderPolicy("cross", null, null, "0.80")
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("account_margin_balance", "1000")
+                .containsEntry("account_maintenance_margin", "850")
+                .containsEntry("account_margin_utilization", "0.85")
+                .containsEntry("position_order_max_account_margin_utilization", "0.80")
+                .containsEntry("exchange_execution_blocker", "position_order_account_margin_utilization_exceeded")
                 .containsEntry("exchange_executable", "false");
     }
 
@@ -703,6 +747,57 @@ class InterventionRemediationCommandPlannerTest {
         ));
     }
 
+    private void restorePositionInterventionWithAccountRisk(
+            String positionAmount,
+            String marginBalance,
+            String maintenanceMargin
+    ) {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(new TradingStateProjection.PositionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "BOTH",
+                        null,
+                        positionAmount,
+                        "50000.00",
+                        "50010.00",
+                        "12.50",
+                        "5",
+                        "cross",
+                        null,
+                        "USER_DATA",
+                        true,
+                        "external_position_change",
+                        NOW.minusSeconds(1),
+                        "evt-position-intervention"
+                )),
+                List.of(),
+                List.of(new TradingStateProjection.RiskState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "ACCOUNT",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        marginBalance,
+                        maintenanceMargin,
+                        NOW.minusSeconds(1),
+                        "evt-account-risk"
+                )),
+                List.of()
+        ));
+    }
+
     private InterventionProperties.PositionOrderPolicy enabledPositionOrderPolicy() {
         return new InterventionProperties.PositionOrderPolicy(
                 true,
@@ -719,6 +814,7 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 null,
                 true,
+                null,
                 null,
                 null,
                 null,
@@ -747,6 +843,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -767,6 +864,7 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 null,
                 true,
+                null,
                 null,
                 null,
                 null,
@@ -795,6 +893,15 @@ class InterventionRemediationCommandPlannerTest {
             String minLeverage,
             String maxLeverage
     ) {
+        return accountRiskPositionOrderPolicy(requiredMarginType, minLeverage, maxLeverage, null);
+    }
+
+    private InterventionProperties.PositionOrderPolicy accountRiskPositionOrderPolicy(
+            String requiredMarginType,
+            String minLeverage,
+            String maxLeverage,
+            String maxAccountMarginUtilization
+    ) {
         return new InterventionProperties.PositionOrderPolicy(
                 true,
                 "binance",
@@ -814,6 +921,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 minLeverage,
                 maxLeverage,
+                maxAccountMarginUtilization,
                 true
         );
     }
@@ -840,6 +948,7 @@ class InterventionRemediationCommandPlannerTest {
                 chunkClose,
                 maxNotional,
                 rejectUnboundedNotional,
+                null,
                 null,
                 null,
                 null,

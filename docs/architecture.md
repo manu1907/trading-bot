@@ -662,7 +662,11 @@ position side, order type, reduce-only requirement, close-position prohibition,
 hedge-mode block, symbol allowlist, quantity cap, notional cap, unbounded
 notional behavior, separately disabled hedge-order execution, required margin
 type, required hedge account position mode, leverage bounds, and missing
-account-risk metadata behavior are all explicit catalog policy values.
+account-risk metadata behavior are all explicit catalog policy values. The
+catalog also exposes an optional `max_account_margin_utilization` cap; when set,
+the planner reads projected account-level risk and blocks position orders if
+maintenance margin divided by margin balance exceeds the cap, or if the required
+account-risk metadata is missing or invalid under the missing-risk policy.
 Demo-live exchange execution is an explicit runtime override state: the policy
 must be enabled, `exchange_execution_enabled=true`, `report_only=false`, the
 operation must be allowlisted, one-way position order execution must be
