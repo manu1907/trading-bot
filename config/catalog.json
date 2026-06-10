@@ -139,6 +139,7 @@
           "reject_closed_target": true,
           "reject_external_intervention": true,
           "allow_external_remediation_cancel": true,
+          "allow_adopted_target_orders": false,
           "action": "MANUAL_REVIEW"
         },
         "pause_governance": {

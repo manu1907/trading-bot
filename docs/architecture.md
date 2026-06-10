@@ -669,7 +669,11 @@ projection-governance transition rather than an exchange command: when
 `order_adoption_acknowledgement_enabled=true`, an order-scope `ADOPT`
 remediation decision for a matching non-managed external order publishes an
 auditable intervention acknowledgement with adoption metadata, and replay marks
-the order as bot-managed while clearing the external intervention. Order
+the order as bot-managed while clearing the external intervention. Adopted
+orders are still distinct from bot-created orders at the risk-gate boundary:
+`target_order.allow_adopted_target_orders=false` by default blocks ordinary
+target-order commands for adopted targets, while explicit adopted-order
+remediation policy can allow a narrow command path. Order
 amendment is policy-gated and exchange-executable only for bounded managed-order
 changes: `AMEND` decisions for managed-order interventions are checked against
 `managed_order_amendment_policy` for provider, market, symbol, ownership,

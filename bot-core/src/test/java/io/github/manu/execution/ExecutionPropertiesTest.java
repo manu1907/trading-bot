@@ -34,6 +34,8 @@ class ExecutionPropertiesTest {
         assertThat(properties.riskGate().orderLimit().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
         assertThat(properties.riskGate().orderLimit().targetLimits()).isEmpty();
+        assertThat(properties.riskGate().targetOrder().allowExternalRemediationCancel()).isTrue();
+        assertThat(properties.riskGate().targetOrder().allowAdoptedTargetOrders()).isFalse();
         assertThat(properties.idempotency().rejectProjectedDuplicates()).isTrue();
     }
 

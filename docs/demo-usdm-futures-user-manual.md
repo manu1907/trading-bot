@@ -1430,6 +1430,13 @@ Important defaults:
 - No global `max_quantity` is configured by default.
 - No global `max_notional` is configured by default.
 - Target-specific limits are empty by default.
+- Target-order commands require projected managed targets by default.
+- External remediation cancel is allowed only for executor-originated
+  `ORDER`/`CLOSE`/`CANCEL_ORDER` commands with remediation attributes.
+- Adopted target orders are not allowed for ordinary target commands by default
+  (`target_order.allow_adopted_target_orders=false`). Runtime config must
+  explicitly set that switch to true before normal cancel/modify target commands
+  can operate on adopted orders.
 
 This means enabling execution without also configuring appropriate risk limits
 is intentionally restrictive.

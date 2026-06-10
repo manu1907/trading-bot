@@ -437,7 +437,8 @@ public record ExecutionProperties(
             Boolean rejectExternalIntervention,
             InterventionAction action,
             Boolean requireTargetOrderId,
-            Boolean allowExternalRemediationCancel
+            Boolean allowExternalRemediationCancel,
+            Boolean allowAdoptedTargetOrders
     ) {
 
         @ConstructorBinding
@@ -452,6 +453,7 @@ public record ExecutionProperties(
             requireTargetOrderId = requireTargetOrderId == null || requireTargetOrderId;
             allowExternalRemediationCancel = allowExternalRemediationCancel == null
                     || Boolean.TRUE.equals(allowExternalRemediationCancel);
+            allowAdoptedTargetOrders = Boolean.TRUE.equals(allowAdoptedTargetOrders);
         }
 
         public TargetOrder(
@@ -473,7 +475,8 @@ public record ExecutionProperties(
                     rejectExternalIntervention,
                     action,
                     requireTargetOrderId,
-                    true
+                    true,
+                    false
             );
         }
 
@@ -495,12 +498,24 @@ public record ExecutionProperties(
                     rejectExternalIntervention,
                     action,
                     requireTargetClientOrderId,
-                    true
+                    true,
+                    false
             );
         }
 
         static TargetOrder defaults() {
-            return new TargetOrder(true, false, true, true, true, true, InterventionAction.MANUAL_REVIEW, true, true);
+            return new TargetOrder(
+                    true,
+                    false,
+                    true,
+                    true,
+                    true,
+                    true,
+                    InterventionAction.MANUAL_REVIEW,
+                    true,
+                    true,
+                    false
+            );
         }
     }
 

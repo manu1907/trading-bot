@@ -55,6 +55,9 @@ class ConfigCatalogDefaultsTest {
         assertBoolean(catalog, "trading.observability.pause_governance.expiry_monitor.enabled", true);
         assertInt(catalog, "trading.observability.pause_governance.expiry_monitor.interval_millis", 30000);
 
+        assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_external_remediation_cancel", true);
+        assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_adopted_target_orders", false);
+
         assertBoolean(catalog, "trading.intervention.remediation_orchestrator.enabled", false);
         assertBoolean(catalog,
                 "trading.intervention.remediation_orchestrator.operator_review_acknowledgement_enabled",

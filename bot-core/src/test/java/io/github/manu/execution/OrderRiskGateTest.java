@@ -947,6 +947,55 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void requires_manual_review_for_adopted_target_order_by_default() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithAdoptedTargetOrder("adopted-client-1"))
+                .evaluate(cancelCommand("adopted-client-1"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_target:adopted_not_allowed");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_allow_adopted_target_orders", "false")
+                .containsEntry("target_order_adopted", "true")
+                .containsEntry("target_order_managed_by_bot", "true");
+    }
+
+    @Test
+    void approves_adopted_target_order_when_policy_allows_it() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = new ExecutionProperties(new ExecutionProperties.RiskGate(
+                true,
+                new ExecutionProperties.Reconciliation(false, true, true),
+                null,
+                null,
+                null,
+                null,
+                new ExecutionProperties.TargetOrder(
+                        true,
+                        false,
+                        true,
+                        true,
+                        true,
+                        true,
+                        ExecutionProperties.InterventionAction.MANUAL_REVIEW,
+                        true,
+                        true,
+                        true
+                )
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithAdoptedTargetOrder("adopted-client-1"))
+                .evaluate(cancelCommand("adopted-client-1"));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_allow_adopted_target_orders", "true")
+                .containsEntry("target_order_adopted", "true");
+    }
+
+    @Test
     void approves_managed_remediation_amend_for_managed_external_intervention_target() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -963,6 +1012,21 @@ class OrderRiskGateTest {
                 .containsEntry("target_order_managed_remediation_amend", "true")
                 .containsEntry("target_order_external_intervention", "true")
                 .containsEntry("target_order_managed_by_bot", "true");
+    }
+
+    @Test
+    void approves_adopted_managed_remediation_amend_when_amendment_policy_allowed_adoption() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties(), projectionWithAdoptedTargetOrder("adopted-client-1"))
+                .evaluate(managedRemediationAmendCommand("adopted-client-1", true));
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getAttributes())
+                .containsEntry("target_order_managed_remediation_amend", "true")
+                .containsEntry("target_order_adopted", "true")
+                .containsEntry("target_order_allow_adopted_target_orders", "false");
     }
 
     private OrderRiskGate gate(ExecutionProperties properties) {
@@ -1252,6 +1316,41 @@ class OrderRiskGateTest {
         return projection;
     }
 
+    private TradingStateProjection projectionWithAdoptedTargetOrder(String clientOrderId) {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL,
+                        null,
+                        clientOrderId,
+                        "12345",
+                        OrderResultStatus.ACCEPTED.name(),
+                        "NEW",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "INTERVENTION_ADOPTION",
+                        "NEW",
+                        true,
+                        false,
+                        null,
+                        NOW,
+                        "evt-adopted-order"
+                )),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
     private TradingStateProjection projectionWithTargetAndExternalIntervention() {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
@@ -1506,6 +1605,10 @@ class OrderRiskGateTest {
     }
 
     private OrderCommandEvent managedRemediationAmendCommand(String targetClientOrderId) {
+        return managedRemediationAmendCommand(targetClientOrderId, false);
+    }
+
+    private OrderCommandEvent managedRemediationAmendCommand(String targetClientOrderId, boolean adoptedAllowed) {
         return OrderCommandEvent.newBuilder(modifyCommand(targetClientOrderId))
                 .setCommandId("remediation-command:remediation-001:amend-order")
                 .setClientOrderId("rm-amd-remediation-001")
@@ -1516,6 +1619,8 @@ class OrderRiskGateTest {
                         "remediation_action", "AMEND",
                         "remediation_operation", "AMEND_ORDER",
                         "amendment_execution_mode", "managed_order_modify",
+                        "amendment_order_ownership", adoptedAllowed ? "ADOPTED" : "BOT_CREATED",
+                        "managed_order_amendment_allow_adopted_orders", Boolean.toString(adoptedAllowed),
                         "target_client_order_id", targetClientOrderId
                 ))
                 .build();

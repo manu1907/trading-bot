@@ -53,6 +53,7 @@ public final class OrderRiskGate {
     private static final String PROJECTED_TARGET_MISSING_REASON = "order_target:not_projected";
     private static final String PROJECTED_TARGET_IDENTITY_MISMATCH_REASON = "order_target:identity_mismatch";
     private static final String PROJECTED_TARGET_UNMANAGED_REASON = "order_target:not_managed";
+    private static final String PROJECTED_TARGET_ADOPTED_REASON = "order_target:adopted_not_allowed";
     private static final String PROJECTED_TARGET_CLOSED_REASON = "order_target:closed";
     private static final String PROJECTED_TARGET_EXTERNAL_INTERVENTION_REASON = "order_target:external_intervention";
     private static final String ACCOUNT_PAUSED_REASON = "pause_governance:account";
@@ -622,6 +623,14 @@ public final class OrderRiskGate {
                 reject = reject || decision.reject();
                 manualReview = manualReview || decision.manualReview();
             }
+            if (!targetOrder.allowAdoptedTargetOrders()
+                    && adoptedTargetOrder(state)
+                    && !adoptedRemediationAllowed(command)) {
+                ManualInterventionDecision decision = decisionFor(targetOrder.action(), PROJECTED_TARGET_ADOPTED_REASON);
+                reasons.addAll(decision.reasons());
+                reject = reject || decision.reject();
+                manualReview = manualReview || decision.manualReview();
+            }
             if (targetOrder.rejectClosedTarget() && closedOrderStatus(state.status())) {
                 ManualInterventionDecision decision = decisionFor(targetOrder.action(), PROJECTED_TARGET_CLOSED_REASON);
                 reasons.addAll(decision.reasons());
@@ -664,6 +673,16 @@ public final class OrderRiskGate {
                 && value(command.getPrice()) != null
                 && command.getSide() != null
                 && command.getOrderType() != null;
+    }
+
+    private boolean adoptedRemediationAllowed(OrderCommandEvent command) {
+        return managedRemediationAmend(command)
+                && "ADOPTED".equals(attribute(command, "amendment_order_ownership"))
+                && "true".equals(attribute(command, "managed_order_amendment_allow_adopted_orders"));
+    }
+
+    private boolean adoptedTargetOrder(TradingStateProjection.OrderState state) {
+        return state.managedByBot() && value(state.commandId()) == null;
     }
 
     private boolean targetIdentityMismatch(
@@ -1047,6 +1066,7 @@ public final class OrderRiskGate {
         attributes.put("target_order_require_managed", Boolean.toString(targetOrder.requireManagedTarget()));
         attributes.put("target_order_reject_closed", Boolean.toString(targetOrder.rejectClosedTarget()));
         attributes.put("target_order_reject_external_intervention", Boolean.toString(targetOrder.rejectExternalIntervention()));
+        attributes.put("target_order_allow_adopted_target_orders", Boolean.toString(targetOrder.allowAdoptedTargetOrders()));
         attributes.put(
                 "target_order_allow_external_remediation_cancel",
                 Boolean.toString(targetOrder.allowExternalRemediationCancel())
@@ -1065,6 +1085,7 @@ public final class OrderRiskGate {
                 putIfPresent(attributes, "target_order_exchange_status", target.exchangeStatus());
                 attributes.put("target_order_managed_by_bot", Boolean.toString(target.managedByBot()));
                 attributes.put("target_order_external_intervention", Boolean.toString(target.externalIntervention()));
+                attributes.put("target_order_adopted", Boolean.toString(adoptedTargetOrder(target)));
             });
         }
         return Map.copyOf(attributes);
