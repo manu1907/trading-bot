@@ -461,6 +461,36 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void preserves_modify_action_on_unknown_gateway_failure_for_reconciliation_blocking() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+        projection.apply(modifyOrderCommand(
+                "evt-modify-command",
+                "cmd-modify",
+                "amend-client-1",
+                "client-1",
+                "12345",
+                timestamp(35)
+        ));
+
+        ProjectionUpdate failureUpdate = projection.apply(gatewayFailureOrderResult(
+                "evt-gateway-failure",
+                "cmd-modify",
+                "amend-client-1",
+                "12345",
+                timestamp(36)
+        ));
+
+        assertThat(failureUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.status()).isEqualTo("UNKNOWN");
+                    assertThat(order.executionType()).isEqualTo("MODIFY");
+                    assertThat(order.updateSource()).isEqualTo("ORDER_RESULT");
+                });
+    }
+
+    @Test
     void planned_cancel_user_data_does_not_create_order_intervention() {
         projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
         projection.apply(cancelOrderCommand(

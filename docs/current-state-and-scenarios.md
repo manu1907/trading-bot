@@ -75,6 +75,7 @@ Supported exchange-executable order remediation today:
 - Managed order amendment: an unresolved managed-order intervention with an `AMEND` remediation decision can produce an `AMEND_ORDER` plan when `managed_order_amendment_policy` admits the provider, market, symbol, ownership, order type, fields, quantity direction, drift, projection freshness, status, and target identity.
 - A qualified amendment is submitted as a `MODIFY` command through `OrderExecutionPipeline`. The command uses the projected target client/exchange identity, projected side, projected order type, requested or retained price, and requested or retained quantity.
 - Managed amendment commands are still checked by the order risk gate and provider preflight. Binance futures preflight validates `MODIFY` target identity, side, type, quantity, and price before gateway submission.
+- A target with a pending `MODIFY` command or an unknown `MODIFY` result is blocked from repeat amendment until reconciliation updates the projection. The planner reports `managed_order_amendment_modify_pending_reconciliation` or `managed_order_amendment_modify_unknown_reconciliation_required`.
 - Provider gateways can reject approved commands during preflight before gateway submission. Binance uses this for `NEW` order capability and exchange-filter validation, `CANCEL` target identity validation, and futures `MODIFY` target/parameter validation.
 
 Supported non-exchange order remediation today:
@@ -231,7 +232,8 @@ Managed order amendment state:
 - `AMEND` decisions for unresolved managed-order interventions now pass through a catalog-disabled planner policy that is explicitly enabled by the checked-in demo runtime for bounded BTCUSDT limit-order amendments.
 - The policy can qualify or block amendments by provider, market, symbol allowlist, bot-created versus adopted ownership, allowed order type, allowed fields, quantity increase/decrease permission, optional quantity drift fractions, optional price drift fraction, stale projection age, open-order status, and optional exchange-order-id requirement.
 - A policy-qualified amendment is `exchangeExecutable=true` only when projected side, projected order type, current price, current quantity, and target identity are available. The executor constructs an idempotent `MODIFY` command and submits it through the normal order execution pipeline.
-- Cancel/replace fallback remains intentionally unimplemented; unsupported amendment shapes are blocked instead of converted into destructive multi-step order replacement.
+- Unknown `MODIFY` outcomes retain command-action metadata in projection so follow-up remediation cannot blindly repeat an amendment while the exchange state is ambiguous.
+- Cancel/replace fallback remains intentionally unimplemented; unsupported amendment shapes are blocked with an explicit fallback blocker instead of converted into destructive multi-step order replacement.
 
 ## Known Gaps Before Professional Autonomous Real Trading
 

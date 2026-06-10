@@ -331,6 +331,7 @@ public final class OrderExecutionPipeline implements TradingEventHandler {
         attributes.put("source", "order_execution_pipeline");
         attributes.put("gateway_failure", "true");
         attributes.put("gateway_failure_type", causeType);
+        attributes.put("command_action", action(command).name());
         putIfPresent(attributes, "command_client_order_id", value(command.getClientOrderId()));
         putIfPresent(attributes, "target_client_order_id", targetClientOrderId(command));
         putIfPresent(attributes, "target_exchange_order_id", targetExchangeOrderId(command));

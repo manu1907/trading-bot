@@ -127,6 +127,75 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     @Test
+    void blocks_managed_order_amendment_while_previous_modify_is_pending_reconciliation() {
+        restoreManagedOrderIntervention("COMMAND_RECEIVED", "NEW", "ORDER_COMMAND", "MODIFY");
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy(false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = amendPlanner.plan(orderDecision(
+                "AMEND",
+                "unplanned_managed_order_change",
+                Map.of("amend_price", "49950.00")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("amendment_policy_result", "blocked")
+                .containsEntry("exchange_execution_blocker", "managed_order_amendment_modify_pending_reconciliation")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void blocks_managed_order_amendment_after_unknown_modify_until_reconciled() {
+        restoreManagedOrderIntervention("UNKNOWN", null, "ORDER_RESULT", "MODIFY");
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy(false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = amendPlanner.plan(orderDecision(
+                "AMEND",
+                "unplanned_managed_order_change",
+                Map.of("amend_price", "49950.00")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("amendment_policy_result", "blocked")
+                .containsEntry("exchange_execution_blocker", "managed_order_amendment_modify_unknown_reconciliation_required")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void blocks_managed_order_cancel_replace_fallback_explicitly_when_direct_amendment_cannot_apply() {
+        restoreManagedOrderIntervention();
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy(false, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = amendPlanner.plan(orderDecision(
+                "AMEND",
+                "unplanned_managed_order_change",
+                Map.of("target_order_type", "MARKET")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("managed_order_amendment_cancel_replace_on_unsupported_change", "true")
+                .containsEntry("exchange_execution_blocker", "managed_order_amendment_cancel_replace_fallback_not_supported")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
     void refuses_order_plan_when_projection_intervention_reason_is_stale() {
         restoreOrderIntervention("unplanned_managed_order_change", true);
 
@@ -1006,11 +1075,51 @@ class InterventionRemediationCommandPlannerTest {
         restoreOrderIntervention("unplanned_managed_order_change", true, true, "cmd-managed-1");
     }
 
+    private void restoreManagedOrderIntervention(
+            String status,
+            String exchangeStatus,
+            String updateSource,
+            String executionType
+    ) {
+        restoreOrderIntervention(
+                "unplanned_managed_order_change",
+                true,
+                true,
+                "cmd-managed-1",
+                status,
+                exchangeStatus,
+                updateSource,
+                executionType
+        );
+    }
+
     private void restoreOrderIntervention(
             String interventionReason,
             boolean externalIntervention,
             boolean managedByBot,
             String commandId
+    ) {
+        restoreOrderIntervention(
+                interventionReason,
+                externalIntervention,
+                managedByBot,
+                commandId,
+                "ACCEPTED",
+                "NEW",
+                "USER_DATA",
+                "NEW"
+        );
+    }
+
+    private void restoreOrderIntervention(
+            String interventionReason,
+            boolean externalIntervention,
+            boolean managedByBot,
+            String commandId,
+            String status,
+            String exchangeStatus,
+            String updateSource,
+            String executionType
     ) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -1024,8 +1133,8 @@ class InterventionRemediationCommandPlannerTest {
                         commandId,
                         "client-1",
                         "12345",
-                        "ACCEPTED",
-                        "NEW",
+                        status,
+                        exchangeStatus,
                         "BUY",
                         "LIMIT",
                         "50000.00",
@@ -1033,8 +1142,8 @@ class InterventionRemediationCommandPlannerTest {
                         "0",
                         null,
                         null,
-                        "USER_DATA",
-                        "NEW",
+                        updateSource,
+                        executionType,
                         managedByBot,
                         externalIntervention,
                         interventionReason,
@@ -1284,6 +1393,13 @@ class InterventionRemediationCommandPlannerTest {
     private InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy(
             boolean allowQuantityIncrease
     ) {
+        return managedOrderAmendmentPolicy(allowQuantityIncrease, false);
+    }
+
+    private InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicy(
+            boolean allowQuantityIncrease,
+            boolean cancelReplaceOnUnsupportedChange
+    ) {
         return new InterventionProperties.ManagedOrderAmendmentPolicy(
                 true,
                 "binance",
@@ -1298,7 +1414,7 @@ class InterventionRemediationCommandPlannerTest {
                 "0.25",
                 "0.50",
                 "0.02",
-                false,
+                cancelReplaceOnUnsupportedChange,
                 true,
                 30_000L,
                 true,

@@ -1585,8 +1585,10 @@ Managed order amendment planning and execution are also configurable. An
 ownership, drift limits, and stale projection age. When qualified, the executor
 builds a `MODIFY` command with projected side/order type and requested or
 retained price/quantity, then submits it through the normal order execution
-pipeline. Cancel/replace fallback remains unimplemented, so unsupported
-amendment shapes are blocked instead of replaced.
+pipeline. If a previous `MODIFY` is still pending or produced an unknown result,
+the planner blocks another amendment until reconciliation refreshes the target.
+Cancel/replace fallback remains unimplemented, so unsupported amendment shapes
+are blocked with an explicit fallback blocker instead of replaced.
 
 The system can track and expose:
 

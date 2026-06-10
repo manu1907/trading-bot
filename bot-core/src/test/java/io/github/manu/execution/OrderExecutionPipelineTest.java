@@ -227,6 +227,7 @@ class OrderExecutionPipelineTest {
         assertThat(eventBus.envelopes.get(1).key().getEntityId()).isEqualTo("tb-lfa-open");
         assertThat(result.getAttributes())
                 .containsEntry("command_client_order_id", "tb-cancel-001")
+                .containsEntry("command_action", "CANCEL")
                 .containsEntry("target_client_order_id", "tb-lfa-open")
                 .containsEntry("target_exchange_order_id", "123456")
                 .containsEntry("gateway_failure", "true");
@@ -249,6 +250,7 @@ class OrderExecutionPipelineTest {
         assertThat(result.getStatus()).isEqualTo(OrderResultStatus.UNKNOWN);
         assertThat(result.getAttributes())
                 .containsEntry("command_client_order_id", "tb-cancel-attr-001")
+                .containsEntry("command_action", "CANCEL")
                 .containsEntry("target_client_order_id", "tb-lfa-open")
                 .containsEntry("target_exchange_order_id", "123456")
                 .containsEntry("gateway_failure", "true");
@@ -503,6 +505,7 @@ class OrderExecutionPipelineTest {
         assertThat(result.getAttributes())
                 .containsEntry("source", "order_execution_pipeline")
                 .containsEntry("gateway_failure", "true")
+                .containsEntry("command_action", "NEW")
                 .containsEntry("gateway_failure_type", failureType);
     }
 

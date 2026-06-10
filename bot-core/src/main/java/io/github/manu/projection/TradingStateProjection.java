@@ -8,6 +8,7 @@ import io.github.manu.events.v1.InterventionAcknowledgementEvent;
 import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
+import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
@@ -689,7 +690,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getAveragePrice()),
                 value(event.getCumulativeQuote()),
                 orderResultUpdateSource(event),
-                null,
+                orderResultExecutionType(current, event),
                 intervention.managedByBot(),
                 intervention.externalIntervention(),
                 intervention.reason(),
@@ -742,6 +743,17 @@ public final class TradingStateProjection implements TradingEventHandler {
 
     private String orderResultUpdateSource(OrderResultEvent event) {
         return isRestSnapshot(event) ? "REST_SNAPSHOT" : "ORDER_RESULT";
+    }
+
+    private String orderResultExecutionType(OrderState current, OrderResultEvent event) {
+        if (event.getStatus() != OrderResultStatus.UNKNOWN) {
+            return null;
+        }
+        String commandAction = attribute(event, "command_action");
+        if (commandAction != null) {
+            return commandAction;
+        }
+        return current == null ? null : current.executionType();
     }
 
     private OrderIntervention orderResultIntervention(OrderState current, OrderResultEvent event) {

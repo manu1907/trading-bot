@@ -678,8 +678,11 @@ projection freshness, open-order status, and target identity requirements. A
 policy-qualified amendment builds an idempotent `MODIFY` command with projected
 side/order type and requested or retained price/quantity, then submits through
 `OrderExecutionPipeline`; Binance futures preflight validates the `MODIFY`
-target and parameters before gateway submission. Unsupported amendment shapes
-remain blocked rather than using cancel/replace fallback.
+target and parameters before gateway submission. Unknown `MODIFY` outcomes
+retain command-action metadata in projection, and the planner blocks repeat
+amendments while a prior modify is pending or unknown until reconciliation
+updates the target. Unsupported amendment shapes remain blocked rather than
+using cancel/replace fallback.
 `trading.intervention.remediation-executor-policy` is the explicit executor
 safety boundary. The checked-in catalog keeps the executor disabled, exchange
 execution disabled, report-only mode enabled, real environments blocked, and

@@ -874,6 +874,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         boolean rejected = result == null;
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         attributes.put("source", "binance_order_gateway");
+        attributes.put("command_action", action(command).name());
         if (rejected) {
             attributes.put("http_reject", "true");
         }

@@ -616,6 +616,7 @@ class BinanceExchangeModuleTest {
             assertThat(value.getStatus()).isEqualTo(OrderResultStatus.ACCEPTED);
             assertThat(value.getPrice()).isEqualTo("50100");
             assertThat(value.getOriginalQuantity()).isEqualTo("0.002");
+            assertThat(value.getAttributes()).containsEntry("command_action", "MODIFY");
         });
     }
 
@@ -648,6 +649,7 @@ class BinanceExchangeModuleTest {
             assertThat(value.getRejectCode()).isEqualTo("-1000");
             assertThat(value.getRejectMessage()).contains("Unknown error");
             assertThat(value.getAttributes())
+                    .containsEntry("command_action", "NEW")
                     .containsEntry("http_reject", "true")
                     .containsEntry("http_status_code", "503")
                     .containsEntry("exchange_code", "-1000")

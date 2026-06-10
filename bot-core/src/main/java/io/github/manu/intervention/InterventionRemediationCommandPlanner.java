@@ -1232,6 +1232,12 @@ public final class InterventionRemediationCommandPlanner {
         if ("BOT_CREATED".equals(ownership) && !managedOrderAmendmentPolicy.allowBotCreatedOrders()) {
             return "managed_order_amendment_bot_created_order_policy_disabled";
         }
+        if ("MODIFY".equals(uppercase(order.executionType())) && "COMMAND_RECEIVED".equals(uppercase(order.status()))) {
+            return "managed_order_amendment_modify_pending_reconciliation";
+        }
+        if ("MODIFY".equals(uppercase(order.executionType())) && "UNKNOWN".equals(uppercase(order.status()))) {
+            return "managed_order_amendment_modify_unknown_reconciliation_required";
+        }
         if (managedOrderAmendmentPolicy.requireOpenOrderStatus()
                 && !managedOrderAmendmentPolicy.allowedStatuses().contains(uppercase(order.status()))) {
             return "managed_order_amendment_order_status_not_open";
@@ -1256,6 +1262,9 @@ public final class InterventionRemediationCommandPlanner {
         if (!managedOrderAmendmentPolicy.allowedOrderTypes().isEmpty()) {
             String requestedOrderType = uppercase(request.orderType());
             if (requestedOrderType != null && !requestedOrderType.equals(projectedOrderType)) {
+                if (managedOrderAmendmentPolicy.cancelReplaceOnUnsupportedChange()) {
+                    return "managed_order_amendment_cancel_replace_fallback_not_supported";
+                }
                 return "managed_order_amendment_order_type_change_not_allowed";
             }
             if (!managedOrderAmendmentPolicy.allowedOrderTypes().contains(projectedOrderType)) {
@@ -1263,9 +1272,15 @@ public final class InterventionRemediationCommandPlanner {
             }
         }
         if (request.price() != null && !managedOrderAmendmentPolicy.allowedFields().contains("PRICE")) {
+            if (managedOrderAmendmentPolicy.cancelReplaceOnUnsupportedChange()) {
+                return "managed_order_amendment_cancel_replace_fallback_not_supported";
+            }
             return "managed_order_amendment_price_field_not_allowed";
         }
         if (request.quantity() != null && !managedOrderAmendmentPolicy.allowedFields().contains("QUANTITY")) {
+            if (managedOrderAmendmentPolicy.cancelReplaceOnUnsupportedChange()) {
+                return "managed_order_amendment_cancel_replace_fallback_not_supported";
+            }
             return "managed_order_amendment_quantity_field_not_allowed";
         }
         return null;
