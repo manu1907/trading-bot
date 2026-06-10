@@ -291,6 +291,8 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         null,
                         null,
+                        null,
+                        null,
                         true
                 )
         );
@@ -549,6 +551,47 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     @Test
+    void allows_position_close_when_unrealized_loss_cap_is_exceeded_because_it_reduces_risk() {
+        restorePositionInterventionWithUnrealizedPnl("0.25", true, "BOTH", "5", "cross", null, "-12.50");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                lossPositionOrderPolicy(null, "10", false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_symbol_unrealized_loss", "10")
+                .containsEntry("current_symbol_unrealized_loss", "12.5")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void keeps_position_hedge_non_executable_when_account_unrealized_loss_exceeds_cap() {
+        restorePositionInterventionWithUnrealizedPnl("0.25", true, "LONG", "5", "cross", "HEDGE", "-12.50");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                lossPositionOrderPolicy("10", null, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("HEDGE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_account_unrealized_loss", "10")
+                .containsEntry("current_account_unrealized_loss", "12.5")
+                .containsEntry("exchange_execution_blocker", "position_order_account_unrealized_loss_exceeded")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
     void rejects_position_reduce_without_explicit_bounded_size() {
         restorePositionIntervention("0.25", true);
 
@@ -763,6 +806,26 @@ class InterventionRemediationCommandPlannerTest {
             String marginType,
             String positionMode
     ) {
+        restorePositionInterventionWithUnrealizedPnl(
+                positionAmount,
+                externalIntervention,
+                positionSide,
+                leverage,
+                marginType,
+                positionMode,
+                "12.50"
+        );
+    }
+
+    private void restorePositionInterventionWithUnrealizedPnl(
+            String positionAmount,
+            boolean externalIntervention,
+            String positionSide,
+            String leverage,
+            String marginType,
+            String positionMode,
+            String unrealizedPnl
+    ) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(new TradingStateProjection.PositionState(
@@ -776,7 +839,7 @@ class InterventionRemediationCommandPlannerTest {
                         positionAmount,
                         "50000.00",
                         "50010.00",
-                        "12.50",
+                        unrealizedPnl,
                         leverage,
                         marginType,
                         null,
@@ -866,6 +929,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 true
         );
     }
@@ -893,6 +958,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 true
         );
     }
@@ -913,6 +980,8 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 null,
                 true,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -974,6 +1043,8 @@ class InterventionRemediationCommandPlannerTest {
                 maxLeverage,
                 null,
                 null,
+                null,
+                null,
                 maxAccountMarginUtilization,
                 true
         );
@@ -1006,6 +1077,41 @@ class InterventionRemediationCommandPlannerTest {
                 maxAccountPositionNotional,
                 maxSymbolPositionNotional,
                 null,
+                null,
+                null,
+                true
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy lossPositionOrderPolicy(
+            String maxAccountUnrealizedLoss,
+            String maxSymbolUnrealizedLoss,
+            boolean hedgePositionOrderEnabled
+    ) {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                hedgePositionOrderEnabled,
+                hedgePositionOrderEnabled,
+                List.of("BTCUSDT"),
+                null,
+                false,
+                null,
+                true,
+                "cross",
+                "HEDGE",
+                "1",
+                "10",
+                null,
+                null,
+                maxAccountUnrealizedLoss,
+                maxSymbolUnrealizedLoss,
+                null,
                 true
         );
     }
@@ -1032,6 +1138,8 @@ class InterventionRemediationCommandPlannerTest {
                 chunkClose,
                 maxNotional,
                 rejectUnboundedNotional,
+                null,
+                null,
                 null,
                 null,
                 null,

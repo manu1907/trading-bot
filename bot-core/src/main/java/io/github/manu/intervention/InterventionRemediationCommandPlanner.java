@@ -272,6 +272,8 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "position_order_max_leverage", positionOrderPolicy.maxLeverage());
         put(attributes, "position_order_max_account_position_notional", positionOrderPolicy.maxAccountPositionNotional());
         put(attributes, "position_order_max_symbol_position_notional", positionOrderPolicy.maxSymbolPositionNotional());
+        put(attributes, "position_order_max_account_unrealized_loss", positionOrderPolicy.maxAccountUnrealizedLoss());
+        put(attributes, "position_order_max_symbol_unrealized_loss", positionOrderPolicy.maxSymbolUnrealizedLoss());
         put(attributes, "position_order_max_account_margin_utilization", positionOrderPolicy.maxAccountMarginUtilization());
         PositionExposure exposure = projectedPositionExposure(position, operation, size);
         if (exposure.valid()) {
@@ -279,6 +281,11 @@ public final class InterventionRemediationCommandPlanner {
             attributes.put("current_symbol_position_notional", normalize(exposure.currentSymbolNotional()));
             attributes.put("projected_account_position_notional", normalize(exposure.projectedAccountNotional()));
             attributes.put("projected_symbol_position_notional", normalize(exposure.projectedSymbolNotional()));
+        }
+        PositionLoss loss = currentUnrealizedLoss(position);
+        if (loss.valid()) {
+            attributes.put("current_account_unrealized_loss", normalize(loss.accountLoss()));
+            attributes.put("current_symbol_unrealized_loss", normalize(loss.symbolLoss()));
         }
         projection.risk(
                         position.provider(),
@@ -420,6 +427,10 @@ public final class InterventionRemediationCommandPlanner {
         String exposurePolicyBlocker = positionExposurePolicyBlocker(position, operation, size);
         if (exposurePolicyBlocker != null) {
             return exposurePolicyBlocker;
+        }
+        String lossPolicyBlocker = positionUnrealizedLossPolicyBlocker(position, operation);
+        if (lossPolicyBlocker != null) {
+            return lossPolicyBlocker;
         }
         BigDecimal maxQuantity = decimal(positionOrderPolicy.maxPositionQuantity());
         if (maxQuantity != null
@@ -570,6 +581,56 @@ public final class InterventionRemediationCommandPlanner {
                 projectedAccountNotional,
                 projectedSymbolNotional
         );
+    }
+
+    private String positionUnrealizedLossPolicyBlocker(
+            TradingStateProjection.PositionState position,
+            Operation operation
+    ) {
+        BigDecimal maxAccountLoss = decimal(positionOrderPolicy.maxAccountUnrealizedLoss());
+        BigDecimal maxSymbolLoss = decimal(positionOrderPolicy.maxSymbolUnrealizedLoss());
+        if (maxAccountLoss == null && maxSymbolLoss == null) {
+            return null;
+        }
+        PositionLoss loss = currentUnrealizedLoss(position);
+        if (!loss.valid()) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_unrealized_pnl_missing"
+                    : null;
+        }
+        if (operation != Operation.HEDGE_POSITION) {
+            return null;
+        }
+        if (maxAccountLoss != null && loss.accountLoss().compareTo(maxAccountLoss) > 0) {
+            return "position_order_account_unrealized_loss_exceeded";
+        }
+        if (maxSymbolLoss != null && loss.symbolLoss().compareTo(maxSymbolLoss) > 0) {
+            return "position_order_symbol_unrealized_loss_exceeded";
+        }
+        return null;
+    }
+
+    private PositionLoss currentUnrealizedLoss(TradingStateProjection.PositionState target) {
+        BigDecimal accountLoss = BigDecimal.ZERO;
+        BigDecimal symbolLoss = BigDecimal.ZERO;
+        String targetSymbol = text(target.symbol());
+        for (TradingStateProjection.PositionState position : projection.openPositionStates(
+                target.provider(),
+                target.environment(),
+                target.account(),
+                target.market()
+        )) {
+            BigDecimal unrealizedPnl = decimal(position.unrealizedPnl());
+            if (unrealizedPnl == null) {
+                return PositionLoss.invalid();
+            }
+            BigDecimal loss = unrealizedPnl.signum() < 0 ? unrealizedPnl.abs() : BigDecimal.ZERO;
+            accountLoss = accountLoss.add(loss);
+            if (sameSymbol(position.symbol(), targetSymbol)) {
+                symbolLoss = symbolLoss.add(loss);
+            }
+        }
+        return PositionLoss.valid(accountLoss, symbolLoss);
     }
 
     private String accountMarginUtilizationBlocker(TradingStateProjection.PositionState position) {
@@ -1092,6 +1153,21 @@ public final class InterventionRemediationCommandPlanner {
 
         private static PositionExposure invalid() {
             return new PositionExposure(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false);
+        }
+    }
+
+    private record PositionLoss(
+            BigDecimal accountLoss,
+            BigDecimal symbolLoss,
+            boolean valid
+    ) {
+
+        private static PositionLoss valid(BigDecimal accountLoss, BigDecimal symbolLoss) {
+            return new PositionLoss(accountLoss, symbolLoss, true);
+        }
+
+        private static PositionLoss invalid() {
+            return new PositionLoss(BigDecimal.ZERO, BigDecimal.ZERO, false);
         }
     }
 }

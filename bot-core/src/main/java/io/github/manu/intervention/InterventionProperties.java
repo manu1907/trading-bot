@@ -342,6 +342,8 @@ public record InterventionProperties(
             String maxLeverage,
             String maxAccountPositionNotional,
             String maxSymbolPositionNotional,
+            String maxAccountUnrealizedLoss,
+            String maxSymbolUnrealizedLoss,
             String maxAccountMarginUtilization,
             Boolean rejectMissingAccountRiskMetadata
     ) {
@@ -375,6 +377,10 @@ public record InterventionProperties(
             validatePositiveDecimal("maxSymbolPositionNotional", maxSymbolPositionNotional);
             maxAccountPositionNotional = text(maxAccountPositionNotional);
             maxSymbolPositionNotional = text(maxSymbolPositionNotional);
+            validatePositiveDecimal("maxAccountUnrealizedLoss", maxAccountUnrealizedLoss);
+            validatePositiveDecimal("maxSymbolUnrealizedLoss", maxSymbolUnrealizedLoss);
+            maxAccountUnrealizedLoss = text(maxAccountUnrealizedLoss);
+            maxSymbolUnrealizedLoss = text(maxSymbolUnrealizedLoss);
             validatePositiveDecimal("maxAccountMarginUtilization", maxAccountMarginUtilization);
             maxAccountMarginUtilization = text(maxAccountMarginUtilization);
             rejectMissingAccountRiskMetadata = rejectMissingAccountRiskMetadata == null
@@ -399,6 +405,8 @@ public record InterventionProperties(
                     true,
                     null,
                     "HEDGE",
+                    null,
+                    null,
                     null,
                     null,
                     null,
