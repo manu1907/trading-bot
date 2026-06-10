@@ -8,10 +8,11 @@ binance/demo/main/usdm_futures
 ```
 
 It is intentionally conservative. The bot can start in live mode, load and
-validate the active Binance demo configuration, run Binance demo smoke tests,
-consume configured runtime streams when enabled, maintain projections from
-published events, and expose internal intervention state when the operator API
-is enabled. It is not yet a finished end-user auto-trading product.
+validate the active Binance demo configuration, run Binance live smoke tests
+against the active demo target, consume configured runtime streams when enabled,
+maintain projections from published events, and expose internal intervention
+state when the operator API is enabled. It is not yet a finished end-user
+auto-trading product.
 
 ## Current Readiness
 
@@ -24,7 +25,7 @@ What is usable now:
   `config/application-demo.json`, `config/active.json`, and optional runtime
   overrides.
 - Validate Binance provider config and USD-M futures trading capability config.
-- Run read-only and guarded Binance demo smoke tests.
+- Run read-only and guarded Binance live smoke tests against the active demo target.
 - Use the Binance provider clients for server time, exchange metadata, order
   validation, signed order lifecycle tests, listen-key lifecycle tests, and
   WebSocket smoke tests.
@@ -1037,7 +1038,7 @@ Files:
 - `config/active.json`: selected provider, environment, account, and market.
 - `config/runtime/live/{provider}/{environment}/{account}/{market}.json`:
   optional runtime overrides for the selected live target.
-- `config/application-backtest.json`: backtest-mode config.
+- `config/application-backtest.json`: deferred v2 backtest-mode config surface.
 
 Startup rejects unsupported schema ids, schema versions, config versions, and
 migration policies. Unknown override paths are rejected.
@@ -2067,6 +2068,6 @@ Read these files next:
 
 - `docs/current-state-and-scenarios.md` for a broader implementation-state and
   scenario inventory.
-- `docs/binance-demo-smoke.md` for the focused Binance smoke-test guide.
+- `docs/binance-live-smoke.md` for the focused Binance live smoke-test guide.
 - `docs/architecture.md` for module boundaries, config precedence, and delivery
   standards.

@@ -77,8 +77,11 @@ Example:
 binance/demo/main/usdm_futures
 ```
 
-Spring profiles describe application mode: `live` or `backtest`. Exchange
-environment describes venue/account context: `demo` or `real`.
+For v1 online trading, the active Spring profile is `live`. Exchange
+environment describes venue/account context: `demo` or `real`. Demo and real
+must use the same application code; configuration, credentials, endpoints,
+risk limits, deployment controls, and provider product availability are the
+allowed differences.
 
 ## Config Precedence
 
@@ -121,7 +124,9 @@ source. Command-line arguments and OS environment variables stay above this
 source, so deployment secrets and emergency overrides remain authoritative while
 checked-in runtime files can still activate runtime services on first start.
 
-For backtest mode, only the backtest config is used.
+The `backtest` profile/config surface is deferred to v2. It should not be
+treated as a v1 delivery target until the deterministic historical-data runtime
+is intentionally designed and implemented.
 
 Runtime target changes are immutable for a running process unless a future
 supervisor explicitly creates or stops runtime instances.
@@ -837,8 +842,8 @@ Chronicle Queue uses memory-mapped files and Java internals for performance.
 Gradle test and Java execution tasks include the required Java 25 module access
 arguments so local runs match the intended runtime shape.
 Spring exposes the journal through `trading.journal`; it is disabled by default
-and must be pointed at an explicit writable directory before use in live or
-backtest runtime.
+and must be pointed at an explicit writable directory before use in the live
+runtime.
 When both Redpanda messaging and the journal are enabled, the trading event bus
 is decorated so primary typed events are appended to the local journal before
 they are published to Redpanda. Dead-letter records continue through the

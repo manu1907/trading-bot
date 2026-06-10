@@ -1,7 +1,9 @@
 # Binance Live Smoke Tests
 
 The Binance live order lifecycle test is intentionally opt-in. It uses the
-active Binance target. In demo it creates a passive USD-M `LIMIT GTX` order on
+active Binance target. The same smoke tasks are used for demo and real; the
+selected runtime target, credentials, endpoints, and risk guards come from
+configuration. In demo it creates a passive USD-M `LIMIT GTX` order on
 `BTCUSDT`, then queries and cancels it by client order id. In real it refuses
 to run unless `-Dbinance.live.smoke.allowReal=true` is also provided.
 

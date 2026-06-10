@@ -2,6 +2,13 @@
 
 This document describes the bot as implemented in this repository today. It is not a profitability claim and it is not a readiness certificate for real-money autonomous trading. Demo and real use the same codebase; the active behavior is selected by runtime profile, environment, account, market, credentials, and deployment configuration.
 
+The intended product direction is a professional autonomous order and position
+manager: it should open, amend, reduce, close, pause, recover, and reconcile
+positions through policy-gated automation while minimizing avoidable risk and
+loss. The current codebase implements only the supported scenarios listed in
+this document. It must not be described as a completed profit-maximizing trading
+manager yet.
+
 ## Active First-Start Target
 
 The checked-in first-start runtime target is:
@@ -245,5 +252,6 @@ Remaining work includes:
 - Cancel/replace fallback for unsupported amendments and broader adopted-order lifecycle controls.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
-- Backtesting, replay validation, demo soak criteria, promotion gates, and real-trading runbooks.
+- V1 live validation, demo soak criteria, promotion gates, and real-trading runbooks.
+- Backtesting and historical simulation are intentionally deferred to v2.
 - CI/CD and cloud deployment completion for Google Cloud first, with provider-neutral deployment abstractions so AWS can be added without changing the trading code.

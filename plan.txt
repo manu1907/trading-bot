@@ -5,7 +5,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 ## Operating Rules
 
 - Demo and real trading must use the same codebase. Switching between them must be done through profile, configuration, credentials, and deployment controls only.
-- The bot is not a toy reporting engine. Simulation and backtesting are separate runtimes; live/demo trading must exercise the same execution, risk, journal, projection, and reconciliation paths.
+- The bot is not a toy reporting engine. V1 online trading is the `live` profile; demo and real are runtime environments selected by config, credentials, endpoints, deployment controls, and provider product availability. Backtesting and historical simulation are deferred to v2 and are not v1 deliverables.
 - Source-controlled defaults live in `config/catalog.json`. Runtime environment config should select and narrow behavior, not fork product logic.
 - Runtime assembly belongs in `bot-app`. `bot-core` must stay provider/strategy-agnostic and must not depend on or assemble concrete provider or strategy modules.
 - Provider modules declare and validate exchange capability, translate provider commands, and execute provider operations. Provider modules must not contain strategy logic.
@@ -178,7 +178,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Managed order amendment policy semantics now exist for planner-side qualification and blockers: provider, market, symbol allowlist, bot-created/adopted ownership, allowed order types, allowed fields, quantity direction, quantity drift, price drift, stale projection age, open-order status, exchange-order-id requirement, pending modify state, unknown modify state, and unsupported cancel/replace fallback. Qualified amendments can execute as `MODIFY` commands through the pipeline when executor policy allowlists `AMEND_ORDER`; unsupported shapes remain blocked and cancel/replace fallback is not implemented.
 - Manual/external one-way positions can be evaluated and automatically closed or reduced through bounded reduce-only market orders when demo executor policy allowlists the operation; manual/external hedge-mode positions can be evaluated and automatically closed or reduced through bounded position-side market orders when a runtime explicitly enables hedge-mode execution.
 - There is no complete production deployment package with secrets management, metrics, alerts, dashboards, or runbooks.
-- There is no deterministic backtest runtime that proves strategy behavior across historical data.
+- Backtesting and historical simulation are intentionally deferred to v2; they are not v1 delivery blockers.
 - The LFA strategy lifecycle, feature calculation, signal generation, and position-management loop are not complete enough to treat it as a production autonomous strategy.
 
 ## Current Demo USD-M Futures User Flow
@@ -200,12 +200,12 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery: 33 to 56 commits/slices.
+Estimated remaining delivery: 27 to 46 commits/slices.
 
 - Core remediation execution and governance: 0 to 2 slices.
 - Strategy runtime and trading lifecycle: 10 to 16 slices.
 - Persistence, recovery, and replay hardening: 6 to 10 slices.
-- Backtesting, paper/demo validation, and promotion gates: 6 to 10 slices.
+- Live demo/real validation and promotion gates: 3 to 6 slices.
 - Observability, alerts, and operator controls: 3 to 6 slices.
 - Google Cloud infrastructure and CI/CD: 8 to 12 slices.
 - Security, secrets, operations, and live runbooks: 5 to 8 slices.
@@ -259,13 +259,14 @@ Estimated remaining delivery: 33 to 56 commits/slices.
 - Add journal retention, compaction, backup, and restore procedures.
 - Definition of done: a process restart or deployment rollout does not duplicate exchange actions and does not resume trading until projection and exchange state are reconciled.
 
-### Roadmap Slice 4: Backtesting, Simulation, And Demo Validation
+### Roadmap Slice 4: Live Validation And Promotion Gates
 
-- Build a deterministic backtest runtime that uses historical market data and the same strategy/risk logic, but no live exchange side effects.
-- Add simulation for fills, fees, slippage, funding, partial fills, rejects, cancel races, and network faults.
-- Add paper/demo validation reports for win rate, drawdown, exposure, order count, fill quality, latency, and failure handling.
-- Define promotion gates from backtest to demo, from demo shadow mode to demo live trading, and from demo live trading to real trading.
-- Definition of done: strategy promotion is based on repeatable evidence and configured gates, not manual confidence.
+- Keep v1 validation focused on the live runtime profile. Demo and real must use the same code path, with differences limited to runtime config, credentials, endpoints, risk limits, deployment approvals, and provider product availability.
+- Add live demo validation reports for strategy decisions, order lifecycle, drawdown, exposure, order count, fill quality, latency, reconciliation confidence, unknown outcomes, remediation outcomes, and failure handling.
+- Define promotion gates from demo shadow mode to bounded demo live trading, from bounded demo live trading to extended demo burn-in, and from demo burn-in to real trading.
+- Add real-readiness evidence requirements: committed config diff, secret binding proof, alert routing proof, rollback proof, emergency-stop proof, and live smoke evidence for the selected real target before any real execution policy is enabled.
+- Backtesting and historical simulation are explicitly deferred to v2 and should not be implemented in the v1 delivery path.
+- Definition of done: live promotion is based on repeatable demo/real evidence and configured gates, not manual confidence.
 
 ### Roadmap Slice 5: Observability And Operator Controls
 
@@ -319,7 +320,7 @@ Estimated remaining delivery: 33 to 56 commits/slices.
 - Add periodic credential rotation and least-privilege IAM review.
 - Add cost monitoring and budget alerts for Google Cloud.
 - Add release notes and audit trail for every promoted deployment.
-- Add long-term data retention policy for journals, logs, metrics, and backtest/demo evidence.
+- Add long-term data retention policy for journals, logs, metrics, and live validation evidence.
 - Definition of done: the system is maintainable as a production service, not only runnable as a developer project.
 
 ## Next Work In Dependency Order
@@ -329,5 +330,5 @@ Estimated remaining delivery: 33 to 56 commits/slices.
 3. Expand persistence and recovery tests for automated decisions, generated plans, pause state, scheduled runner ticks, and executable remediation commands.
 4. Add operations controls for executable remediation: metrics, alerts, audit summaries, and runbook entries for blocked, preview, submitted, and unknown outcomes.
 5. Complete cloud infrastructure and CI/CD work: managed PostgreSQL provisioning, secret values, service accounts/IAM, container registry image build/publish, Google Cloud Run or AWS ECS deployment automation, Alertmanager rendering from secrets, observability, deployment smoke tests, rollback, dashboards, runbooks, and incident procedures.
-6. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, backtesting, paper/demo validation, and promotion criteria to real trading.
+6. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, risk budgets, live demo validation, and promotion criteria to real trading.
 7. Keep the user manual and current-state documentation aligned after each capability change.
