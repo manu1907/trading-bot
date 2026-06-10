@@ -205,7 +205,7 @@ Run Spotless verification only:
 Start the Spring Boot application:
 
 ```bash
-./gradlew :bot-core:bootRun
+./gradlew :bot-app:bootRun
 ```
 
 With credentials in the same shell:
@@ -213,14 +213,14 @@ With credentials in the same shell:
 ```bash
 BINANCE_DEMO_API_KEY="<demo-api-key-from-binance>" \
 BINANCE_DEMO_API_SECRET="<demo-api-secret-from-binance>" \
-./gradlew :bot-core:bootRun
+./gradlew :bot-app:bootRun
 ```
 
 Because the default Spring profile is `live`, an explicit profile is normally
 not required. If you want to be explicit:
 
 ```bash
-./gradlew :bot-core:bootRun --args='--spring.profiles.active=live'
+./gradlew :bot-app:bootRun --args='--spring.profiles.active=live'
 ```
 
 Expected behavior in the default config:
@@ -286,7 +286,7 @@ provider startup boundaries.
 Command:
 
 ```bash
-./gradlew :bot-core:bootRun
+./gradlew :bot-app:bootRun
 ```
 
 Supported outcome:
@@ -640,7 +640,8 @@ Pause governance audit logging:
 
 Pause governance metrics:
 
-- Actuator and the Prometheus registry are on the bot-core runtime classpath.
+- Actuator and the Prometheus registry are on the app runtime classpath through
+  core configuration.
 - If the application exposes management endpoints, Prometheus metrics are
   available at `/actuator/prometheus`.
 - Pause release publication outcomes increment
@@ -1676,7 +1677,7 @@ Use this when you want to verify startup and config only.
 Command:
 
 ```bash
-./gradlew :bot-core:bootRun
+./gradlew :bot-app:bootRun
 ```
 
 Expected result:
@@ -1848,7 +1849,7 @@ Follow this order for a first demo USD-M futures run:
 6. Run `./gradlew :bot-exchange-binance:binanceLiveWebSocketSmokeTest`.
 7. Run `./gradlew :bot-exchange-binance:binanceLiveOrderSmokeTest` only if you
    accept a demo order create/query/cancel cycle.
-8. Start the app with `./gradlew :bot-core:bootRun`.
+8. Start the app with `./gradlew :bot-app:bootRun`.
 9. Enable one runtime switch at a time, starting with market data or user data.
 10. Keep execution and signal planning disabled until risk limits,
     reconciliation, event bus wiring, and operator workflows are intentionally

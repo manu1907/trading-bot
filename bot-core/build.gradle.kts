@@ -1,17 +1,17 @@
 plugins {
     id("java-library")
-    id("application")
-    id("org.springframework.boot")
     id("io.spring.dependency-management")
+}
+
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.6")
+    }
 }
 
 val avroTools by configurations.creating {
     isCanBeConsumed = false
     isCanBeResolved = true
-}
-
-application {
-    mainClass.set("io.github.manu.TradingBotApplication")
 }
 
 sourceSets {
@@ -30,10 +30,6 @@ dependencies {
             classifier = "osx-aarch_64"
         }
     }
-
-    // Provider and strategy modules are runtime plugins discovered as Spring beans.
-    runtimeOnly(project(":bot-exchange-binance"))
-    runtimeOnly(project(":bot-strategy-lfa"))
 
     // ---------- ULTRA-LOW-LATENCY PIPELINE ----------
     // Lock‑free ring buffer for market data, signals, orders
@@ -68,6 +64,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.testcontainers:testcontainers-redpanda:${rootProject.ext["testcontainers.version"]}")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testRuntimeOnly("com.h2database:h2")
 }
 

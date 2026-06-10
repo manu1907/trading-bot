@@ -1,6 +1,7 @@
 # Trading Bot Architecture
 
-The bot is organized around one application core and pluggable runtime modules.
+The bot is organized around a provider/strategy-agnostic core, a runnable
+application assembly, and pluggable runtime modules.
 
 ## Continuation Standard
 
@@ -27,16 +28,21 @@ reconciliation, and observable state transitions.
 
 ## Modules
 
-- `bot-core`: owns application startup, config loading, runtime identity,
-  exchange/strategy contracts, validation, reload policy, and orchestration.
+- `bot-core`: owns config loading, runtime identity, exchange/strategy
+  contracts, validation, reload policy, risk, projection, reconciliation,
+  journal, remediation, and orchestration. It must not depend on concrete
+  provider or strategy implementation modules.
+- `bot-app`: owns the Spring Boot application entrypoint and runtime assembly.
+  It is the only module that wires concrete provider and strategy plugins into
+  the runnable process.
 - `bot-exchange-binance`: owns Binance-specific config binding, REST/WebSocket
   behavior, metadata parsing, and Binance lifecycle.
 - `bot-strategy-lfa`: owns the LFA strategy implementation and its strategy
   config once the strategy contract is complete.
 
 Provider modules and strategy modules are discovered as Spring beans through
-core contracts. Core should not import provider-specific config or implementation
-types.
+core contracts. Core should not import or assemble provider-specific config or
+implementation types.
 
 ## Decision Boundary
 

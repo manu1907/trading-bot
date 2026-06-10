@@ -7,6 +7,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Demo and real trading must use the same codebase. Switching between them must be done through profile, configuration, credentials, and deployment controls only.
 - The bot is not a toy reporting engine. Simulation and backtesting are separate runtimes; live/demo trading must exercise the same execution, risk, journal, projection, and reconciliation paths.
 - Source-controlled defaults live in `config/catalog.json`. Runtime environment config should select and narrow behavior, not fork product logic.
+- Runtime assembly belongs in `bot-app`. `bot-core` must stay provider/strategy-agnostic and must not depend on or assemble concrete provider or strategy modules.
 - Provider modules declare and validate exchange capability, translate provider commands, and execute provider operations. Provider modules must not contain strategy logic.
 - Strategy modules emit provider-agnostic intent or signals. Core services handle risk, reconciliation confidence, projection, planning, idempotency, and execution admission.
 - Exchange-side remediation must never bypass `OrderExecutionPipeline`, `OrderRiskGate`, idempotency, the event journal, projection, reconciliation confidence, or the provider gateway.
@@ -19,6 +20,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 ### Profile And Configuration
 
 - The runtime profile/config system supports the same application code for demo and real environments.
+- Runtime assembly is separated from core: `bot-app` owns the Spring Boot entrypoint and concrete plugin runtime dependencies, while `bot-core` owns contracts, config, risk, projection, reconciliation, journaling, remediation, and orchestration without depending on Binance or LFA implementation modules.
 - Configuration catalogs include exchange/provider, journal, projection, messaging, audit, observability, execution, risk, idempotency, reconciliation, and intervention/remediation defaults.
 - The checked-in catalog lists all current top-level `trading.*` runtime configuration roots with their source-controlled defaults so runtime overrides have an explicit baseline.
 - A checked-in first-start runtime override now exists at `config/runtime/live/binance/demo/main/usdm_futures.json` for the current active demo target. It selects `trading-bot-demo-main-usdm-futures`, enables demo journal/recovery, projection snapshots, messaging runtime services, audit persistence, execution pipeline, signal-planner defaults, Binance user-data/market-data/reconciliation runtime flags, automated remediation policy, scheduled remediation runner, and the demo-only executor policy for `CANCEL_ORDER`, `CLOSE_POSITION`, and `REDUCE_POSITION`. It also restricts first-start position remediation to `BTCUSDT`, `max_position_quantity=0.001`, `chunk_close_when_max_quantity_exceeded=true`, `max_position_notional=250`, `required_margin_type=cross`, `min_leverage=1`, and `max_leverage=5`. It inherits `max_account_margin_utilization=null` until account-level risk projection is configured for the target.
