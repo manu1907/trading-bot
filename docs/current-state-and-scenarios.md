@@ -38,6 +38,7 @@ The position-order policy for the first-start demo runtime also restricts automa
 - inherited `max_account_unrealized_loss=null`
 - inherited `max_symbol_unrealized_loss=null`
 - inherited `min_account_margin_balance=null`
+- inherited `max_account_margin_drawdown_fraction=null`
 - inherited `max_account_margin_utilization=null`
 - inherited `reject_unbounded_position_notional=true`
 - inherited `reject_missing_account_risk_metadata=true`
@@ -99,6 +100,8 @@ Position plans remain non-executable when any configured policy gate fails, incl
 - missing or invalid projected unrealized PnL while unrealized-loss caps are configured and `reject_missing_account_risk_metadata=true`
 - current account margin balance below `min_account_margin_balance` for non-reducing hedge plans
 - projected account margin risk missing or invalid while `min_account_margin_balance` is configured and `reject_missing_account_risk_metadata=true`
+- current account margin-balance drawdown from projected high-watermark above `max_account_margin_drawdown_fraction` for non-reducing hedge plans
+- projected account max margin-balance metadata missing or invalid while `max_account_margin_drawdown_fraction` is configured and `reject_missing_account_risk_metadata=true`
 - projected account margin-utilization above `max_account_margin_utilization`
 - projected account margin risk missing or invalid while `max_account_margin_utilization` is configured and `reject_missing_account_risk_metadata=true`
 - missing or mismatched hedge-mode position metadata while `required_position_mode=HEDGE`
@@ -168,6 +171,7 @@ Catalog defaults keep these fields explicit and overridable:
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_account_unrealized_loss=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_symbol_unrealized_loss=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.min_account_margin_balance=null`
+- `trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_drawdown_fraction=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_utilization=null`
 - `trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata=true`
 
@@ -176,7 +180,7 @@ Catalog defaults keep these fields explicit and overridable:
 Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
-- Broader account-level and symbol-level risk budgets, realized daily loss limits, and equity high-watermark drawdown limits beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, and account margin-utilization caps.
+- Broader account-level and symbol-level risk budgets and realized daily loss limits beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, and account margin-utilization caps.
 - External order adoption and managed amendment policies.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.

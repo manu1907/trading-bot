@@ -224,7 +224,8 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
 
     private List<TradingStateProjection.RiskState> loadRisks(Connection connection) throws SQLException {
         String sql = "select provider, environment, account, market, risk_scope, symbol, underlying, risk_level,"
-                + " delta, gamma, theta, vega, margin_balance, maintenance_margin, updated_at, event_id from "
+                + " delta, gamma, theta, vega, margin_balance, max_margin_balance, maintenance_margin,"
+                + " updated_at, event_id from "
                 + table("risks")
                 + " order by state_key";
         List<TradingStateProjection.RiskState> states = new ArrayList<>();
@@ -244,6 +245,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         rows.getString("theta"),
                         rows.getString("vega"),
                         rows.getString("margin_balance"),
+                        rows.getString("max_margin_balance"),
                         rows.getString("maintenance_margin"),
                         instant(rows.getString("updated_at")),
                         rows.getString("event_id")
@@ -488,8 +490,9 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
         String sql = "insert into "
                 + table("risks")
                 + " (state_key, provider, environment, account, market, risk_scope, symbol, underlying,"
-                + " risk_level, delta, gamma, theta, vega, margin_balance, maintenance_margin, updated_at, event_id)"
-                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + " risk_level, delta, gamma, theta, vega, margin_balance, max_margin_balance, maintenance_margin,"
+                + " updated_at, event_id)"
+                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (TradingStateProjection.RiskState state : states) {
                 int index = 1;
@@ -514,6 +517,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                 statement.setString(index++, state.theta());
                 statement.setString(index++, state.vega());
                 statement.setString(index++, state.marginBalance());
+                statement.setString(index++, state.maxMarginBalance());
                 statement.setString(index++, state.maintenanceMargin());
                 statement.setString(index++, string(state.updatedAt()));
                 statement.setString(index, state.eventId());
@@ -702,7 +706,9 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         + "market varchar(128) not null, risk_scope varchar(128) not null,"
                         + "symbol varchar(128), underlying varchar(128), risk_level varchar(128), delta varchar(128),"
                         + "gamma varchar(128), theta varchar(128), vega varchar(128), margin_balance varchar(128),"
+                        + "max_margin_balance varchar(128),"
                         + "maintenance_margin varchar(128), updated_at varchar(64) not null, event_id varchar(512))",
+                "alter table " + table("risks") + " add column if not exists max_margin_balance varchar(128)",
                 "create table if not exists " + table("manual_review_decisions") + " ("
                         + "state_key varchar(512) primary key, provider varchar(64) not null,"
                         + "environment varchar(64) not null, account varchar(128) not null,"

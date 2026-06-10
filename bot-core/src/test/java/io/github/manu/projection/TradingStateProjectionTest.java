@@ -72,9 +72,24 @@ class TradingStateProjectionTest {
                 .get()
                 .satisfies(risk -> {
                     assertThat(risk.delta()).isEqualTo("-0.01304097");
+                    assertThat(risk.maxMarginBalance()).isNull();
                     assertThat(risk.updatedAt()).isEqualTo(timestamp(12));
                 });
         assertThat(projection.hasOpenPositions(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+    }
+
+    @Test
+    void tracks_risk_margin_balance_high_watermark() {
+        projection.apply(risk("evt-risk-1", "-0.01", timestamp(10), "1000"));
+        projection.apply(risk("evt-risk-2", "-0.02", timestamp(11), "900"));
+        projection.apply(risk("evt-risk-3", "-0.03", timestamp(12), "1100"));
+
+        assertThat(projection.risk(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "UNDERLYING", "BTCUSDT"))
+                .get()
+                .satisfies(risk -> {
+                    assertThat(risk.marginBalance()).isEqualTo("1100");
+                    assertThat(risk.maxMarginBalance()).isEqualTo("1100");
+                });
     }
 
     @Test
@@ -1297,6 +1312,15 @@ class TradingStateProjectionTest {
     }
 
     private TradingEventEnvelope<RiskUpdateEvent> risk(String eventId, String delta, Instant eventTime) {
+        return risk(eventId, delta, eventTime, null);
+    }
+
+    private TradingEventEnvelope<RiskUpdateEvent> risk(
+            String eventId,
+            String delta,
+            Instant eventTime,
+            String marginBalance
+    ) {
         RiskUpdateEvent event = RiskUpdateEvent.newBuilder()
                 .setEventId(eventId)
                 .setSchemaVersion(1)
@@ -1311,6 +1335,7 @@ class TradingStateProjectionTest {
                 .setGamma("-0.00000124")
                 .setTheta("16.116481")
                 .setVega("-3.83444011")
+                .setMarginBalance(marginBalance)
                 .setEventTimeMicros(eventTime)
                 .setAttributes(Map.of())
                 .build();

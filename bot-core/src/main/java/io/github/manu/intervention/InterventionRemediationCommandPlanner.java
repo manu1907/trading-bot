@@ -275,6 +275,11 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "position_order_max_account_unrealized_loss", positionOrderPolicy.maxAccountUnrealizedLoss());
         put(attributes, "position_order_max_symbol_unrealized_loss", positionOrderPolicy.maxSymbolUnrealizedLoss());
         put(attributes, "position_order_min_account_margin_balance", positionOrderPolicy.minAccountMarginBalance());
+        put(
+                attributes,
+                "position_order_max_account_margin_drawdown_fraction",
+                positionOrderPolicy.maxAccountMarginDrawdownFraction()
+        );
         put(attributes, "position_order_max_account_margin_utilization", positionOrderPolicy.maxAccountMarginUtilization());
         PositionExposure exposure = projectedPositionExposure(position, operation, size);
         if (exposure.valid()) {
@@ -436,6 +441,10 @@ public final class InterventionRemediationCommandPlanner {
         String marginBalancePolicyBlocker = accountMarginBalancePolicyBlocker(position, operation);
         if (marginBalancePolicyBlocker != null) {
             return marginBalancePolicyBlocker;
+        }
+        String marginDrawdownPolicyBlocker = accountMarginDrawdownPolicyBlocker(position, operation);
+        if (marginDrawdownPolicyBlocker != null) {
+            return marginDrawdownPolicyBlocker;
         }
         BigDecimal maxQuantity = decimal(positionOrderPolicy.maxPositionQuantity());
         if (maxQuantity != null
@@ -701,6 +710,44 @@ public final class InterventionRemediationCommandPlanner {
         }
         if (marginBalance.compareTo(minMarginBalance) < 0) {
             return "position_order_min_account_margin_balance_violated";
+        }
+        return null;
+    }
+
+    private String accountMarginDrawdownPolicyBlocker(
+            TradingStateProjection.PositionState position,
+            Operation operation
+    ) {
+        BigDecimal maxDrawdown = decimal(positionOrderPolicy.maxAccountMarginDrawdownFraction());
+        if (maxDrawdown == null) {
+            return null;
+        }
+        TradingStateProjection.RiskState accountRisk = accountRisk(position);
+        if (accountRisk == null) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_account_risk_missing"
+                    : null;
+        }
+        BigDecimal marginBalance = decimal(accountRisk.marginBalance());
+        if (marginBalance == null || marginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_margin_balance_missing"
+                    : null;
+        }
+        BigDecimal maxMarginBalance = decimal(accountRisk.maxMarginBalance());
+        if (maxMarginBalance == null || maxMarginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_max_margin_balance_missing"
+                    : null;
+        }
+        if (operation != Operation.HEDGE_POSITION) {
+            return null;
+        }
+        BigDecimal drawdown = marginBalance.compareTo(maxMarginBalance) >= 0
+                ? BigDecimal.ZERO
+                : maxMarginBalance.subtract(marginBalance).divide(maxMarginBalance, MathContext.DECIMAL64);
+        if (drawdown.compareTo(maxDrawdown) > 0) {
+            return "position_order_account_margin_drawdown_exceeded";
         }
         return null;
     }
@@ -984,8 +1031,17 @@ public final class InterventionRemediationCommandPlanner {
     private void putAccountRiskAttributes(Map<String, String> attributes, TradingStateProjection.RiskState risk) {
         put(attributes, "account_risk_level", risk.riskLevel());
         put(attributes, "account_margin_balance", risk.marginBalance());
+        put(attributes, "account_max_margin_balance", risk.maxMarginBalance());
         put(attributes, "account_maintenance_margin", risk.maintenanceMargin());
         BigDecimal marginBalance = decimal(risk.marginBalance());
+        BigDecimal maxMarginBalance = decimal(risk.maxMarginBalance());
+        if (marginBalance != null && marginBalance.compareTo(BigDecimal.ZERO) > 0
+                && maxMarginBalance != null && maxMarginBalance.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal drawdown = marginBalance.compareTo(maxMarginBalance) >= 0
+                    ? BigDecimal.ZERO
+                    : maxMarginBalance.subtract(marginBalance).divide(maxMarginBalance, MathContext.DECIMAL64);
+            put(attributes, "account_margin_drawdown_fraction", normalize(drawdown));
+        }
         BigDecimal maintenanceMargin = decimal(risk.maintenanceMargin());
         if (marginBalance != null && marginBalance.compareTo(BigDecimal.ZERO) > 0
                 && maintenanceMargin != null && maintenanceMargin.compareTo(BigDecimal.ZERO) >= 0) {

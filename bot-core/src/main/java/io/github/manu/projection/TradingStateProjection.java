@@ -870,6 +870,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                 event.getRiskScope(),
                 entityId
         );
+        String marginBalance = value(event.getMarginBalance());
         RiskState state = new RiskState(
                 value(event.getProvider()),
                 value(event.getEnvironment()),
@@ -883,7 +884,8 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getGamma()),
                 value(event.getTheta()),
                 value(event.getVega()),
-                value(event.getMarginBalance()),
+                marginBalance,
+                maxMarginBalance(marginBalance, risks.get(entityKey)),
                 value(event.getMaintenanceMargin()),
                 firstInstant(event.getTransactionTimeMicros(), event.getEventTimeMicros()),
                 eventId
@@ -1449,6 +1451,31 @@ public final class TradingStateProjection implements TradingEventHandler {
         }
     }
 
+    private String maxMarginBalance(String marginBalance, RiskState previous) {
+        BigDecimal current = positiveDecimal(marginBalance);
+        String previousMaxText = previous == null ? null : previous.maxMarginBalance();
+        BigDecimal previousMax = positiveDecimal(previousMaxText);
+        if (current == null) {
+            return previousMaxText;
+        }
+        if (previousMax == null || current.compareTo(previousMax) > 0) {
+            return marginBalance;
+        }
+        return previousMaxText;
+    }
+
+    private BigDecimal positiveDecimal(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            BigDecimal decimal = new BigDecimal(value);
+            return decimal.compareTo(BigDecimal.ZERO) > 0 ? decimal : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
     private String attribute(PositionUpdateEvent event, String key) {
         if (event.getAttributes() == null) {
             return null;
@@ -1662,6 +1689,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             String theta,
             String vega,
             String marginBalance,
+            String maxMarginBalance,
             String maintenanceMargin,
             Instant updatedAt,
             String eventId

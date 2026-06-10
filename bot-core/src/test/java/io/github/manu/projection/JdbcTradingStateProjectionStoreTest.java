@@ -46,7 +46,10 @@ class JdbcTradingStateProjectionStoreTest {
         assertThat(loaded.get().orders()).singleElement()
                 .satisfies(order -> assertThat(order.exchangeStatus()).isEqualTo("NEW"));
         assertThat(loaded.get().risks()).singleElement()
-                .satisfies(risk -> assertThat(risk.delta()).isEqualTo("-0.01304097"));
+                .satisfies(risk -> {
+                    assertThat(risk.delta()).isEqualTo("-0.01304097");
+                    assertThat(risk.maxMarginBalance()).isEqualTo("1200");
+                });
         assertThat(loaded.get().manualReviewDecisions()).singleElement()
                 .satisfies(decision -> {
                     assertThat(decision.commandId()).isEqualTo("cmd-1");
@@ -178,7 +181,8 @@ class JdbcTradingStateProjectionStoreTest {
                         "-0.00000124",
                         "16.116481",
                         "-3.83444011",
-                        null,
+                        "1000",
+                        "1200",
                         null,
                         now.plusSeconds(3),
                         "evt-risk"

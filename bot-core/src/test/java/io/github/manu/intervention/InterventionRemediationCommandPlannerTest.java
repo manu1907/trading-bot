@@ -294,6 +294,7 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         null,
                         null,
+                        null,
                         true
                 )
         );
@@ -513,7 +514,7 @@ class InterventionRemediationCommandPlannerTest {
         restorePositionInterventionWithAccountRisk("0.25", "700", "100");
         InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
                 projection,
-                equityRiskPositionOrderPolicy("750", false)
+                equityRiskPositionOrderPolicy("750", null, false)
         );
 
         InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
@@ -533,7 +534,7 @@ class InterventionRemediationCommandPlannerTest {
         restorePositionInterventionWithAccountRisk("0.25", "700", "100", "LONG", "HEDGE");
         InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
                 projection,
-                equityRiskPositionOrderPolicy("750", true)
+                equityRiskPositionOrderPolicy("750", null, true)
         );
 
         InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
@@ -546,6 +547,51 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("account_margin_balance", "700")
                 .containsEntry("position_order_min_account_margin_balance", "750")
                 .containsEntry("exchange_execution_blocker", "position_order_min_account_margin_balance_violated")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void allows_position_close_when_account_margin_drawdown_exceeds_cap_because_it_reduces_risk() {
+        restorePositionInterventionWithAccountRisk("0.25", "700", "100", "1000", "BOTH", null);
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                equityRiskPositionOrderPolicy(null, "0.20", false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("account_margin_balance", "700")
+                .containsEntry("account_max_margin_balance", "1000")
+                .containsEntry("account_margin_drawdown_fraction", "0.3")
+                .containsEntry("position_order_max_account_margin_drawdown_fraction", "0.20")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void keeps_position_hedge_non_executable_when_account_margin_drawdown_exceeds_cap() {
+        restorePositionInterventionWithAccountRisk("0.25", "700", "100", "1000", "LONG", "HEDGE");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                equityRiskPositionOrderPolicy(null, "0.20", true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("HEDGE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("account_margin_balance", "700")
+                .containsEntry("account_max_margin_balance", "1000")
+                .containsEntry("account_margin_drawdown_fraction", "0.3")
+                .containsEntry("position_order_max_account_margin_drawdown_fraction", "0.20")
+                .containsEntry("exchange_execution_blocker", "position_order_account_margin_drawdown_exceeded")
                 .containsEntry("exchange_executable", "false");
     }
 
@@ -902,13 +948,31 @@ class InterventionRemediationCommandPlannerTest {
             String marginBalance,
             String maintenanceMargin
     ) {
-        restorePositionInterventionWithAccountRisk(positionAmount, marginBalance, maintenanceMargin, "BOTH", null);
+        restorePositionInterventionWithAccountRisk(positionAmount, marginBalance, maintenanceMargin, marginBalance, "BOTH", null);
     }
 
     private void restorePositionInterventionWithAccountRisk(
             String positionAmount,
             String marginBalance,
             String maintenanceMargin,
+            String positionSide,
+            String positionMode
+    ) {
+        restorePositionInterventionWithAccountRisk(
+                positionAmount,
+                marginBalance,
+                maintenanceMargin,
+                marginBalance,
+                positionSide,
+                positionMode
+        );
+    }
+
+    private void restorePositionInterventionWithAccountRisk(
+            String positionAmount,
+            String marginBalance,
+            String maintenanceMargin,
+            String maxMarginBalance,
             String positionSide,
             String positionMode
     ) {
@@ -950,6 +1014,7 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         null,
                         marginBalance,
+                        maxMarginBalance,
                         maintenanceMargin,
                         NOW.minusSeconds(1),
                         "evt-account-risk"
@@ -974,6 +1039,7 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 null,
                 true,
+                null,
                 null,
                 null,
                 null,
@@ -1014,6 +1080,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -1034,6 +1101,7 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 null,
                 true,
+                null,
                 null,
                 null,
                 null,
@@ -1101,6 +1169,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
                 maxAccountMarginUtilization,
                 true
         );
@@ -1132,6 +1201,7 @@ class InterventionRemediationCommandPlannerTest {
                 "10",
                 maxAccountPositionNotional,
                 maxSymbolPositionNotional,
+                null,
                 null,
                 null,
                 null,
@@ -1170,12 +1240,14 @@ class InterventionRemediationCommandPlannerTest {
                 maxSymbolUnrealizedLoss,
                 null,
                 null,
+                null,
                 true
         );
     }
 
     private InterventionProperties.PositionOrderPolicy equityRiskPositionOrderPolicy(
             String minAccountMarginBalance,
+            String maxAccountMarginDrawdownFraction,
             boolean hedgePositionOrderEnabled
     ) {
         return new InterventionProperties.PositionOrderPolicy(
@@ -1202,6 +1274,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 minAccountMarginBalance,
+                maxAccountMarginDrawdownFraction,
                 null,
                 true
         );
@@ -1229,6 +1302,7 @@ class InterventionRemediationCommandPlannerTest {
                 chunkClose,
                 maxNotional,
                 rejectUnboundedNotional,
+                null,
                 null,
                 null,
                 null,

@@ -345,6 +345,7 @@ public record InterventionProperties(
             String maxAccountUnrealizedLoss,
             String maxSymbolUnrealizedLoss,
             String minAccountMarginBalance,
+            String maxAccountMarginDrawdownFraction,
             String maxAccountMarginUtilization,
             Boolean rejectMissingAccountRiskMetadata
     ) {
@@ -384,6 +385,8 @@ public record InterventionProperties(
             maxSymbolUnrealizedLoss = text(maxSymbolUnrealizedLoss);
             validatePositiveDecimal("minAccountMarginBalance", minAccountMarginBalance);
             minAccountMarginBalance = text(minAccountMarginBalance);
+            validateFraction("maxAccountMarginDrawdownFraction", maxAccountMarginDrawdownFraction);
+            maxAccountMarginDrawdownFraction = text(maxAccountMarginDrawdownFraction);
             validatePositiveDecimal("maxAccountMarginUtilization", maxAccountMarginUtilization);
             maxAccountMarginUtilization = text(maxAccountMarginUtilization);
             rejectMissingAccountRiskMetadata = rejectMissingAccountRiskMetadata == null
@@ -408,6 +411,7 @@ public record InterventionProperties(
                     true,
                     null,
                     "HEDGE",
+                    null,
                     null,
                     null,
                     null,
@@ -467,6 +471,21 @@ public record InterventionProperties(
             try {
                 if (new BigDecimal(text).compareTo(BigDecimal.ZERO) <= 0) {
                     throw new IllegalArgumentException(field + " must be positive when configured");
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(field + " must be a decimal number", e);
+            }
+        }
+
+        private static void validateFraction(String field, String value) {
+            String text = text(value);
+            if (text == null) {
+                return;
+            }
+            try {
+                BigDecimal decimal = new BigDecimal(text);
+                if (decimal.compareTo(BigDecimal.ZERO) <= 0 || decimal.compareTo(BigDecimal.ONE) > 0) {
+                    throw new IllegalArgumentException(field + " must be greater than 0 and less than or equal to 1");
                 }
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException(field + " must be a decimal number", e);
