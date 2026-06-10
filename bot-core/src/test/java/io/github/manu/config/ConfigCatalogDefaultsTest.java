@@ -135,6 +135,8 @@ class ConfigCatalogDefaultsTest {
                 "trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_drawdown_fraction");
         assertNull(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.max_account_margin_utilization");
+        assertNull(catalog,
+                "trading.intervention.remediation_executor_policy.position_order_policy.max_account_daily_realized_loss");
         assertBoolean(catalog,
                 "trading.intervention.remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata",
                 true);

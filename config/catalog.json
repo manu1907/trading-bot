@@ -232,6 +232,7 @@
           "min_account_margin_balance": null,
           "max_account_margin_drawdown_fraction": null,
           "max_account_margin_utilization": null,
+          "max_account_daily_realized_loss": null,
           "reject_missing_account_risk_metadata": true
         }
       }

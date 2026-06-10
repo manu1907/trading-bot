@@ -347,7 +347,8 @@ public record InterventionProperties(
             String minAccountMarginBalance,
             String maxAccountMarginDrawdownFraction,
             String maxAccountMarginUtilization,
-            Boolean rejectMissingAccountRiskMetadata
+            Boolean rejectMissingAccountRiskMetadata,
+            String maxAccountDailyRealizedLoss
     ) {
 
         public PositionOrderPolicy {
@@ -391,6 +392,8 @@ public record InterventionProperties(
             maxAccountMarginUtilization = text(maxAccountMarginUtilization);
             rejectMissingAccountRiskMetadata = rejectMissingAccountRiskMetadata == null
                     || Boolean.TRUE.equals(rejectMissingAccountRiskMetadata);
+            validatePositiveDecimal("maxAccountDailyRealizedLoss", maxAccountDailyRealizedLoss);
+            maxAccountDailyRealizedLoss = text(maxAccountDailyRealizedLoss);
         }
 
         static PositionOrderPolicy disabled() {
@@ -420,7 +423,8 @@ public record InterventionProperties(
                     null,
                     null,
                     null,
-                    true
+                    true,
+                    null
             );
         }
 

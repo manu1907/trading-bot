@@ -677,19 +677,22 @@ type, required hedge account position mode, leverage bounds, and missing
 account-risk metadata behavior are all explicit catalog policy values. The
 catalog also exposes optional `max_account_position_notional`,
 `max_symbol_position_notional`, `max_account_unrealized_loss`,
-`max_symbol_unrealized_loss`, `min_account_margin_balance`, and
-`max_account_margin_drawdown_fraction` and `max_account_margin_utilization`
-caps. The position-notional caps use projected gross open-position notional
-after the planned remediation action and are risk-reduction aware, so
-close/reduce actions that lower already-excessive exposure are not blocked
-solely because current exposure was already above the cap. The unrealized-loss
-caps read current projected open-position unrealized PnL and block non-reducing
-hedge remediation once account or symbol loss exceeds the configured cap, while
-still allowing close/reduce plans that lower risk. The account margin-balance
-floor blocks non-reducing hedge remediation when current projected account
-equity is below the configured floor, while still allowing validated close/reduce
-risk reduction. The account margin drawdown cap compares current projected
-margin balance against the stored max margin-balance high-watermark retained in
+`max_symbol_unrealized_loss`, `min_account_margin_balance`,
+`max_account_margin_drawdown_fraction`, `max_account_margin_utilization`, and
+`max_account_daily_realized_loss` caps. The position-notional caps use projected
+gross open-position notional after the planned remediation action and are
+risk-reduction aware, so close/reduce actions that lower already-excessive
+exposure are not blocked solely because current exposure was already above the
+cap. The unrealized-loss caps read current projected open-position unrealized
+PnL and block non-reducing hedge remediation once account or symbol loss exceeds
+the configured cap, while still allowing close/reduce plans that lower risk. The
+account daily realized-loss cap reads projected UTC daily realized PnL and blocks
+non-reducing hedge remediation once account realized loss exceeds the configured
+cap, while still allowing close/reduce risk reduction. The account margin-balance
+floor blocks non-reducing hedge remediation when current projected account equity
+is below the configured floor, while still allowing validated close/reduce risk
+reduction. The account margin drawdown cap compares current projected margin
+balance against the stored max margin-balance high-watermark retained in
 risk projection snapshots, then blocks non-reducing hedge remediation when the
 drawdown fraction exceeds the configured cap. The margin-utilization cap reads
 projected account-level risk and blocks position orders if maintenance margin

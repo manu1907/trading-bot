@@ -5,6 +5,9 @@ import io.github.manu.projection.TradingStateProjection;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -221,7 +224,7 @@ public final class InterventionRemediationCommandPlanner {
         }
         attributes.put("reduce_only_required", Boolean.toString(size.reduceOnlyRequired()));
         attributes.put("hedge_mode_required", Boolean.toString(size.hedgeModeRequired()));
-        putPositionOrderRiskPolicyAttributes(attributes, position, operation, size);
+        putPositionOrderRiskPolicyAttributes(attributes, event, position, operation, size);
         PositionOrderExecutionPolicy executionPolicy = positionOrderExecutionPolicy(event, position, operation, size);
         attributes.put("position_order_type", "MARKET");
         attributes.put("position_order_reduce_only", Boolean.toString(executionPolicy.reduceOnly()));
@@ -257,6 +260,7 @@ public final class InterventionRemediationCommandPlanner {
 
     private void putPositionOrderRiskPolicyAttributes(
             Map<String, String> attributes,
+            RemediationDecisionEvent event,
             TradingStateProjection.PositionState position,
             Operation operation,
             PositionRemediationSize size
@@ -281,6 +285,7 @@ public final class InterventionRemediationCommandPlanner {
                 positionOrderPolicy.maxAccountMarginDrawdownFraction()
         );
         put(attributes, "position_order_max_account_margin_utilization", positionOrderPolicy.maxAccountMarginUtilization());
+        put(attributes, "position_order_max_account_daily_realized_loss", positionOrderPolicy.maxAccountDailyRealizedLoss());
         PositionExposure exposure = projectedPositionExposure(position, operation, size);
         if (exposure.valid()) {
             attributes.put("current_account_position_notional", normalize(exposure.currentAccountNotional()));
@@ -292,6 +297,12 @@ public final class InterventionRemediationCommandPlanner {
         if (loss.valid()) {
             attributes.put("current_account_unrealized_loss", normalize(loss.accountLoss()));
             attributes.put("current_symbol_unrealized_loss", normalize(loss.symbolLoss()));
+        }
+        DailyRealizedLoss dailyRealizedLoss = currentDailyRealizedLoss(position, event);
+        if (dailyRealizedLoss.valid()) {
+            attributes.put("current_account_daily_realized_loss", normalize(dailyRealizedLoss.accountLoss()));
+            attributes.put("current_account_daily_realized_pnl", normalize(dailyRealizedLoss.accountPnl()));
+            attributes.put("current_account_daily_realized_pnl_trading_day", dailyRealizedLoss.tradingDay());
         }
         projection.risk(
                         position.provider(),
@@ -437,6 +448,10 @@ public final class InterventionRemediationCommandPlanner {
         String lossPolicyBlocker = positionUnrealizedLossPolicyBlocker(position, operation);
         if (lossPolicyBlocker != null) {
             return lossPolicyBlocker;
+        }
+        String dailyRealizedLossPolicyBlocker = accountDailyRealizedLossPolicyBlocker(position, operation, event);
+        if (dailyRealizedLossPolicyBlocker != null) {
+            return dailyRealizedLossPolicyBlocker;
         }
         String marginBalancePolicyBlocker = accountMarginBalancePolicyBlocker(position, operation);
         if (marginBalancePolicyBlocker != null) {
@@ -645,6 +660,58 @@ public final class InterventionRemediationCommandPlanner {
             }
         }
         return PositionLoss.valid(accountLoss, symbolLoss);
+    }
+
+    private String accountDailyRealizedLossPolicyBlocker(
+            TradingStateProjection.PositionState position,
+            Operation operation,
+            RemediationDecisionEvent event
+    ) {
+        BigDecimal maxAccountLoss = decimal(positionOrderPolicy.maxAccountDailyRealizedLoss());
+        if (maxAccountLoss == null) {
+            return null;
+        }
+        if (operation != Operation.HEDGE_POSITION) {
+            return null;
+        }
+        DailyRealizedLoss loss = currentDailyRealizedLoss(position, event);
+        if (!loss.valid()) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_daily_realized_pnl_missing"
+                    : null;
+        }
+        if (loss.accountLoss().compareTo(maxAccountLoss) > 0) {
+            return "position_order_account_daily_realized_loss_exceeded";
+        }
+        return null;
+    }
+
+    private DailyRealizedLoss currentDailyRealizedLoss(
+            TradingStateProjection.PositionState position,
+            RemediationDecisionEvent event
+    ) {
+        Instant decidedAt = event.getDecidedAtMicros();
+        if (decidedAt == null) {
+            return DailyRealizedLoss.invalid();
+        }
+        String tradingDay = tradingDay(decidedAt);
+        TradingStateProjection.DailyRealizedPnlState realizedPnl = projection.dailyRealizedPnl(
+                        position.provider(),
+                        position.environment(),
+                        position.account(),
+                        position.market(),
+                        tradingDay
+                )
+                .orElse(null);
+        if (realizedPnl == null) {
+            return DailyRealizedLoss.invalid();
+        }
+        BigDecimal pnl = decimal(realizedPnl.realizedPnl());
+        if (pnl == null) {
+            return DailyRealizedLoss.invalid();
+        }
+        BigDecimal loss = pnl.signum() < 0 ? pnl.abs() : BigDecimal.ZERO;
+        return DailyRealizedLoss.valid(pnl, loss, tradingDay);
     }
 
     private String accountMarginUtilizationBlocker(TradingStateProjection.PositionState position) {
@@ -1093,6 +1160,11 @@ public final class InterventionRemediationCommandPlanner {
         return value.stripTrailingZeros().toPlainString();
     }
 
+    private String tradingDay(Instant eventTime) {
+        LocalDate day = eventTime.atZone(ZoneOffset.UTC).toLocalDate();
+        return day.toString();
+    }
+
     private boolean sameSymbol(String value, String expected) {
         String text = text(value);
         return text != null && expected != null && text.equalsIgnoreCase(expected);
@@ -1270,6 +1342,22 @@ public final class InterventionRemediationCommandPlanner {
 
         private static PositionLoss invalid() {
             return new PositionLoss(BigDecimal.ZERO, BigDecimal.ZERO, false);
+        }
+    }
+
+    private record DailyRealizedLoss(
+            BigDecimal accountPnl,
+            BigDecimal accountLoss,
+            String tradingDay,
+            boolean valid
+    ) {
+
+        private static DailyRealizedLoss valid(BigDecimal accountPnl, BigDecimal accountLoss, String tradingDay) {
+            return new DailyRealizedLoss(accountPnl, accountLoss, tradingDay, true);
+        }
+
+        private static DailyRealizedLoss invalid() {
+            return new DailyRealizedLoss(BigDecimal.ZERO, BigDecimal.ZERO, null, false);
         }
     }
 }

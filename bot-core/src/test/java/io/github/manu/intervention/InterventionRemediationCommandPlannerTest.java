@@ -295,7 +295,8 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         null,
                         null,
-                        true
+                        true,
+                        null
                 )
         );
 
@@ -680,6 +681,71 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     @Test
+    void allows_position_close_when_daily_realized_loss_cap_is_exceeded_because_it_reduces_risk() {
+        restorePositionInterventionWithDailyRealizedPnl("0.25", "BOTH", null, "-25.00");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                dailyRealizedLossPositionOrderPolicy("10", false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_account_daily_realized_loss", "10")
+                .containsEntry("current_account_daily_realized_pnl", "-25")
+                .containsEntry("current_account_daily_realized_loss", "25")
+                .containsEntry("current_account_daily_realized_pnl_trading_day", "2026-06-06")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void keeps_position_hedge_non_executable_when_account_daily_realized_loss_exceeds_cap() {
+        restorePositionInterventionWithDailyRealizedPnl("0.25", "LONG", "HEDGE", "-25.00");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                dailyRealizedLossPositionOrderPolicy("10", true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("HEDGE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_account_daily_realized_loss", "10")
+                .containsEntry("current_account_daily_realized_pnl", "-25")
+                .containsEntry("current_account_daily_realized_loss", "25")
+                .containsEntry("current_account_daily_realized_pnl_trading_day", "2026-06-06")
+                .containsEntry("exchange_execution_blocker", "position_order_account_daily_realized_loss_exceeded")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void keeps_position_hedge_non_executable_when_daily_realized_pnl_is_missing_and_policy_is_strict() {
+        restorePositionIntervention("0.25", true, "LONG", "5", "cross", "HEDGE");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                dailyRealizedLossPositionOrderPolicy("10", true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("HEDGE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("position_order_max_account_daily_realized_loss", "10")
+                .containsEntry("exchange_execution_blocker", "position_order_daily_realized_pnl_missing")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
     void rejects_position_reduce_without_explicit_bounded_size() {
         restorePositionIntervention("0.25", true);
 
@@ -1023,6 +1089,54 @@ class InterventionRemediationCommandPlannerTest {
         ));
     }
 
+    private void restorePositionInterventionWithDailyRealizedPnl(
+            String positionAmount,
+            String positionSide,
+            String positionMode,
+            String dailyRealizedPnl
+    ) {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(new TradingStateProjection.PositionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        positionSide,
+                        positionMode,
+                        positionAmount,
+                        "50000.00",
+                        "50010.00",
+                        "12.50",
+                        "5",
+                        "cross",
+                        null,
+                        "USER_DATA",
+                        true,
+                        "external_position_change",
+                        NOW.minusSeconds(1),
+                        "evt-position-intervention"
+                )),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.DailyRealizedPnlState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "2026-06-06",
+                        dailyRealizedPnl,
+                        NOW.minusSeconds(1),
+                        "evt-daily-realized-pnl"
+                )),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+        ));
+    }
+
     private InterventionProperties.PositionOrderPolicy enabledPositionOrderPolicy() {
         return new InterventionProperties.PositionOrderPolicy(
                 true,
@@ -1050,7 +1164,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
-                true
+                true,
+                null
         );
     }
 
@@ -1081,7 +1196,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
-                true
+                true,
+                null
         );
     }
 
@@ -1112,7 +1228,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
-                true
+                true,
+                null
         );
     }
 
@@ -1171,7 +1288,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 maxAccountMarginUtilization,
-                true
+                true,
+                null
         );
     }
 
@@ -1206,7 +1324,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
-                true
+                true,
+                null
         );
     }
 
@@ -1241,7 +1360,43 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
-                true
+                true,
+                null
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy dailyRealizedLossPositionOrderPolicy(
+            String maxAccountDailyRealizedLoss,
+            boolean hedgePositionOrderEnabled
+    ) {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                hedgePositionOrderEnabled,
+                hedgePositionOrderEnabled,
+                List.of("BTCUSDT"),
+                null,
+                false,
+                null,
+                true,
+                "cross",
+                "HEDGE",
+                "1",
+                "10",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                maxAccountDailyRealizedLoss
         );
     }
 
@@ -1276,7 +1431,8 @@ class InterventionRemediationCommandPlannerTest {
                 minAccountMarginBalance,
                 maxAccountMarginDrawdownFraction,
                 null,
-                true
+                true,
+                null
         );
     }
 
@@ -1313,7 +1469,8 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
-                true
+                true,
+                null
         );
     }
 }
