@@ -293,6 +293,7 @@ class InterventionRemediationCommandPlannerTest {
                         null,
                         null,
                         null,
+                        null,
                         true
                 )
         );
@@ -504,6 +505,47 @@ class InterventionRemediationCommandPlannerTest {
                 .containsEntry("account_margin_utilization", "0.85")
                 .containsEntry("position_order_max_account_margin_utilization", "0.80")
                 .containsEntry("exchange_execution_blocker", "position_order_account_margin_utilization_exceeded")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void allows_position_close_when_account_margin_balance_is_below_floor_because_it_reduces_risk() {
+        restorePositionInterventionWithAccountRisk("0.25", "700", "100");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                equityRiskPositionOrderPolicy("750", false)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CLOSE_POSITION);
+        assertThat(plan.exchangeExecutable()).isTrue();
+        assertThat(plan.attributes())
+                .containsEntry("account_margin_balance", "700")
+                .containsEntry("position_order_min_account_margin_balance", "750")
+                .containsEntry("exchange_executable", "true");
+    }
+
+    @Test
+    void keeps_position_hedge_non_executable_when_account_margin_balance_is_below_floor() {
+        restorePositionInterventionWithAccountRisk("0.25", "700", "100", "LONG", "HEDGE");
+        InterventionRemediationCommandPlanner restrictedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                equityRiskPositionOrderPolicy("750", true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan =
+                restrictedPlanner.plan(positionDecision("HEDGE", "LONG"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.HEDGE_POSITION);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("account_margin_balance", "700")
+                .containsEntry("position_order_min_account_margin_balance", "750")
+                .containsEntry("exchange_execution_blocker", "position_order_min_account_margin_balance_violated")
                 .containsEntry("exchange_executable", "false");
     }
 
@@ -860,6 +902,16 @@ class InterventionRemediationCommandPlannerTest {
             String marginBalance,
             String maintenanceMargin
     ) {
+        restorePositionInterventionWithAccountRisk(positionAmount, marginBalance, maintenanceMargin, "BOTH", null);
+    }
+
+    private void restorePositionInterventionWithAccountRisk(
+            String positionAmount,
+            String marginBalance,
+            String maintenanceMargin,
+            String positionSide,
+            String positionMode
+    ) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(new TradingStateProjection.PositionState(
@@ -868,8 +920,8 @@ class InterventionRemediationCommandPlannerTest {
                         "main",
                         "usd_m_futures",
                         "BTCUSDT",
-                        "BOTH",
-                        null,
+                        positionSide,
+                        positionMode,
                         positionAmount,
                         "50000.00",
                         "50010.00",
@@ -931,6 +983,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -960,6 +1013,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -980,6 +1034,7 @@ class InterventionRemediationCommandPlannerTest {
                 false,
                 null,
                 true,
+                null,
                 null,
                 null,
                 null,
@@ -1045,6 +1100,7 @@ class InterventionRemediationCommandPlannerTest {
                 null,
                 null,
                 null,
+                null,
                 maxAccountMarginUtilization,
                 true
         );
@@ -1076,6 +1132,7 @@ class InterventionRemediationCommandPlannerTest {
                 "10",
                 maxAccountPositionNotional,
                 maxSymbolPositionNotional,
+                null,
                 null,
                 null,
                 null,
@@ -1112,6 +1169,40 @@ class InterventionRemediationCommandPlannerTest {
                 maxAccountUnrealizedLoss,
                 maxSymbolUnrealizedLoss,
                 null,
+                null,
+                true
+        );
+    }
+
+    private InterventionProperties.PositionOrderPolicy equityRiskPositionOrderPolicy(
+            String minAccountMarginBalance,
+            boolean hedgePositionOrderEnabled
+    ) {
+        return new InterventionProperties.PositionOrderPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                "BOTH",
+                "MARKET",
+                true,
+                true,
+                hedgePositionOrderEnabled,
+                hedgePositionOrderEnabled,
+                List.of("BTCUSDT"),
+                null,
+                false,
+                null,
+                true,
+                "cross",
+                "HEDGE",
+                "1",
+                "10",
+                null,
+                null,
+                null,
+                null,
+                minAccountMarginBalance,
+                null,
                 true
         );
     }
@@ -1138,6 +1229,7 @@ class InterventionRemediationCommandPlannerTest {
                 chunkClose,
                 maxNotional,
                 rejectUnboundedNotional,
+                null,
                 null,
                 null,
                 null,

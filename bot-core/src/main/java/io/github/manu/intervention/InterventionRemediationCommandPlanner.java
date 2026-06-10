@@ -274,6 +274,7 @@ public final class InterventionRemediationCommandPlanner {
         put(attributes, "position_order_max_symbol_position_notional", positionOrderPolicy.maxSymbolPositionNotional());
         put(attributes, "position_order_max_account_unrealized_loss", positionOrderPolicy.maxAccountUnrealizedLoss());
         put(attributes, "position_order_max_symbol_unrealized_loss", positionOrderPolicy.maxSymbolUnrealizedLoss());
+        put(attributes, "position_order_min_account_margin_balance", positionOrderPolicy.minAccountMarginBalance());
         put(attributes, "position_order_max_account_margin_utilization", positionOrderPolicy.maxAccountMarginUtilization());
         PositionExposure exposure = projectedPositionExposure(position, operation, size);
         if (exposure.valid()) {
@@ -431,6 +432,10 @@ public final class InterventionRemediationCommandPlanner {
         String lossPolicyBlocker = positionUnrealizedLossPolicyBlocker(position, operation);
         if (lossPolicyBlocker != null) {
             return lossPolicyBlocker;
+        }
+        String marginBalancePolicyBlocker = accountMarginBalancePolicyBlocker(position, operation);
+        if (marginBalancePolicyBlocker != null) {
+            return marginBalancePolicyBlocker;
         }
         BigDecimal maxQuantity = decimal(positionOrderPolicy.maxPositionQuantity());
         if (maxQuantity != null
@@ -669,6 +674,47 @@ public final class InterventionRemediationCommandPlanner {
             return "position_order_account_margin_utilization_exceeded";
         }
         return null;
+    }
+
+    private String accountMarginBalancePolicyBlocker(
+            TradingStateProjection.PositionState position,
+            Operation operation
+    ) {
+        BigDecimal minMarginBalance = decimal(positionOrderPolicy.minAccountMarginBalance());
+        if (minMarginBalance == null) {
+            return null;
+        }
+        TradingStateProjection.RiskState accountRisk = accountRisk(position);
+        if (accountRisk == null) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_account_risk_missing"
+                    : null;
+        }
+        BigDecimal marginBalance = decimal(accountRisk.marginBalance());
+        if (marginBalance == null || marginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            return positionOrderPolicy.rejectMissingAccountRiskMetadata()
+                    ? "position_order_margin_balance_missing"
+                    : null;
+        }
+        if (operation != Operation.HEDGE_POSITION) {
+            return null;
+        }
+        if (marginBalance.compareTo(minMarginBalance) < 0) {
+            return "position_order_min_account_margin_balance_violated";
+        }
+        return null;
+    }
+
+    private TradingStateProjection.RiskState accountRisk(TradingStateProjection.PositionState position) {
+        return projection.risk(
+                        position.provider(),
+                        position.environment(),
+                        position.account(),
+                        position.market(),
+                        "ACCOUNT",
+                        position.account()
+                )
+                .orElse(null);
     }
 
     private String hedgePositionModePolicyBlocker(TradingStateProjection.PositionState position) {

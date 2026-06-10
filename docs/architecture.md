@@ -671,17 +671,20 @@ type, required hedge account position mode, leverage bounds, and missing
 account-risk metadata behavior are all explicit catalog policy values. The
 catalog also exposes optional `max_account_position_notional`,
 `max_symbol_position_notional`, `max_account_unrealized_loss`,
-`max_symbol_unrealized_loss`, and `max_account_margin_utilization` caps. The
-position-notional caps use projected gross open-position notional after the
-planned remediation action and are risk-reduction aware, so close/reduce actions
-that lower already-excessive exposure are not blocked solely because current
-exposure was already above the cap. The unrealized-loss caps read current
-projected open-position unrealized PnL and block non-reducing hedge remediation
-once account or symbol loss exceeds the configured cap, while still allowing
-close/reduce plans that lower risk. The margin-utilization cap reads projected
-account-level risk and blocks position orders if maintenance margin divided by
-margin balance exceeds the cap, or if the required account-risk metadata is
-missing or invalid under the missing-risk policy.
+`max_symbol_unrealized_loss`, `min_account_margin_balance`, and
+`max_account_margin_utilization` caps. The position-notional caps use projected
+gross open-position notional after the planned remediation action and are
+risk-reduction aware, so close/reduce actions that lower already-excessive
+exposure are not blocked solely because current exposure was already above the
+cap. The unrealized-loss caps read current projected open-position unrealized
+PnL and block non-reducing hedge remediation once account or symbol loss exceeds
+the configured cap, while still allowing close/reduce plans that lower risk. The
+account margin-balance floor blocks non-reducing hedge remediation when current
+projected account equity is below the configured floor, while still allowing
+validated close/reduce risk reduction. The margin-utilization cap reads
+projected account-level risk and blocks position orders if maintenance margin
+divided by margin balance exceeds the cap, or if the required account-risk
+metadata is missing or invalid under the missing-risk policy.
 Demo-live exchange execution is an explicit runtime override state: the policy
 must be enabled, `exchange_execution_enabled=true`, `report_only=false`, the
 operation must be allowlisted, one-way position order execution must be

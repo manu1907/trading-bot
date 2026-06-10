@@ -869,16 +869,17 @@ remaining position-order policy fields are inherited from the catalog defaults:
 `hedge_mode_execution_enabled=false`, and
 `max_account_position_notional=null`, `max_symbol_position_notional=null`,
 `max_account_unrealized_loss=null`, `max_symbol_unrealized_loss=null`, and
-`max_account_margin_utilization=null`. The checked-in demo runtime explicitly
+`min_account_margin_balance=null`, and `max_account_margin_utilization=null`.
+The checked-in demo runtime explicitly
 limits automated position remediation to `BTCUSDT`,
 `max_position_quantity=0.001`, `chunk_close_when_max_quantity_exceeded=true`,
 and `max_position_notional=250`, and requires projected futures account
 metadata to show `margin_type=cross` with leverage between `1` and `5`. It does
-not set account/symbol exposure, current unrealized-loss, or account
-margin-utilization caps yet; set them only after calibrating limits for the
-target. Change those runtime values before first start if the demo target should
-use a different symbol, cap, margin mode, leverage, exposure budget, loss
-budget, or account margin-utilization limit.
+not set account/symbol exposure, current unrealized-loss, account margin-balance
+floor, or account margin-utilization caps yet; set them only after calibrating
+limits for the target. Change those runtime values before first start if the
+demo target should use a different symbol, cap, margin mode, leverage, exposure
+budget, loss budget, account equity floor, or account margin-utilization limit.
 
 Hedge-mode `LONG` or `SHORT` position close/reduce command construction is
 implemented, but the checked-in demo runtime keeps it disabled. Enabling it
@@ -1477,6 +1478,8 @@ Default intervention config:
   `null`
 - `remediation_executor_policy.position_order_policy.max_symbol_unrealized_loss`:
   `null`
+- `remediation_executor_policy.position_order_policy.min_account_margin_balance`:
+  `null`
 - `remediation_executor_policy.position_order_policy.max_account_margin_utilization`:
   `null`
 - `remediation_executor_policy.position_order_policy.reject_missing_account_risk_metadata`:
@@ -1621,6 +1624,11 @@ Current automated remediation execution state:
   can lower exposure instead of freezing loss reduction. If unrealized PnL is
   missing or invalid and `reject_missing_account_risk_metadata=true`, the plan
   is blocked.
+- Position hedge plans remain non-executable when `min_account_margin_balance`
+  is configured and projected account margin balance is below the configured
+  floor. Risk-reducing close/reduce plans can still proceed when account risk
+  metadata is valid. If account risk or margin balance metadata is missing or
+  invalid and `reject_missing_account_risk_metadata=true`, the plan is blocked.
 - Position close/reduce plans remain non-executable when
   `max_account_margin_utilization` is configured and the projected account
   maintenance-margin-to-margin-balance ratio exceeds that cap. If account

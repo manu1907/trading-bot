@@ -238,6 +238,7 @@ class InterventionConfigurationTest {
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-symbol-position-notional=500",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-account-unrealized-loss=250",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-symbol-unrealized-loss=125",
+                        "trading.intervention.remediation-executor-policy.position-order-policy.min-account-margin-balance=750",
                         "trading.intervention.remediation-executor-policy.position-order-policy.max-account-margin-utilization=0.80",
                         "trading.intervention.remediation-executor-policy.position-order-policy.reject-missing-account-risk-metadata=false"
                 )
@@ -274,6 +275,7 @@ class InterventionConfigurationTest {
                     assertThat(policy.positionOrderPolicy().maxSymbolPositionNotional()).isEqualTo("500");
                     assertThat(policy.positionOrderPolicy().maxAccountUnrealizedLoss()).isEqualTo("250");
                     assertThat(policy.positionOrderPolicy().maxSymbolUnrealizedLoss()).isEqualTo("125");
+                    assertThat(policy.positionOrderPolicy().minAccountMarginBalance()).isEqualTo("750");
                     assertThat(policy.positionOrderPolicy().maxAccountMarginUtilization()).isEqualTo("0.80");
                     assertThat(policy.positionOrderPolicy().rejectMissingAccountRiskMetadata()).isFalse();
                 });

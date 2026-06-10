@@ -229,6 +229,7 @@
           "max_symbol_position_notional": null,
           "max_account_unrealized_loss": null,
           "max_symbol_unrealized_loss": null,
+          "min_account_margin_balance": null,
           "max_account_margin_utilization": null,
           "reject_missing_account_risk_metadata": true
         }
