@@ -142,6 +142,7 @@ Implemented persistence/recovery surfaces include:
 - Projection snapshot lifecycle.
 - JDBC projection snapshot store.
 - Position projection metadata now retains `leverage`, `margin_type`, and `isolated_margin` so recovered snapshots keep the account-risk data used by remediation policy.
+- Daily realized PnL projection now accumulates non-duplicate, non-stale execution-report attributes (`realizedProfit`, `realizedPnl`, or `realized_pnl`) by provider, environment, account, market, and UTC trading day. File and JDBC snapshots persist this accounting state for recovery and future risk policy.
 - Audit persistence for supported intervention and pause governance flows.
 
 ## Configuration Surface Added For Position Remediation
@@ -180,7 +181,7 @@ Catalog defaults keep these fields explicit and overridable:
 Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
-- Broader account-level and symbol-level risk budgets and realized daily loss limits beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, and account margin-utilization caps.
+- Broader account-level and symbol-level risk budgets, including policy enforcement from the projected daily realized PnL state, beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, and account margin-utilization caps.
 - External order adoption and managed amendment policies.
 - Broader operational runbooks for hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.

@@ -19,6 +19,8 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -39,6 +41,7 @@ public final class TradingStateProjection implements TradingEventHandler {
     private final Map<String, PositionState> positions = new ConcurrentHashMap<>();
     private final Map<String, OrderState> orders = new ConcurrentHashMap<>();
     private final Map<String, RiskState> risks = new ConcurrentHashMap<>();
+    private final Map<String, DailyRealizedPnlState> dailyRealizedPnl = new ConcurrentHashMap<>();
     private final Map<String, ManualReviewDecisionState> manualReviewDecisions = new ConcurrentHashMap<>();
     private final Map<String, RemediationDecisionState> remediationDecisions = new ConcurrentHashMap<>();
     private final Map<String, PauseGovernanceState> pauseGovernance = new ConcurrentHashMap<>();
@@ -161,6 +164,16 @@ public final class TradingStateProjection implements TradingEventHandler {
             String entityId
     ) {
         return Optional.ofNullable(risks.get(key(provider, environment, account, market, riskScope, entityId)));
+    }
+
+    public Optional<DailyRealizedPnlState> dailyRealizedPnl(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String tradingDay
+    ) {
+        return Optional.ofNullable(dailyRealizedPnl.get(key(provider, environment, account, market, tradingDay)));
     }
 
     public boolean hasOpenPositions(String provider, String environment, String account, String market) {
@@ -396,6 +409,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                     valuesByKey(positions),
                     valuesByKey(orders),
                     valuesByKey(risks),
+                    valuesByKey(dailyRealizedPnl),
                     valuesByKey(manualReviewDecisions),
                     valuesByKey(remediationDecisions),
                     valuesByKey(pauseGovernance),
@@ -411,6 +425,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             positions.clear();
             orders.clear();
             risks.clear();
+            dailyRealizedPnl.clear();
             manualReviewDecisions.clear();
             remediationDecisions.clear();
             pauseGovernance.clear();
@@ -450,6 +465,15 @@ public final class TradingStateProjection implements TradingEventHandler {
                         state.market(),
                         state.riskScope(),
                         entityId
+                ), state);
+            }
+            for (DailyRealizedPnlState state : snapshot.dailyRealizedPnl()) {
+                dailyRealizedPnl.put(key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.tradingDay()
                 ), state);
             }
             for (ManualReviewDecisionState state : snapshot.manualReviewDecisions()) {
@@ -671,6 +695,40 @@ public final class TradingStateProjection implements TradingEventHandler {
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), orders, state);
     }
 
+    private void applyDailyRealizedPnl(ExecutionReportEvent event, Instant eventTime, String eventId) {
+        BigDecimal realizedPnl = decimal(firstValue(
+                attribute(event, "realizedProfit"),
+                attribute(event, "realizedPnl"),
+                attribute(event, "realized_pnl")
+        ));
+        if (realizedPnl == null) {
+            return;
+        }
+        String tradingDay = tradingDay(eventTime);
+        String entityKey = key(
+                event.getProvider(),
+                event.getEnvironment(),
+                event.getAccount(),
+                event.getMarket(),
+                tradingDay
+        );
+        DailyRealizedPnlState current = dailyRealizedPnl.get(entityKey);
+        BigDecimal currentPnl = current == null ? BigDecimal.ZERO : decimal(current.realizedPnl());
+        if (currentPnl == null) {
+            currentPnl = BigDecimal.ZERO;
+        }
+        dailyRealizedPnl.put(entityKey, new DailyRealizedPnlState(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                tradingDay,
+                normalizeDecimal(currentPnl.add(realizedPnl)),
+                eventTime,
+                eventId
+        ));
+    }
+
     private String orderResultCommandId(OrderState current, OrderResultEvent event) {
         if (isRestSnapshot(event) && current != null && current.commandId() != null) {
             return current.commandId();
@@ -773,7 +831,18 @@ public final class TradingStateProjection implements TradingEventHandler {
                 firstInstant(event.getTransactionTimeMicros(), event.getEventTimeMicros()),
                 eventId
         );
-        return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), orders, state);
+        synchronized (lock) {
+            if (!rememberEventId(eventId)) {
+                return ProjectionUpdate.duplicate(envelope.eventType(), entityKey, eventId);
+            }
+            OrderState currentState = orders.get(entityKey);
+            if (currentState != null && state.updatedAt().isBefore(currentState.updatedAt())) {
+                return ProjectionUpdate.stale(envelope.eventType(), entityKey, eventId);
+            }
+            orders.put(entityKey, state);
+            applyDailyRealizedPnl(event, state.updatedAt(), eventId);
+            return ProjectionUpdate.applied(envelope.eventType(), entityKey, eventId);
+        }
     }
 
     private OrderIntervention orderIntervention(OrderState current, ExecutionReportEvent event) {
@@ -1476,6 +1545,26 @@ public final class TradingStateProjection implements TradingEventHandler {
         }
     }
 
+    private BigDecimal decimal(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private String normalizeDecimal(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
+    }
+
+    private String tradingDay(Instant eventTime) {
+        LocalDate day = eventTime.atZone(ZoneOffset.UTC).toLocalDate();
+        return day.toString();
+    }
+
     private String attribute(PositionUpdateEvent event, String key) {
         if (event.getAttributes() == null) {
             return null;
@@ -1691,6 +1780,18 @@ public final class TradingStateProjection implements TradingEventHandler {
             String marginBalance,
             String maxMarginBalance,
             String maintenanceMargin,
+            Instant updatedAt,
+            String eventId
+    ) implements TimedState {
+    }
+
+    public record DailyRealizedPnlState(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String tradingDay,
+            String realizedPnl,
             Instant updatedAt,
             String eventId
     ) implements TimedState {

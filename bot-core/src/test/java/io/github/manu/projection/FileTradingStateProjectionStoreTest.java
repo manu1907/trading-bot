@@ -4,6 +4,7 @@ import io.github.manu.config.JsonMapperFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -60,6 +61,32 @@ class FileTradingStateProjectionStoreTest {
             assertThat(balance.updatedAt()).isEqualTo(Instant.parse("2026-05-26T20:00:00Z"));
         });
         assertThat(loaded.get().appliedEventIds()).containsExactly("evt-balance");
+    }
+
+    @Test
+    void loads_snapshot_written_before_daily_realized_pnl_state_existed() throws Exception {
+        Path snapshotDirectory = temporaryDirectory.resolve("projection");
+        Path snapshotPath = snapshotDirectory.resolve("trading-state.json");
+        Files.createDirectories(snapshotDirectory);
+        Files.writeString(snapshotPath, """
+                {
+                  "balances": [],
+                  "positions": [],
+                  "orders": [],
+                  "risks": [],
+                  "manual_review_decisions": [],
+                  "remediation_decisions": [],
+                  "pause_governance": [],
+                  "applied_event_ids": ["evt-existing"]
+                }
+                """);
+        FileTradingStateProjectionStore store = store();
+
+        Optional<TradingStateSnapshot> loaded = store.load();
+
+        assertThat(loaded).isPresent();
+        assertThat(loaded.get().dailyRealizedPnl()).isEmpty();
+        assertThat(loaded.get().appliedEventIds()).containsExactly("evt-existing");
     }
 
     private FileTradingStateProjectionStore store() {

@@ -1647,6 +1647,12 @@ Current automated remediation execution state:
   `reject_missing_account_risk_metadata=true`, the plan is also blocked. The
   checked-in demo runtime leaves this cap unset until account-level risk
   projection is configured for the target.
+- Execution reports can contribute realized PnL into projection state when they
+  carry `realizedProfit`, `realizedPnl`, or `realized_pnl` attributes. The bot
+  accumulates those values per UTC trading day and persists them in file/JDBC
+  projection snapshots. This is currently accounting and recovery state for
+  future daily realized-loss enforcement; the checked-in demo runtime does not
+  yet configure or execute a daily realized-loss cap.
 - Hedge-mode plans remain non-executable when projected position-mode metadata
   is missing or does not match `required_position_mode`; the catalog default is
   `HEDGE`.
@@ -1708,6 +1714,8 @@ The projection layer can maintain:
 - External position intervention state.
 - Manual-review decision state.
 - Remediation decision state.
+- Daily realized PnL state by provider, environment, account, market, and UTC
+  trading day.
 
 These capabilities are useful for demos and operator workflows only when events
 are being published into the system.

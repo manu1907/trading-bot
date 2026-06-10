@@ -7,6 +7,7 @@ public record TradingStateSnapshot(
         List<TradingStateProjection.PositionState> positions,
         List<TradingStateProjection.OrderState> orders,
         List<TradingStateProjection.RiskState> risks,
+        List<TradingStateProjection.DailyRealizedPnlState> dailyRealizedPnl,
         List<TradingStateProjection.ManualReviewDecisionState> manualReviewDecisions,
         List<TradingStateProjection.RemediationDecisionState> remediationDecisions,
         List<TradingStateProjection.PauseGovernanceState> pauseGovernance,
@@ -18,10 +19,34 @@ public record TradingStateSnapshot(
         positions = positions == null ? List.of() : List.copyOf(positions);
         orders = orders == null ? List.of() : List.copyOf(orders);
         risks = risks == null ? List.of() : List.copyOf(risks);
+        dailyRealizedPnl = dailyRealizedPnl == null ? List.of() : List.copyOf(dailyRealizedPnl);
         manualReviewDecisions = manualReviewDecisions == null ? List.of() : List.copyOf(manualReviewDecisions);
         remediationDecisions = remediationDecisions == null ? List.of() : List.copyOf(remediationDecisions);
         pauseGovernance = pauseGovernance == null ? List.of() : List.copyOf(pauseGovernance);
         appliedEventIds = appliedEventIds == null ? List.of() : List.copyOf(appliedEventIds);
+    }
+
+    public TradingStateSnapshot(
+            List<TradingStateProjection.BalanceState> balances,
+            List<TradingStateProjection.PositionState> positions,
+            List<TradingStateProjection.OrderState> orders,
+            List<TradingStateProjection.RiskState> risks,
+            List<TradingStateProjection.ManualReviewDecisionState> manualReviewDecisions,
+            List<TradingStateProjection.RemediationDecisionState> remediationDecisions,
+            List<TradingStateProjection.PauseGovernanceState> pauseGovernance,
+            List<String> appliedEventIds
+    ) {
+        this(
+                balances,
+                positions,
+                orders,
+                risks,
+                List.of(),
+                manualReviewDecisions,
+                remediationDecisions,
+                pauseGovernance,
+                appliedEventIds
+        );
     }
 
     public TradingStateSnapshot(
@@ -58,6 +83,16 @@ public record TradingStateSnapshot(
     }
 
     public static TradingStateSnapshot empty() {
-        return new TradingStateSnapshot(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        return new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+        );
     }
 }

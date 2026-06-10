@@ -51,6 +51,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                     loadPositions(connection),
                     loadOrders(connection),
                     loadRisks(connection),
+                    loadDailyRealizedPnl(connection),
                     loadManualReviewDecisions(connection),
                     loadRemediationDecisions(connection),
                     loadPauseGovernance(connection),
@@ -60,6 +61,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                     && snapshot.positions().isEmpty()
                     && snapshot.orders().isEmpty()
                     && snapshot.risks().isEmpty()
+                    && snapshot.dailyRealizedPnl().isEmpty()
                     && snapshot.manualReviewDecisions().isEmpty()
                     && snapshot.remediationDecisions().isEmpty()
                     && snapshot.pauseGovernance().isEmpty()
@@ -84,6 +86,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                 savePositions(connection, snapshot.positions());
                 saveOrders(connection, snapshot.orders());
                 saveRisks(connection, snapshot.risks());
+                saveDailyRealizedPnl(connection, snapshot.dailyRealizedPnl());
                 saveManualReviewDecisions(connection, snapshot.manualReviewDecisions());
                 saveRemediationDecisions(connection, snapshot.remediationDecisions());
                 savePauseGovernance(connection, snapshot.pauseGovernance());
@@ -113,6 +116,7 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
             statement.executeUpdate("delete from " + table("pause_governance"));
             statement.executeUpdate("delete from " + table("remediation_decisions"));
             statement.executeUpdate("delete from " + table("manual_review_decisions"));
+            statement.executeUpdate("delete from " + table("daily_realized_pnl"));
             statement.executeUpdate("delete from " + table("risks"));
             statement.executeUpdate("delete from " + table("orders"));
             statement.executeUpdate("delete from " + table("positions"));
@@ -247,6 +251,29 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         rows.getString("margin_balance"),
                         rows.getString("max_margin_balance"),
                         rows.getString("maintenance_margin"),
+                        instant(rows.getString("updated_at")),
+                        rows.getString("event_id")
+                ));
+            }
+        }
+        return List.copyOf(states);
+    }
+
+    private List<TradingStateProjection.DailyRealizedPnlState> loadDailyRealizedPnl(Connection connection)
+            throws SQLException {
+        String sql = "select provider, environment, account, market, trading_day, realized_pnl, updated_at, event_id from "
+                + table("daily_realized_pnl")
+                + " order by state_key";
+        List<TradingStateProjection.DailyRealizedPnlState> states = new ArrayList<>();
+        try (Statement statement = connection.createStatement(); ResultSet rows = statement.executeQuery(sql)) {
+            while (rows.next()) {
+                states.add(new TradingStateProjection.DailyRealizedPnlState(
+                        rows.getString("provider"),
+                        rows.getString("environment"),
+                        rows.getString("account"),
+                        rows.getString("market"),
+                        rows.getString("trading_day"),
+                        rows.getString("realized_pnl"),
                         instant(rows.getString("updated_at")),
                         rows.getString("event_id")
                 ));
@@ -527,6 +554,38 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
         }
     }
 
+    private void saveDailyRealizedPnl(
+            Connection connection,
+            List<TradingStateProjection.DailyRealizedPnlState> states
+    ) throws SQLException {
+        String sql = "insert into "
+                + table("daily_realized_pnl")
+                + " (state_key, provider, environment, account, market, trading_day, realized_pnl, updated_at, event_id)"
+                + " values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (TradingStateProjection.DailyRealizedPnlState state : states) {
+                int index = 1;
+                statement.setString(index++, key(
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market(),
+                        state.tradingDay()
+                ));
+                statement.setString(index++, state.provider());
+                statement.setString(index++, state.environment());
+                statement.setString(index++, state.account());
+                statement.setString(index++, state.market());
+                statement.setString(index++, state.tradingDay());
+                statement.setString(index++, state.realizedPnl());
+                statement.setString(index++, string(state.updatedAt()));
+                statement.setString(index, state.eventId());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+    }
+
     private void saveManualReviewDecisions(
             Connection connection,
             List<TradingStateProjection.ManualReviewDecisionState> states
@@ -709,6 +768,11 @@ public final class JdbcTradingStateProjectionStore implements TradingStateProjec
                         + "max_margin_balance varchar(128),"
                         + "maintenance_margin varchar(128), updated_at varchar(64) not null, event_id varchar(512))",
                 "alter table " + table("risks") + " add column if not exists max_margin_balance varchar(128)",
+                "create table if not exists " + table("daily_realized_pnl") + " ("
+                        + "state_key varchar(512) primary key, provider varchar(64) not null,"
+                        + "environment varchar(64) not null, account varchar(128) not null,"
+                        + "market varchar(128) not null, trading_day varchar(32) not null,"
+                        + "realized_pnl varchar(128) not null, updated_at varchar(64) not null, event_id varchar(512))",
                 "create table if not exists " + table("manual_review_decisions") + " ("
                         + "state_key varchar(512) primary key, provider varchar(64) not null,"
                         + "environment varchar(64) not null, account varchar(128) not null,"

@@ -236,6 +236,45 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void accumulates_daily_realized_pnl_from_execution_report_attributes() {
+        ProjectionUpdate firstFill = projection.apply(executionReport(
+                "evt-realized-1",
+                "PARTIALLY_FILLED",
+                "TRADE",
+                "0.05",
+                timestamp(31),
+                Map.of("realizedProfit", "-2.50")
+        ));
+        ProjectionUpdate duplicateFill = projection.apply(executionReport(
+                "evt-realized-1",
+                "PARTIALLY_FILLED",
+                "TRADE",
+                "0.05",
+                timestamp(31),
+                Map.of("realizedProfit", "-2.50")
+        ));
+        ProjectionUpdate secondFill = projection.apply(executionReport(
+                "evt-realized-2",
+                "FILLED",
+                "TRADE",
+                "0.10",
+                timestamp(32),
+                Map.of("realizedPnl", "1.25")
+        ));
+
+        assertThat(firstFill.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(duplicateFill.status()).isEqualTo(ProjectionUpdateStatus.DUPLICATE);
+        assertThat(secondFill.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.dailyRealizedPnl(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "2026-05-26"))
+                .get()
+                .satisfies(pnl -> {
+                    assertThat(pnl.realizedPnl()).isEqualTo("-1.25");
+                    assertThat(pnl.updatedAt()).isEqualTo(timestamp(32));
+                    assertThat(pnl.eventId()).isEqualTo("evt-realized-2");
+                });
+    }
+
+    @Test
     void projects_replayed_order_command_as_pending_order_identity() {
         ProjectionUpdate update = projection.apply(orderCommand("evt-command", timestamp(33)));
 

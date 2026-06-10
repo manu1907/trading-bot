@@ -50,6 +50,11 @@ class JdbcTradingStateProjectionStoreTest {
                     assertThat(risk.delta()).isEqualTo("-0.01304097");
                     assertThat(risk.maxMarginBalance()).isEqualTo("1200");
                 });
+        assertThat(loaded.get().dailyRealizedPnl()).singleElement()
+                .satisfies(pnl -> {
+                    assertThat(pnl.tradingDay()).isEqualTo("2026-05-26");
+                    assertThat(pnl.realizedPnl()).isEqualTo("-12.50");
+                });
         assertThat(loaded.get().manualReviewDecisions()).singleElement()
                 .satisfies(decision -> {
                     assertThat(decision.commandId()).isEqualTo("cmd-1");
@@ -186,6 +191,16 @@ class JdbcTradingStateProjectionStoreTest {
                         null,
                         now.plusSeconds(3),
                         "evt-risk"
+                )),
+                List.of(new TradingStateProjection.DailyRealizedPnlState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "options",
+                        "2026-05-26",
+                        "-12.50",
+                        now.plusSeconds(4),
+                        "evt-execution-report"
                 )),
                 List.of(new TradingStateProjection.ManualReviewDecisionState(
                         "binance",

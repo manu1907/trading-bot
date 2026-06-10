@@ -23,13 +23,16 @@ create table if not exists trading_projection_positions (
     symbol varchar(128) not null,
     position_side varchar(64) not null,
     position_amount varchar(128),
-    position_mode varchar(64),
     entry_price varchar(128),
+    position_mode varchar(64),
     mark_price varchar(128),
     unrealized_pnl varchar(128),
     leverage varchar(128),
     margin_type varchar(128),
     isolated_margin varchar(128),
+    update_source varchar(64),
+    external_intervention boolean not null default false,
+    intervention_reason varchar(256),
     updated_at varchar(64) not null,
     event_id varchar(512)
 );
@@ -80,7 +83,60 @@ create table if not exists trading_projection_risks (
     theta varchar(128),
     vega varchar(128),
     margin_balance varchar(128),
+    max_margin_balance varchar(128),
     maintenance_margin varchar(128),
+    updated_at varchar(64) not null,
+    event_id varchar(512)
+);
+
+alter table trading_projection_risks add column if not exists max_margin_balance varchar(128);
+
+create table if not exists trading_projection_daily_realized_pnl (
+    state_key varchar(512) primary key,
+    provider varchar(64) not null,
+    environment varchar(64) not null,
+    account varchar(128) not null,
+    market varchar(128) not null,
+    trading_day varchar(32) not null,
+    realized_pnl varchar(128) not null,
+    updated_at varchar(64) not null,
+    event_id varchar(512)
+);
+
+create table if not exists trading_projection_manual_review_decisions (
+    state_key varchar(512) primary key,
+    provider varchar(64) not null,
+    environment varchar(64) not null,
+    account varchar(128) not null,
+    market varchar(128) not null,
+    symbol varchar(128),
+    command_id varchar(512) not null,
+    signal_id varchar(512),
+    strategy_id varchar(256),
+    decision_id varchar(512),
+    reasons varchar(2048),
+    attributes varchar(4096),
+    updated_at varchar(64) not null,
+    event_id varchar(512)
+);
+
+create table if not exists trading_projection_remediation_decisions (
+    state_key varchar(512) primary key,
+    provider varchar(64) not null,
+    environment varchar(64) not null,
+    account varchar(128) not null,
+    market varchar(128) not null,
+    symbol varchar(128),
+    remediation_id varchar(512) not null,
+    scope varchar(128) not null,
+    action varchar(128) not null,
+    client_order_id varchar(512),
+    position_side varchar(128),
+    intervention_reason varchar(512),
+    reasons varchar(2048),
+    decided_by varchar(256),
+    decision_reason varchar(2048),
+    attributes varchar(4096),
     updated_at varchar(64) not null,
     event_id varchar(512)
 );

@@ -547,6 +547,12 @@ position-size changes as external interventions when no managed bot order exists
 for the same target/symbol. The order risk gate stops new commands while such
 position interventions are unresolved unless the configured action is
 `ALLOW_NEW_COMMANDS`.
+Execution reports can also carry realized-PnL attributes. After an execution
+report passes projection duplicate and stale-update checks, the projection
+accumulates `realizedProfit`, `realizedPnl`, or `realized_pnl` into
+`DailyRealizedPnlState` keyed by provider, environment, account, market, and UTC
+trading day. This state is accounting/recovery input for later realized-loss
+policy enforcement; it does not by itself authorize or block exchange actions.
 Position fill-to-delta causality still needs durable execution-state wiring
 before live automation can be called complete. The remediation advisor now
 keeps position remediation conservative: a flat external position recommends
@@ -824,10 +830,12 @@ store is configured under `trading.projection.snapshot-store`; a
 PostgreSQL-compatible JDBC store is configured under
 `trading.projection.jdbc-store` with explicit URL, credentials, table prefix,
 and schema initialization controls. Snapshots are loaded before journal recovery
-and saved at lifecycle stop. The schema contract lives at
-`db/projection/postgresql-schema.sql`. TimescaleDB hypertable tuning and a
-production migration runner remain open; the journal remains the authoritative
-crash recovery source.
+and saved at lifecycle stop. JDBC snapshot persistence includes balance,
+position, order, risk, daily realized PnL, manual-review decision, remediation
+decision, pause-governance, and applied-event-id tables. The schema contract lives at
+`bot-core/src/main/resources/db/projection/postgresql-schema.sql`. TimescaleDB
+hypertable tuning and a production migration runner remain open; the journal
+remains the authoritative crash recovery source.
 
 Archive object names for journal exports are defined by
 `TradingEventArchiveLayout`. The layout is deterministic and GCS-friendly:
