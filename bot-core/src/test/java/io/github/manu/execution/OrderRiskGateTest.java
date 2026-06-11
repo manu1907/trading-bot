@@ -1,6 +1,7 @@
 package io.github.manu.execution;
 
 import io.github.manu.audit.AuditLogger;
+import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
@@ -12,6 +13,7 @@ import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.observability.PauseGovernanceMetrics;
+import io.github.manu.projection.FileTradingStateProjectionStore;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
 import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
@@ -19,7 +21,9 @@ import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationObservation;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -39,6 +43,9 @@ class OrderRiskGateTest {
     private static final String MARKET = "usd_m_futures";
     private static final String SYMBOL = "BTCUSDT";
     private static final Instant NOW = Instant.parse("2026-05-26T12:00:00Z");
+
+    @TempDir
+    private Path temporaryDirectory;
 
     private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
     private final ReconciliationConfidenceTracker reconciliationTracker = new ReconciliationConfidenceTracker(clock);
@@ -392,6 +399,29 @@ class OrderRiskGateTest {
                 .containsEntry("pause_governance_scopes", "SYMBOL")
                 .containsEntry("pause_governance_targets", SYMBOL)
                 .containsEntry("pause_governance_actions", "PAUSE_SYMBOL");
+    }
+
+    @Test
+    void rejects_new_order_when_restored_symbol_pause_governance_is_active_after_restart() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        TradingStateProjection original = projectionWithPause("SYMBOL", SYMBOL, SYMBOL, "PAUSE_SYMBOL");
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(original.snapshot());
+        TradingStateProjection restored = new TradingStateProjection();
+        restored.restore(store.load().orElseThrow());
+
+        RiskDecisionEvent decision = gate(defaultProperties(), restored).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("pause_governance:symbol");
+        assertThat(decision.getAttributes())
+                .containsEntry("pause_governance_active", "true")
+                .containsEntry("pause_governance_symbol_paused", "true")
+                .containsEntry("pause_governance_targets", SYMBOL)
+                .containsEntry("pause_governance_remediation_ids", "remediation-pause-001");
     }
 
     @Test
