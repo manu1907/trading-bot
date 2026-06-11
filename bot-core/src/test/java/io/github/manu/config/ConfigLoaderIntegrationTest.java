@@ -57,7 +57,7 @@ class ConfigLoaderIntegrationTest {
         assertThat(activeMarket.path("market_data").path("runtime_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("market_data").path("streams"))
                 .extracting(JsonNode::asString)
-                .containsExactly("btcusdt@bookTicker", "btcusdt@aggTrade");
+                .containsExactly("btcusdt@bookTicker", "btcusdt@aggTrade", "ethusdt@bookTicker", "ethusdt@aggTrade");
         assertThat(activeMarket.path("reconciliation").path("runtime_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("open_orders_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("futures_balances_enabled").asBoolean()).isTrue();

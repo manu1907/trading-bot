@@ -21,6 +21,31 @@ The checked-in first-start runtime target is:
 
 That runtime enables the live demo execution path for the currently supported remediation operations only. It does not enable every remediation action and it does not enable real-environment trading.
 
+## Strategy Instrument Universe
+
+Strategy signal planning now has a runtime-configurable instrument-universe
+admission gate under `trading.execution.signal_planner.instrument_universe`.
+When enabled, the planner suppresses new strategy order commands for excluded
+symbols, symbols outside the required include list, disabled symbol policies, or
+symbols that are not explicitly marked promotion-ready when promotion readiness
+is required. A matching symbol policy can also cap strategy order notional with
+`max_order_notional`; unbounded or oversized orders are suppressed before
+command publication.
+
+The checked-in demo runtime currently enables this gate for:
+
+- `included_symbols=["BTCUSDT","ETHUSDT"]`
+- `require_included_symbol=true`
+- `require_promotion_ready=true`
+- promotion-ready symbol policies for `BTCUSDT` and `ETHUSDT`
+- `max_order_notional="50"` per initial symbol policy
+
+The same initial symbols are wired into demo market-data streams,
+reconciliation open-order scans, order-limit target overrides, position
+remediation allowlists, managed-order amendment allowlists, and adopted-order
+lifecycle allowlists. This is an initial multi-symbol bootstrap, not the final
+full high-liquidity production universe.
+
 ## Runtime Policy Boundary
 
 The executor remains policy-gated. A plan must pass projection identity checks, freshness checks, operation allowlists, environment checks, executor policy checks, and the order risk gate before exchange submission.
@@ -34,7 +59,7 @@ The checked-in demo runtime currently enables:
 
 The position-order policy for the first-start demo runtime also restricts automated position remediation to:
 
-- `allowed_symbols=["BTCUSDT"]`
+- `allowed_symbols=["BTCUSDT","ETHUSDT"]`
 - `max_position_quantity="0.001"`
 - `chunk_close_when_max_quantity_exceeded=true`
 - `max_position_notional="250"`
@@ -56,7 +81,7 @@ The position-order policy for the first-start demo runtime also restricts automa
 The managed-order amendment policy for the first-start demo runtime restricts automated amendments to:
 
 - `enabled=true`
-- `allowed_symbols=["BTCUSDT"]`
+- `allowed_symbols=["BTCUSDT","ETHUSDT"]`
 - `allowed_order_types=["LIMIT"]`
 - `allowed_fields=["PRICE","QUANTITY"]`
 - `allow_quantity_increase=false`
@@ -73,7 +98,7 @@ The managed-order amendment policy for the first-start demo runtime restricts au
 
 The first-start demo runtime also enables adopted-order lifecycle policy for:
 
-- `allowed_symbols=["BTCUSDT"]`
+- `allowed_symbols=["BTCUSDT","ETHUSDT"]`
 - `allow_cancel=true`
 - `allow_amend=true`
 - `reject_stale_projection=true`
@@ -268,7 +293,7 @@ Catalog defaults keep these fields explicit and overridable:
 
 Managed order amendment state:
 
-- `AMEND` decisions for unresolved managed-order interventions now pass through a catalog-disabled planner policy that is explicitly enabled by the checked-in demo runtime for bounded BTCUSDT limit-order amendments.
+- `AMEND` decisions for unresolved managed-order interventions now pass through a catalog-disabled planner policy that is explicitly enabled by the checked-in demo runtime for bounded BTCUSDT and ETHUSDT limit-order amendments.
 - The policy can qualify or block amendments by provider, market, symbol allowlist, bot-created versus adopted ownership, allowed order type, allowed fields, quantity increase/decrease permission, optional quantity drift fractions, optional price drift fraction, stale projection age, open-order status, and optional exchange-order-id requirement.
 - A policy-qualified amendment is `exchangeExecutable=true` only when projected side, projected order type, current price, current quantity, and target identity are available. The executor constructs an idempotent `MODIFY` command and submits it through the normal order execution pipeline.
 - Unknown `MODIFY` outcomes retain command-action metadata in projection so follow-up remediation cannot blindly repeat an amendment while the exchange state is ambiguous.

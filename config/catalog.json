@@ -87,7 +87,22 @@
           "limit_order_time_in_force": "GTC",
           "client_order_id_prefix": "tb"
         },
-        "feature_profiles": []
+        "feature_profiles": [],
+        "instrument_universe": {
+          "enabled": false,
+          "included_symbols": [
+
+          ],
+          "excluded_symbols": [
+
+          ],
+          "require_included_symbol": false,
+          "require_symbol_enabled": true,
+          "require_promotion_ready": false,
+          "symbol_policies": [
+
+          ]
+        }
       },
       "idempotency": {
         "enabled": true,

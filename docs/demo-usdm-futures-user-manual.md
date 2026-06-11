@@ -480,7 +480,7 @@ Example runtime override shape:
                       "runtime_enabled": true,
                       "interval_seconds": 60,
                       "open_orders_enabled": true,
-                      "open_order_symbols": ["BTCUSDT"],
+                      "open_order_symbols": ["BTCUSDT", "ETHUSDT"],
                       "futures_balances_enabled": true,
                       "futures_account_enabled": true,
                       "futures_positions_enabled": true
@@ -831,7 +831,8 @@ config/runtime/live/binance/demo/main/usdm_futures.json
 It selects the demo instance id, enables local journal/recovery and projection
 snapshot persistence, enables the event-driven runtime switches intended for
 demo operation, enables the execution pipeline, configures the signal planner's
-default target as `binance/demo/main/usdm_futures` with `BTCUSDT`, enables
+default target as `binance/demo/main/usdm_futures` with `BTCUSDT`, enables the
+strategy instrument-universe gate for `BTCUSDT` and `ETHUSDT`, enables
 automated remediation policy for external order close decisions, enables the
 scheduled remediation runner, and enables the executor policy for the currently
 supported `CANCEL_ORDER`, `CLOSE_POSITION`, `REDUCE_POSITION`, and
@@ -870,7 +871,8 @@ The remediation execution portion of that runtime override is:
         "position_order_policy": {
           "one_way_reduce_only_enabled": true,
           "allowed_symbols": [
-            "BTCUSDT"
+            "BTCUSDT",
+            "ETHUSDT"
           ],
           "max_position_quantity": "0.001",
           "chunk_close_when_max_quantity_exceeded": true,
@@ -882,7 +884,8 @@ The remediation execution portion of that runtime override is:
         "managed_order_amendment_policy": {
           "enabled": true,
           "allowed_symbols": [
-            "BTCUSDT"
+            "BTCUSDT",
+            "ETHUSDT"
           ],
           "max_quantity_decrease_fraction": "0.50",
           "max_price_drift_fraction": "0.02",
@@ -910,7 +913,7 @@ remaining position-order policy fields are inherited from the catalog defaults:
 `min_account_margin_balance=null`, `max_account_margin_drawdown_fraction=null`,
 `max_account_margin_utilization=null`, `max_account_daily_realized_loss=null`,
 and `max_symbol_daily_realized_loss=null`. The checked-in demo runtime explicitly
-limits automated position remediation to `BTCUSDT`,
+limits automated position remediation to `BTCUSDT` and `ETHUSDT`,
 `max_position_quantity=0.001`, `chunk_close_when_max_quantity_exceeded=true`,
 and `max_position_notional=250`, and requires projected futures account
 metadata to show `margin_type=cross` with leverage between `1` and `5`. It does
@@ -924,7 +927,7 @@ budget, or account margin-utilization limit.
 
 Managed-order amendment policy fields are also inherited from catalog defaults
 unless overridden. The checked-in demo runtime enables amendments only for
-bot-created BTCUSDT `LIMIT` orders, permits `PRICE` and `QUANTITY`, rejects
+bot-created `BTCUSDT` and `ETHUSDT` `LIMIT` orders, permits `PRICE` and `QUANTITY`, rejects
 quantity increases, permits quantity decreases up to 50%, caps price drift at
 2%, rejects projections older than 30 seconds, and allows only projected
 `ACCEPTED` or `PARTIALLY_FILLED` target orders. The runtime file overrides only
@@ -1252,7 +1255,7 @@ The active reconciliation config includes:
 - `futures_positions_enabled`: `false`
 
 Enable only the snapshot families you need. For demo USD-M, a safe first
-reconciliation target is one symbol such as `BTCUSDT` plus balances and
+reconciliation target is one or more symbols such as `BTCUSDT` and `ETHUSDT` plus balances and
 positions.
 
 ## USD-M Futures Account Options
@@ -1432,10 +1435,26 @@ Current planner defaults include:
 - `limit_order_time_in_force`: `GTC`
 - `client_order_id_prefix`: `tb`
 - `feature_profiles`: empty list
+- `instrument_universe.enabled`: `false`
+- `instrument_universe.included_symbols`: empty list
+- `instrument_universe.excluded_symbols`: empty list
+- `instrument_universe.require_included_symbol`: `false`
+- `instrument_universe.require_symbol_enabled`: `true`
+- `instrument_universe.require_promotion_ready`: `false`
+- `instrument_universe.symbol_policies`: empty list
 
 When enabled, the planner handles `STRATEGY_SIGNAL` events in live mode. It is
 not enabled by default because automated strategy-to-order planning still needs
-operator-controlled rollout.
+operator-controlled rollout. When `instrument_universe.enabled=true`, strategy
+signals are suppressed before command publication if their resolved symbol is
+excluded, missing from a required include list, disabled by a matching symbol
+policy, or not marked `promotion_ready=true` while promotion readiness is
+required. If a matching symbol policy has `max_order_notional`, unbounded or
+oversized strategy orders are suppressed before publication. The checked-in demo
+runtime currently opts into this gate with
+`included_symbols=["BTCUSDT","ETHUSDT"]`,
+`require_included_symbol=true`, `require_promotion_ready=true`, and matching
+promotion-ready symbol policies for both symbols with `max_order_notional=50`.
 
 ## Risk Gate Options
 
@@ -1643,16 +1662,16 @@ operation, currently `CANCEL_ORDER`, `CLOSE_POSITION`, `REDUCE_POSITION`, or
 one-way position remediation and
 `managed_order_amendment_policy.enabled=true` for bounded managed-order
 amendments. For the checked-in demo runtime, position remediation is
-also restricted to `allowed_symbols=["BTCUSDT"]`, `max_position_quantity=0.001`,
+also restricted to `allowed_symbols=["BTCUSDT","ETHUSDT"]`, `max_position_quantity=0.001`,
 `chunk_close_when_max_quantity_exceeded=true`, `max_position_notional=250`,
 `required_margin_type=cross`, `min_leverage=1`, and `max_leverage=5` before
 using
 `POST /internal/interventions/remediation/executor/execute`.
 The checked-in demo runtime also enables
 `adopted_order_lifecycle_policy.enabled=true`, `allow_cancel=true`,
-`allow_amend=true`, `allowed_symbols=["BTCUSDT"]`, and
+`allow_amend=true`, `allowed_symbols=["BTCUSDT","ETHUSDT"]`, and
 `max_projection_age_millis=30000`, while inheriting `allow_replace=false`, so
-adopted BTCUSDT orders can be automatically canceled or amended only through the
+adopted BTCUSDT or ETHUSDT orders can be automatically canceled or amended only through the
 same executor, risk gate, and pipeline.
 
 Managed order amendment planning and execution are also configurable. An

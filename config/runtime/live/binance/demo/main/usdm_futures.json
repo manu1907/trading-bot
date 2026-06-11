@@ -47,6 +47,14 @@
               "market": "usdm_futures",
               "symbol": "BTCUSDT",
               "max_open_orders": 3
+            },
+            {
+              "provider": "binance",
+              "environment": "demo",
+              "account": "main",
+              "market": "usdm_futures",
+              "symbol": "ETHUSDT",
+              "max_open_orders": 3
             }
           ]
         }
@@ -60,6 +68,41 @@
           "market": "usdm_futures",
           "symbol": "BTCUSDT",
           "client_order_id_prefix": "tb-demo"
+        },
+        "instrument_universe": {
+          "enabled": true,
+          "included_symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ],
+          "require_included_symbol": true,
+          "require_promotion_ready": true,
+          "symbol_policies": [
+            {
+              "provider": "binance",
+              "environment": "demo",
+              "account": "main",
+              "market": "usdm_futures",
+              "symbol": "BTCUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "provider": "binance",
+              "environment": "demo",
+              "account": "main",
+              "market": "usdm_futures",
+              "symbol": "ETHUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            }
+          ]
         }
       }
     },
@@ -97,7 +140,8 @@
         "position_order_policy": {
           "one_way_reduce_only_enabled": true,
           "allowed_symbols": [
-            "BTCUSDT"
+            "BTCUSDT",
+            "ETHUSDT"
           ],
           "max_position_quantity": "0.001",
           "chunk_close_when_max_quantity_exceeded": true,
@@ -109,7 +153,8 @@
         "managed_order_amendment_policy": {
           "enabled": true,
           "allowed_symbols": [
-            "BTCUSDT"
+            "BTCUSDT",
+            "ETHUSDT"
           ],
           "max_quantity_decrease_fraction": "0.50",
           "max_price_drift_fraction": "0.02",
@@ -120,7 +165,8 @@
           "allow_cancel": true,
           "allow_amend": true,
           "allowed_symbols": [
-            "BTCUSDT"
+            "BTCUSDT",
+            "ETHUSDT"
           ],
           "max_projection_age_millis": 30000
         }
@@ -143,7 +189,9 @@
                       "runtime_enabled": true,
                       "streams": [
                         "btcusdt@bookTicker",
-                        "btcusdt@aggTrade"
+                        "btcusdt@aggTrade",
+                        "ethusdt@bookTicker",
+                        "ethusdt@aggTrade"
                       ]
                     },
                     "reconciliation": {
@@ -151,7 +199,8 @@
                       "interval_seconds": 30,
                       "open_orders_enabled": true,
                       "open_order_symbols": [
-                        "BTCUSDT"
+                        "BTCUSDT",
+                        "ETHUSDT"
                       ],
                       "futures_balances_enabled": true,
                       "futures_account_enabled": true,

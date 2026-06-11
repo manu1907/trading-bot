@@ -36,6 +36,25 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty("trading.messaging.consumers.auto-start", Boolean.class)).isTrue();
         assertThat(environment.getProperty("trading.execution.pipeline.enabled", Boolean.class)).isTrue();
         assertThat(environment.getProperty("trading.execution.signal-planner.defaults.symbol")).isEqualTo("BTCUSDT");
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.enabled",
+                Boolean.class
+        )).isTrue();
+        assertThat(environment.getProperty("trading.execution.signal-planner.instrument-universe.included-symbols[0]"))
+                .isEqualTo("BTCUSDT");
+        assertThat(environment.getProperty("trading.execution.signal-planner.instrument-universe.included-symbols[1]"))
+                .isEqualTo("ETHUSDT");
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.require-included-symbol",
+                Boolean.class
+        )).isTrue();
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.require-promotion-ready",
+                Boolean.class
+        )).isTrue();
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.symbol-policies[1].symbol"
+        )).isEqualTo("ETHUSDT");
         assertThat(environment.getProperty("trading.intervention.automated-policy.external-order-action"))
                 .isEqualTo("CLOSE");
         assertThat(environment.getProperty("trading.intervention.automated-policy.open-position-action"))
@@ -68,6 +87,9 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 "trading.intervention.remediation-executor-policy.position-order-policy.allowed-symbols[0]"
         )).isEqualTo("BTCUSDT");
         assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.position-order-policy.allowed-symbols[1]"
+        )).isEqualTo("ETHUSDT");
+        assertThat(environment.getProperty(
                 "trading.intervention.remediation-executor-policy.position-order-policy.max-position-quantity"
         )).isEqualTo("0.001");
         assertThat(environment.getProperty(
@@ -93,6 +115,9 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty(
                 "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-symbols[0]"
         )).isEqualTo("BTCUSDT");
+        assertThat(environment.getProperty(
+                "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-symbols[1]"
+        )).isEqualTo("ETHUSDT");
         assertThat(environment.getProperty(
                 "trading.intervention.remediation-executor-policy.managed-order-amendment-policy.allowed-order-types[0]"
         )).isEqualTo("LIMIT");

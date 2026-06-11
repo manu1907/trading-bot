@@ -119,14 +119,17 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         String account = resolve(signal.getAccount(), properties.signalPlanner().defaults().account(), "account");
         String market = resolve(signal.getMarket(), properties.signalPlanner().defaults().market(), "market");
         String symbol = resolve(signal.getSymbol(), properties.signalPlanner().defaults().symbol(), "symbol");
-        if (admissionBlocked(provider, environment, account, market, symbol)) {
-            return Optional.empty();
-        }
         OrderCommandType orderType = orderType(signal, features);
         String quantity = value(signal.getTargetQuantity());
         String quoteOrderQuantity = quantity == null ? value(signal.getTargetNotional()) : null;
         String price = value(signal.getLimitPrice());
         String stopPrice = value(signal.getStopPrice());
+        if (instrumentUniverseBlocked(provider, environment, account, market, symbol, quantity, quoteOrderQuantity, price)) {
+            return Optional.empty();
+        }
+        if (admissionBlocked(provider, environment, account, market, symbol)) {
+            return Optional.empty();
+        }
         if (orderLimitBlocked(provider, environment, account, market, symbol, quantity, quoteOrderQuantity, price, stopPrice)) {
             return Optional.empty();
         }
@@ -351,6 +354,88 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 || tradingStateProjection.hasExternalPositionInterventions(provider, environment, account, market)
                 || tradingStateProjection.hasUnknownOrderStatuses(provider, environment, account, market)
                 || tradingStateProjection.hasUnresolvedOrderCommands(provider, environment, account, market);
+    }
+
+    private boolean instrumentUniverseBlocked(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String quantity,
+            String quoteOrderQuantity,
+            String price
+    ) {
+        ExecutionProperties.SignalPlanner.InstrumentUniverse universe =
+                properties.signalPlanner().instrumentUniverse();
+        if (!universe.enabled()) {
+            return false;
+        }
+        String normalizedSymbol = symbol.toUpperCase(Locale.ROOT);
+        if (universe.excludedSymbols().contains(normalizedSymbol)) {
+            return true;
+        }
+        if (universe.requireIncludedSymbol() && !universe.includedSymbols().contains(normalizedSymbol)) {
+            return true;
+        }
+        ExecutionProperties.SignalPlanner.SymbolPolicy policy =
+                selectedSymbolPolicy(universe, provider, environment, account, market, normalizedSymbol);
+        if (policy == null) {
+            return universe.requirePromotionReady();
+        }
+        if (universe.requireSymbolEnabled() && !Boolean.TRUE.equals(policy.enabled())) {
+            return true;
+        }
+        if (universe.requirePromotionReady() && !Boolean.TRUE.equals(policy.promotionReady())) {
+            return true;
+        }
+        BigDecimal maxOrderNotional = decimal(policy.maxOrderNotional());
+        if (maxOrderNotional == null) {
+            return false;
+        }
+        BigDecimal orderNotional = notional(
+                decimalField(quantity).value(),
+                decimalField(quoteOrderQuantity).value(),
+                decimalField(price).value()
+        );
+        return orderNotional == null || orderNotional.compareTo(maxOrderNotional) > 0;
+    }
+
+    private ExecutionProperties.SignalPlanner.SymbolPolicy selectedSymbolPolicy(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        ExecutionProperties.SignalPlanner.SymbolPolicy selected = null;
+        int selectedSpecificity = -1;
+        for (ExecutionProperties.SignalPlanner.SymbolPolicy candidate : universe.symbolPolicies()) {
+            int specificity = specificity(candidate, provider, environment, account, market, symbol);
+            if (specificity > selectedSpecificity) {
+                selected = candidate;
+                selectedSpecificity = specificity;
+            }
+        }
+        return selected;
+    }
+
+    private int specificity(
+            ExecutionProperties.SignalPlanner.SymbolPolicy candidate,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        int specificity = 0;
+        specificity = match(candidate.provider(), provider, specificity);
+        specificity = match(candidate.environment(), environment, specificity);
+        specificity = match(candidate.account(), account, specificity);
+        specificity = match(candidate.market(), market, specificity);
+        specificity = match(candidate.symbol(), symbol, specificity);
+        return specificity;
     }
 
     private boolean reconciliationBlocked(

@@ -47,7 +47,8 @@ public record ExecutionProperties(
     public record SignalPlanner(
             Boolean enabled,
             Defaults defaults,
-            List<FeatureProfile> featureProfiles
+            List<FeatureProfile> featureProfiles,
+            InstrumentUniverse instrumentUniverse
     ) {
 
         @ConstructorBinding
@@ -55,14 +56,19 @@ public record ExecutionProperties(
             enabled = Boolean.TRUE.equals(enabled);
             defaults = defaults == null ? Defaults.empty() : defaults;
             featureProfiles = featureProfiles == null ? List.of() : List.copyOf(featureProfiles);
+            instrumentUniverse = instrumentUniverse == null ? InstrumentUniverse.disabled() : instrumentUniverse;
         }
 
         public SignalPlanner(Boolean enabled, Defaults defaults) {
-            this(enabled, defaults, List.of());
+            this(enabled, defaults, List.of(), null);
+        }
+
+        public SignalPlanner(Boolean enabled, Defaults defaults, List<FeatureProfile> featureProfiles) {
+            this(enabled, defaults, featureProfiles, null);
         }
 
         static SignalPlanner disabled() {
-            return new SignalPlanner(false, Defaults.empty(), List.of());
+            return new SignalPlanner(false, Defaults.empty(), List.of(), InstrumentUniverse.disabled());
         }
 
         public record Defaults(
@@ -107,6 +113,97 @@ public record ExecutionProperties(
             public FeatureProfile {
                 matchFeatures = matchFeatures == null ? Map.of() : Map.copyOf(matchFeatures);
                 attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+            }
+        }
+
+        public record InstrumentUniverse(
+                Boolean enabled,
+                List<String> includedSymbols,
+                List<String> excludedSymbols,
+                Boolean requireIncludedSymbol,
+                Boolean requireSymbolEnabled,
+                Boolean requirePromotionReady,
+                List<SymbolPolicy> symbolPolicies
+        ) {
+
+            @ConstructorBinding
+            public InstrumentUniverse {
+                enabled = Boolean.TRUE.equals(enabled);
+                includedSymbols = normalizeSymbols(includedSymbols);
+                excludedSymbols = normalizeSymbols(excludedSymbols);
+                requireIncludedSymbol = Boolean.TRUE.equals(requireIncludedSymbol);
+                requireSymbolEnabled = requireSymbolEnabled == null || Boolean.TRUE.equals(requireSymbolEnabled);
+                requirePromotionReady = Boolean.TRUE.equals(requirePromotionReady);
+                symbolPolicies = symbolPolicies == null ? List.of() : List.copyOf(symbolPolicies);
+            }
+
+            static InstrumentUniverse disabled() {
+                return new InstrumentUniverse(false, List.of(), List.of(), false, true, false, List.of());
+            }
+
+            @Override
+            public List<String> includedSymbols() {
+                return List.copyOf(includedSymbols);
+            }
+
+            @Override
+            public List<String> excludedSymbols() {
+                return List.copyOf(excludedSymbols);
+            }
+
+            private static List<String> normalizeSymbols(List<String> symbols) {
+                if (symbols == null || symbols.isEmpty()) {
+                    return List.of();
+                }
+                return List.copyOf(symbols.stream()
+                        .map(InstrumentUniverse::normalizeSymbol)
+                        .distinct()
+                        .toList());
+            }
+
+            private static String normalizeSymbol(String symbol) {
+                if (symbol == null || symbol.isBlank()) {
+                    throw new IllegalArgumentException("instrument universe symbols must be non-blank");
+                }
+                return symbol.trim().toUpperCase(java.util.Locale.ROOT);
+            }
+        }
+
+        public record SymbolPolicy(
+                String provider,
+                String environment,
+                String account,
+                String market,
+                String symbol,
+                Boolean enabled,
+                Boolean promotionReady,
+                String minDailyQuoteVolume,
+                String maxSpreadBps,
+                String maxOrderNotional
+        ) {
+
+            @ConstructorBinding
+            public SymbolPolicy {
+                if (symbol == null || symbol.isBlank()) {
+                    throw new IllegalArgumentException("symbolPolicies.symbol is required");
+                }
+                symbol = symbol.trim().toUpperCase(java.util.Locale.ROOT);
+                validatePositiveDecimal("symbolPolicies.minDailyQuoteVolume", minDailyQuoteVolume);
+                validatePositiveDecimal("symbolPolicies.maxSpreadBps", maxSpreadBps);
+                validatePositiveDecimal("symbolPolicies.maxOrderNotional", maxOrderNotional);
+            }
+
+            private static void validatePositiveDecimal(String field, String value) {
+                if (value == null || value.isBlank()) {
+                    return;
+                }
+                try {
+                    if (new BigDecimal(value).compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException(field + " must be positive when configured");
+                    }
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(field + " must be a decimal number", e);
+                }
             }
         }
     }

@@ -358,6 +358,149 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_order_command_when_signal_symbol_is_excluded_from_instrument_universe() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithInstrumentUniverse(new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        List.of("BTCUSDT", "ETHUSDT"),
+                        List.of("BTCUSDT"),
+                        true,
+                        true,
+                        false,
+                        List.of()
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_signal_symbol_is_not_in_required_instrument_universe() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithInstrumentUniverse(new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        List.of("ETHUSDT"),
+                        List.of(),
+                        true,
+                        true,
+                        false,
+                        List.of()
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_instrument_policy_is_not_promotion_ready() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithInstrumentUniverse(new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        List.of("BTCUSDT", "ETHUSDT"),
+                        List.of(),
+                        true,
+                        true,
+                        true,
+                        List.of(new ExecutionProperties.SignalPlanner.SymbolPolicy(
+                                "binance",
+                                "demo",
+                                "main",
+                                "usd_m_futures",
+                                "BTCUSDT",
+                                true,
+                                false,
+                                "100000000",
+                                "5",
+                                "50"
+                        ))
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
+    }
+
+    @Test
+    void plans_order_command_for_promoted_instrument_universe_symbol() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithInstrumentUniverse(new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        List.of("BTCUSDT", "ETHUSDT"),
+                        List.of(),
+                        true,
+                        true,
+                        true,
+                        List.of(new ExecutionProperties.SignalPlanner.SymbolPolicy(
+                                "binance",
+                                "demo",
+                                "main",
+                                "usd_m_futures",
+                                "ETHUSDT",
+                                true,
+                                true,
+                                "100000000",
+                                "5",
+                                "50"
+                        ))
+                ))
+        );
+        StrategySignalEvent ethSignal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setSymbol("ETHUSDT")
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(ethSignal);
+
+        assertThat(planned).hasValueSatisfying(command -> assertThat(command.getSymbol()).isEqualTo("ETHUSDT"));
+    }
+
+    @Test
+    void suppresses_order_command_when_instrument_policy_max_order_notional_is_exceeded() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithInstrumentUniverse(new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        List.of("BTCUSDT"),
+                        List.of(),
+                        true,
+                        true,
+                        true,
+                        List.of(new ExecutionProperties.SignalPlanner.SymbolPolicy(
+                                "binance",
+                                "demo",
+                                "main",
+                                "usd_m_futures",
+                                "BTCUSDT",
+                                true,
+                                true,
+                                "100000000",
+                                "5",
+                                "40"
+                        ))
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
+    }
+
+    @Test
     void plans_order_command_when_target_reconciliation_is_confident() {
         ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(FIXED_CLOCK);
         tracker.record(reconciliationObservation(ReconciliationConfidenceStatus.CONFIDENT));
@@ -556,6 +699,18 @@ class StrategySignalPlannerTest {
                         null,
                         null,
                         orderLimit
+                )
+        );
+    }
+
+    private ExecutionProperties propertiesWithInstrumentUniverse(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse instrumentUniverse
+    ) {
+        return new ExecutionProperties(
+                new ExecutionProperties.SignalPlanner(true, defaults(), List.of(), instrumentUniverse),
+                new ExecutionProperties.RiskGate(
+                        true,
+                        new ExecutionProperties.Reconciliation(false, true, true)
                 )
         );
     }

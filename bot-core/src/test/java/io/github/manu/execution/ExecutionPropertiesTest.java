@@ -38,6 +38,13 @@ class ExecutionPropertiesTest {
         assertThat(properties.riskGate().targetOrder().allowExternalRemediationCancel()).isTrue();
         assertThat(properties.riskGate().targetOrder().allowAdoptedTargetOrders()).isFalse();
         assertThat(properties.idempotency().rejectProjectedDuplicates()).isTrue();
+        assertThat(properties.signalPlanner().instrumentUniverse().enabled()).isFalse();
+        assertThat(properties.signalPlanner().instrumentUniverse().includedSymbols()).isEmpty();
+        assertThat(properties.signalPlanner().instrumentUniverse().excludedSymbols()).isEmpty();
+        assertThat(properties.signalPlanner().instrumentUniverse().requireIncludedSymbol()).isFalse();
+        assertThat(properties.signalPlanner().instrumentUniverse().requireSymbolEnabled()).isTrue();
+        assertThat(properties.signalPlanner().instrumentUniverse().requirePromotionReady()).isFalse();
+        assertThat(properties.signalPlanner().instrumentUniverse().symbolPolicies()).isEmpty();
     }
 
     @Test
@@ -161,5 +168,56 @@ class ExecutionPropertiesTest {
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("targetLimits.maxOpenOrders must be positive when configured");
+    }
+
+    @Test
+    void rejects_blank_instrument_universe_symbols() {
+        assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        java.util.List.of(" "),
+                        java.util.List.of(),
+                        true,
+                        true,
+                        false,
+                        java.util.List.of()
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("instrument universe symbols must be non-blank");
+    }
+
+    @Test
+    void rejects_instrument_symbol_policy_without_symbol() {
+        assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.SymbolPolicy(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usdm_futures",
+                        null,
+                        true,
+                        true,
+                        null,
+                        null,
+                        null
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("symbolPolicies.symbol is required");
+    }
+
+    @Test
+    void rejects_non_positive_instrument_symbol_policy_numeric_limits() {
+        assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.SymbolPolicy(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usdm_futures",
+                        "BTCUSDT",
+                        true,
+                        true,
+                        "0",
+                        null,
+                        null
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("symbolPolicies.minDailyQuoteVolume must be positive when configured");
     }
 }
