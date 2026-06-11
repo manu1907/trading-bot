@@ -218,6 +218,28 @@ public final class TradingStateProjection implements TradingEventHandler {
                 .toList();
     }
 
+    public List<OrderState> openOrderStates(String provider, String environment, String account, String market) {
+        return openOrderStates(provider, environment, account, market, null);
+    }
+
+    public List<OrderState> openOrderStates(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        String prefix = key(provider, environment, account, market);
+        String targetSymbol = value(symbol);
+        return orders.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + "|"))
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(Map.Entry::getValue)
+                .filter(OrderState::open)
+                .filter(order -> targetSymbol == null || targetSymbol.equalsIgnoreCase(order.symbol()))
+                .toList();
+    }
+
     public long externalOrderInterventions(String provider, String environment, String account, String market) {
         return externalOrderInterventionStates(provider, environment, account, market).size();
     }
@@ -1866,6 +1888,13 @@ public final class TradingStateProjection implements TradingEventHandler {
 
         public boolean unresolvedCommand() {
             return "COMMAND_RECEIVED".equals(status);
+        }
+
+        public boolean open() {
+            return switch (status == null ? "" : status) {
+                case "ACCEPTED", "PARTIALLY_FILLED" -> true;
+                default -> false;
+            };
         }
     }
 

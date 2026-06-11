@@ -222,6 +222,11 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 && quantityField.value().compareTo(maxQuantity) > 0) {
             return true;
         }
+        if (effectiveLimit.maxOpenOrders() != null
+                && tradingStateProjection.openOrderStates(provider, environment, account, market, effectiveLimit.symbol()).size()
+                >= effectiveLimit.maxOpenOrders().intValue()) {
+            return true;
+        }
         BigDecimal maxNotional = decimal(effectiveLimit.maxNotional());
         if (maxNotional == null) {
             return false;
@@ -255,7 +260,9 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                     orderLimit.maxQuantity(),
                     orderLimit.maxNotional(),
                     orderLimit.rejectUnboundedNotional(),
-                    orderLimit.action()
+                    orderLimit.maxOpenOrders(),
+                    orderLimit.action(),
+                    null
             );
         }
         return new EffectiveOrderLimit(
@@ -264,7 +271,9 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 selected.rejectUnboundedNotional() == null
                         ? orderLimit.rejectUnboundedNotional()
                         : selected.rejectUnboundedNotional(),
-                selected.action() == null ? orderLimit.action() : selected.action()
+                selected.maxOpenOrders() == null ? orderLimit.maxOpenOrders() : selected.maxOpenOrders(),
+                selected.action() == null ? orderLimit.action() : selected.action(),
+                value(selected.symbol())
         );
     }
 
@@ -575,7 +584,9 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             String maxQuantity,
             String maxNotional,
             Boolean rejectUnboundedNotional,
-            ExecutionProperties.InterventionAction action
+            Integer maxOpenOrders,
+            ExecutionProperties.InterventionAction action,
+            String symbol
     ) {
     }
 }

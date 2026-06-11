@@ -47,6 +47,7 @@ public final class OrderRiskGate {
     private static final String NON_POSITIVE_PRICE_REASON = "order_limit:non_positive_price";
     private static final String MAX_QUANTITY_REASON = "order_limit:max_quantity";
     private static final String MAX_NOTIONAL_REASON = "order_limit:max_notional";
+    private static final String MAX_OPEN_ORDERS_REASON = "order_limit:max_open_orders";
     private static final String UNBOUNDED_NOTIONAL_REASON = "order_limit:unbounded_notional";
     private static final String MISSING_TARGET_CLIENT_ORDER_ID_REASON = "order_target:missing_client_order_id";
     private static final String MISSING_TARGET_ORDER_ID_REASON = "order_target:missing_order_id";
@@ -566,6 +567,13 @@ public final class OrderRiskGate {
                 manualReview = manualReview || decision.manualReview();
             }
         }
+        if (effectiveLimit.maxOpenOrders() != null
+                && openOrderCount(command, effectiveLimit) >= effectiveLimit.maxOpenOrders().intValue()) {
+            ManualInterventionDecision decision = decisionFor(effectiveLimit.action(), MAX_OPEN_ORDERS_REASON);
+            reasons.addAll(decision.reasons());
+            reject = reject || decision.reject();
+            manualReview = manualReview || decision.manualReview();
+        }
         return new OrderLimitDecision(List.copyOf(reasons), reject, manualReview);
     }
 
@@ -781,8 +789,10 @@ public final class OrderRiskGate {
                     orderLimit.maxQuantity(),
                     orderLimit.maxNotional(),
                     orderLimit.rejectUnboundedNotional(),
+                    orderLimit.maxOpenOrders(),
                     orderLimit.action(),
-                    "global"
+                    "global",
+                    null
             );
         }
         return new EffectiveOrderLimit(
@@ -791,9 +801,21 @@ public final class OrderRiskGate {
                 selected.rejectUnboundedNotional() == null
                         ? orderLimit.rejectUnboundedNotional()
                         : selected.rejectUnboundedNotional(),
+                selected.maxOpenOrders() == null ? orderLimit.maxOpenOrders() : selected.maxOpenOrders(),
                 selected.action() == null ? orderLimit.action() : selected.action(),
-                targetLimitScope(selected)
+                targetLimitScope(selected),
+                value(selected.symbol())
         );
+    }
+
+    private int openOrderCount(OrderCommandEvent command, EffectiveOrderLimit effectiveLimit) {
+        return tradingStateProjection.openOrderStates(
+                value(command.getProvider()),
+                value(command.getEnvironment()),
+                value(command.getAccount()),
+                value(command.getMarket()),
+                effectiveLimit.symbol()
+        ).size();
     }
 
     private int specificity(ExecutionProperties.OrderLimit.TargetLimit candidate, OrderCommandEvent command) {
@@ -1056,6 +1078,10 @@ public final class OrderRiskGate {
         if (effectiveLimit.maxNotional() != null) {
             attributes.put("order_limit_max_notional", effectiveLimit.maxNotional());
         }
+        if (effectiveLimit.maxOpenOrders() != null) {
+            attributes.put("order_limit_max_open_orders", Integer.toString(effectiveLimit.maxOpenOrders()));
+            attributes.put("order_limit_open_orders", Integer.toString(openOrderCount(command, effectiveLimit)));
+        }
         BigDecimal computedNotional = notional(
                 decimal(command.getQuantity()),
                 decimal(command.getQuoteOrderQuantity()),
@@ -1245,8 +1271,10 @@ public final class OrderRiskGate {
             String maxQuantity,
             String maxNotional,
             Boolean rejectUnboundedNotional,
+            Integer maxOpenOrders,
             ExecutionProperties.InterventionAction action,
-            String scope
+            String scope,
+            String symbol
     ) {
     }
 

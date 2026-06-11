@@ -36,6 +36,21 @@
       "pipeline": {
         "enabled": true
       },
+      "risk_gate": {
+        "order_limit": {
+          "max_open_orders": 5,
+          "target_limits": [
+            {
+              "provider": "binance",
+              "environment": "demo",
+              "account": "main",
+              "market": "usdm_futures",
+              "symbol": "BTCUSDT",
+              "max_open_orders": 3
+            }
+          ]
+        }
+      },
       "signal_planner": {
         "enabled": true,
         "defaults": {

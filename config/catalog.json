@@ -124,6 +124,7 @@
           "reject_invalid_numeric_fields": true,
           "max_quantity": null,
           "max_notional": null,
+          "max_open_orders": null,
           "reject_unbounded_notional": true,
           "action": "REJECT_NEW_COMMANDS",
           "target_limits": [

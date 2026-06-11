@@ -99,6 +99,28 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void exposes_open_order_states_for_account_and_symbol_scoped_admission() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(
+                        orderState(SYMBOL, "client-open", "ACCEPTED"),
+                        orderState("ETHUSDT", "client-partial", "PARTIALLY_FILLED"),
+                        orderState(SYMBOL, "client-closed", "CANCELED")
+                ),
+                List.of(),
+                List.of()
+        ));
+
+        assertThat(projection.openOrderStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .extracting(TradingStateProjection.OrderState::clientOrderId)
+                .containsExactly("client-open", "client-partial");
+        assertThat(projection.openOrderStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL))
+                .extracting(TradingStateProjection.OrderState::clientOrderId)
+                .containsExactly("client-open");
+    }
+
+    @Test
     void deduplicates_event_ids_and_rejects_stale_entity_updates() {
         projection.apply(position("evt-position-new", "-0.10", timestamp(20)));
 
@@ -1726,6 +1748,35 @@ class TradingStateProjectionTest {
                 TradingEventType.ORDER_COMMAND,
                 TradingEventKeys.order(TradingEventType.ORDER_COMMAND, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"),
                 event
+        );
+    }
+
+    private TradingStateProjection.OrderState orderState(String symbol, String clientOrderId, String status) {
+        return new TradingStateProjection.OrderState(
+                PROVIDER,
+                ENVIRONMENT,
+                ACCOUNT,
+                MARKET,
+                symbol,
+                "cmd-" + clientOrderId,
+                clientOrderId,
+                "exchange-" + clientOrderId,
+                status,
+                status,
+                "BUY",
+                "LIMIT",
+                "100",
+                "0.10",
+                "0",
+                null,
+                null,
+                "ORDER_RESULT",
+                null,
+                true,
+                false,
+                null,
+                timestamp(40),
+                "evt-" + clientOrderId
         );
     }
 

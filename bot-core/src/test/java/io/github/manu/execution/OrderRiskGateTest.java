@@ -763,6 +763,33 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void rejects_new_order_when_projected_open_order_count_reaches_configured_limit() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        ExecutionProperties properties = propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                true,
+                true,
+                null,
+                null,
+                true,
+                1,
+                ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+        ));
+
+        RiskDecisionEvent decision = gate(properties, projectionWithTargetOrder(
+                "tb-lfa-open",
+                OrderResultStatus.ACCEPTED.name(),
+                true,
+                false
+        )).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_limit:max_open_orders");
+        assertThat(decision.getAttributes())
+                .containsEntry("order_limit_max_open_orders", "1")
+                .containsEntry("order_limit_open_orders", "1");
+    }
+
+    @Test
     void applies_most_specific_target_order_limit_before_provider_mapping() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
         ExecutionProperties properties = propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(

@@ -450,6 +450,39 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_order_command_when_projected_open_order_count_reaches_configured_limit() {
+        StrategySignalPlanner planner = planner(
+                projectionWithOrder(orderState(
+                        "cmd-open",
+                        "tb-lfa-open",
+                        "ACCEPTED",
+                        "ORDER_RESULT",
+                        null,
+                        true,
+                        false,
+                        null,
+                        "evt-open"
+                )),
+                null,
+                propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                        true,
+                        true,
+                        null,
+                        null,
+                        true,
+                        1,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void can_disable_reconciliation_required_strategy_admission() {
         ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(FIXED_CLOCK);
         StrategySignalPlanner planner = planner(new TradingStateProjection(), tracker, new ExecutionProperties(

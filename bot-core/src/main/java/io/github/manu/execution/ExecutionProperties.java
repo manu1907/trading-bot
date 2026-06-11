@@ -365,6 +365,7 @@ public record ExecutionProperties(
             String maxQuantity,
             String maxNotional,
             Boolean rejectUnboundedNotional,
+            Integer maxOpenOrders,
             InterventionAction action,
             List<TargetLimit> targetLimits
     ) {
@@ -377,6 +378,7 @@ public record ExecutionProperties(
             action = action == null ? InterventionAction.REJECT_NEW_COMMANDS : action;
             validatePositiveDecimal("maxQuantity", maxQuantity);
             validatePositiveDecimal("maxNotional", maxNotional);
+            validatePositiveInteger("maxOpenOrders", maxOpenOrders);
             targetLimits = targetLimits == null ? List.of() : List.copyOf(targetLimits);
         }
 
@@ -388,11 +390,62 @@ public record ExecutionProperties(
                 Boolean rejectUnboundedNotional,
                 InterventionAction action
         ) {
-            this(enabled, rejectInvalidNumericFields, maxQuantity, maxNotional, rejectUnboundedNotional, action, List.of());
+            this(
+                    enabled,
+                    rejectInvalidNumericFields,
+                    maxQuantity,
+                    maxNotional,
+                    rejectUnboundedNotional,
+                    null,
+                    action,
+                    List.of()
+            );
+        }
+
+        public OrderLimit(
+                Boolean enabled,
+                Boolean rejectInvalidNumericFields,
+                String maxQuantity,
+                String maxNotional,
+                Boolean rejectUnboundedNotional,
+                Integer maxOpenOrders,
+                InterventionAction action
+        ) {
+            this(
+                    enabled,
+                    rejectInvalidNumericFields,
+                    maxQuantity,
+                    maxNotional,
+                    rejectUnboundedNotional,
+                    maxOpenOrders,
+                    action,
+                    List.of()
+            );
+        }
+
+        public OrderLimit(
+                Boolean enabled,
+                Boolean rejectInvalidNumericFields,
+                String maxQuantity,
+                String maxNotional,
+                Boolean rejectUnboundedNotional,
+                InterventionAction action,
+                List<TargetLimit> targetLimits
+        ) {
+            this(
+                    enabled,
+                    rejectInvalidNumericFields,
+                    maxQuantity,
+                    maxNotional,
+                    rejectUnboundedNotional,
+                    null,
+                    action,
+                    targetLimits
+            );
         }
 
         static OrderLimit defaults() {
-            return new OrderLimit(true, true, null, null, true, InterventionAction.REJECT_NEW_COMMANDS, List.of());
+            return new OrderLimit(true, true, null, null, true, null, InterventionAction.REJECT_NEW_COMMANDS, List.of());
         }
 
         public record TargetLimit(
@@ -404,6 +457,7 @@ public record ExecutionProperties(
                 String maxQuantity,
                 String maxNotional,
                 Boolean rejectUnboundedNotional,
+                Integer maxOpenOrders,
                 InterventionAction action
         ) {
 
@@ -411,6 +465,32 @@ public record ExecutionProperties(
             public TargetLimit {
                 validatePositiveDecimal("targetLimits.maxQuantity", maxQuantity);
                 validatePositiveDecimal("targetLimits.maxNotional", maxNotional);
+                validatePositiveInteger("targetLimits.maxOpenOrders", maxOpenOrders);
+            }
+
+            public TargetLimit(
+                    String provider,
+                    String environment,
+                    String account,
+                    String market,
+                    String symbol,
+                    String maxQuantity,
+                    String maxNotional,
+                    Boolean rejectUnboundedNotional,
+                    InterventionAction action
+            ) {
+                this(
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        maxQuantity,
+                        maxNotional,
+                        rejectUnboundedNotional,
+                        null,
+                        action
+                );
             }
         }
 
@@ -424,6 +504,15 @@ public record ExecutionProperties(
                 }
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException(field + " must be a decimal number", e);
+            }
+        }
+
+        private static void validatePositiveInteger(String field, Integer value) {
+            if (value == null) {
+                return;
+            }
+            if (value.intValue() <= 0) {
+                throw new IllegalArgumentException(field + " must be positive when configured");
             }
         }
     }

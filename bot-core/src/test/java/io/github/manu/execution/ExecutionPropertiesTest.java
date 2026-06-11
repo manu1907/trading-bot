@@ -31,6 +31,7 @@ class ExecutionPropertiesTest {
         assertThat(properties.riskGate().orderLimit().enabled()).isTrue();
         assertThat(properties.riskGate().orderLimit().rejectInvalidNumericFields()).isTrue();
         assertThat(properties.riskGate().orderLimit().rejectUnboundedNotional()).isTrue();
+        assertThat(properties.riskGate().orderLimit().maxOpenOrders()).isNull();
         assertThat(properties.riskGate().orderLimit().action())
                 .isEqualTo(ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS);
         assertThat(properties.riskGate().orderLimit().targetLimits()).isEmpty();
@@ -113,6 +114,21 @@ class ExecutionPropertiesTest {
     }
 
     @Test
+    void rejects_non_positive_max_open_orders_configuration() {
+        assertThatThrownBy(() -> new ExecutionProperties.OrderLimit(
+                        true,
+                        true,
+                        null,
+                        null,
+                        true,
+                        0,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("maxOpenOrders must be positive when configured");
+    }
+
+    @Test
     void rejects_non_positive_target_order_limit_configuration() {
         assertThatThrownBy(() -> new ExecutionProperties.OrderLimit.TargetLimit(
                         "binance",
@@ -127,5 +143,23 @@ class ExecutionPropertiesTest {
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("targetLimits.maxNotional must be positive when configured");
+    }
+
+    @Test
+    void rejects_non_positive_target_max_open_orders_configuration() {
+        assertThatThrownBy(() -> new ExecutionProperties.OrderLimit.TargetLimit(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        null,
+                        null,
+                        true,
+                        0,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("targetLimits.maxOpenOrders must be positive when configured");
     }
 }
