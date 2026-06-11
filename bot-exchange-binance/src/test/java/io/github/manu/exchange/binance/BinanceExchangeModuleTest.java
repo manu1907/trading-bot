@@ -105,8 +105,11 @@ class BinanceExchangeModuleTest {
 
     @Test
     void rejects_enabled_market_data_runtime_without_streams() throws IOException {
-        ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
-                market.withObject("market_data").put("runtime_enabled", true));
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market -> {
+            ObjectNode marketData = market.withObject("market_data");
+            marketData.put("runtime_enabled", true);
+            marketData.set("streams", jsonMapper.createArrayNode());
+        });
 
         assertThatThrownBy(() -> module.validateConfig(config))
                 .isInstanceOf(IllegalArgumentException.class)

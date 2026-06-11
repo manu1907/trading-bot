@@ -47,6 +47,15 @@ class ConfigLoaderIntegrationTest {
         TestContext context = prepareContext("config-checked-in-demo-runtime");
         ExchangeProperties active = readActiveSelection(context.configDir.resolve("active.json"));
         copyCheckedInRuntimeFile(context.configDir, active);
+        ObjectNode runtimeRoot = (ObjectNode) jsonMapper.readTree(runtimeFile(context.configDir, active).toFile());
+        ObjectNode runtimeMarket = currentActiveMarketNode(runtimeRoot, active);
+
+        assertThat(runtimeMarket.path("market_data").has("streams"))
+                .as("runtime override must inherit USD-M stream coverage from catalog")
+                .isFalse();
+        assertThat(runtimeMarket.path("reconciliation").has("open_order_symbols"))
+                .as("runtime override must inherit USD-M reconciliation symbols from catalog")
+                .isFalse();
 
         TradingBotProperties loadedConfig = context.configLoader.loadBaseline(RuntimeProfile.LIVE);
 
@@ -87,6 +96,23 @@ class ConfigLoaderIntegrationTest {
                 );
         assertThat(activeMarket.path("reconciliation").path("runtime_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("open_orders_enabled").asBoolean()).isTrue();
+        assertThat(activeMarket.path("reconciliation").path("open_order_symbols"))
+                .extracting(JsonNode::asString)
+                .containsExactly(
+                        "BTCUSDT",
+                        "ETHUSDT",
+                        "BNBUSDT",
+                        "SOLUSDT",
+                        "XRPUSDT",
+                        "DOGEUSDT",
+                        "ADAUSDT",
+                        "LINKUSDT",
+                        "AVAXUSDT",
+                        "BCHUSDT",
+                        "LTCUSDT",
+                        "TRXUSDT",
+                        "DOTUSDT"
+                );
         assertThat(activeMarket.path("reconciliation").path("futures_balances_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("futures_account_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("futures_positions_enabled").asBoolean()).isTrue();

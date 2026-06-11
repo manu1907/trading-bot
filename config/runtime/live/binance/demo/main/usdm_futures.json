@@ -168,55 +168,12 @@
                       "runtime_enabled": true
                     },
                     "market_data": {
-                      "runtime_enabled": true,
-                      "streams": [
-                        "btcusdt@bookTicker",
-                        "btcusdt@aggTrade",
-                        "ethusdt@bookTicker",
-                        "ethusdt@aggTrade",
-                        "bnbusdt@bookTicker",
-                        "bnbusdt@aggTrade",
-                        "solusdt@bookTicker",
-                        "solusdt@aggTrade",
-                        "xrpusdt@bookTicker",
-                        "xrpusdt@aggTrade",
-                        "dogeusdt@bookTicker",
-                        "dogeusdt@aggTrade",
-                        "adausdt@bookTicker",
-                        "adausdt@aggTrade",
-                        "linkusdt@bookTicker",
-                        "linkusdt@aggTrade",
-                        "avaxusdt@bookTicker",
-                        "avaxusdt@aggTrade",
-                        "bchusdt@bookTicker",
-                        "bchusdt@aggTrade",
-                        "ltcusdt@bookTicker",
-                        "ltcusdt@aggTrade",
-                        "trxusdt@bookTicker",
-                        "trxusdt@aggTrade",
-                        "dotusdt@bookTicker",
-                        "dotusdt@aggTrade"
-                      ]
+                      "runtime_enabled": true
                     },
                     "reconciliation": {
                       "runtime_enabled": true,
                       "interval_seconds": 30,
                       "open_orders_enabled": true,
-                      "open_order_symbols": [
-                        "BTCUSDT",
-                        "ETHUSDT",
-                        "BNBUSDT",
-                        "SOLUSDT",
-                        "XRPUSDT",
-                        "DOGEUSDT",
-                        "ADAUSDT",
-                        "LINKUSDT",
-                        "AVAXUSDT",
-                        "BCHUSDT",
-                        "LTCUSDT",
-                        "TRXUSDT",
-                        "DOTUSDT"
-                      ],
                       "futures_balances_enabled": true,
                       "futures_account_enabled": true,
                       "futures_positions_enabled": true

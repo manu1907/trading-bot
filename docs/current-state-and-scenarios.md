@@ -47,6 +47,12 @@ futures candidate baseline:
 `ADAUSDT`, `LINKUSDT`, `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`, and
 `DOTUSDT`.
 
+The catalog also owns the matching USD-M futures market-data stream defaults
+(`bookTicker` and `aggTrade` for each baseline symbol) and reconciliation
+open-order symbol defaults for demo and real. The runtime file enables those
+services and can override operational cadence or risk limits, but it should not
+duplicate the baseline universe or operational coverage lists.
+
 The checked-in demo runtime currently enables that catalog baseline and sets:
 
 - `refresh_exchange_metadata_before_planning=true`

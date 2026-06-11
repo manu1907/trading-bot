@@ -413,6 +413,11 @@ Runtime behavior:
 - Maps trade, aggregate trade, book ticker, depth snapshot, depth delta, mark
   price, and kline payloads.
 
+For the checked-in Binance USD-M demo/real baseline, the catalog already owns
+the high-liquidity `bookTicker` and `aggTrade` stream list. The runtime file
+should normally only enable the market-data service or override operational
+settings such as route and connection mode.
+
 Example runtime override shape:
 
 ```json
@@ -427,37 +432,7 @@ Example runtime override shape:
                 "markets": {
                   "usdm_futures": {
                     "market_data": {
-                      "runtime_enabled": true,
-                      "connection_mode": "combined",
-                      "route": "default",
-                      "streams": [
-                        "btcusdt@bookTicker",
-                        "btcusdt@aggTrade",
-                        "ethusdt@bookTicker",
-                        "ethusdt@aggTrade",
-                        "bnbusdt@bookTicker",
-                        "bnbusdt@aggTrade",
-                        "solusdt@bookTicker",
-                        "solusdt@aggTrade",
-                        "xrpusdt@bookTicker",
-                        "xrpusdt@aggTrade",
-                        "dogeusdt@bookTicker",
-                        "dogeusdt@aggTrade",
-                        "adausdt@bookTicker",
-                        "adausdt@aggTrade",
-                        "linkusdt@bookTicker",
-                        "linkusdt@aggTrade",
-                        "avaxusdt@bookTicker",
-                        "avaxusdt@aggTrade",
-                        "bchusdt@bookTicker",
-                        "bchusdt@aggTrade",
-                        "ltcusdt@bookTicker",
-                        "ltcusdt@aggTrade",
-                        "trxusdt@bookTicker",
-                        "trxusdt@aggTrade",
-                        "dotusdt@bookTicker",
-                        "dotusdt@aggTrade"
-                      ]
+                      "runtime_enabled": true
                     }
                   }
                 }
@@ -487,6 +462,11 @@ Runtime behavior:
 - Does not fail startup on projection mismatch by default because
   `fail_on_projection_mismatch=false`.
 
+For the checked-in Binance USD-M demo/real baseline, the catalog already owns
+the high-liquidity open-order symbol coverage. The runtime file should normally
+enable reconciliation and select cadence/snapshot families, not duplicate the
+symbol list.
+
 Example runtime override shape:
 
 ```json
@@ -504,21 +484,6 @@ Example runtime override shape:
                       "runtime_enabled": true,
                       "interval_seconds": 60,
                       "open_orders_enabled": true,
-                      "open_order_symbols": [
-                        "BTCUSDT",
-                        "ETHUSDT",
-                        "BNBUSDT",
-                        "SOLUSDT",
-                        "XRPUSDT",
-                        "DOGEUSDT",
-                        "ADAUSDT",
-                        "LINKUSDT",
-                        "AVAXUSDT",
-                        "BCHUSDT",
-                        "LTCUSDT",
-                        "TRXUSDT",
-                        "DOTUSDT"
-                      ],
                       "futures_balances_enabled": true,
                       "futures_account_enabled": true,
                       "futures_positions_enabled": true
@@ -1260,9 +1225,13 @@ The active market-data config includes:
 - `runtime_enabled`: `false` by default
 - `connection_mode`: `combined`
 - `route`: `default`
-- `streams`: empty by default
+- `streams`: for Binance USD-M demo/real, the catalog baseline includes
+  `bookTicker` and `aggTrade` streams for the configured high-liquidity
+  universe
 
-You must configure streams before enabling the runtime.
+Do not duplicate the baseline stream list in the runtime file. Override
+`streams` only when intentionally replacing catalog stream coverage for a
+specific target.
 
 Common Binance futures stream names include examples such as:
 
@@ -1282,7 +1251,8 @@ The active reconciliation config includes:
 - `projection_comparison_enabled`: `true`
 - `fail_on_projection_mismatch`: `false`
 - `open_orders_enabled`: `false`
-- `open_order_symbols`: empty by default
+- `open_order_symbols`: for Binance USD-M demo/real, the catalog baseline
+  covers the configured high-liquidity universe
 - `order_history_enabled`: `false`
 - `order_history_symbols`: empty by default
 - `order_history_limit`: `1000`
@@ -1293,9 +1263,9 @@ The active reconciliation config includes:
 - `futures_account_enabled`: `false`
 - `futures_positions_enabled`: `false`
 
-Enable only the snapshot families you need. For demo USD-M, a safe first
-reconciliation target is one or more symbols such as `BTCUSDT` and `ETHUSDT` plus balances and
-positions.
+Enable only the snapshot families you need. For demo USD-M, the checked-in
+runtime enables open orders, balances, account snapshots, and positions while
+inheriting the high-liquidity symbol coverage from the catalog.
 
 ## USD-M Futures Account Options
 
@@ -2082,7 +2052,8 @@ Use this when you want the bot to observe configured public market streams.
 Config changes:
 
 - Enable `market_data.runtime_enabled`.
-- Configure `market_data.streams`.
+- Use the catalog-provided USD-M stream baseline, or intentionally override
+  `market_data.streams` for a target-specific stream set.
 - Ensure event bus dependencies are available.
 
 Expected result:
@@ -2098,7 +2069,9 @@ Config changes:
 
 - Enable `reconciliation.runtime_enabled`.
 - Enable specific snapshot families.
-- Configure symbol lists for symbol-scoped snapshots.
+- Use catalog-provided USD-M symbol coverage for open orders, or intentionally
+  override symbol lists for target-specific snapshots such as order history and
+  trades.
 
 Expected result:
 
