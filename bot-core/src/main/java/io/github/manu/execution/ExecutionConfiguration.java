@@ -4,6 +4,7 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -39,9 +40,10 @@ public class ExecutionConfiguration {
     StrategySignalPlanner strategySignalPlanner(
             ExecutionProperties properties,
             TradingEventBus eventBus,
-            TradingStateProjection tradingStateProjection
+            TradingStateProjection tradingStateProjection,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
     ) {
-        return new StrategySignalPlanner(properties, eventBus, tradingStateProjection);
+        return new StrategySignalPlanner(properties, eventBus, tradingStateProjection, reconciliationConfidenceTracker);
     }
 
     @Bean

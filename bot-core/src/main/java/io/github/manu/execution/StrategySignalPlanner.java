@@ -14,6 +14,8 @@ import io.github.manu.events.v1.StrategySignalType;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.messaging.TradingEventHandler;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -35,10 +37,11 @@ public final class StrategySignalPlanner implements TradingEventHandler {
     private final ExecutionProperties properties;
     private final TradingEventBus eventBus;
     private final TradingStateProjection tradingStateProjection;
+    private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
     private final Clock clock;
 
     public StrategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus) {
-        this(properties, eventBus, new TradingStateProjection(), Clock.systemUTC());
+        this(properties, eventBus, new TradingStateProjection(), null, Clock.systemUTC());
     }
 
     public StrategySignalPlanner(
@@ -46,11 +49,20 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             TradingEventBus eventBus,
             TradingStateProjection tradingStateProjection
     ) {
-        this(properties, eventBus, tradingStateProjection, Clock.systemUTC());
+        this(properties, eventBus, tradingStateProjection, null, Clock.systemUTC());
+    }
+
+    public StrategySignalPlanner(
+            ExecutionProperties properties,
+            TradingEventBus eventBus,
+            TradingStateProjection tradingStateProjection,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
+    ) {
+        this(properties, eventBus, tradingStateProjection, reconciliationConfidenceTracker, Clock.systemUTC());
     }
 
     StrategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus, Clock clock) {
-        this(properties, eventBus, new TradingStateProjection(), clock);
+        this(properties, eventBus, new TradingStateProjection(), null, clock);
     }
 
     StrategySignalPlanner(
@@ -59,9 +71,20 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             TradingStateProjection tradingStateProjection,
             Clock clock
     ) {
+        this(properties, eventBus, tradingStateProjection, null, clock);
+    }
+
+    StrategySignalPlanner(
+            ExecutionProperties properties,
+            TradingEventBus eventBus,
+            TradingStateProjection tradingStateProjection,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            Clock clock
+    ) {
         this.properties = Objects.requireNonNull(properties, "properties");
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.tradingStateProjection = Objects.requireNonNull(tradingStateProjection, "tradingStateProjection");
+        this.reconciliationConfidenceTracker = reconciliationConfidenceTracker;
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -152,10 +175,31 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             String symbol
     ) {
         return tradingStateProjection.symbolPaused(provider, environment, account, market, symbol, Instant.now(clock))
+                || reconciliationBlocked(provider, environment, account, market)
                 || tradingStateProjection.hasExternalOrderInterventions(provider, environment, account, market)
                 || tradingStateProjection.hasExternalPositionInterventions(provider, environment, account, market)
                 || tradingStateProjection.hasUnknownOrderStatuses(provider, environment, account, market)
                 || tradingStateProjection.hasUnresolvedOrderCommands(provider, environment, account, market);
+    }
+
+    private boolean reconciliationBlocked(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        if (reconciliationConfidenceTracker == null || !properties.riskGate().reconciliation().required()) {
+            return false;
+        }
+        ReconciliationTargetConfidence confidence =
+                reconciliationConfidenceTracker.targetConfidence(provider, environment, account, market);
+        if (confidence.status() == ReconciliationTargetConfidence.Status.NO_OBSERVATIONS) {
+            return properties.riskGate().reconciliation().rejectNoObservations();
+        }
+        if (confidence.status() == ReconciliationTargetConfidence.Status.DEGRADED) {
+            return properties.riskGate().reconciliation().rejectDegraded();
+        }
+        return false;
     }
 
     private TradingEventEnvelope<OrderCommandEvent> envelope(OrderCommandEvent command) {

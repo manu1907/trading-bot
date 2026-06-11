@@ -15,6 +15,9 @@ import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
+import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import io.github.manu.reconciliation.ReconciliationObservation;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
 
@@ -330,6 +333,58 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_order_command_when_target_has_no_reconciliation_observations() {
+        ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(FIXED_CLOCK);
+        StrategySignalPlanner planner = planner(new TradingStateProjection(), tracker);
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_target_reconciliation_is_degraded() {
+        ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(FIXED_CLOCK);
+        tracker.record(reconciliationObservation(ReconciliationConfidenceStatus.MISSING_PROJECTION));
+        StrategySignalPlanner planner = planner(new TradingStateProjection(), tracker);
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void plans_order_command_when_target_reconciliation_is_confident() {
+        ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(FIXED_CLOCK);
+        tracker.record(reconciliationObservation(ReconciliationConfidenceStatus.CONFIDENT));
+        StrategySignalPlanner planner = planner(new TradingStateProjection(), tracker);
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isPresent();
+    }
+
+    @Test
+    void can_disable_reconciliation_required_strategy_admission() {
+        ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(FIXED_CLOCK);
+        StrategySignalPlanner planner = planner(new TradingStateProjection(), tracker, new ExecutionProperties(
+                new ExecutionProperties.SignalPlanner(true, defaults()),
+                new ExecutionProperties.RiskGate(
+                        true,
+                        new ExecutionProperties.Reconciliation(false, true, true)
+                )
+        ));
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isPresent();
+    }
+
+    @Test
     void requires_target_when_signal_and_defaults_do_not_provide_it() {
         StrategySignalPlanner planner = new StrategySignalPlanner(
                 new ExecutionProperties(new ExecutionProperties.SignalPlanner(
@@ -350,13 +405,29 @@ class StrategySignalPlannerTest {
     }
 
     private StrategySignalPlanner planner(TradingStateProjection projection) {
+        return planner(projection, null);
+    }
+
+    private StrategySignalPlanner planner(
+            TradingStateProjection projection,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
+    ) {
+        return planner(projection, reconciliationConfidenceTracker, new ExecutionProperties(new ExecutionProperties.SignalPlanner(
+                true,
+                defaults()
+        ), null));
+    }
+
+    private StrategySignalPlanner planner(
+            TradingStateProjection projection,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            ExecutionProperties properties
+    ) {
         return new StrategySignalPlanner(
-                new ExecutionProperties(new ExecutionProperties.SignalPlanner(
-                        true,
-                        defaults()
-                ), null),
+                properties,
                 eventBus,
                 projection,
+                reconciliationConfidenceTracker,
                 FIXED_CLOCK
         );
     }
@@ -452,6 +523,19 @@ class StrategySignalPlannerTest {
                 interventionReason,
                 NOW,
                 eventId
+        );
+    }
+
+    private ReconciliationObservation reconciliationObservation(ReconciliationConfidenceStatus status) {
+        return new ReconciliationObservation(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                TradingEventType.BALANCE_UPDATE,
+                "binance|demo|main|usd_m_futures|USDT",
+                status,
+                List.of()
         );
     }
 
