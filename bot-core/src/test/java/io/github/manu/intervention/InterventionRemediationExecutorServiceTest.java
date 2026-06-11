@@ -1,5 +1,6 @@
 package io.github.manu.intervention;
 
+import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
@@ -16,6 +17,7 @@ import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.observability.RemediationExecutorMetrics;
+import io.github.manu.projection.FileTradingStateProjectionStore;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
 import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
@@ -24,7 +26,9 @@ import io.github.manu.reconciliation.ReconciliationObservation;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -38,6 +42,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InterventionRemediationExecutorServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-06-07T09:30:00Z");
+
+    @TempDir
+    private Path temporaryDirectory;
 
     private final TradingStateProjection projection = new TradingStateProjection();
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
@@ -173,6 +180,86 @@ class InterventionRemediationExecutorServiceTest {
                 "SUBMITTED_TO_PIPELINE",
                 "executor:submitted_to_order_execution_pipeline"
         )).isEqualTo(1.0d);
+    }
+
+    @Test
+    void restored_projected_remediation_command_identity_prevents_duplicate_cancel_submission_after_restart() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(
+                        order("client-1", "evt-order-1"),
+                        projectedRemediationCancelCommandState()
+                ),
+                List.of(),
+                List.of(),
+                List.of(orderDecision("client-1", "remediation-1", "evt-remediation-1")),
+                List.of("evt-order-1", "evt-remediation-1", "evt-remediation-command-replay")
+        ));
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(projection.snapshot());
+        TradingStateProjection restoredProjection = new TradingStateProjection();
+        restoredProjection.restore(store.load().orElseThrow());
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        ReconciliationConfidenceTracker reconciliationTracker =
+                new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
+        reconciliationTracker.record(new ReconciliationObservation(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                TradingEventType.ORDER_RESULT,
+                "binance|demo|main|usd_m_futures|BTCUSDT|client-1",
+                ReconciliationConfidenceStatus.CONFIDENT,
+                List.of()
+        ));
+        OrderExecutionPipeline pipeline = new OrderExecutionPipeline(
+                new OrderRiskGate(new ExecutionProperties(null), reconciliationTracker, restoredProjection),
+                eventBus,
+                List.of(new CancelGateway())
+        );
+        InterventionRemediationCommandPlanner restoredPlanner = new InterventionRemediationCommandPlanner(
+                restoredProjection,
+                enabledPositionOrderPolicy()
+        );
+        InterventionRemediationExecutorService service = new InterventionRemediationExecutorService(
+                restoredProjection,
+                restoredPlanner,
+                new InterventionProperties(null, null, null, null, liveCancelPolicy()),
+                pipeline,
+                new RemediationExecutorMetrics(meterRegistry)
+        );
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service.execute("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isZero();
+        assertThat(batch.submittedCount()).isEqualTo(1);
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.status())
+                    .isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.SUBMITTED_TO_PIPELINE);
+            assertThat(report.attributes())
+                    .containsEntry("executor_submitted_command_id", "remediation-command:remediation-1:cancel-order")
+                    .containsEntry("executor_submitted_target_client_order_id", "client-1")
+                    .containsEntry("executor_submitted_target_exchange_order_id", "exchange-client-1");
+        });
+        assertThat(eventBus.values(RiskDecisionEvent.class))
+                .singleElement()
+                .satisfies(decision -> {
+                    assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+                    assertThat(decision.getReasons()).containsExactly("execution:projected_duplicate_command_id");
+                    assertThat(decision.getAttributes())
+                            .containsEntry(
+                                    "projected_duplicate_command_id",
+                                    "remediation-command:remediation-1:cancel-order"
+                            )
+                            .containsEntry("projected_duplicate_client_order_id", "rm-cxl-remediation-1");
+                });
+        assertThat(eventBus.values(OrderResultEvent.class)).isEmpty();
     }
 
     @Test
@@ -970,6 +1057,35 @@ class InterventionRemediationExecutorServiceTest {
                 "external_order_observed",
                 NOW.minusSeconds(1),
                 eventId
+        );
+    }
+
+    private TradingStateProjection.OrderState projectedRemediationCancelCommandState() {
+        return new TradingStateProjection.OrderState(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                "BTCUSDT",
+                "remediation-command:remediation-1:cancel-order",
+                "rm-cxl-remediation-1",
+                null,
+                "CANCELED",
+                "CANCELED",
+                "BUY",
+                "LIMIT",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "ORDER_COMMAND",
+                "CANCEL",
+                true,
+                false,
+                null,
+                NOW.minusMillis(500),
+                "evt-remediation-command-replay"
         );
     }
 
