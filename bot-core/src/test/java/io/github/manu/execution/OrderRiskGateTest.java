@@ -109,6 +109,30 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void requires_manual_review_when_restored_target_has_external_order_intervention_after_restart() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        TradingStateProjection original = projectionWithExternalIntervention();
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(original.snapshot());
+        TradingStateProjection restored = new TradingStateProjection();
+        restored.restore(store.load().orElseThrow());
+
+        RiskDecisionEvent decision = gate(defaultProperties(), restored).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("intervention:external_order");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes())
+                .containsEntry("external_order_interventions", "1")
+                .containsEntry("external_order_client_order_ids", "manual-client-1")
+                .containsEntry("external_order_exchange_order_ids", "12345")
+                .containsEntry("external_order_intervention_action", "MANUAL_REVIEW");
+    }
+
+    @Test
     void requires_manual_review_when_target_has_external_position_intervention() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
@@ -127,6 +151,33 @@ class OrderRiskGateTest {
                 "external_position_change"
         );
         assertThat(decision.getAttributes()).containsEntry("external_position_intervention_action", "MANUAL_REVIEW");
+    }
+
+    @Test
+    void requires_manual_review_when_restored_target_has_external_position_intervention_after_restart() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        TradingStateProjection original = projectionWithExternalPositionIntervention();
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(original.snapshot());
+        TradingStateProjection restored = new TradingStateProjection();
+        restored.restore(store.load().orElseThrow());
+
+        RiskDecisionEvent decision = gate(defaultProperties(), restored).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("intervention:external_position");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes())
+                .containsEntry("external_position_interventions", "1")
+                .containsEntry("external_position_symbols", SYMBOL)
+                .containsEntry("external_position_sides", "BOTH")
+                .containsEntry("external_position_amounts", "0")
+                .containsEntry("external_position_update_sources", "USER_DATA")
+                .containsEntry("external_position_intervention_reasons", "external_position_change")
+                .containsEntry("external_position_intervention_action", "MANUAL_REVIEW");
     }
 
     @Test
