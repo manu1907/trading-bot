@@ -40,18 +40,21 @@ top-of-book bid/ask are present, the top-of-book snapshot is fresh enough, and
 the effective spread is below the configured universe or symbol-policy
 `max_spread_bps`.
 
-The checked-in demo runtime currently enables this gate for:
+The checked-in catalog currently provides this bounded high-liquidity USD-M
+futures candidate baseline:
 
-- a high-liquidity USD-M futures candidate list:
-  `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`,
-  `ADAUSDT`, `LINKUSDT`, `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`,
-  and `DOTUSDT`
+`BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`,
+`ADAUSDT`, `LINKUSDT`, `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`, and
+`DOTUSDT`.
+
+The checked-in demo runtime currently enables that catalog baseline and sets:
+
 - `refresh_exchange_metadata_before_planning=true`
 - `require_exchange_metadata=true`
 - `require_included_symbol=true`
 - `allowed_quote_assets=["USDT"]`
 - `allowed_contract_types=["PERPETUAL"]`
-- `max_eligible_symbols=12`
+- `max_eligible_symbols=13`
 - `require_market_data=true`
 - `require_top_of_book=true`
 - `max_market_data_age_millis=30000`

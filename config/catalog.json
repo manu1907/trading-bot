@@ -91,7 +91,19 @@
         "instrument_universe": {
           "enabled": false,
           "included_symbols": [
-
+            "BTCUSDT",
+            "ETHUSDT",
+            "BNBUSDT",
+            "SOLUSDT",
+            "XRPUSDT",
+            "DOGEUSDT",
+            "ADAUSDT",
+            "LINKUSDT",
+            "AVAXUSDT",
+            "BCHUSDT",
+            "LTCUSDT",
+            "TRXUSDT",
+            "DOTUSDT"
           ],
           "excluded_symbols": [
 
@@ -115,7 +127,110 @@
           "max_market_data_age_millis": 60000,
           "max_spread_bps": null,
           "symbol_policies": [
-
+            {
+              "symbol": "BTCUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "ETHUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "BNBUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "SOLUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "XRPUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "DOGEUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "ADAUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "LINKUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "AVAXUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "BCHUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "LTCUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "TRXUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            },
+            {
+              "symbol": "DOTUSDT",
+              "enabled": true,
+              "promotion_ready": true,
+              "min_daily_quote_volume": "100000000",
+              "max_spread_bps": "5",
+              "max_order_notional": "50"
+            }
           ]
         }
       },

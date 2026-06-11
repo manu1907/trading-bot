@@ -1475,7 +1475,9 @@ Current planner defaults include:
 - `client_order_id_prefix`: `tb`
 - `feature_profiles`: empty list
 - `instrument_universe.enabled`: `false`
-- `instrument_universe.included_symbols`: empty list
+- `instrument_universe.included_symbols`: catalog baseline `BTCUSDT`, `ETHUSDT`,
+  `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`, `LINKUSDT`,
+  `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`, `DOTUSDT`
 - `instrument_universe.excluded_symbols`: empty list
 - `instrument_universe.refresh_exchange_metadata_before_planning`: `false`
 - `instrument_universe.require_exchange_metadata`: `false`
@@ -1491,7 +1493,10 @@ Current planner defaults include:
 - `instrument_universe.require_top_of_book`: `false`
 - `instrument_universe.max_market_data_age_millis`: `60000`
 - `instrument_universe.max_spread_bps`: `null`
-- `instrument_universe.symbol_policies`: empty list
+- `instrument_universe.symbol_policies`: catalog baseline policies for the same
+  USD-M futures candidate list, each enabled and promotion-ready with
+  `min_daily_quote_volume=100000000`, `max_spread_bps=5`, and
+  `max_order_notional=50`
 
 When enabled, the planner handles `STRATEGY_SIGNAL` events in live mode. It is
 not enabled by default because automated strategy-to-order planning still needs
@@ -1512,13 +1517,14 @@ the maximum age of the required snapshot, and `max_spread_bps` rejects symbols
 whose top-of-book spread is wider than the configured limit. A symbol policy
 `max_spread_bps` overrides the universe-level spread limit for that symbol.
 
-The checked-in demo runtime currently opts into this gate with a candidate list
-of `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`,
-`ADAUSDT`, `LINKUSDT`, `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`, and
-`DOTUSDT`; it sets `refresh_exchange_metadata_before_planning=true`,
+The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
+`ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,
+`LINKUSDT`, `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`, and `DOTUSDT`.
+The checked-in demo runtime opts into that catalog baseline and sets
+`refresh_exchange_metadata_before_planning=true`,
 `require_exchange_metadata=true`, `require_included_symbol=true`,
 `allowed_quote_assets=["USDT"]`, `allowed_contract_types=["PERPETUAL"]`, and
-`max_eligible_symbols=12`. It also sets `require_market_data=true`,
+`max_eligible_symbols=13`. It also sets `require_market_data=true`,
 `require_top_of_book=true`, `max_market_data_age_millis=30000`, and
 `max_spread_bps="5"`.
 
