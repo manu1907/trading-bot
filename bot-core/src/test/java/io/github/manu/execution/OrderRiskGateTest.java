@@ -145,6 +145,30 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void requires_manual_review_when_restored_target_has_unknown_order_status_after_restart() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        TradingStateProjection original = projectionWithUnknownOrderStatus();
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(original.snapshot());
+        TradingStateProjection restored = new TradingStateProjection();
+        restored.restore(store.load().orElseThrow());
+
+        RiskDecisionEvent decision = gate(defaultProperties(), restored).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_status:unknown");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes())
+                .containsEntry("unknown_order_statuses", "1")
+                .containsEntry("unknown_order_command_ids", "cmd-unknown")
+                .containsEntry("unknown_order_client_order_ids", "tb-lfa-unknown")
+                .containsEntry("unknown_order_status_action", "MANUAL_REVIEW");
+    }
+
+    @Test
     void requires_manual_review_when_target_has_unresolved_order_command() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
