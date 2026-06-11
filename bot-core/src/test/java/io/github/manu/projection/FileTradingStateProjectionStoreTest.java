@@ -64,6 +64,71 @@ class FileTradingStateProjectionStoreTest {
     }
 
     @Test
+    void preserves_partially_filled_order_state_after_file_snapshot_restore() {
+        Instant updatedAt = Instant.parse("2026-05-26T20:05:00Z");
+        TradingStateSnapshot snapshot = new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usdm_futures",
+                        "BTCUSDT",
+                        "cmd-partial",
+                        "tb-lfa-partial",
+                        "123456789",
+                        "PARTIALLY_FILLED",
+                        "PARTIALLY_FILLED",
+                        "BUY",
+                        "LIMIT",
+                        "50010.00",
+                        "0.100",
+                        "0.040",
+                        "50009.50",
+                        "2000.380",
+                        "USER_DATA",
+                        "TRADE",
+                        true,
+                        false,
+                        null,
+                        updatedAt,
+                        "evt-partial-fill"
+                )),
+                List.of(),
+                List.of("evt-partial-fill")
+        );
+        FileTradingStateProjectionStore store = store();
+
+        store.save(snapshot);
+        TradingStateSnapshot loaded = store.load().orElseThrow();
+        TradingStateProjection restored = new TradingStateProjection();
+        restored.restore(loaded);
+
+        assertThat(restored.order("binance", "demo", "main", "usdm_futures", "BTCUSDT", "tb-lfa-partial"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-partial");
+                    assertThat(order.exchangeOrderId()).isEqualTo("123456789");
+                    assertThat(order.status()).isEqualTo("PARTIALLY_FILLED");
+                    assertThat(order.exchangeStatus()).isEqualTo("PARTIALLY_FILLED");
+                    assertThat(order.side()).isEqualTo("BUY");
+                    assertThat(order.orderType()).isEqualTo("LIMIT");
+                    assertThat(order.originalQuantity()).isEqualTo("0.100");
+                    assertThat(order.executedQuantity()).isEqualTo("0.040");
+                    assertThat(order.averagePrice()).isEqualTo("50009.50");
+                    assertThat(order.cumulativeQuote()).isEqualTo("2000.380");
+                    assertThat(order.updateSource()).isEqualTo("USER_DATA");
+                    assertThat(order.executionType()).isEqualTo("TRADE");
+                    assertThat(order.managedByBot()).isTrue();
+                    assertThat(order.externalIntervention()).isFalse();
+                    assertThat(order.updatedAt()).isEqualTo(updatedAt);
+                    assertThat(order.eventId()).isEqualTo("evt-partial-fill");
+                });
+        assertThat(loaded.appliedEventIds()).containsExactly("evt-partial-fill");
+    }
+
+    @Test
     void loads_snapshot_written_before_daily_realized_pnl_state_existed() throws Exception {
         Path snapshotDirectory = temporaryDirectory.resolve("projection");
         Path snapshotPath = snapshotDirectory.resolve("trading-state.json");
