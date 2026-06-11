@@ -94,7 +94,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         String account = resolve(signal.getAccount(), properties.signalPlanner().defaults().account(), "account");
         String market = resolve(signal.getMarket(), properties.signalPlanner().defaults().market(), "market");
         String symbol = resolve(signal.getSymbol(), properties.signalPlanner().defaults().symbol(), "symbol");
-        if (tradingStateProjection.symbolPaused(provider, environment, account, market, symbol, Instant.now(clock))) {
+        if (admissionBlocked(provider, environment, account, market, symbol)) {
             return Optional.empty();
         }
         OrderCommandType orderType = orderType(signal, features);
@@ -142,6 +142,20 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 .setAttributes(attributes)
                 .build();
         return Optional.of(command);
+    }
+
+    private boolean admissionBlocked(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        return tradingStateProjection.symbolPaused(provider, environment, account, market, symbol, Instant.now(clock))
+                || tradingStateProjection.hasExternalOrderInterventions(provider, environment, account, market)
+                || tradingStateProjection.hasExternalPositionInterventions(provider, environment, account, market)
+                || tradingStateProjection.hasUnknownOrderStatuses(provider, environment, account, market)
+                || tradingStateProjection.hasUnresolvedOrderCommands(provider, environment, account, market);
     }
 
     private TradingEventEnvelope<OrderCommandEvent> envelope(OrderCommandEvent command) {

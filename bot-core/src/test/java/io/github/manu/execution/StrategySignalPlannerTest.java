@@ -267,6 +267,69 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_order_command_when_projection_has_unknown_order_status() {
+        StrategySignalPlanner planner = planner(projectionWithOrder(orderState(
+                "cmd-unknown",
+                "tb-lfa-unknown",
+                "UNKNOWN",
+                "ORDER_RESULT",
+                null,
+                true,
+                false,
+                null,
+                "evt-unknown"
+        )));
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_projection_has_unresolved_order_command() {
+        StrategySignalPlanner planner = planner(projectionWithOrder(orderState(
+                "cmd-pending",
+                "tb-lfa-pending",
+                "COMMAND_RECEIVED",
+                "ORDER_COMMAND",
+                null,
+                true,
+                false,
+                null,
+                "evt-pending"
+        )));
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_projection_has_external_order_intervention() {
+        StrategySignalPlanner planner = planner(projectionWithOrder(orderState(
+                null,
+                "manual-client-1",
+                "ACCEPTED",
+                "USER_DATA",
+                "NEW",
+                false,
+                true,
+                "external_order_observed",
+                "evt-external-order"
+        )));
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void requires_target_when_signal_and_defaults_do_not_provide_it() {
         StrategySignalPlanner planner = new StrategySignalPlanner(
                 new ExecutionProperties(new ExecutionProperties.SignalPlanner(
@@ -339,6 +402,57 @@ class StrategySignalPlannerTest {
                 List.of()
         ));
         return projection;
+    }
+
+    private TradingStateProjection projectionWithOrder(TradingStateProjection.OrderState order) {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(order),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection.OrderState orderState(
+            String commandId,
+            String clientOrderId,
+            String status,
+            String updateSource,
+            String executionType,
+            boolean managedByBot,
+            boolean externalIntervention,
+            String interventionReason,
+            String eventId
+    ) {
+        return new TradingStateProjection.OrderState(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                "BTCUSDT",
+                commandId,
+                clientOrderId,
+                "exchange-" + clientOrderId,
+                status,
+                status,
+                "BUY",
+                "LIMIT",
+                "50000.00",
+                "0.001",
+                "0",
+                null,
+                null,
+                updateSource,
+                executionType,
+                managedByBot,
+                externalIntervention,
+                interventionReason,
+                NOW,
+                eventId
+        );
     }
 
     private ExecutionProperties.SignalPlanner.Defaults defaults() {
