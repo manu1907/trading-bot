@@ -130,6 +130,10 @@ public record ExecutionProperties(
                 List<String> allowedQuoteAssets,
                 List<String> allowedContractTypes,
                 Integer maxEligibleSymbols,
+                Boolean requireMarketData,
+                Boolean requireTopOfBook,
+                Long maxMarketDataAgeMillis,
+                String maxSpreadBps,
                 List<SymbolPolicy> symbolPolicies
         ) {
 
@@ -150,6 +154,14 @@ public record ExecutionProperties(
                 if (maxEligibleSymbols != null && maxEligibleSymbols.intValue() <= 0) {
                     throw new IllegalArgumentException("instrument universe maxEligibleSymbols must be positive when configured");
                 }
+                requireMarketData = Boolean.TRUE.equals(requireMarketData);
+                requireTopOfBook = Boolean.TRUE.equals(requireTopOfBook);
+                if (maxMarketDataAgeMillis != null && maxMarketDataAgeMillis.longValue() <= 0L) {
+                    throw new IllegalArgumentException(
+                            "instrument universe maxMarketDataAgeMillis must be positive when configured"
+                    );
+                }
+                validatePositiveDecimal("instrument universe maxSpreadBps", maxSpreadBps);
                 symbolPolicies = symbolPolicies == null ? List.of() : List.copyOf(symbolPolicies);
             }
 
@@ -176,6 +188,10 @@ public record ExecutionProperties(
                         List.of(),
                         List.of(),
                         null,
+                        false,
+                        false,
+                        60000L,
+                        null,
                         symbolPolicies
                 );
             }
@@ -194,6 +210,10 @@ public record ExecutionProperties(
                         null,
                         List.of(),
                         List.of(),
+                        null,
+                        false,
+                        false,
+                        60000L,
                         null,
                         List.of()
                 );
@@ -251,6 +271,19 @@ public record ExecutionProperties(
                     return defaultValue;
                 }
                 return value.trim().toUpperCase(java.util.Locale.ROOT);
+            }
+
+            private static void validatePositiveDecimal(String field, String value) {
+                if (value == null || value.isBlank()) {
+                    return;
+                }
+                try {
+                    if (new BigDecimal(value).compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException(field + " must be positive when configured");
+                    }
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(field + " must be a decimal number", e);
+                }
             }
         }
 

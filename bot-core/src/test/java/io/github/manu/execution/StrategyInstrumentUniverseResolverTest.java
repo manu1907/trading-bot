@@ -45,6 +45,10 @@ class StrategyInstrumentUniverseResolverTest {
                         List.of("USDT"),
                         List.of("PERPETUAL"),
                         2,
+                        false,
+                        false,
+                        30000L,
+                        null,
                         List.of()
                 );
 
@@ -98,6 +102,10 @@ class StrategyInstrumentUniverseResolverTest {
                         null,
                         List.of("USDT"),
                         List.of("PERPETUAL"),
+                        null,
+                        false,
+                        false,
+                        30000L,
                         null,
                         List.of()
                 );

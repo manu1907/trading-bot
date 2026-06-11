@@ -431,8 +431,32 @@ Example runtime override shape:
                       "connection_mode": "combined",
                       "route": "default",
                       "streams": [
-                        "btcusdt@trade",
-                        "btcusdt@bookTicker"
+                        "btcusdt@bookTicker",
+                        "btcusdt@aggTrade",
+                        "ethusdt@bookTicker",
+                        "ethusdt@aggTrade",
+                        "bnbusdt@bookTicker",
+                        "bnbusdt@aggTrade",
+                        "solusdt@bookTicker",
+                        "solusdt@aggTrade",
+                        "xrpusdt@bookTicker",
+                        "xrpusdt@aggTrade",
+                        "dogeusdt@bookTicker",
+                        "dogeusdt@aggTrade",
+                        "adausdt@bookTicker",
+                        "adausdt@aggTrade",
+                        "linkusdt@bookTicker",
+                        "linkusdt@aggTrade",
+                        "avaxusdt@bookTicker",
+                        "avaxusdt@aggTrade",
+                        "bchusdt@bookTicker",
+                        "bchusdt@aggTrade",
+                        "ltcusdt@bookTicker",
+                        "ltcusdt@aggTrade",
+                        "trxusdt@bookTicker",
+                        "trxusdt@aggTrade",
+                        "dotusdt@bookTicker",
+                        "dotusdt@aggTrade"
                       ]
                     }
                   }
@@ -480,7 +504,21 @@ Example runtime override shape:
                       "runtime_enabled": true,
                       "interval_seconds": 60,
                       "open_orders_enabled": true,
-                      "open_order_symbols": ["BTCUSDT", "ETHUSDT"],
+                      "open_order_symbols": [
+                        "BTCUSDT",
+                        "ETHUSDT",
+                        "BNBUSDT",
+                        "SOLUSDT",
+                        "XRPUSDT",
+                        "DOGEUSDT",
+                        "ADAUSDT",
+                        "LINKUSDT",
+                        "AVAXUSDT",
+                        "BCHUSDT",
+                        "LTCUSDT",
+                        "TRXUSDT",
+                        "DOTUSDT"
+                      ],
                       "futures_balances_enabled": true,
                       "futures_account_enabled": true,
                       "futures_positions_enabled": true
@@ -1449,6 +1487,10 @@ Current planner defaults include:
 - `instrument_universe.allowed_quote_assets`: empty list
 - `instrument_universe.allowed_contract_types`: empty list
 - `instrument_universe.max_eligible_symbols`: `null`
+- `instrument_universe.require_market_data`: `false`
+- `instrument_universe.require_top_of_book`: `false`
+- `instrument_universe.max_market_data_age_millis`: `60000`
+- `instrument_universe.max_spread_bps`: `null`
 - `instrument_universe.symbol_policies`: empty list
 
 When enabled, the planner handles `STRATEGY_SIGNAL` events in live mode. It is
@@ -1463,6 +1505,12 @@ oversized strategy orders are suppressed before publication. When
 exchange metadata before admission and only allows symbols that are currently
 present, tradable, compatible with the configured quote asset and contract type,
 and compatible with the order type being planned.
+When `require_market_data=true`, the planner requires a projected latest market
+data snapshot for the resolved symbol. When `require_top_of_book=true`, it
+requires projected best bid and best ask. `max_market_data_age_millis` bounds
+the maximum age of the required snapshot, and `max_spread_bps` rejects symbols
+whose top-of-book spread is wider than the configured limit. A symbol policy
+`max_spread_bps` overrides the universe-level spread limit for that symbol.
 
 The checked-in demo runtime currently opts into this gate with a candidate list
 of `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`,
@@ -1470,7 +1518,9 @@ of `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`,
 `DOTUSDT`; it sets `refresh_exchange_metadata_before_planning=true`,
 `require_exchange_metadata=true`, `require_included_symbol=true`,
 `allowed_quote_assets=["USDT"]`, `allowed_contract_types=["PERPETUAL"]`, and
-`max_eligible_symbols=12`.
+`max_eligible_symbols=12`. It also sets `require_market_data=true`,
+`require_top_of_book=true`, `max_market_data_age_millis=30000`, and
+`max_spread_bps="5"`.
 
 ## Risk Gate Options
 

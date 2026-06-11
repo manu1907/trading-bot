@@ -5,6 +5,8 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
+import io.github.manu.events.v1.MarketDataEvent;
+import io.github.manu.events.v1.MarketDataEventType;
 import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderResultEvent;
@@ -42,6 +44,7 @@ public final class TradingStateProjection implements TradingEventHandler {
     private final Map<String, PositionState> positions = new ConcurrentHashMap<>();
     private final Map<String, OrderState> orders = new ConcurrentHashMap<>();
     private final Map<String, RiskState> risks = new ConcurrentHashMap<>();
+    private final Map<String, MarketDataState> marketData = new ConcurrentHashMap<>();
     private final Map<String, DailyRealizedPnlState> dailyRealizedPnl = new ConcurrentHashMap<>();
     private final Map<String, ManualReviewDecisionState> manualReviewDecisions = new ConcurrentHashMap<>();
     private final Map<String, RemediationDecisionState> remediationDecisions = new ConcurrentHashMap<>();
@@ -76,6 +79,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             case ORDER_RESULT -> applyOrderResult(envelope, cast(envelope.value(), OrderResultEvent.class));
             case EXECUTION_REPORT -> applyExecutionReport(envelope, cast(envelope.value(), ExecutionReportEvent.class));
             case RISK_UPDATE -> applyRisk(envelope, cast(envelope.value(), RiskUpdateEvent.class));
+            case MARKET_DATA -> applyMarketData(envelope, cast(envelope.value(), MarketDataEvent.class));
             case RISK_DECISION -> applyRiskDecision(envelope, cast(envelope.value(), RiskDecisionEvent.class));
             case INTERVENTION_ACKNOWLEDGEMENT -> applyInterventionAcknowledgement(
                     envelope,
@@ -165,6 +169,10 @@ public final class TradingStateProjection implements TradingEventHandler {
             String entityId
     ) {
         return Optional.ofNullable(risks.get(key(provider, environment, account, market, riskScope, entityId)));
+    }
+
+    public Optional<MarketDataState> marketData(String provider, String environment, String market, String symbol) {
+        return Optional.ofNullable(marketData.get(key(provider, environment, market, symbol)));
     }
 
     public Optional<DailyRealizedPnlState> dailyRealizedPnl(
@@ -450,6 +458,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                     valuesByKey(positions),
                     valuesByKey(orders),
                     valuesByKey(risks),
+                    valuesByKey(marketData),
                     valuesByKey(dailyRealizedPnl),
                     valuesByKey(manualReviewDecisions),
                     valuesByKey(remediationDecisions),
@@ -466,6 +475,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             positions.clear();
             orders.clear();
             risks.clear();
+            marketData.clear();
             dailyRealizedPnl.clear();
             manualReviewDecisions.clear();
             remediationDecisions.clear();
@@ -506,6 +516,14 @@ public final class TradingStateProjection implements TradingEventHandler {
                         state.market(),
                         state.riskScope(),
                         entityId
+                ), state);
+            }
+            for (MarketDataState state : snapshot.marketData()) {
+                marketData.put(key(
+                        state.provider(),
+                        state.environment(),
+                        state.market(),
+                        state.symbol()
                 ), state);
             }
             for (DailyRealizedPnlState state : snapshot.dailyRealizedPnl()) {
@@ -1033,6 +1051,81 @@ public final class TradingStateProjection implements TradingEventHandler {
                 eventId
         );
         return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), risks, state);
+    }
+
+    private ProjectionUpdate applyMarketData(TradingEventEnvelope<?> envelope, MarketDataEvent event) {
+        String eventId = value(event.getEventId());
+        String entityKey = key(event.getProvider(), event.getEnvironment(), event.getMarket(), event.getSymbol());
+        Instant eventTime = firstInstant(event.getReceivedAtMicros(), event.getOccurredAtMicros());
+        MarketDataState current = marketData.get(entityKey);
+        TopOfBook topOfBook = topOfBook(event, current);
+        LastTrade lastTrade = lastTrade(event, current);
+        MarketDataState state = new MarketDataState(
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getMarket()),
+                value(event.getSymbol()),
+                event.getEventType() == null ? null : event.getEventType().name(),
+                topOfBook.bestBidPrice(),
+                topOfBook.bestBidQuantity(),
+                topOfBook.bestAskPrice(),
+                topOfBook.bestAskQuantity(),
+                topOfBook.updatedAt(),
+                lastTrade.price(),
+                lastTrade.quantity(),
+                lastTrade.side(),
+                lastTrade.updatedAt(),
+                stringMap(event.getAttributes()),
+                eventTime,
+                eventId
+        );
+        return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), marketData, state);
+    }
+
+    private TopOfBook topOfBook(MarketDataEvent event, MarketDataState current) {
+        if (event.getEventType() != MarketDataEventType.BOOK_TICKER
+                && event.getEventType() != MarketDataEventType.DEPTH_SNAPSHOT
+                && event.getEventType() != MarketDataEventType.DEPTH_DELTA) {
+            return current == null
+                    ? new TopOfBook(null, null, null, null, null)
+                    : new TopOfBook(
+                            current.bestBidPrice(),
+                            current.bestBidQuantity(),
+                            current.bestAskPrice(),
+                            current.bestAskQuantity(),
+                            current.topOfBookUpdatedAt()
+                    );
+        }
+        String bidPrice = event.getBids().isEmpty() ? null : value(event.getBids().getFirst().getPrice());
+        String bidQuantity = event.getBids().isEmpty() ? null : value(event.getBids().getFirst().getQuantity());
+        String askPrice = event.getAsks().isEmpty() ? null : value(event.getAsks().getFirst().getPrice());
+        String askQuantity = event.getAsks().isEmpty() ? null : value(event.getAsks().getFirst().getQuantity());
+        return new TopOfBook(
+                bidPrice,
+                bidQuantity,
+                askPrice,
+                askQuantity,
+                firstInstant(event.getReceivedAtMicros(), event.getOccurredAtMicros())
+        );
+    }
+
+    private LastTrade lastTrade(MarketDataEvent event, MarketDataState current) {
+        if (event.getEventType() != MarketDataEventType.TRADE) {
+            return current == null
+                    ? new LastTrade(null, null, null, null)
+                    : new LastTrade(
+                            current.lastTradePrice(),
+                            current.lastTradeQuantity(),
+                            current.lastTradeSide(),
+                            current.lastTradeUpdatedAt()
+                    );
+        }
+        return new LastTrade(
+                value(event.getPrice()),
+                value(event.getQuantity()),
+                value(event.getSide()),
+                firstInstant(event.getReceivedAtMicros(), event.getOccurredAtMicros())
+        );
     }
 
     private ProjectionUpdate applyRiskDecision(
@@ -1905,6 +1998,23 @@ public final class TradingStateProjection implements TradingEventHandler {
     ) {
     }
 
+    private record TopOfBook(
+            String bestBidPrice,
+            String bestBidQuantity,
+            String bestAskPrice,
+            String bestAskQuantity,
+            Instant updatedAt
+    ) {
+    }
+
+    private record LastTrade(
+            String price,
+            String quantity,
+            String side,
+            Instant updatedAt
+    ) {
+    }
+
     private record OrderCommandProjectionTarget(
             String clientOrderId,
             String exchangeOrderId
@@ -1936,6 +2046,35 @@ public final class TradingStateProjection implements TradingEventHandler {
             Instant updatedAt,
             String eventId
     ) implements TimedState {
+    }
+
+    public record MarketDataState(
+            String provider,
+            String environment,
+            String market,
+            String symbol,
+            String eventType,
+            String bestBidPrice,
+            String bestBidQuantity,
+            String bestAskPrice,
+            String bestAskQuantity,
+            Instant topOfBookUpdatedAt,
+            String lastTradePrice,
+            String lastTradeQuantity,
+            String lastTradeSide,
+            Instant lastTradeUpdatedAt,
+            Map<String, String> attributes,
+            Instant updatedAt,
+            String eventId
+    ) implements TimedState {
+
+        public MarketDataState {
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+
+        public boolean hasTopOfBook() {
+            return bestBidPrice != null && bestAskPrice != null;
+        }
     }
 
     public record DailyRealizedPnlState(

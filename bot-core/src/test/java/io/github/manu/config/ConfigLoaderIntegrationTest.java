@@ -57,7 +57,34 @@ class ConfigLoaderIntegrationTest {
         assertThat(activeMarket.path("market_data").path("runtime_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("market_data").path("streams"))
                 .extracting(JsonNode::asString)
-                .containsExactly("btcusdt@bookTicker", "btcusdt@aggTrade", "ethusdt@bookTicker", "ethusdt@aggTrade");
+                .containsExactly(
+                        "btcusdt@bookTicker",
+                        "btcusdt@aggTrade",
+                        "ethusdt@bookTicker",
+                        "ethusdt@aggTrade",
+                        "bnbusdt@bookTicker",
+                        "bnbusdt@aggTrade",
+                        "solusdt@bookTicker",
+                        "solusdt@aggTrade",
+                        "xrpusdt@bookTicker",
+                        "xrpusdt@aggTrade",
+                        "dogeusdt@bookTicker",
+                        "dogeusdt@aggTrade",
+                        "adausdt@bookTicker",
+                        "adausdt@aggTrade",
+                        "linkusdt@bookTicker",
+                        "linkusdt@aggTrade",
+                        "avaxusdt@bookTicker",
+                        "avaxusdt@aggTrade",
+                        "bchusdt@bookTicker",
+                        "bchusdt@aggTrade",
+                        "ltcusdt@bookTicker",
+                        "ltcusdt@aggTrade",
+                        "trxusdt@bookTicker",
+                        "trxusdt@aggTrade",
+                        "dotusdt@bookTicker",
+                        "dotusdt@aggTrade"
+                );
         assertThat(activeMarket.path("reconciliation").path("runtime_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("open_orders_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("futures_balances_enabled").asBoolean()).isTrue();

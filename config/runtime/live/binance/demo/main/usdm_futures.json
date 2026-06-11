@@ -96,6 +96,10 @@
             "PERPETUAL"
           ],
           "max_eligible_symbols": 12,
+          "require_market_data": true,
+          "require_top_of_book": true,
+          "max_market_data_age_millis": 30000,
+          "max_spread_bps": "5",
           "symbol_policies": [
             {
               "provider": "binance",
@@ -342,7 +346,29 @@
                         "btcusdt@bookTicker",
                         "btcusdt@aggTrade",
                         "ethusdt@bookTicker",
-                        "ethusdt@aggTrade"
+                        "ethusdt@aggTrade",
+                        "bnbusdt@bookTicker",
+                        "bnbusdt@aggTrade",
+                        "solusdt@bookTicker",
+                        "solusdt@aggTrade",
+                        "xrpusdt@bookTicker",
+                        "xrpusdt@aggTrade",
+                        "dogeusdt@bookTicker",
+                        "dogeusdt@aggTrade",
+                        "adausdt@bookTicker",
+                        "adausdt@aggTrade",
+                        "linkusdt@bookTicker",
+                        "linkusdt@aggTrade",
+                        "avaxusdt@bookTicker",
+                        "avaxusdt@aggTrade",
+                        "bchusdt@bookTicker",
+                        "bchusdt@aggTrade",
+                        "ltcusdt@bookTicker",
+                        "ltcusdt@aggTrade",
+                        "trxusdt@bookTicker",
+                        "trxusdt@aggTrade",
+                        "dotusdt@bookTicker",
+                        "dotusdt@aggTrade"
                       ]
                     },
                     "reconciliation": {
@@ -351,7 +377,18 @@
                       "open_orders_enabled": true,
                       "open_order_symbols": [
                         "BTCUSDT",
-                        "ETHUSDT"
+                        "ETHUSDT",
+                        "BNBUSDT",
+                        "SOLUSDT",
+                        "XRPUSDT",
+                        "DOGEUSDT",
+                        "ADAUSDT",
+                        "LINKUSDT",
+                        "AVAXUSDT",
+                        "BCHUSDT",
+                        "LTCUSDT",
+                        "TRXUSDT",
+                        "DOTUSDT"
                       ],
                       "futures_balances_enabled": true,
                       "futures_account_enabled": true,

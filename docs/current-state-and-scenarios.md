@@ -34,6 +34,11 @@ command publication. The planner can also refresh provider exchange metadata
 before planning and require the resolved symbol to be present, currently
 tradable, compatible with the configured quote asset and contract type, and
 compatible with the order type being planned.
+Latest market-data projection is now also available to the planner. When
+configured, a strategy signal is suppressed unless recent market data exists,
+top-of-book bid/ask are present, the top-of-book snapshot is fresh enough, and
+the effective spread is below the configured universe or symbol-policy
+`max_spread_bps`.
 
 The checked-in demo runtime currently enables this gate for:
 
@@ -47,12 +52,17 @@ The checked-in demo runtime currently enables this gate for:
 - `allowed_quote_assets=["USDT"]`
 - `allowed_contract_types=["PERPETUAL"]`
 - `max_eligible_symbols=12`
+- `require_market_data=true`
+- `require_top_of_book=true`
+- `max_market_data_age_millis=30000`
+- `max_spread_bps="5"`
 - `max_order_notional="50"` per initial symbol policy
 
 The resolver returns the eligible, exchange-confirmed subset of the configured
-candidate list. It does not yet rank symbols for expected profit, risk-adjusted
-return, or money-management fit; that ranking belongs to the remaining strategy
-market-analysis lifecycle work.
+candidate list. The planner now rejects stale or wide-spread symbols, but it
+does not yet rotate across eligible symbols or rank candidates for expected
+profit, risk-adjusted return, or money-management fit; that ranking belongs to
+the remaining strategy market-analysis lifecycle work.
 
 ## Runtime Policy Boundary
 

@@ -2,6 +2,7 @@ package io.github.manu.execution;
 
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.MarketDataEventType;
 import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandPositionSide;
@@ -436,7 +437,7 @@ class StrategySignalPlannerTest {
     @Test
     void plans_order_command_for_promoted_instrument_universe_symbol() {
         StrategySignalPlanner planner = planner(
-                new TradingStateProjection(),
+                projectionWithMarketData(marketDataState("ETHUSDT", "3000.00", "3000.50", NOW)),
                 null,
                 propertiesWithInstrumentUniverse(new ExecutionProperties.SignalPlanner.InstrumentUniverse(
                         true,
@@ -498,6 +499,58 @@ class StrategySignalPlannerTest {
         Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
 
         assertThat(planned).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_required_market_data_is_missing() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringMarketData("5", 1000L))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_required_market_data_is_stale() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(marketDataState("50000.00", "50000.50", NOW.minusSeconds(5))),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringMarketData("5", 1000L))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_required_market_data_spread_is_too_wide() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(marketDataState("50000.00", "50100.00", NOW)),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringMarketData("5", 1000L))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
+    }
+
+    @Test
+    void plans_order_command_when_required_market_data_is_fresh_and_tight() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(marketDataState("50000.00", "50000.50", NOW)),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringMarketData("5", 1000L))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isPresent();
     }
 
     @Test
@@ -768,6 +821,80 @@ class StrategySignalPlannerTest {
                 List.of()
         ));
         return projection;
+    }
+
+    private TradingStateProjection projectionWithMarketData(TradingStateProjection.MarketDataState marketData) {
+        TradingStateProjection projection = new TradingStateProjection();
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(marketData),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+        ));
+        return projection;
+    }
+
+    private TradingStateProjection.MarketDataState marketDataState(String bidPrice, String askPrice, Instant updatedAt) {
+        return marketDataState("BTCUSDT", bidPrice, askPrice, updatedAt);
+    }
+
+    private TradingStateProjection.MarketDataState marketDataState(
+            String symbol,
+            String bidPrice,
+            String askPrice,
+            Instant updatedAt
+    ) {
+        return new TradingStateProjection.MarketDataState(
+                "binance",
+                "demo",
+                "usd_m_futures",
+                symbol,
+                MarketDataEventType.BOOK_TICKER.name(),
+                bidPrice,
+                "0.50",
+                askPrice,
+                "0.50",
+                updatedAt,
+                null,
+                null,
+                null,
+                null,
+                Map.of("stream", symbol.toLowerCase(java.util.Locale.ROOT) + "@bookTicker"),
+                updatedAt,
+                "evt-market"
+        );
+    }
+
+    private ExecutionProperties.SignalPlanner.InstrumentUniverse instrumentUniverseRequiringMarketData(
+            String maxSpreadBps,
+            Long maxMarketDataAgeMillis
+    ) {
+        return new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                true,
+                List.of("BTCUSDT"),
+                List.of(),
+                false,
+                false,
+                true,
+                true,
+                false,
+                "TRADING",
+                null,
+                List.of(),
+                List.of(),
+                null,
+                true,
+                true,
+                maxMarketDataAgeMillis,
+                maxSpreadBps,
+                List.of()
+        );
     }
 
     private TradingStateProjection.OrderState orderState(

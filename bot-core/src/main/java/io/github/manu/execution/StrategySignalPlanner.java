@@ -41,6 +41,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
     private final TradingStateProjection tradingStateProjection;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
     private final StrategyInstrumentUniverseResolver instrumentUniverseResolver;
+    private final StrategyInstrumentMarketDataRanker instrumentMarketDataRanker;
     private final Clock clock;
 
     public StrategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus) {
@@ -118,6 +119,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         this.reconciliationConfidenceTracker = reconciliationConfidenceTracker;
         this.instrumentUniverseResolver = instrumentUniverseResolver;
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.instrumentMarketDataRanker = new StrategyInstrumentMarketDataRanker(this.tradingStateProjection, this.clock);
     }
 
     @Override
@@ -433,12 +435,23 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         ExecutionProperties.SignalPlanner.SymbolPolicy policy =
                 selectedSymbolPolicy(universe, provider, environment, account, market, normalizedSymbol);
         if (policy == null) {
-            return universe.requirePromotionReady();
+            return universe.requirePromotionReady()
+                    || instrumentMarketDataRanker.rank(
+                            universe,
+                            null,
+                            provider,
+                            environment,
+                            market,
+                            normalizedSymbol
+                    ).isEmpty();
         }
         if (universe.requireSymbolEnabled() && !Boolean.TRUE.equals(policy.enabled())) {
             return true;
         }
         if (universe.requirePromotionReady() && !Boolean.TRUE.equals(policy.promotionReady())) {
+            return true;
+        }
+        if (instrumentMarketDataRanker.rank(universe, policy, provider, environment, market, normalizedSymbol).isEmpty()) {
             return true;
         }
         BigDecimal maxOrderNotional = decimal(policy.maxOrderNotional());

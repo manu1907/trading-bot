@@ -51,6 +51,10 @@ class ExecutionPropertiesTest {
         assertThat(properties.signalPlanner().instrumentUniverse().allowedQuoteAssets()).isEmpty();
         assertThat(properties.signalPlanner().instrumentUniverse().allowedContractTypes()).isEmpty();
         assertThat(properties.signalPlanner().instrumentUniverse().maxEligibleSymbols()).isNull();
+        assertThat(properties.signalPlanner().instrumentUniverse().requireMarketData()).isFalse();
+        assertThat(properties.signalPlanner().instrumentUniverse().requireTopOfBook()).isFalse();
+        assertThat(properties.signalPlanner().instrumentUniverse().maxMarketDataAgeMillis()).isEqualTo(60000L);
+        assertThat(properties.signalPlanner().instrumentUniverse().maxSpreadBps()).isNull();
         assertThat(properties.signalPlanner().instrumentUniverse().symbolPolicies()).isEmpty();
     }
 
@@ -244,9 +248,62 @@ class ExecutionPropertiesTest {
                         java.util.List.of("USDT"),
                         java.util.List.of("PERPETUAL"),
                         0,
+                        false,
+                        false,
+                        30000L,
+                        null,
                         java.util.List.of()
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("instrument universe maxEligibleSymbols must be positive when configured");
+    }
+
+    @Test
+    void rejects_non_positive_instrument_universe_market_data_limits() {
+        assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        java.util.List.of("BTCUSDT"),
+                        java.util.List.of(),
+                        true,
+                        true,
+                        true,
+                        true,
+                        false,
+                        "TRADING",
+                        null,
+                        java.util.List.of("USDT"),
+                        java.util.List.of("PERPETUAL"),
+                        null,
+                        true,
+                        true,
+                        0L,
+                        "5",
+                        java.util.List.of()
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("instrument universe maxMarketDataAgeMillis must be positive when configured");
+
+        assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        java.util.List.of("BTCUSDT"),
+                        java.util.List.of(),
+                        true,
+                        true,
+                        true,
+                        true,
+                        false,
+                        "TRADING",
+                        null,
+                        java.util.List.of("USDT"),
+                        java.util.List.of("PERPETUAL"),
+                        null,
+                        true,
+                        true,
+                        1000L,
+                        "0",
+                        java.util.List.of()
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("instrument universe maxSpreadBps must be positive when configured");
     }
 }

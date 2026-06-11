@@ -110,6 +110,10 @@
 
           ],
           "max_eligible_symbols": null,
+          "require_market_data": false,
+          "require_top_of_book": false,
+          "max_market_data_age_millis": 60000,
+          "max_spread_bps": null,
           "symbol_policies": [
 
           ]

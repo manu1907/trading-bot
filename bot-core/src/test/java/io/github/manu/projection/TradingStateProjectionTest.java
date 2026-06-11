@@ -7,6 +7,10 @@ import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.BalanceUpdateEvent;
 import io.github.manu.events.v1.ExecutionReportEvent;
 import io.github.manu.events.v1.InterventionAcknowledgementEvent;
+import io.github.manu.events.v1.MarketDataAskLevel;
+import io.github.manu.events.v1.MarketDataBidLevel;
+import io.github.manu.events.v1.MarketDataEvent;
+import io.github.manu.events.v1.MarketDataEventType;
 import io.github.manu.events.v1.OrderCommandAction;
 import io.github.manu.events.v1.OrderCommandEvent;
 import io.github.manu.events.v1.OrderCommandSide;
@@ -95,6 +99,33 @@ class TradingStateProjectionTest {
                 .satisfies(risk -> {
                     assertThat(risk.marginBalance()).isEqualTo("1100");
                     assertThat(risk.maxMarginBalance()).isEqualTo("1100");
+                });
+    }
+
+    @Test
+    void projects_latest_market_data_state() {
+        ProjectionUpdate bookUpdate = projection.apply(bookTicker(
+                "evt-book",
+                "50000.00",
+                "0.40",
+                "50000.50",
+                "0.30",
+                timestamp(10)
+        ));
+        ProjectionUpdate tradeUpdate = projection.apply(trade("evt-trade", "50000.25", "0.01", "BUY", timestamp(11)));
+
+        assertThat(bookUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(tradeUpdate.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.marketData(PROVIDER, ENVIRONMENT, MARKET, SYMBOL))
+                .get()
+                .satisfies(market -> {
+                    assertThat(market.bestBidPrice()).isEqualTo("50000.00");
+                    assertThat(market.bestAskPrice()).isEqualTo("50000.50");
+                    assertThat(market.topOfBookUpdatedAt()).isEqualTo(timestamp(10));
+                    assertThat(market.lastTradePrice()).isEqualTo("50000.25");
+                    assertThat(market.lastTradeQuantity()).isEqualTo("0.01");
+                    assertThat(market.lastTradeSide()).isEqualTo("BUY");
+                    assertThat(market.updatedAt()).isEqualTo(timestamp(11));
                 });
     }
 
@@ -1370,6 +1401,7 @@ class TradingStateProjectionTest {
         projection.apply(executionReport("evt-external", "NEW", "0", timestamp(12)));
         projection.apply(risk("evt-risk", "-0.01304097", timestamp(13)));
         projection.apply(riskDecision("evt-risk-decision-review", RiskDecision.MANUAL_REVIEW, timestamp(14)));
+        projection.apply(bookTicker("evt-book", "50000.00", "0.40", "50000.50", "0.30", timestamp(15)));
         projection.apply(remediationDecision("evt-remediation-decision", "remediation-1", timestamp(15)));
         projection.apply(pauseRemediationDecision(
                 "evt-pause-symbol",
@@ -1396,6 +1428,9 @@ class TradingStateProjectionTest {
         assertThat(restored.risk(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, "UNDERLYING", "BTCUSDT"))
                 .get()
                 .satisfies(risk -> assertThat(risk.delta()).isEqualTo("-0.01304097"));
+        assertThat(restored.marketData(PROVIDER, ENVIRONMENT, MARKET, SYMBOL))
+                .get()
+                .satisfies(market -> assertThat(market.bestAskPrice()).isEqualTo("50000.50"));
         assertThat(restored.manualReviewDecisionStates(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
                 .singleElement()
                 .satisfies(decision -> assertThat(decision.commandId()).isEqualTo("cmd-1"));
@@ -1899,6 +1934,79 @@ class TradingStateProjectionTest {
         return TradingEventEnvelope.of(
                 TradingEventType.ORDER_RESULT,
                 TradingEventKeys.order(TradingEventType.ORDER_RESULT, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, clientOrderId),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<MarketDataEvent> bookTicker(
+            String eventId,
+            String bidPrice,
+            String bidQuantity,
+            String askPrice,
+            String askQuantity,
+            Instant eventTime
+    ) {
+        MarketDataEvent event = MarketDataEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setEventType(MarketDataEventType.BOOK_TICKER)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setOccurredAtMicros(eventTime)
+                .setReceivedAtMicros(eventTime)
+                .setExchangeSequence(1001L)
+                .setTradeId(null)
+                .setSide(null)
+                .setPrice(null)
+                .setQuantity(null)
+                .setBids(List.of(MarketDataBidLevel.newBuilder()
+                        .setPrice(bidPrice)
+                        .setQuantity(bidQuantity)
+                        .build()))
+                .setAsks(List.of(MarketDataAskLevel.newBuilder()
+                        .setPrice(askPrice)
+                        .setQuantity(askQuantity)
+                        .build()))
+                .setAttributes(Map.of("stream", "btcusdt@bookTicker"))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.MARKET_DATA,
+                TradingEventKeys.symbol(TradingEventType.MARKET_DATA, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<MarketDataEvent> trade(
+            String eventId,
+            String price,
+            String quantity,
+            String side,
+            Instant eventTime
+    ) {
+        MarketDataEvent event = MarketDataEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setEventType(MarketDataEventType.TRADE)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setOccurredAtMicros(eventTime)
+                .setReceivedAtMicros(eventTime)
+                .setExchangeSequence(1002L)
+                .setTradeId("trade-" + eventId)
+                .setSide(side)
+                .setPrice(price)
+                .setQuantity(quantity)
+                .setBids(List.of())
+                .setAsks(List.of())
+                .setAttributes(Map.of("stream", "btcusdt@aggTrade"))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.MARKET_DATA,
+                TradingEventKeys.symbol(TradingEventType.MARKET_DATA, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL),
                 event
         );
     }
