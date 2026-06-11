@@ -15,11 +15,13 @@ import io.github.manu.execution.OrderRiskGate;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.observability.RemediationExecutorMetrics;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
 import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationObservation;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +40,7 @@ class InterventionRemediationExecutorServiceTest {
     private static final Instant NOW = Instant.parse("2026-06-07T09:30:00Z");
 
     private final TradingStateProjection projection = new TradingStateProjection();
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private final InterventionRemediationCommandPlanner commandPlanner =
             new InterventionRemediationCommandPlanner(projection, enabledPositionOrderPolicy());
 
@@ -51,6 +54,7 @@ class InterventionRemediationExecutorServiceTest {
         assertThat(batch.enabled()).isFalse();
         assertThat(batch.evaluatedCount()).isZero();
         assertThat(batch.reports()).isEmpty();
+        assertThat(outcomeCount("PREVIEW", "NONE", "DISABLED", "executor:policy_disabled")).isEqualTo(1.0d);
     }
 
     @Test
@@ -81,6 +85,8 @@ class InterventionRemediationExecutorServiceTest {
                     .containsEntry("executor_reason", "executor:exchange_execution_disabled")
                     .containsEntry("executor_exchange_execution_enabled", "false");
         });
+        assertThat(outcomeCount("PREVIEW", "CANCEL_ORDER", "PREVIEW_ONLY", "executor:exchange_execution_disabled"))
+                .isEqualTo(1.0d);
     }
 
     @Test
@@ -161,6 +167,12 @@ class InterventionRemediationExecutorServiceTest {
                 .singleElement()
                 .extracting(OrderResultEvent::getStatus)
                 .isEqualTo(OrderResultStatus.CANCELED);
+        assertThat(outcomeCount(
+                "EXECUTE",
+                "CANCEL_ORDER",
+                "SUBMITTED_TO_PIPELINE",
+                "executor:submitted_to_order_execution_pipeline"
+        )).isEqualTo(1.0d);
     }
 
     @Test
@@ -458,8 +470,23 @@ class InterventionRemediationExecutorServiceTest {
                 projection,
                 commandPlanner,
                 new InterventionProperties(null, null, null, null, policy),
-                pipeline
+                pipeline,
+                new RemediationExecutorMetrics(meterRegistry)
         );
+    }
+
+    private double outcomeCount(String mode, String operation, String status, String reason) {
+        return meterRegistry.find("trading.remediation_executor.outcome.events")
+                .tag("provider", "binance")
+                .tag("environment", "demo")
+                .tag("account", "main")
+                .tag("market", "usd_m_futures")
+                .tag("mode", mode)
+                .tag("operation", operation)
+                .tag("status", status)
+                .tag("reason", reason)
+                .counter()
+                .count();
     }
 
     private InterventionProperties.RemediationExecutorPolicy policy(

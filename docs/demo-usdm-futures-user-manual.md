@@ -779,6 +779,11 @@ batch counts, and per-plan reports with `planStatus`, `operation`, `status`,
 exchange commands. It explains whether each plan is blocked, no-action, or
 would remain report-only under the current executor policy.
 
+Every preview evaluation also increments
+`trading.remediation_executor.outcome.events` with bounded labels for provider,
+environment, account, market, mode, operation, status, and executor reason. The
+metric does not tag remediation ids or order ids.
+
 Execute the remediation executor batch:
 
 ```bash
@@ -806,6 +811,9 @@ execution pipeline is enabled. Position close/reduce submissions are `NEW`
 price/quantity. It returns
 `SUBMITTED_TO_PIPELINE` after the command has been accepted by the pipeline; the
 final risk decision and order result are recorded through the normal event path.
+Execute evaluations increment the same
+`trading.remediation_executor.outcome.events` metric, including blocked,
+preview-only, submitted-to-pipeline, and no-action outcomes.
 
 For the current demo USD-M futures target, the checked-in first-start runtime
 override lives here:
@@ -1095,6 +1103,17 @@ Pause governance audit and observability defaults:
 - `trading.observability.pause_governance.expiry_monitor.enabled`: `true`
 - `trading.observability.pause_governance.expiry_monitor.interval_millis`:
   `30000`
+
+Remediation executor observability has no dedicated runtime switch. When
+Micrometer/Actuator metrics are available, the executor emits:
+
+- `trading.remediation_executor.outcome.events` with tags `provider`,
+  `environment`, `account`, `market`, `mode`, `operation`, `status`, and
+  `reason`
+- Disabled policy evaluations as `operation=NONE`, `status=DISABLED`, and
+  `reason=executor:policy_disabled`
+- Per-plan blocked, preview-only, submitted-to-pipeline, and no-action
+  evaluations
 
 ## Active Target Options
 
@@ -1837,7 +1856,12 @@ no-action. Preview reports are exposed through
 `GET /internal/interventions/remediation/executor/preview`. Policy-gated
 execution is exposed through
 `POST /internal/interventions/remediation/executor/execute` and currently
-supports only external-order close as cancel.
+supports external-order close as cancel, one-way position close/reduce,
+config-gated hedge-mode position close/reduce or hedge orders, and bounded
+managed-order amendment when the matching executor policies allow them. Preview
+and execute evaluations emit `trading.remediation_executor.outcome.events` so
+operators can alert on blocked, preview-only, submitted, no-action, and disabled
+executor outcomes without parsing logs.
 
 ## Event And Projection Capabilities
 

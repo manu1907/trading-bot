@@ -7,6 +7,7 @@ import io.github.manu.events.v1.OrderCommandSide;
 import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.execution.OrderExecutionPipeline;
+import io.github.manu.observability.RemediationExecutorMetrics;
 import io.github.manu.projection.TradingStateProjection;
 
 import java.time.Clock;
@@ -28,6 +29,7 @@ public final class InterventionRemediationExecutorService {
     private final InterventionRemediationCommandPlanner commandPlanner;
     private final InterventionProperties.RemediationExecutorPolicy policy;
     private final OrderExecutionPipeline orderExecutionPipeline;
+    private final RemediationExecutorMetrics metrics;
     private final Clock clock;
 
     public InterventionRemediationExecutorService(
@@ -47,6 +49,16 @@ public final class InterventionRemediationExecutorService {
         this(projection, commandPlanner, properties, orderExecutionPipeline, Clock.systemUTC());
     }
 
+    public InterventionRemediationExecutorService(
+            TradingStateProjection projection,
+            InterventionRemediationCommandPlanner commandPlanner,
+            InterventionProperties properties,
+            OrderExecutionPipeline orderExecutionPipeline,
+            RemediationExecutorMetrics metrics
+    ) {
+        this(projection, commandPlanner, properties, orderExecutionPipeline, metrics, Clock.systemUTC());
+    }
+
     InterventionRemediationExecutorService(
             TradingStateProjection projection,
             InterventionRemediationCommandPlanner commandPlanner,
@@ -54,10 +66,22 @@ public final class InterventionRemediationExecutorService {
             OrderExecutionPipeline orderExecutionPipeline,
             Clock clock
     ) {
+        this(projection, commandPlanner, properties, orderExecutionPipeline, new RemediationExecutorMetrics(), clock);
+    }
+
+    InterventionRemediationExecutorService(
+            TradingStateProjection projection,
+            InterventionRemediationCommandPlanner commandPlanner,
+            InterventionProperties properties,
+            OrderExecutionPipeline orderExecutionPipeline,
+            RemediationExecutorMetrics metrics,
+            Clock clock
+    ) {
         this.projection = Objects.requireNonNull(projection, "projection");
         this.commandPlanner = Objects.requireNonNull(commandPlanner, "commandPlanner");
         this.policy = Objects.requireNonNull(properties, "properties").remediationExecutorPolicy();
         this.orderExecutionPipeline = orderExecutionPipeline;
+        this.metrics = Objects.requireNonNull(metrics, "metrics");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -81,6 +105,7 @@ public final class InterventionRemediationExecutorService {
             String market
     ) {
         if (!policy.enabled()) {
+            metrics.executorDisabled(provider, environment, account, market, ExecutionMode.PREVIEW.name());
             return new RemediationExecutionBatch(
                     false,
                     policy.exchangeExecutionEnabled(),
@@ -99,6 +124,7 @@ public final class InterventionRemediationExecutorService {
                 .limit(policy.maxPlansPerRun())
                 .map(plan -> evaluate(plan, ExecutionMode.PREVIEW))
                 .toList();
+        reports.forEach(report -> metrics.executorOutcome(report, ExecutionMode.PREVIEW.name()));
         long blockedCount = reports.stream().filter(report -> report.status() == ExecutionStatus.BLOCKED).count();
         long previewOnlyCount = reports.stream().filter(report -> report.status() == ExecutionStatus.PREVIEW_ONLY).count();
         long submittedCount = reports.stream()
@@ -125,6 +151,7 @@ public final class InterventionRemediationExecutorService {
             String market
     ) {
         if (!policy.enabled()) {
+            metrics.executorDisabled(provider, environment, account, market, ExecutionMode.EXECUTE.name());
             return new RemediationExecutionBatch(
                     false,
                     policy.exchangeExecutionEnabled(),
@@ -143,6 +170,7 @@ public final class InterventionRemediationExecutorService {
                 .limit(policy.maxPlansPerRun())
                 .map(plan -> evaluate(plan, ExecutionMode.EXECUTE))
                 .toList();
+        reports.forEach(report -> metrics.executorOutcome(report, ExecutionMode.EXECUTE.name()));
         long blockedCount = reports.stream().filter(report -> report.status() == ExecutionStatus.BLOCKED).count();
         long previewOnlyCount = reports.stream().filter(report -> report.status() == ExecutionStatus.PREVIEW_ONLY).count();
         long submittedCount = reports.stream()

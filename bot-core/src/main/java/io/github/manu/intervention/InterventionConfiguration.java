@@ -7,6 +7,7 @@ import io.github.manu.execution.OrderExecutionPipeline;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.observability.PauseGovernanceMetrics;
+import io.github.manu.observability.RemediationExecutorMetrics;
 import io.github.manu.projection.TradingStateProjection;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -76,13 +77,15 @@ public class InterventionConfiguration {
             TradingStateProjection projection,
             InterventionRemediationCommandPlanner commandPlanner,
             InterventionProperties properties,
-            ObjectProvider<OrderExecutionPipeline> orderExecutionPipeline
+            ObjectProvider<OrderExecutionPipeline> orderExecutionPipeline,
+            ObjectProvider<RemediationExecutorMetrics> remediationExecutorMetrics
     ) {
         return new InterventionRemediationExecutorService(
                 projection,
                 commandPlanner,
                 properties,
-                orderExecutionPipeline.getIfAvailable()
+                orderExecutionPipeline.getIfAvailable(),
+                remediationExecutorMetrics.getIfAvailable(RemediationExecutorMetrics::new)
         );
     }
 

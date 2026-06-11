@@ -187,6 +187,16 @@ The internal operator API can expose and manipulate remediation state:
 - Acknowledge order or position interventions.
 - List and release pause governance state.
 
+## Remediation Executor Observability
+
+Implemented remediation executor observability includes:
+
+- `trading.remediation_executor.outcome.events` Micrometer counters for preview and execute evaluations.
+- Bounded labels for `provider`, `environment`, `account`, `market`, `mode`, `operation`, `status`, and executor `reason`.
+- Disabled executor policy evaluations counted as `operation=NONE`, `status=DISABLED`, and `reason=executor:policy_disabled`.
+- Per-plan outcomes counted for blocked, preview-only, submitted-to-pipeline, and no-action reports.
+- Remediation ids, client order ids, exchange order ids, and symbols are intentionally excluded from metric tags to keep Prometheus cardinality bounded.
+
 ## Persistence And Recovery
 
 Implemented persistence/recovery surfaces include:
@@ -265,7 +275,7 @@ Remaining work includes:
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Broader account-level and symbol-level risk budgets beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account/symbol daily realized-loss caps.
 - Cancel/replace fallback for unsupported amendments and executable rollback behavior for ambiguous adopted-order lifecycle outcomes.
-- Broader operational runbooks for hedge-mode remediation.
+- Broader operational alerts, dashboards, and runbooks for remediation executor outcomes and hedge-mode remediation.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - V1 live validation, demo soak criteria, promotion gates, and real-trading runbooks.
 - Backtesting and historical simulation are intentionally deferred to v2.

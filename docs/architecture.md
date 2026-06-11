@@ -789,6 +789,13 @@ The operator API exposes preview reports at
 the exact executor blocker before any exchange-executable remediation path is
 enabled, and exposes policy-gated execution at
 `POST /internal/interventions/remediation/executor/execute`.
+Each preview or execute evaluation now emits
+`trading.remediation_executor.outcome.events` for Prometheus scraping, tagged by
+provider, environment, account, market, mode, operation, status, and bounded
+executor reason. A disabled executor policy emits the same metric with
+`operation=NONE`, `status=DISABLED`, and `reason=executor:policy_disabled`.
+The metric intentionally excludes remediation ids and order ids to avoid
+unbounded time-series cardinality.
 
 ## Redpanda Messaging
 
