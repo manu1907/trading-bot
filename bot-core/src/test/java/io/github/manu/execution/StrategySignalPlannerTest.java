@@ -369,6 +369,87 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_order_command_when_signal_exceeds_configured_max_quantity() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                        true,
+                        true,
+                        "0.0005",
+                        null,
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void suppresses_order_command_when_signal_exceeds_specific_target_max_notional() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                        true,
+                        true,
+                        null,
+                        "100",
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS,
+                        List.of(new ExecutionProperties.OrderLimit.TargetLimit(
+                                "binance",
+                                "demo",
+                                "main",
+                                "usd_m_futures",
+                                "BTCUSDT",
+                                null,
+                                "40",
+                                true,
+                                ExecutionProperties.InterventionAction.MANUAL_REVIEW
+                        ))
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void suppresses_unbounded_order_command_when_max_notional_requires_computable_exposure() {
+        StrategySignalPlanner planner = planner(
+                new TradingStateProjection(),
+                null,
+                propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
+                        true,
+                        true,
+                        null,
+                        "40",
+                        true,
+                        ExecutionProperties.InterventionAction.REJECT_NEW_COMMANDS
+                ))
+        );
+        StrategySignalEvent marketQuantitySignal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setLimitPrice(null)
+                .setFeatures(Map.of("order_type", "MARKET"))
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(marketQuantitySignal);
+        planner.handleSignal(marketQuantitySignal).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void can_disable_reconciliation_required_strategy_admission() {
         ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(FIXED_CLOCK);
         StrategySignalPlanner planner = planner(new TradingStateProjection(), tracker, new ExecutionProperties(
@@ -429,6 +510,20 @@ class StrategySignalPlannerTest {
                 projection,
                 reconciliationConfidenceTracker,
                 FIXED_CLOCK
+        );
+    }
+
+    private ExecutionProperties propertiesWithOrderLimit(ExecutionProperties.OrderLimit orderLimit) {
+        return new ExecutionProperties(
+                new ExecutionProperties.SignalPlanner(true, defaults()),
+                new ExecutionProperties.RiskGate(
+                        true,
+                        new ExecutionProperties.Reconciliation(false, true, true),
+                        null,
+                        null,
+                        null,
+                        orderLimit
+                )
         );
     }
 

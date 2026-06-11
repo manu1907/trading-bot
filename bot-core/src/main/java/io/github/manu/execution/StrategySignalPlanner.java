@@ -17,8 +17,10 @@ import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -123,6 +125,11 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         OrderCommandType orderType = orderType(signal, features);
         String quantity = value(signal.getTargetQuantity());
         String quoteOrderQuantity = quantity == null ? value(signal.getTargetNotional()) : null;
+        String price = value(signal.getLimitPrice());
+        String stopPrice = value(signal.getStopPrice());
+        if (orderLimitBlocked(provider, environment, account, market, symbol, quantity, quoteOrderQuantity, price, stopPrice)) {
+            return Optional.empty();
+        }
         Map<CharSequence, CharSequence> attributes = attributes(
                 signal,
                 features,
@@ -153,8 +160,8 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 .setTimeInForce(timeInForce(orderType, features).orElse(null))
                 .setQuantity(quantity)
                 .setQuoteOrderQuantity(quoteOrderQuantity)
-                .setPrice(value(signal.getLimitPrice()))
-                .setStopPrice(value(signal.getStopPrice()))
+                .setPrice(price)
+                .setStopPrice(stopPrice)
                 .setActivationPrice(null)
                 .setCallbackRate(null)
                 .setReduceOnly(reduceOnly(signalType))
@@ -165,6 +172,161 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 .setAttributes(attributes)
                 .build();
         return Optional.of(command);
+    }
+
+    private boolean orderLimitBlocked(
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            String quantity,
+            String quoteOrderQuantity,
+            String price,
+            String stopPrice
+    ) {
+        ExecutionProperties.OrderLimit orderLimit = properties.riskGate().orderLimit();
+        if (!orderLimit.enabled()) {
+            return false;
+        }
+        EffectiveOrderLimit effectiveLimit = effectiveOrderLimit(
+                orderLimit,
+                provider,
+                environment,
+                account,
+                market,
+                symbol
+        );
+        DecimalField quantityField = decimalField(quantity);
+        DecimalField quoteOrderQuantityField = decimalField(quoteOrderQuantity);
+        DecimalField priceField = decimalField(price);
+        DecimalField stopPriceField = decimalField(stopPrice);
+        if (orderLimit.rejectInvalidNumericFields()
+                && List.of(quantityField, quoteOrderQuantityField, priceField, stopPriceField).stream()
+                .anyMatch(DecimalField::invalid)) {
+            return true;
+        }
+        if (isNonPositive(quantityField)
+                || isNonPositive(quoteOrderQuantityField)
+                || isNonPositive(priceField)
+                || isNonPositive(stopPriceField)) {
+            return true;
+        }
+
+        if (!effectiveLimit.action().blocksNewCommands()) {
+            return false;
+        }
+        BigDecimal maxQuantity = decimal(effectiveLimit.maxQuantity());
+        if (maxQuantity != null
+                && quantityField.value() != null
+                && quantityField.value().compareTo(maxQuantity) > 0) {
+            return true;
+        }
+        BigDecimal maxNotional = decimal(effectiveLimit.maxNotional());
+        if (maxNotional == null) {
+            return false;
+        }
+        BigDecimal notional = notional(quantityField.value(), quoteOrderQuantityField.value(), priceField.value());
+        if (notional == null) {
+            return effectiveLimit.rejectUnboundedNotional();
+        }
+        return notional.compareTo(maxNotional) > 0;
+    }
+
+    private EffectiveOrderLimit effectiveOrderLimit(
+            ExecutionProperties.OrderLimit orderLimit,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        ExecutionProperties.OrderLimit.TargetLimit selected = null;
+        int selectedSpecificity = -1;
+        for (ExecutionProperties.OrderLimit.TargetLimit candidate : orderLimit.targetLimits()) {
+            int specificity = specificity(candidate, provider, environment, account, market, symbol);
+            if (specificity > selectedSpecificity) {
+                selected = candidate;
+                selectedSpecificity = specificity;
+            }
+        }
+        if (selected == null) {
+            return new EffectiveOrderLimit(
+                    orderLimit.maxQuantity(),
+                    orderLimit.maxNotional(),
+                    orderLimit.rejectUnboundedNotional(),
+                    orderLimit.action()
+            );
+        }
+        return new EffectiveOrderLimit(
+                selected.maxQuantity() == null ? orderLimit.maxQuantity() : selected.maxQuantity(),
+                selected.maxNotional() == null ? orderLimit.maxNotional() : selected.maxNotional(),
+                selected.rejectUnboundedNotional() == null
+                        ? orderLimit.rejectUnboundedNotional()
+                        : selected.rejectUnboundedNotional(),
+                selected.action() == null ? orderLimit.action() : selected.action()
+        );
+    }
+
+    private int specificity(
+            ExecutionProperties.OrderLimit.TargetLimit candidate,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        int specificity = 0;
+        specificity = match(candidate.provider(), provider, specificity);
+        specificity = match(candidate.environment(), environment, specificity);
+        specificity = match(candidate.account(), account, specificity);
+        specificity = match(candidate.market(), market, specificity);
+        specificity = match(candidate.symbol(), symbol, specificity);
+        return specificity;
+    }
+
+    private int match(String expected, String actual, int specificity) {
+        if (specificity < 0) {
+            return -1;
+        }
+        if (expected == null || expected.isBlank()) {
+            return specificity;
+        }
+        if (actual != null && expected.equalsIgnoreCase(actual)) {
+            return specificity + 1;
+        }
+        return -1;
+    }
+
+    private DecimalField decimalField(String rawValue) {
+        String value = value(rawValue);
+        if (value == null) {
+            return new DecimalField(null, false);
+        }
+        try {
+            return new DecimalField(new BigDecimal(value), false);
+        } catch (NumberFormatException e) {
+            return new DecimalField(null, true);
+        }
+    }
+
+    private BigDecimal decimal(String rawValue) {
+        String value = value(rawValue);
+        return value == null ? null : new BigDecimal(value);
+    }
+
+    private boolean isNonPositive(DecimalField field) {
+        return field.value() != null && field.value().compareTo(BigDecimal.ZERO) <= 0;
+    }
+
+    private BigDecimal notional(BigDecimal quantity, BigDecimal quoteOrderQuantity, BigDecimal price) {
+        if (quoteOrderQuantity != null) {
+            return quoteOrderQuantity;
+        }
+        if (quantity == null || price == null) {
+            return null;
+        }
+        return quantity.multiply(price);
     }
 
     private boolean admissionBlocked(
@@ -404,5 +566,16 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             return null;
         }
         return value.toString().trim();
+    }
+
+    private record DecimalField(BigDecimal value, boolean invalid) {
+    }
+
+    private record EffectiveOrderLimit(
+            String maxQuantity,
+            String maxNotional,
+            Boolean rejectUnboundedNotional,
+            ExecutionProperties.InterventionAction action
+    ) {
     }
 }
