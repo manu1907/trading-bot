@@ -67,7 +67,7 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.max-eligible-symbols",
                 Integer.class
-        )).isEqualTo(12);
+        )).isEqualTo(13);
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.symbol-policies[1].symbol"
         )).isEqualTo("ETHUSDT");
