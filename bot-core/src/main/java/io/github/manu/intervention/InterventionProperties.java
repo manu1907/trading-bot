@@ -165,6 +165,7 @@ public record InterventionProperties(
             Long initialDelayMillis,
             Boolean publishDecisions,
             Boolean executeRemediation,
+            Boolean requireTargetReconciliationConfidence,
             Target target
     ) {
 
@@ -182,6 +183,8 @@ public record InterventionProperties(
             initialDelayMillis = normalizedInitialDelayMillis;
             publishDecisions = publishDecisions == null || Boolean.TRUE.equals(publishDecisions);
             executeRemediation = executeRemediation == null || Boolean.TRUE.equals(executeRemediation);
+            requireTargetReconciliationConfidence = requireTargetReconciliationConfidence == null
+                    || Boolean.TRUE.equals(requireTargetReconciliationConfidence);
             target = target == null ? Target.active() : target;
             if (Boolean.TRUE.equals(enabled)
                     && !Boolean.TRUE.equals(publishDecisions)
@@ -193,7 +196,7 @@ public record InterventionProperties(
         }
 
         static AutomatedRemediationRunner disabled() {
-            return new AutomatedRemediationRunner(false, 30_000L, 30_000L, true, true, Target.active());
+            return new AutomatedRemediationRunner(false, 30_000L, 30_000L, true, true, true, Target.active());
         }
     }
 

@@ -3,6 +3,8 @@ package io.github.manu.intervention;
 import io.github.manu.config.properties.ExchangeProperties;
 import io.github.manu.config.properties.TradingBotProperties;
 import io.github.manu.config.runtime.ConfigManager;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,19 +22,22 @@ public final class InterventionAutomatedRemediationRunner {
     private final InterventionRemediationExecutorService remediationExecutorService;
     private final InterventionProperties.AutomatedRemediationRunner properties;
     private final Supplier<ExchangeProperties> activeTargetSupplier;
+    private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public InterventionAutomatedRemediationRunner(
             InterventionAutomatedDecisionService automatedDecisionService,
             InterventionRemediationExecutorService remediationExecutorService,
             InterventionProperties properties,
-            ConfigManager configManager
+            ConfigManager configManager,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
     ) {
         this(
                 automatedDecisionService,
                 remediationExecutorService,
                 properties.automatedRemediationRunner(),
-                () -> activeTarget(configManager)
+                () -> activeTarget(configManager),
+                reconciliationConfidenceTracker
         );
     }
 
@@ -40,12 +45,15 @@ public final class InterventionAutomatedRemediationRunner {
             InterventionAutomatedDecisionService automatedDecisionService,
             InterventionRemediationExecutorService remediationExecutorService,
             InterventionProperties.AutomatedRemediationRunner properties,
-            Supplier<ExchangeProperties> activeTargetSupplier
+            Supplier<ExchangeProperties> activeTargetSupplier,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
     ) {
         this.automatedDecisionService = Objects.requireNonNull(automatedDecisionService, "automatedDecisionService");
         this.remediationExecutorService = Objects.requireNonNull(remediationExecutorService, "remediationExecutorService");
         this.properties = Objects.requireNonNull(properties, "properties");
         this.activeTargetSupplier = Objects.requireNonNull(activeTargetSupplier, "activeTargetSupplier");
+        this.reconciliationConfidenceTracker =
+                Objects.requireNonNull(reconciliationConfidenceTracker, "reconciliationConfidenceTracker");
     }
 
     @Scheduled(
@@ -69,6 +77,9 @@ public final class InterventionAutomatedRemediationRunner {
         }
         try {
             InterventionProperties.Target target = resolveTarget();
+            if (properties.requireTargetReconciliationConfidence() && !targetReconciliationConfident(target)) {
+                return blockedResult("runner:target_reconciliation_not_confident", target);
+            }
             InterventionRemediationExecutorService.RemediationExecutionBatch executionBatch =
                     properties.executeRemediation()
                             ? remediationExecutorService.execute(
@@ -99,6 +110,16 @@ public final class InterventionAutomatedRemediationRunner {
         }
     }
 
+    private boolean targetReconciliationConfident(InterventionProperties.Target target) {
+        ReconciliationTargetConfidence confidence = reconciliationConfidenceTracker.targetConfidence(
+                target.provider(),
+                target.environment(),
+                target.account(),
+                target.market()
+        );
+        return confidence.confident();
+    }
+
     private InterventionProperties.Target resolveTarget() {
         InterventionProperties.Target configured = properties.target();
         ExchangeProperties active = activeTargetSupplier.get();
@@ -125,6 +146,16 @@ public final class InterventionAutomatedRemediationRunner {
                 false,
                 "runner:disabled",
                 null,
+                disabledExecutionBatch(),
+                new InterventionAutomatedDecisionService.AutomatedDecisionBatch(false, List.of())
+        );
+    }
+
+    private AutomatedRemediationRunResult blockedResult(String reason, InterventionProperties.Target target) {
+        return new AutomatedRemediationRunResult(
+                true,
+                reason,
+                target,
                 disabledExecutionBatch(),
                 new InterventionAutomatedDecisionService.AutomatedDecisionBatch(false, List.of())
         );

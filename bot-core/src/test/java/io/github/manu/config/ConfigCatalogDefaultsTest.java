@@ -72,6 +72,9 @@ class ConfigCatalogDefaultsTest {
         assertInt(catalog, "trading.intervention.automated_remediation_runner.initial_delay_millis", 30000);
         assertBoolean(catalog, "trading.intervention.automated_remediation_runner.publish_decisions", true);
         assertBoolean(catalog, "trading.intervention.automated_remediation_runner.execute_remediation", true);
+        assertBoolean(catalog,
+                "trading.intervention.automated_remediation_runner.require_target_reconciliation_confidence",
+                true);
         assertNull(catalog, "trading.intervention.automated_remediation_runner.target.provider");
         assertNull(catalog, "trading.intervention.automated_remediation_runner.target.environment");
         assertNull(catalog, "trading.intervention.automated_remediation_runner.target.account");

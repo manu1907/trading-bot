@@ -11,6 +11,9 @@ import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.FileTradingStateProjectionStore;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
+import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import io.github.manu.reconciliation.ReconciliationObservation;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -35,6 +38,8 @@ class InterventionAutomatedRemediationRunnerTest {
 
     private final CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
     private final TradingStateProjection projection = new TradingStateProjection();
+    private final ReconciliationConfidenceTracker reconciliationTracker =
+            new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
     private final InterventionRemediationAdvisor advisor = new InterventionRemediationAdvisor(
             projection,
             new InterventionProperties.AutomatedPolicy(
@@ -53,6 +58,7 @@ class InterventionAutomatedRemediationRunnerTest {
                 List.of(order("client-1", "evt-order-intervention")),
                 List.of(existingDecision("client-1", "evt-order-intervention"))
         ));
+        recordConfidentTargetReconciliation();
         InterventionAutomatedRemediationRunner runner = runner(
                 runnerProperties(true, true, explicitTarget()),
                 executorService(executorPreviewPolicy()),
@@ -76,6 +82,7 @@ class InterventionAutomatedRemediationRunnerTest {
                 List.of(order("client-1", "evt-order-intervention")),
                 List.of()
         ));
+        recordConfidentTargetReconciliation();
         InterventionAutomatedRemediationRunner runner = runner(
                 runnerProperties(true, true, explicitTarget()),
                 executorService(executorPreviewPolicy()),
@@ -101,6 +108,7 @@ class InterventionAutomatedRemediationRunnerTest {
                 List.of(order("client-1", "evt-order-intervention")),
                 List.of()
         ));
+        recordConfidentTargetReconciliation();
         InterventionAutomatedRemediationRunner runner = runner(
                 runnerProperties(true, false, activeTarget()),
                 executorService(executorPreviewPolicy()),
@@ -121,6 +129,7 @@ class InterventionAutomatedRemediationRunnerTest {
                 List.of(order("client-1", "evt-order-intervention")),
                 List.of(existingDecision("client-1", "evt-order-intervention"))
         ));
+        recordConfidentTargetReconciliation();
         FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
                 temporaryDirectory.resolve("projection").resolve("trading-state.json"),
                 JsonMapperFactory.create()
@@ -175,6 +184,60 @@ class InterventionAutomatedRemediationRunnerTest {
         assertThat(restartedEventBus.envelopes).isEmpty();
     }
 
+    @Test
+    void restored_snapshot_does_not_resume_automation_until_target_reconciliation_is_confident_after_restart() {
+        projection.restore(snapshot(
+                List.of(order("client-1", "evt-order-intervention")),
+                List.of(existingDecision("client-1", "evt-order-intervention"))
+        ));
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(projection.snapshot());
+        TradingStateProjection restoredProjection = new TradingStateProjection();
+        restoredProjection.restore(store.load().orElseThrow());
+        CapturingTradingEventBus restartedEventBus = new CapturingTradingEventBus();
+        InterventionAutomatedRemediationRunner runner = runner(
+                runnerProperties(true, true, explicitTarget()),
+                new InterventionRemediationExecutorService(
+                        restoredProjection,
+                        new InterventionRemediationCommandPlanner(restoredProjection),
+                        new InterventionProperties(null, null, null, null, executorPreviewPolicy())
+                ),
+                new InterventionAutomatedDecisionService(
+                        restartedEventBus,
+                        new InterventionRemediationAdvisor(
+                                restoredProjection,
+                                new InterventionProperties.AutomatedPolicy(
+                                        InterventionProperties.RemediationAction.CLOSE,
+                                        null,
+                                        null,
+                                        null,
+                                        null
+                                )
+                        ),
+                        restoredProjection,
+                        new InterventionProperties.AutomatedDecisionService(true, false, 10, null, null),
+                        Clock.fixed(NOW, ZoneOffset.UTC),
+                        () -> "decision-after-reconciliation"
+                ),
+                () -> null,
+                new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC))
+        );
+
+        InterventionAutomatedRemediationRunner.AutomatedRemediationRunResult result = runner.runOnce();
+
+        assertThat(result.enabled()).isTrue();
+        assertThat(result.reason()).isEqualTo("runner:target_reconciliation_not_confident");
+        assertThat(result.target()).isEqualTo(explicitTarget());
+        assertThat(result.executionBatch().enabled()).isFalse();
+        assertThat(result.executionBatch().evaluatedCount()).isZero();
+        assertThat(result.decisionBatch().enabled()).isFalse();
+        assertThat(result.decisionBatch().outcomes()).isEmpty();
+        assertThat(restartedEventBus.envelopes).isEmpty();
+    }
+
     private InterventionAutomatedRemediationRunner runner(
             InterventionProperties.AutomatedRemediationRunner properties,
             InterventionRemediationExecutorService executorService,
@@ -189,11 +252,22 @@ class InterventionAutomatedRemediationRunnerTest {
             InterventionAutomatedDecisionService automatedDecisionService,
             java.util.function.Supplier<ExchangeProperties> activeTargetSupplier
     ) {
+        return runner(properties, executorService, automatedDecisionService, activeTargetSupplier, reconciliationTracker);
+    }
+
+    private InterventionAutomatedRemediationRunner runner(
+            InterventionProperties.AutomatedRemediationRunner properties,
+            InterventionRemediationExecutorService executorService,
+            InterventionAutomatedDecisionService automatedDecisionService,
+            java.util.function.Supplier<ExchangeProperties> activeTargetSupplier,
+            ReconciliationConfidenceTracker reconciliationTracker
+    ) {
         return new InterventionAutomatedRemediationRunner(
                 automatedDecisionService,
                 executorService,
                 properties,
-                activeTargetSupplier
+                activeTargetSupplier,
+                reconciliationTracker
         );
     }
 
@@ -229,8 +303,22 @@ class InterventionAutomatedRemediationRunnerTest {
                 0L,
                 publishDecisions,
                 executeRemediation,
+                true,
                 target
         );
+    }
+
+    private void recordConfidentTargetReconciliation() {
+        reconciliationTracker.record(new ReconciliationObservation(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                TradingEventType.ORDER_RESULT,
+                "binance|demo|main|usd_m_futures|BTCUSDT|client-1",
+                ReconciliationConfidenceStatus.CONFIDENT,
+                List.of()
+        ));
     }
 
     private InterventionProperties.Target explicitTarget() {

@@ -778,19 +778,24 @@ orders, cancel target-identity validation, and futures modify target/parameter
 validation.
 `InterventionAutomatedRemediationRunner` is the scheduled live automation layer.
 It is disabled by default. When enabled, each tick resolves either its explicit
-target or the current active runtime target, executes already-projected
-remediation decisions through `InterventionRemediationExecutorService`, and then
-publishes new automated remediation decisions for the next projected tick. This
-ordering avoids relying on same-tick projection updates from asynchronous event
-consumers while still allowing unattended remediation when policy gates permit
-exchange execution.
+target or the current active runtime target. By default it requires target-level
+reconciliation confidence before it publishes decisions or executes remediation,
+so a restart cannot resume automated remediation from a restored projection
+before the target has been reconciled against exchange observations. Once that
+gate passes, it executes already-projected remediation decisions through
+`InterventionRemediationExecutorService`, and then publishes new automated
+remediation decisions for the next projected tick. This ordering avoids relying
+on same-tick projection updates from asynchronous event consumers while still
+allowing unattended remediation when policy gates permit exchange execution.
 Recovery coverage now verifies the same ordering after restoring a file snapshot
 that contains an external-order intervention plus an already-projected automated
 remediation decision: the restored runner evaluates that existing decision first
 and does not republish a duplicate decision for the same recommendation event.
-Pause-governance recovery coverage also verifies that active symbol pause state
-restored from a file snapshot remains effective at the order risk-gate admission
-boundary after restart.
+Recovery coverage also verifies that restored runner automation is skipped when
+the target has no reconciliation observations after restart. Pause-governance
+recovery coverage also verifies that active symbol pause state restored from a
+file snapshot remains effective at the order risk-gate admission boundary after
+restart.
 The operator API exposes preview reports at
 `GET /internal/interventions/remediation/executor/preview` so operators can see
 the exact executor blocker before any exchange-executable remediation path is

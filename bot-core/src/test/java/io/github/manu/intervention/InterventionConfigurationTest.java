@@ -10,6 +10,7 @@ import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.observability.PauseGovernanceMetrics;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -25,6 +26,7 @@ class InterventionConfigurationTest {
             .withBean(TradingEventBus.class, NoopTradingEventBus::new)
             .withBean(AuditLogger.class, AuditLogger::new)
             .withBean(PauseGovernanceMetrics.class, PauseGovernanceMetrics::new)
+            .withBean(ReconciliationConfidenceTracker.class, ReconciliationConfidenceTracker::new)
             .withBean(TradingStateProjection.class, TradingStateProjection::new);
 
     @Test
@@ -133,6 +135,7 @@ class InterventionConfigurationTest {
                         "trading.intervention.automated-remediation-runner.initial-delay-millis=250",
                         "trading.intervention.automated-remediation-runner.publish-decisions=false",
                         "trading.intervention.automated-remediation-runner.execute-remediation=true",
+                        "trading.intervention.automated-remediation-runner.require-target-reconciliation-confidence=false",
                         "trading.intervention.automated-remediation-runner.target.provider=binance",
                         "trading.intervention.automated-remediation-runner.target.environment=demo",
                         "trading.intervention.automated-remediation-runner.target.account=main",
@@ -148,6 +151,7 @@ class InterventionConfigurationTest {
                     assertThat(runner.initialDelayMillis()).isEqualTo(250L);
                     assertThat(runner.publishDecisions()).isFalse();
                     assertThat(runner.executeRemediation()).isTrue();
+                    assertThat(runner.requireTargetReconciliationConfidence()).isFalse();
                     assertThat(runner.target().provider()).isEqualTo("binance");
                     assertThat(runner.target().environment()).isEqualTo("demo");
                     assertThat(runner.target().account()).isEqualTo("main");

@@ -182,6 +182,7 @@
         "initial_delay_millis": 30000,
         "publish_decisions": true,
         "execute_remediation": true,
+        "require_target_reconciliation_confidence": true,
         "target": {
           "provider": null,
           "environment": null,

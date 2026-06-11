@@ -9,6 +9,7 @@ import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.observability.PauseGovernanceMetrics;
 import io.github.manu.observability.RemediationExecutorMetrics;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -111,13 +112,15 @@ public class InterventionConfiguration {
             InterventionAutomatedDecisionService automatedDecisionService,
             InterventionRemediationExecutorService remediationExecutorService,
             InterventionProperties properties,
-            ConfigManager configManager
+            ConfigManager configManager,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
     ) {
         return new InterventionAutomatedRemediationRunner(
                 automatedDecisionService,
                 remediationExecutorService,
                 properties,
-                configManager
+                configManager,
+                reconciliationConfidenceTracker
         );
     }
 

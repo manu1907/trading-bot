@@ -1497,6 +1497,7 @@ Default intervention config:
 - `automated_remediation_runner.initial_delay_millis`: `30000`
 - `automated_remediation_runner.publish_decisions`: `true`
 - `automated_remediation_runner.execute_remediation`: `true`
+- `automated_remediation_runner.require_target_reconciliation_confidence`: `true`
 - `automated_remediation_runner.target.provider`: `null`
 - `automated_remediation_runner.target.environment`: `null`
 - `automated_remediation_runner.target.account`: `null`
@@ -1697,10 +1698,14 @@ executor can evaluate it.
 The automated remediation runner can run this workflow without an operator API
 call when `automated_remediation_runner.enabled=true`. Each tick resolves the
 configured target, or the active target when the target fields are `null`,
+requires target-level reconciliation confidence when
+`automated_remediation_runner.require_target_reconciliation_confidence=true`,
 executes already-projected eligible remediation decisions first, and then
 publishes new automated decisions for the next projected tick. This avoids
-racing asynchronous event consumers while still allowing unattended demo-live
-remediation once the executor policy is configured for exchange execution.
+racing asynchronous event consumers and prevents restart resume before the
+projection and exchange observations are reconciled, while still allowing
+unattended demo-live remediation once the executor policy is configured for
+exchange execution.
 
 Current automated remediation execution state:
 
