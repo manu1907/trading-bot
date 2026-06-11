@@ -784,6 +784,10 @@ publishes new automated remediation decisions for the next projected tick. This
 ordering avoids relying on same-tick projection updates from asynchronous event
 consumers while still allowing unattended remediation when policy gates permit
 exchange execution.
+Recovery coverage now verifies the same ordering after restoring a file snapshot
+that contains an external-order intervention plus an already-projected automated
+remediation decision: the restored runner evaluates that existing decision first
+and does not republish a duplicate decision for the same recommendation event.
 The operator API exposes preview reports at
 `GET /internal/interventions/remediation/executor/preview` so operators can see
 the exact executor blocker before any exchange-executable remediation path is

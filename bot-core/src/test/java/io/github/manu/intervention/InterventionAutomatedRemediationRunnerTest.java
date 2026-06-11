@@ -1,17 +1,21 @@
 package io.github.manu.intervention;
 
 import io.github.manu.config.properties.ExchangeProperties;
+import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.projection.FileTradingStateProjectionStore;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -25,6 +29,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InterventionAutomatedRemediationRunnerTest {
 
     private static final Instant NOW = Instant.parse("2026-06-07T18:00:00Z");
+
+    @TempDir
+    private Path temporaryDirectory;
 
     private final CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
     private final TradingStateProjection projection = new TradingStateProjection();
@@ -106,6 +113,66 @@ class InterventionAutomatedRemediationRunnerTest {
         assertThat(result.target()).isEqualTo(explicitTarget());
         assertThat(result.decisionBatch().publishedCount()).isEqualTo(1);
         assertThat(result.executionBatch().enabled()).isFalse();
+    }
+
+    @Test
+    void restored_snapshot_executes_projected_decision_without_republishing_duplicate_after_restart() {
+        projection.restore(snapshot(
+                List.of(order("client-1", "evt-order-intervention")),
+                List.of(existingDecision("client-1", "evt-order-intervention"))
+        ));
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(projection.snapshot());
+        TradingStateProjection restoredProjection = new TradingStateProjection();
+        restoredProjection.restore(store.load().orElseThrow());
+        CapturingTradingEventBus restartedEventBus = new CapturingTradingEventBus();
+        InterventionRemediationAdvisor restoredAdvisor = new InterventionRemediationAdvisor(
+                restoredProjection,
+                new InterventionProperties.AutomatedPolicy(
+                        InterventionProperties.RemediationAction.CLOSE,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
+        InterventionRemediationCommandPlanner restoredPlanner =
+                new InterventionRemediationCommandPlanner(restoredProjection);
+        InterventionAutomatedRemediationRunner runner = runner(
+                runnerProperties(true, true, explicitTarget()),
+                new InterventionRemediationExecutorService(
+                        restoredProjection,
+                        restoredPlanner,
+                        new InterventionProperties(null, null, null, null, executorPreviewPolicy())
+                ),
+                new InterventionAutomatedDecisionService(
+                        restartedEventBus,
+                        restoredAdvisor,
+                        restoredProjection,
+                        new InterventionProperties.AutomatedDecisionService(true, false, 10, null, null),
+                        Clock.fixed(NOW, ZoneOffset.UTC),
+                        () -> "decision-after-restart"
+                )
+        );
+
+        InterventionAutomatedRemediationRunner.AutomatedRemediationRunResult result = runner.runOnce();
+
+        assertThat(result.executionBatch().evaluatedCount()).isEqualTo(1);
+        assertThat(result.executionBatch().previewOnlyCount()).isEqualTo(1);
+        assertThat(result.executionBatch().reports()).singleElement().satisfies(report -> {
+            assertThat(report.remediationId()).isEqualTo("remediation-1");
+            assertThat(report.status()).isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.PREVIEW_ONLY);
+        });
+        assertThat(result.decisionBatch().publishedCount()).isZero();
+        assertThat(result.decisionBatch().skippedCount()).isEqualTo(1);
+        assertThat(result.decisionBatch().outcomes())
+                .singleElement()
+                .extracting(InterventionAutomatedDecisionService.AutomatedDecisionOutcome::reason)
+                .isEqualTo("automated_decision:duplicate_recommendation");
+        assertThat(restartedEventBus.envelopes).isEmpty();
     }
 
     private InterventionAutomatedRemediationRunner runner(
