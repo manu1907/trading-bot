@@ -1,5 +1,6 @@
 package io.github.manu.projection;
 
+import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
@@ -18,7 +19,9 @@ import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,6 +36,9 @@ class TradingStateProjectionTest {
     private static final String ACCOUNT = "main";
     private static final String MARKET = "options";
     private static final String SYMBOL = "BTC-251123-126000-C";
+
+    @TempDir
+    private Path temporaryDirectory;
 
     private final TradingStateProjection projection = new TradingStateProjection();
 
@@ -496,6 +502,50 @@ class TradingStateProjectionTest {
                     assertThat(order.status()).isEqualTo("UNKNOWN");
                     assertThat(order.executionType()).isEqualTo("MODIFY");
                     assertThat(order.updateSource()).isEqualTo("ORDER_RESULT");
+                });
+    }
+
+    @Test
+    void preserves_gateway_failure_target_order_state_after_file_snapshot_restore() {
+        projection.apply(orderResult("evt-order", OrderResultStatus.ACCEPTED, "NEW", timestamp(34)));
+        projection.apply(modifyOrderCommand(
+                "evt-modify-command",
+                "cmd-modify",
+                "amend-client-1",
+                "client-1",
+                "12345",
+                timestamp(35)
+        ));
+        projection.apply(gatewayFailureOrderResult(
+                "evt-gateway-failure",
+                "cmd-modify",
+                "amend-client-1",
+                "12345",
+                timestamp(36)
+        ));
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+
+        store.save(projection.snapshot());
+        TradingStateProjection restored = new TradingStateProjection();
+        restored.restore(store.load().orElseThrow());
+
+        assertThat(restored.hasUnresolvedOrderCommands(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isFalse();
+        assertThat(restored.hasUnknownOrderStatuses(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET)).isTrue();
+        assertThat(restored.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "amend-client-1")).isEmpty();
+        assertThat(restored.order(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL, "client-1"))
+                .get()
+                .satisfies(order -> {
+                    assertThat(order.commandId()).isEqualTo("cmd-modify");
+                    assertThat(order.clientOrderId()).isEqualTo("client-1");
+                    assertThat(order.exchangeOrderId()).isEqualTo("12345");
+                    assertThat(order.status()).isEqualTo("UNKNOWN");
+                    assertThat(order.executionType()).isEqualTo("MODIFY");
+                    assertThat(order.updateSource()).isEqualTo("ORDER_RESULT");
+                    assertThat(order.updatedAt()).isEqualTo(timestamp(36));
+                    assertThat(order.eventId()).isEqualTo("evt-gateway-failure");
                 });
     }
 
