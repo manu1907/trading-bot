@@ -160,6 +160,30 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void requires_manual_review_when_restored_target_has_unresolved_order_command_after_restart() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        TradingStateProjection original = projectionWithUnresolvedOrderCommand();
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(original.snapshot());
+        TradingStateProjection restored = new TradingStateProjection();
+        restored.restore(store.load().orElseThrow());
+
+        RiskDecisionEvent decision = gate(defaultProperties(), restored).evaluate(command());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.MANUAL_REVIEW);
+        assertThat(decision.getReasons()).containsExactly("order_command:unresolved");
+        assertThat(decision.getMaxQuantity()).isNull();
+        assertThat(decision.getAttributes())
+                .containsEntry("unresolved_order_commands", "1")
+                .containsEntry("unresolved_order_command_ids", "cmd-pending")
+                .containsEntry("unresolved_order_client_order_ids", "tb-lfa-pending")
+                .containsEntry("pending_order_command_action", "MANUAL_REVIEW");
+    }
+
+    @Test
     void rejects_order_when_projected_command_id_already_exists_after_restart() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
 
