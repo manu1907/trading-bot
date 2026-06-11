@@ -263,6 +263,70 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     @Test
+    void restored_resolved_order_remediation_decision_blocks_execution_after_restart() {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(resolvedOrder("client-1", "evt-order-resolved")),
+                List.of(),
+                List.of(),
+                List.of(orderDecision("client-1", "remediation-1", "evt-remediation-1")),
+                List.of("evt-order-resolved", "evt-remediation-1")
+        ));
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(projection.snapshot());
+        TradingStateProjection restoredProjection = new TradingStateProjection();
+        restoredProjection.restore(store.load().orElseThrow());
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        ReconciliationConfidenceTracker reconciliationTracker =
+                new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
+        reconciliationTracker.record(new ReconciliationObservation(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                TradingEventType.ORDER_RESULT,
+                "binance|demo|main|usd_m_futures|BTCUSDT|client-1",
+                ReconciliationConfidenceStatus.CONFIDENT,
+                List.of()
+        ));
+        OrderExecutionPipeline pipeline = new OrderExecutionPipeline(
+                new OrderRiskGate(new ExecutionProperties(null), reconciliationTracker, restoredProjection),
+                eventBus,
+                List.of(new CancelGateway())
+        );
+        InterventionRemediationExecutorService service = new InterventionRemediationExecutorService(
+                restoredProjection,
+                new InterventionRemediationCommandPlanner(restoredProjection, enabledPositionOrderPolicy()),
+                new InterventionProperties(null, null, null, null, liveCancelPolicy()),
+                pipeline,
+                new RemediationExecutorMetrics(meterRegistry)
+        );
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service.execute("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isEqualTo(1);
+        assertThat(batch.submittedCount()).isZero();
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.planStatus()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.STALE_PROJECTION);
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.UNSUPPORTED);
+            assertThat(report.status()).isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.BLOCKED);
+            assertThat(report.reasons())
+                    .containsExactly("projection:order_intervention_resolved", "executor:stale_projection");
+            assertThat(report.attributes())
+                    .containsEntry("executor_status", "BLOCKED")
+                    .containsEntry("executor_reason", "executor:stale_projection");
+        });
+        assertThat(eventBus.envelopes).isEmpty();
+        assertThat(outcomeCount("EXECUTE", "UNSUPPORTED", "BLOCKED", "executor:stale_projection")).isEqualTo(1.0d);
+    }
+
+    @Test
     void submits_managed_order_amend_remediation_modify_through_execution_pipeline_when_policy_allows() {
         restoreManagedAmendRemediationDecisionWithOrder();
         CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
@@ -1056,6 +1120,35 @@ class InterventionRemediationExecutorServiceTest {
                 true,
                 "external_order_observed",
                 NOW.minusSeconds(1),
+                eventId
+        );
+    }
+
+    private TradingStateProjection.OrderState resolvedOrder(String clientOrderId, String eventId) {
+        return new TradingStateProjection.OrderState(
+                "binance",
+                "demo",
+                "main",
+                "usd_m_futures",
+                "BTCUSDT",
+                "cmd-resolved-" + clientOrderId,
+                clientOrderId,
+                "exchange-" + clientOrderId,
+                "CANCELED",
+                "CANCELED",
+                "BUY",
+                "LIMIT",
+                "50000.00",
+                "0.001",
+                "0",
+                null,
+                null,
+                "USER_DATA",
+                "CANCELED",
+                true,
+                false,
+                null,
+                NOW.minusMillis(500),
                 eventId
         );
     }
