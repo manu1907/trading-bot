@@ -20,3 +20,20 @@ It expects a Prometheus datasource and displays:
 The dashboard intentionally uses aggregate, low-cardinality queries. Deployment
 work should bind it to the production Prometheus datasource and pair it with the
 Prometheus rules in `ops/prometheus/pause-governance-alerts.yml`.
+
+## Remediation Executor Dashboard
+
+`remediation-executor-dashboard.json` is an importable Grafana dashboard for the
+remediation executor control plane.
+
+It expects a Prometheus datasource and displays:
+
+- Outcome rates by status.
+- Blocked outcomes by operation and reason.
+- Submitted command rates by operation.
+- Preview-only execute-mode outcomes by reason.
+- Disabled policy evaluations.
+- No-action outcomes by operation.
+
+The dashboard intentionally avoids remediation ids, order ids, and symbols so it
+stays compatible with the low-cardinality metric contract.

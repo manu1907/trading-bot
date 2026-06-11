@@ -5,7 +5,8 @@ This directory contains Alertmanager routing profiles for trading-bot alerts.
 ## Pause Governance Routing
 
 `pause-governance-alertmanager.yml` routes the Prometheus alerts in
-`ops/prometheus/pause-governance-alerts.yml` by the rule labels `service`,
+`ops/prometheus/pause-governance-alerts.yml` and
+`ops/prometheus/remediation-executor-alerts.yml` by the rule labels `service`,
 `routing_hint`, and `severity`.
 
 Routes:

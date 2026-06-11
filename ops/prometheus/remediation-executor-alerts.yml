@@ -1,0 +1,92 @@
+groups:
+  - name: remediation-executor
+    rules:
+      - alert: RemediationExecutorPolicyDisabled
+        expr: increase(trading_remediation_executor_outcome_events_total{status="DISABLED"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Remediation executor policy is disabled
+          description: >-
+            A remediation executor preview or execute request was evaluated
+            while the executor policy was disabled. This is expected during
+            conservative startup, but it means projected remediation decisions
+            are not being submitted automatically.
+
+      - alert: RemediationExecutorBlockedPlans
+        expr: sum by (provider, environment, account, market, operation, reason) (increase(trading_remediation_executor_outcome_events_total{status="BLOCKED"}[5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Remediation executor blocked one or more plans
+          description: >-
+            One or more remediation plans were blocked by executor policy,
+            planner status, target identity, stale projection, unsupported
+            operation, missing pipeline, or submission failure. Inspect the
+            operation and reason labels, then query the executor preview endpoint
+            for current blocker details before changing policy.
+
+      - alert: RemediationExecutorPipelineSubmissionFailed
+        expr: increase(trading_remediation_executor_outcome_events_total{status="BLOCKED",reason="executor:pipeline_submission_failed"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Remediation executor pipeline submission failed
+          description: >-
+            The executor attempted to submit a policy-qualified remediation
+            command to the normal order execution pipeline and the pipeline call
+            failed. Reconciliation must confirm exchange state before another
+            remediation execution attempt is made.
+
+      - alert: RemediationExecutorSubmittedToPipeline
+        expr: increase(trading_remediation_executor_outcome_events_total{status="SUBMITTED_TO_PIPELINE"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Remediation executor submitted a command to the pipeline
+          description: >-
+            A remediation command was accepted by the order execution pipeline.
+            Confirm the corresponding risk decision, order result, projection
+            update, and reconciliation confidence before increasing risk limits.
+
+      - alert: RemediationExecutorNoActionSpike
+        expr: sum by (provider, environment, account, market, operation) (increase(trading_remediation_executor_outcome_events_total{status="NO_ACTION"}[15m])) > 5
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Remediation executor produced repeated no-action outcomes
+          description: >-
+            The executor repeatedly found no actionable remediation after
+            decisions were projected. This can be healthy if reconciliation
+            already resolved the risk, but it can also indicate stale decisions,
+            delayed projection, or noisy automated decision policy.
+
+      - alert: RemediationExecutorPreviewOnlyWhileExecutionExpected
+        expr: sum by (provider, environment, account, market, operation, reason) (increase(trading_remediation_executor_outcome_events_total{mode="EXECUTE",status="PREVIEW_ONLY"}[5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Remediation execute request remained preview-only
+          description: >-
+            An execute-mode remediation evaluation did not submit because the
+            active policy still forced preview-only behavior. Inspect the reason
+            label, executor policy, operation allowlist, report_only flag, and
+            exchange_execution_enabled flag.

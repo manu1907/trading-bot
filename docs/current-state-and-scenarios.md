@@ -196,6 +196,10 @@ Implemented remediation executor observability includes:
 - Disabled executor policy evaluations counted as `operation=NONE`, `status=DISABLED`, and `reason=executor:policy_disabled`.
 - Per-plan outcomes counted for blocked, preview-only, submitted-to-pipeline, and no-action reports.
 - Remediation ids, client order ids, exchange order ids, and symbols are intentionally excluded from metric tags to keep Prometheus cardinality bounded.
+- Prometheus-compatible alert rules exist at `ops/prometheus/remediation-executor-alerts.yml` for disabled policy evaluations, blocked plans, pipeline submission failures, submitted commands, repeated no-action outcomes, and execute-mode evaluations that remain preview-only.
+- The shared Alertmanager profile routes remediation executor alerts through the same `service`, `routing_hint`, and `severity` labels used by pause governance alerts.
+- An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
+- A remediation executor operator runbook exists at `ops/runbooks/remediation-executor.md`.
 
 ## Persistence And Recovery
 
@@ -275,7 +279,7 @@ Remaining work includes:
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Broader account-level and symbol-level risk budgets beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account/symbol daily realized-loss caps.
 - Cancel/replace fallback for unsupported amendments and executable rollback behavior for ambiguous adopted-order lifecycle outcomes.
-- Broader operational alerts, dashboards, and runbooks for remediation executor outcomes and hedge-mode remediation.
+- Broader operational audit summaries and hedge-mode remediation runbooks.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - V1 live validation, demo soak criteria, promotion gates, and real-trading runbooks.
 - Backtesting and historical simulation are intentionally deferred to v2.

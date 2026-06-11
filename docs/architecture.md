@@ -796,6 +796,12 @@ executor reason. A disabled executor policy emits the same metric with
 `operation=NONE`, `status=DISABLED`, and `reason=executor:policy_disabled`.
 The metric intentionally excludes remediation ids and order ids to avoid
 unbounded time-series cardinality.
+Prometheus-compatible alert rules for these outcomes live in
+`ops/prometheus/remediation-executor-alerts.yml`; the shared Alertmanager
+profile routes them by `service`, `routing_hint`, and `severity`; an importable
+Grafana dashboard lives in `ops/grafana/remediation-executor-dashboard.json`;
+and the operator response runbook lives in
+`ops/runbooks/remediation-executor.md`.
 
 ## Redpanda Messaging
 

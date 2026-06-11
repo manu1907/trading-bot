@@ -681,10 +681,16 @@ Pause governance metrics:
   queried through the operator API.
 - Prometheus-compatible alert rules for pause governance live in
   `ops/prometheus/pause-governance-alerts.yml`.
+- Prometheus-compatible alert rules for remediation executor outcomes live in
+  `ops/prometheus/remediation-executor-alerts.yml`.
 - Alertmanager routing for those pause governance alerts lives in
   `ops/alertmanager/pause-governance-alertmanager.yml`.
 - An importable Grafana dashboard for pause governance lives in
   `ops/grafana/pause-governance-dashboard.json`.
+- An importable Grafana dashboard for remediation executor outcomes lives in
+  `ops/grafana/remediation-executor-dashboard.json`.
+- The remediation executor operator runbook lives in
+  `ops/runbooks/remediation-executor.md`.
 - The Alertmanager profile maps alert labels such as `severity` and
   `routing_hint` to operator/platform PagerDuty and Slack receivers.
 - Real webhook URLs, Slack channels, and PagerDuty routing keys must be injected
