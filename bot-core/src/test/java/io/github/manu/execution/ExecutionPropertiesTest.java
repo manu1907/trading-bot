@@ -41,9 +41,16 @@ class ExecutionPropertiesTest {
         assertThat(properties.signalPlanner().instrumentUniverse().enabled()).isFalse();
         assertThat(properties.signalPlanner().instrumentUniverse().includedSymbols()).isEmpty();
         assertThat(properties.signalPlanner().instrumentUniverse().excludedSymbols()).isEmpty();
+        assertThat(properties.signalPlanner().instrumentUniverse().refreshExchangeMetadataBeforePlanning()).isFalse();
+        assertThat(properties.signalPlanner().instrumentUniverse().requireExchangeMetadata()).isFalse();
         assertThat(properties.signalPlanner().instrumentUniverse().requireIncludedSymbol()).isFalse();
         assertThat(properties.signalPlanner().instrumentUniverse().requireSymbolEnabled()).isTrue();
         assertThat(properties.signalPlanner().instrumentUniverse().requirePromotionReady()).isFalse();
+        assertThat(properties.signalPlanner().instrumentUniverse().requiredStatus()).isEqualTo("TRADING");
+        assertThat(properties.signalPlanner().instrumentUniverse().requiredOrderType()).isNull();
+        assertThat(properties.signalPlanner().instrumentUniverse().allowedQuoteAssets()).isEmpty();
+        assertThat(properties.signalPlanner().instrumentUniverse().allowedContractTypes()).isEmpty();
+        assertThat(properties.signalPlanner().instrumentUniverse().maxEligibleSymbols()).isNull();
         assertThat(properties.signalPlanner().instrumentUniverse().symbolPolicies()).isEmpty();
     }
 
@@ -219,5 +226,27 @@ class ExecutionPropertiesTest {
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("symbolPolicies.minDailyQuoteVolume must be positive when configured");
+    }
+
+    @Test
+    void rejects_non_positive_instrument_universe_max_eligible_symbols() {
+        assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        java.util.List.of("BTCUSDT"),
+                        java.util.List.of(),
+                        true,
+                        true,
+                        true,
+                        true,
+                        false,
+                        "TRADING",
+                        null,
+                        java.util.List.of("USDT"),
+                        java.util.List.of("PERPETUAL"),
+                        0,
+                        java.util.List.of()
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("instrument universe maxEligibleSymbols must be positive when configured");
     }
 }

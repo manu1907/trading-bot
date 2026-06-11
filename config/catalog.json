@@ -96,9 +96,20 @@
           "excluded_symbols": [
 
           ],
+          "refresh_exchange_metadata_before_planning": false,
+          "require_exchange_metadata": false,
           "require_included_symbol": false,
           "require_symbol_enabled": true,
           "require_promotion_ready": false,
+          "required_status": "TRADING",
+          "required_order_type": null,
+          "allowed_quote_assets": [
+
+          ],
+          "allowed_contract_types": [
+
+          ],
+          "max_eligible_symbols": null,
           "symbol_policies": [
 
           ]

@@ -40,6 +40,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
     private final TradingEventBus eventBus;
     private final TradingStateProjection tradingStateProjection;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
+    private final StrategyInstrumentUniverseResolver instrumentUniverseResolver;
     private final Clock clock;
 
     public StrategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus) {
@@ -60,11 +61,28 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             TradingStateProjection tradingStateProjection,
             ReconciliationConfidenceTracker reconciliationConfidenceTracker
     ) {
-        this(properties, eventBus, tradingStateProjection, reconciliationConfidenceTracker, Clock.systemUTC());
+        this(properties, eventBus, tradingStateProjection, reconciliationConfidenceTracker, null, Clock.systemUTC());
+    }
+
+    public StrategySignalPlanner(
+            ExecutionProperties properties,
+            TradingEventBus eventBus,
+            TradingStateProjection tradingStateProjection,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            StrategyInstrumentUniverseResolver instrumentUniverseResolver
+    ) {
+        this(
+                properties,
+                eventBus,
+                tradingStateProjection,
+                reconciliationConfidenceTracker,
+                instrumentUniverseResolver,
+                Clock.systemUTC()
+        );
     }
 
     StrategySignalPlanner(ExecutionProperties properties, TradingEventBus eventBus, Clock clock) {
-        this(properties, eventBus, new TradingStateProjection(), null, clock);
+        this(properties, eventBus, new TradingStateProjection(), null, null, clock);
     }
 
     StrategySignalPlanner(
@@ -73,7 +91,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             TradingStateProjection tradingStateProjection,
             Clock clock
     ) {
-        this(properties, eventBus, tradingStateProjection, null, clock);
+        this(properties, eventBus, tradingStateProjection, null, null, clock);
     }
 
     StrategySignalPlanner(
@@ -83,10 +101,22 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             Clock clock
     ) {
+        this(properties, eventBus, tradingStateProjection, reconciliationConfidenceTracker, null, clock);
+    }
+
+    StrategySignalPlanner(
+            ExecutionProperties properties,
+            TradingEventBus eventBus,
+            TradingStateProjection tradingStateProjection,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            StrategyInstrumentUniverseResolver instrumentUniverseResolver,
+            Clock clock
+    ) {
         this.properties = Objects.requireNonNull(properties, "properties");
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.tradingStateProjection = Objects.requireNonNull(tradingStateProjection, "tradingStateProjection");
         this.reconciliationConfidenceTracker = reconciliationConfidenceTracker;
+        this.instrumentUniverseResolver = instrumentUniverseResolver;
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -124,7 +154,17 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         String quoteOrderQuantity = quantity == null ? value(signal.getTargetNotional()) : null;
         String price = value(signal.getLimitPrice());
         String stopPrice = value(signal.getStopPrice());
-        if (instrumentUniverseBlocked(provider, environment, account, market, symbol, quantity, quoteOrderQuantity, price)) {
+        if (instrumentUniverseBlocked(
+                provider,
+                environment,
+                account,
+                market,
+                symbol,
+                orderType,
+                quantity,
+                quoteOrderQuantity,
+                price
+        )) {
             return Optional.empty();
         }
         if (admissionBlocked(provider, environment, account, market, symbol)) {
@@ -362,6 +402,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             String account,
             String market,
             String symbol,
+            OrderCommandType orderType,
             String quantity,
             String quoteOrderQuantity,
             String price
@@ -376,6 +417,17 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             return true;
         }
         if (universe.requireIncludedSymbol() && !universe.includedSymbols().contains(normalizedSymbol)) {
+            return true;
+        }
+        if (instrumentUniverseResolver != null
+                && !instrumentUniverseResolver.eligible(
+                        universe,
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        orderType)) {
             return true;
         }
         ExecutionProperties.SignalPlanner.SymbolPolicy policy =

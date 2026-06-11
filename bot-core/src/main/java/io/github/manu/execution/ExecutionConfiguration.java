@@ -1,10 +1,13 @@
 package io.github.manu.execution;
 
+import io.github.manu.config.runtime.ConfigManager;
+import io.github.manu.exchange.ExchangeMetadataService;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.messaging.TradingEventHandlerRegistration;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -41,9 +44,16 @@ public class ExecutionConfiguration {
             ExecutionProperties properties,
             TradingEventBus eventBus,
             TradingStateProjection tradingStateProjection,
-            ReconciliationConfidenceTracker reconciliationConfidenceTracker
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            ObjectProvider<StrategyInstrumentUniverseResolver> instrumentUniverseResolver
     ) {
-        return new StrategySignalPlanner(properties, eventBus, tradingStateProjection, reconciliationConfidenceTracker);
+        return new StrategySignalPlanner(
+                properties,
+                eventBus,
+                tradingStateProjection,
+                reconciliationConfidenceTracker,
+                instrumentUniverseResolver.getIfAvailable()
+        );
     }
 
     @Bean
@@ -55,5 +65,14 @@ public class ExecutionConfiguration {
     @Bean
     OrderExecutionIdempotencyTracker orderExecutionIdempotencyTracker(ExecutionProperties properties) {
         return new OrderExecutionIdempotencyTracker(properties);
+    }
+
+    @Bean
+    @ConditionalOnBean({ExchangeMetadataService.class, ConfigManager.class})
+    StrategyInstrumentUniverseResolver strategyInstrumentUniverseResolver(
+            ExchangeMetadataService exchangeMetadataService,
+            ConfigManager configManager
+    ) {
+        return new StrategyInstrumentUniverseResolver(exchangeMetadataService, configManager);
     }
 }

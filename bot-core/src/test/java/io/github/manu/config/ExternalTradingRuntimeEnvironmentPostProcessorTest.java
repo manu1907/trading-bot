@@ -44,14 +44,30 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 .isEqualTo("BTCUSDT");
         assertThat(environment.getProperty("trading.execution.signal-planner.instrument-universe.included-symbols[1]"))
                 .isEqualTo("ETHUSDT");
+        assertThat(environment.getProperty("trading.execution.signal-planner.instrument-universe.included-symbols[2]"))
+                .isEqualTo("BNBUSDT");
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.refresh-exchange-metadata-before-planning",
+                Boolean.class
+        )).isTrue();
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.require-exchange-metadata",
+                Boolean.class
+        )).isTrue();
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.require-included-symbol",
                 Boolean.class
         )).isTrue();
         assertThat(environment.getProperty(
-                "trading.execution.signal-planner.instrument-universe.require-promotion-ready",
-                Boolean.class
-        )).isTrue();
+                "trading.execution.signal-planner.instrument-universe.allowed-quote-assets[0]"
+        )).isEqualTo("USDT");
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.allowed-contract-types[0]"
+        )).isEqualTo("PERPETUAL");
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.max-eligible-symbols",
+                Integer.class
+        )).isEqualTo(12);
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.symbol-policies[1].symbol"
         )).isEqualTo("ETHUSDT");

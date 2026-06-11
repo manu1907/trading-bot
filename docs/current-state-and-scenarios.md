@@ -30,21 +30,29 @@ symbols, symbols outside the required include list, disabled symbol policies, or
 symbols that are not explicitly marked promotion-ready when promotion readiness
 is required. A matching symbol policy can also cap strategy order notional with
 `max_order_notional`; unbounded or oversized orders are suppressed before
-command publication.
+command publication. The planner can also refresh provider exchange metadata
+before planning and require the resolved symbol to be present, currently
+tradable, compatible with the configured quote asset and contract type, and
+compatible with the order type being planned.
 
 The checked-in demo runtime currently enables this gate for:
 
-- `included_symbols=["BTCUSDT","ETHUSDT"]`
+- a high-liquidity USD-M futures candidate list:
+  `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`,
+  `ADAUSDT`, `LINKUSDT`, `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`,
+  and `DOTUSDT`
+- `refresh_exchange_metadata_before_planning=true`
+- `require_exchange_metadata=true`
 - `require_included_symbol=true`
-- `require_promotion_ready=true`
-- promotion-ready symbol policies for `BTCUSDT` and `ETHUSDT`
+- `allowed_quote_assets=["USDT"]`
+- `allowed_contract_types=["PERPETUAL"]`
+- `max_eligible_symbols=12`
 - `max_order_notional="50"` per initial symbol policy
 
-The same initial symbols are wired into demo market-data streams,
-reconciliation open-order scans, order-limit target overrides, position
-remediation allowlists, managed-order amendment allowlists, and adopted-order
-lifecycle allowlists. This is an initial multi-symbol bootstrap, not the final
-full high-liquidity production universe.
+The resolver returns the eligible, exchange-confirmed subset of the configured
+candidate list. It does not yet rank symbols for expected profit, risk-adjusted
+return, or money-management fit; that ranking belongs to the remaining strategy
+market-analysis lifecycle work.
 
 ## Runtime Policy Boundary
 

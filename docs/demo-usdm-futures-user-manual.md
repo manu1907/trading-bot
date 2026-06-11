@@ -831,8 +831,9 @@ config/runtime/live/binance/demo/main/usdm_futures.json
 It selects the demo instance id, enables local journal/recovery and projection
 snapshot persistence, enables the event-driven runtime switches intended for
 demo operation, enables the execution pipeline, configures the signal planner's
-default target as `binance/demo/main/usdm_futures` with `BTCUSDT`, enables the
-strategy instrument-universe gate for `BTCUSDT` and `ETHUSDT`, enables
+default target as `binance/demo/main/usdm_futures`, enables the
+strategy instrument-universe gate for a broad high-liquidity USD-M futures
+candidate list, enables
 automated remediation policy for external order close decisions, enables the
 scheduled remediation runner, and enables the executor policy for the currently
 supported `CANCEL_ORDER`, `CLOSE_POSITION`, `REDUCE_POSITION`, and
@@ -1438,9 +1439,16 @@ Current planner defaults include:
 - `instrument_universe.enabled`: `false`
 - `instrument_universe.included_symbols`: empty list
 - `instrument_universe.excluded_symbols`: empty list
+- `instrument_universe.refresh_exchange_metadata_before_planning`: `false`
+- `instrument_universe.require_exchange_metadata`: `false`
 - `instrument_universe.require_included_symbol`: `false`
 - `instrument_universe.require_symbol_enabled`: `true`
 - `instrument_universe.require_promotion_ready`: `false`
+- `instrument_universe.required_status`: `TRADING`
+- `instrument_universe.required_order_type`: `null`
+- `instrument_universe.allowed_quote_assets`: empty list
+- `instrument_universe.allowed_contract_types`: empty list
+- `instrument_universe.max_eligible_symbols`: `null`
 - `instrument_universe.symbol_policies`: empty list
 
 When enabled, the planner handles `STRATEGY_SIGNAL` events in live mode. It is
@@ -1450,11 +1458,19 @@ signals are suppressed before command publication if their resolved symbol is
 excluded, missing from a required include list, disabled by a matching symbol
 policy, or not marked `promotion_ready=true` while promotion readiness is
 required. If a matching symbol policy has `max_order_notional`, unbounded or
-oversized strategy orders are suppressed before publication. The checked-in demo
-runtime currently opts into this gate with
-`included_symbols=["BTCUSDT","ETHUSDT"]`,
-`require_included_symbol=true`, `require_promotion_ready=true`, and matching
-promotion-ready symbol policies for both symbols with `max_order_notional=50`.
+oversized strategy orders are suppressed before publication. When
+`refresh_exchange_metadata_before_planning=true`, the planner refreshes provider
+exchange metadata before admission and only allows symbols that are currently
+present, tradable, compatible with the configured quote asset and contract type,
+and compatible with the order type being planned.
+
+The checked-in demo runtime currently opts into this gate with a candidate list
+of `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`,
+`ADAUSDT`, `LINKUSDT`, `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`, and
+`DOTUSDT`; it sets `refresh_exchange_metadata_before_planning=true`,
+`require_exchange_metadata=true`, `require_included_symbol=true`,
+`allowed_quote_assets=["USDT"]`, `allowed_contract_types=["PERPETUAL"]`, and
+`max_eligible_symbols=12`.
 
 ## Risk Gate Options
 

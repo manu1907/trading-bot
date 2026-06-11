@@ -120,9 +120,16 @@ public record ExecutionProperties(
                 Boolean enabled,
                 List<String> includedSymbols,
                 List<String> excludedSymbols,
+                Boolean refreshExchangeMetadataBeforePlanning,
+                Boolean requireExchangeMetadata,
                 Boolean requireIncludedSymbol,
                 Boolean requireSymbolEnabled,
                 Boolean requirePromotionReady,
+                String requiredStatus,
+                String requiredOrderType,
+                List<String> allowedQuoteAssets,
+                List<String> allowedContractTypes,
+                Integer maxEligibleSymbols,
                 List<SymbolPolicy> symbolPolicies
         ) {
 
@@ -131,14 +138,65 @@ public record ExecutionProperties(
                 enabled = Boolean.TRUE.equals(enabled);
                 includedSymbols = normalizeSymbols(includedSymbols);
                 excludedSymbols = normalizeSymbols(excludedSymbols);
+                refreshExchangeMetadataBeforePlanning = Boolean.TRUE.equals(refreshExchangeMetadataBeforePlanning);
+                requireExchangeMetadata = Boolean.TRUE.equals(requireExchangeMetadata);
                 requireIncludedSymbol = Boolean.TRUE.equals(requireIncludedSymbol);
                 requireSymbolEnabled = requireSymbolEnabled == null || Boolean.TRUE.equals(requireSymbolEnabled);
                 requirePromotionReady = Boolean.TRUE.equals(requirePromotionReady);
+                requiredStatus = normalizeText(requiredStatus, "TRADING");
+                requiredOrderType = normalizeText(requiredOrderType, null);
+                allowedQuoteAssets = normalizeTexts(allowedQuoteAssets);
+                allowedContractTypes = normalizeTexts(allowedContractTypes);
+                if (maxEligibleSymbols != null && maxEligibleSymbols.intValue() <= 0) {
+                    throw new IllegalArgumentException("instrument universe maxEligibleSymbols must be positive when configured");
+                }
                 symbolPolicies = symbolPolicies == null ? List.of() : List.copyOf(symbolPolicies);
             }
 
+            public InstrumentUniverse(
+                    Boolean enabled,
+                    List<String> includedSymbols,
+                    List<String> excludedSymbols,
+                    Boolean requireIncludedSymbol,
+                    Boolean requireSymbolEnabled,
+                    Boolean requirePromotionReady,
+                    List<SymbolPolicy> symbolPolicies
+            ) {
+                this(
+                        enabled,
+                        includedSymbols,
+                        excludedSymbols,
+                        false,
+                        false,
+                        requireIncludedSymbol,
+                        requireSymbolEnabled,
+                        requirePromotionReady,
+                        "TRADING",
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        symbolPolicies
+                );
+            }
+
             static InstrumentUniverse disabled() {
-                return new InstrumentUniverse(false, List.of(), List.of(), false, true, false, List.of());
+                return new InstrumentUniverse(
+                        false,
+                        List.of(),
+                        List.of(),
+                        false,
+                        false,
+                        false,
+                        true,
+                        false,
+                        "TRADING",
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        List.of()
+                );
             }
 
             @Override
@@ -149,6 +207,16 @@ public record ExecutionProperties(
             @Override
             public List<String> excludedSymbols() {
                 return List.copyOf(excludedSymbols);
+            }
+
+            @Override
+            public List<String> allowedQuoteAssets() {
+                return List.copyOf(allowedQuoteAssets);
+            }
+
+            @Override
+            public List<String> allowedContractTypes() {
+                return List.copyOf(allowedContractTypes);
             }
 
             private static List<String> normalizeSymbols(List<String> symbols) {
@@ -166,6 +234,23 @@ public record ExecutionProperties(
                     throw new IllegalArgumentException("instrument universe symbols must be non-blank");
                 }
                 return symbol.trim().toUpperCase(java.util.Locale.ROOT);
+            }
+
+            private static List<String> normalizeTexts(List<String> values) {
+                if (values == null || values.isEmpty()) {
+                    return List.of();
+                }
+                return List.copyOf(values.stream()
+                        .map(value -> normalizeText(value, null))
+                        .distinct()
+                        .toList());
+            }
+
+            private static String normalizeText(String value, String defaultValue) {
+                if (value == null || value.isBlank()) {
+                    return defaultValue;
+                }
+                return value.trim().toUpperCase(java.util.Locale.ROOT);
             }
         }
 

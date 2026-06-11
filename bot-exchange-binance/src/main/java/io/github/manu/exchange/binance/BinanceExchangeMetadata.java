@@ -1,6 +1,6 @@
 package io.github.manu.exchange.binance;
 
-import io.github.manu.exchange.ExchangeMetadata;
+import io.github.manu.exchange.InstrumentExchangeMetadata;
 
 import java.time.Instant;
 import java.util.List;
@@ -12,7 +12,7 @@ public record BinanceExchangeMetadata(
         List<RateLimit> rateLimits,
         List<AssetInfo> assets,
         List<SymbolInfo> symbols
-) implements ExchangeMetadata {
+) implements InstrumentExchangeMetadata {
     public BinanceExchangeMetadata {
         rateLimits = List.copyOf(rateLimits);
         assets = List.copyOf(assets);
@@ -22,6 +22,20 @@ public record BinanceExchangeMetadata(
     @Override
     public String provider() {
         return "binance";
+    }
+
+    @Override
+    public List<InstrumentExchangeMetadata.Instrument> instruments() {
+        return symbols.stream()
+                .map(symbol -> new InstrumentExchangeMetadata.Instrument(
+                        symbol.symbol(),
+                        symbol.status(),
+                        symbol.baseAsset(),
+                        symbol.quoteAsset(),
+                        symbol.contractType(),
+                        symbol.orderTypes()
+                ))
+                .toList();
     }
 
     public record RateLimit(
