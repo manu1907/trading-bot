@@ -111,8 +111,11 @@ The strategy module also has a config-gated LFA signal runner under
 `trading.strategy.lfa.signal_runner`. When enabled, it periodically reads the
 current projected market-data snapshot, requires the configured lifecycle state
 to be allowed, requires projected market-data and top-of-book warm-up thresholds
-to be met, runs the analyzer, caps publication with `max_signals_per_run`,
-applies account and symbol budget gates, publishes symbol-keyed
+to be met, optionally filters candidate symbols through the core signal-planner
+instrument universe, ranks candidate market data by projected spread,
+top-of-book quote depth, freshness, and symbol, optionally caps candidate market
+data before analysis, runs the analyzer, caps publication with
+`max_signals_per_run`, applies account and symbol budget gates, publishes symbol-keyed
 `STRATEGY_SIGNAL` events through the core event bus, and relies on the core
 signal planner, order risk gate, idempotency, reconciliation confidence, and
 execution pipeline for downstream order admission. Lifecycle and warm-up
@@ -124,11 +127,13 @@ account/symbol daily realized-loss caps, missing notional or daily-PnL metadata
 when strict metadata rejection is enabled, and unbounded candidate signal
 notional when a notional cap is configured. The catalog value for the runner
 currently executes as `enabled=false`, `lifecycle_state=STOPPED`, and
-one-symbol projected-data warm-up unless overridden. The checked-in demo runtime
-overrides target, sizing, open-position caps, `lifecycle_state=PAUSED`, and
-three-symbol warm-up thresholds but does not override `enabled`, so the
-effective demo runner remains disabled because the full position-lifecycle and
-money-management layers are not complete enough for autonomous strategy
+one-symbol projected-data warm-up with
+`use_signal_planner_instrument_universe=true` and no LFA-specific candidate cap
+unless overridden. The checked-in demo runtime overrides target, sizing,
+open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,
+and `max_candidate_market_data_symbols=13` but does not override `enabled`, so
+the effective demo runner remains disabled because the full position-lifecycle
+and money-management layers are not complete enough for autonomous strategy
 execution.
 
 This is now strategy-side signal generation plus a controlled live publication

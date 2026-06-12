@@ -91,6 +91,8 @@
           "min_warmup_market_data_symbols": 1,
           "min_warmup_top_of_book_symbols": 1,
           "warmup_max_market_data_age_millis": 30000,
+          "use_signal_planner_instrument_universe": true,
+          "max_candidate_market_data_symbols": null,
           "min_imbalance_ratio": "1.50",
           "max_spread_bps": "5",
           "min_top_of_book_quote_notional": "250",

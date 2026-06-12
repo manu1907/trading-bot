@@ -3,8 +3,10 @@ package io.github.manu.strategy.lfa;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
+import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.StrategySignalEvent;
 import io.github.manu.execution.ExecutionProperties;
+import io.github.manu.execution.StrategyInstrumentUniverseResolver;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
@@ -16,14 +18,19 @@ import org.springframework.scheduling.annotation.Scheduled;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -36,6 +43,7 @@ public final class LfaSignalRunner {
     private final TradingStateProjection projection;
     private final TradingEventBus eventBus;
     private final ExecutionProperties executionProperties;
+    private final StrategyInstrumentUniverseResolver instrumentUniverseResolver;
     private final Clock clock;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -52,6 +60,26 @@ public final class LfaSignalRunner {
                 projection,
                 eventBus,
                 executionProperties,
+                null,
+                Clock.systemUTC()
+        );
+    }
+
+    public LfaSignalRunner(
+            LfaMarketSignalAnalyzer analyzer,
+            LfaStrategyProperties properties,
+            TradingStateProjection projection,
+            TradingEventBus eventBus,
+            ExecutionProperties executionProperties,
+            StrategyInstrumentUniverseResolver instrumentUniverseResolver
+    ) {
+        this(
+                analyzer,
+                properties.signalRunner(),
+                projection,
+                eventBus,
+                executionProperties,
+                instrumentUniverseResolver,
                 Clock.systemUTC()
         );
     }
@@ -62,6 +90,7 @@ public final class LfaSignalRunner {
             TradingStateProjection projection,
             TradingEventBus eventBus,
             ExecutionProperties executionProperties,
+            StrategyInstrumentUniverseResolver instrumentUniverseResolver,
             Clock clock
     ) {
         this.analyzer = Objects.requireNonNull(analyzer, "analyzer");
@@ -69,6 +98,7 @@ public final class LfaSignalRunner {
         this.projection = Objects.requireNonNull(projection, "projection");
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.executionProperties = Objects.requireNonNull(executionProperties, "executionProperties");
+        this.instrumentUniverseResolver = instrumentUniverseResolver;
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -142,7 +172,7 @@ public final class LfaSignalRunner {
             }
             List<StrategySignalEvent> signals = analyzer.analyze(
                     request,
-                    snapshot.marketData(),
+                    candidateMarketData(snapshot, target, now),
                     now
             ).stream().limit(properties.maxSignalsPerRun()).toList();
             if (signals.isEmpty()) {
@@ -239,6 +269,205 @@ public final class LfaSignalRunner {
         return updatedAt != null
                 && !updatedAt.isAfter(now)
                 && !updatedAt.plusMillis(properties.warmupMaxMarketDataAgeMillis()).isBefore(now);
+    }
+
+    private List<TradingStateProjection.MarketDataState> candidateMarketData(
+            TradingStateSnapshot snapshot,
+            LfaRunnerTarget target,
+            Instant now
+    ) {
+        ExecutionProperties.SignalPlanner.InstrumentUniverse universe =
+                executionProperties.signalPlanner().instrumentUniverse();
+        Optional<Set<String>> allowedSymbols = allowedUniverseSymbols(universe, target);
+        if (allowedSymbols.isPresent() && allowedSymbols.get().isEmpty()) {
+            return List.of();
+        }
+        List<TradingStateProjection.MarketDataState> ranked = snapshot.marketData().stream()
+                .filter(state -> matchesTarget(state, target))
+                .filter(state -> allowedSymbols
+                        .map(symbols -> symbols.contains(normalize(state.symbol())))
+                        .orElse(true))
+                .filter(state -> universePolicyAllows(universe, target, state.symbol()))
+                .map(state -> rankedMarketData(state, now))
+                .flatMap(Optional::stream)
+                .filter(candidate -> universeMarketDataAllows(universe, target, candidate))
+                .sorted(Comparator
+                        .comparing(RankedMarketData::spreadBps)
+                        .thenComparing(RankedMarketData::topOfBookQuoteNotional, Comparator.reverseOrder())
+                        .thenComparing(RankedMarketData::ageMillis)
+                        .thenComparing(candidate -> normalize(candidate.state().symbol())))
+                .map(RankedMarketData::state)
+                .toList();
+        if (properties.maxCandidateMarketDataSymbols() == null
+                || ranked.size() <= properties.maxCandidateMarketDataSymbols().intValue()) {
+            return ranked;
+        }
+        return List.copyOf(ranked.subList(0, properties.maxCandidateMarketDataSymbols().intValue()));
+    }
+
+    private Optional<Set<String>> allowedUniverseSymbols(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            LfaRunnerTarget target
+    ) {
+        if (!properties.useSignalPlannerInstrumentUniverse() || !universe.enabled()) {
+            return Optional.empty();
+        }
+        List<String> eligibleSymbols = List.of();
+        if (instrumentUniverseResolver != null
+                && (universe.refreshExchangeMetadataBeforePlanning() || universe.requireExchangeMetadata())) {
+            eligibleSymbols = instrumentUniverseResolver.eligibleSymbols(
+                    universe,
+                    target.provider(),
+                    target.environment(),
+                    target.account(),
+                    target.market(),
+                    OrderCommandType.LIMIT
+            );
+        } else if (universe.requireExchangeMetadata()) {
+            return Optional.of(Set.of());
+        } else if (!universe.includedSymbols().isEmpty() || universe.requireIncludedSymbol()) {
+            eligibleSymbols = universe.includedSymbols().stream()
+                    .filter(symbol -> !universe.excludedSymbols().contains(symbol))
+                    .toList();
+        }
+        if (eligibleSymbols.isEmpty()
+                && (universe.requireExchangeMetadata()
+                || universe.requireIncludedSymbol()
+                || !universe.includedSymbols().isEmpty())) {
+            return Optional.of(Set.of());
+        }
+        if (eligibleSymbols.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new HashSet<>(eligibleSymbols));
+    }
+
+    private boolean universePolicyAllows(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            LfaRunnerTarget target,
+            String symbol
+    ) {
+        if (!properties.useSignalPlannerInstrumentUniverse() || !universe.enabled()) {
+            return true;
+        }
+        String normalizedSymbol = normalize(symbol);
+        if (normalizedSymbol.isBlank()) {
+            return false;
+        }
+        if (universe.excludedSymbols().contains(normalizedSymbol)) {
+            return false;
+        }
+        if (universe.requireIncludedSymbol() && !universe.includedSymbols().contains(normalizedSymbol)) {
+            return false;
+        }
+        ExecutionProperties.SignalPlanner.SymbolPolicy policy = selectedSymbolPolicy(universe, target, normalizedSymbol);
+        if (policy == null) {
+            return !universe.requirePromotionReady();
+        }
+        if (universe.requireSymbolEnabled() && !Boolean.TRUE.equals(policy.enabled())) {
+            return false;
+        }
+        return !universe.requirePromotionReady() || Boolean.TRUE.equals(policy.promotionReady());
+    }
+
+    private boolean universeMarketDataAllows(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            LfaRunnerTarget target,
+            RankedMarketData candidate
+    ) {
+        if (!properties.useSignalPlannerInstrumentUniverse() || !universe.enabled()) {
+            return true;
+        }
+        if (universe.maxMarketDataAgeMillis() != null
+                && candidate.ageMillis() > universe.maxMarketDataAgeMillis().longValue()) {
+            return false;
+        }
+        ExecutionProperties.SignalPlanner.SymbolPolicy policy =
+                selectedSymbolPolicy(universe, target, normalize(candidate.state().symbol()));
+        BigDecimal maxSpreadBps = decimal(policy == null || policy.maxSpreadBps() == null
+                ? universe.maxSpreadBps()
+                : policy.maxSpreadBps());
+        if (maxSpreadBps != null && candidate.spreadBps().compareTo(maxSpreadBps) > 0) {
+            return false;
+        }
+        BigDecimal minTopOfBookQuoteNotional = decimal(policy == null || policy.minTopOfBookQuoteNotional() == null
+                ? universe.minTopOfBookQuoteNotional()
+                : policy.minTopOfBookQuoteNotional());
+        return minTopOfBookQuoteNotional == null
+                || candidate.topOfBookQuoteNotional().compareTo(minTopOfBookQuoteNotional) >= 0;
+    }
+
+    private Optional<RankedMarketData> rankedMarketData(TradingStateProjection.MarketDataState state, Instant now) {
+        BigDecimal bidPrice = decimal(state.bestBidPrice());
+        BigDecimal bidQuantity = decimal(state.bestBidQuantity());
+        BigDecimal askPrice = decimal(state.bestAskPrice());
+        BigDecimal askQuantity = decimal(state.bestAskQuantity());
+        if (!positive(bidPrice) || !positive(bidQuantity) || !positive(askPrice) || !positive(askQuantity)) {
+            return Optional.empty();
+        }
+        if (askPrice.compareTo(bidPrice) < 0) {
+            return Optional.empty();
+        }
+        Instant observedAt = topOfBookTimestamp(state);
+        if (observedAt == null || observedAt.isAfter(now)) {
+            return Optional.empty();
+        }
+        long ageMillis = Duration.between(observedAt, now).toMillis();
+        if (ageMillis > properties.maxMarketDataAgeMillis().longValue()) {
+            return Optional.empty();
+        }
+        BigDecimal mid = bidPrice.add(askPrice).divide(new BigDecimal("2"), 18, RoundingMode.HALF_UP);
+        if (mid.compareTo(BigDecimal.ZERO) <= 0) {
+            return Optional.empty();
+        }
+        BigDecimal spreadBps = askPrice.subtract(bidPrice)
+                .multiply(new BigDecimal("10000"))
+                .divide(mid, 8, RoundingMode.HALF_UP);
+        BigDecimal topOfBookQuoteNotional = bidPrice.multiply(bidQuantity).min(askPrice.multiply(askQuantity));
+        return Optional.of(new RankedMarketData(state, spreadBps, topOfBookQuoteNotional, ageMillis));
+    }
+
+    private ExecutionProperties.SignalPlanner.SymbolPolicy selectedSymbolPolicy(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            LfaRunnerTarget target,
+            String symbol
+    ) {
+        ExecutionProperties.SignalPlanner.SymbolPolicy selected = null;
+        int selectedSpecificity = -1;
+        for (ExecutionProperties.SignalPlanner.SymbolPolicy candidate : universe.symbolPolicies()) {
+            int specificity = specificity(candidate, target, symbol);
+            if (specificity > selectedSpecificity) {
+                selected = candidate;
+                selectedSpecificity = specificity;
+            }
+        }
+        return selected;
+    }
+
+    private int specificity(
+            ExecutionProperties.SignalPlanner.SymbolPolicy candidate,
+            LfaRunnerTarget target,
+            String symbol
+    ) {
+        int specificity = 0;
+        specificity = match(candidate.provider(), target.provider(), specificity);
+        specificity = match(candidate.environment(), target.environment(), specificity);
+        specificity = match(candidate.account(), target.account(), specificity);
+        specificity = match(candidate.market(), target.market(), specificity);
+        return match(candidate.symbol(), symbol, specificity);
+    }
+
+    private int match(String configured, String actual, int currentSpecificity) {
+        if (currentSpecificity < 0) {
+            return -1;
+        }
+        if (configured == null || configured.isBlank()) {
+            return currentSpecificity;
+        }
+        if (!same(configured, actual)) {
+            return -1;
+        }
+        return currentSpecificity + 1;
     }
 
     private BudgetDecision accountBudget(TradingStateSnapshot snapshot, LfaRunnerTarget target, Instant now) {
@@ -418,8 +647,16 @@ public final class LfaSignalRunner {
         }
     }
 
+    private boolean positive(BigDecimal value) {
+        return value != null && value.compareTo(BigDecimal.ZERO) > 0;
+    }
+
     private boolean same(String left, String right) {
         return left != null && right != null && left.equalsIgnoreCase(right);
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
     }
 
     private CompletableFuture<List<PublishedTradingEvent>> publish(List<StrategySignalEvent> signals) {
@@ -530,6 +767,14 @@ public final class LfaSignalRunner {
         private boolean blocked() {
             return !reasons.isEmpty();
         }
+    }
+
+    private record RankedMarketData(
+            TradingStateProjection.MarketDataState state,
+            BigDecimal spreadBps,
+            BigDecimal topOfBookQuoteNotional,
+            long ageMillis
+    ) {
     }
 
     private record CurrentExposure(

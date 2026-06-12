@@ -133,6 +133,61 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void analyzes_only_signal_planner_universe_symbols_when_universe_is_enabled() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.200", "50000.50", "0.010"),
+                marketData("ETHUSDT", "3000.00", "3.000", "3000.10", "1.000")
+        );
+        LfaSignalRunner runner = runner(
+                enabledProperties(),
+                projection,
+                executionProperties(true, instrumentUniverse(List.of("ETHUSDT"), true))
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(eventBus.envelopes()).singleElement()
+                .satisfies(envelope -> assertThat(envelope.key().getSymbol()).isEqualTo("ETHUSDT"));
+    }
+
+    @Test
+    void does_not_analyze_universe_symbols_when_required_exchange_metadata_resolver_is_unavailable() {
+        TradingStateProjection projection = projectionWith(
+                marketData("ETHUSDT", "3000.00", "3.000", "3000.10", "1.000")
+        );
+        LfaSignalRunner runner = runner(
+                enabledProperties(),
+                projection,
+                executionProperties(true, instrumentUniverse(List.of("ETHUSDT"), true, true))
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:no_signal");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void caps_candidate_market_data_by_projected_market_quality_before_analysis() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.100", "50010.00", "0.010"),
+                marketData("ETHUSDT", "3000.00", "3.000", "3000.10", "1.000")
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithCandidateCap(1),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(eventBus.envelopes()).singleElement()
+                .satisfies(envelope -> assertThat(envelope.key().getSymbol()).isEqualTo("ETHUSDT"));
+    }
+
+    @Test
     void stays_disabled_without_publishing() {
         LfaSignalRunner runner = runner(disabledProperties(), new TradingStateProjection(), enabledExecutionProperties());
 
@@ -234,6 +289,7 @@ class LfaSignalRunnerTest {
                 projection,
                 eventBus,
                 executionProperties,
+                null,
                 Clock.fixed(NOW, ZoneOffset.UTC)
         );
     }
@@ -252,6 +308,7 @@ class LfaSignalRunnerTest {
                 lifecycleState,
                 minWarmupMarketDataSymbols,
                 minWarmupTopOfBookSymbols,
+                null,
                 3,
                 1,
                 null,
@@ -274,6 +331,7 @@ class LfaSignalRunnerTest {
                 "ACTIVE",
                 1,
                 1,
+                null,
                 maxAccountOpenPositions,
                 maxSymbolOpenPositions,
                 maxAccountPositionNotional,
@@ -283,11 +341,28 @@ class LfaSignalRunnerTest {
         );
     }
 
+    private LfaStrategyProperties.SignalRunner propertiesWithCandidateCap(Integer maxCandidateMarketDataSymbols) {
+        return properties(
+                true,
+                "ACTIVE",
+                1,
+                1,
+                maxCandidateMarketDataSymbols,
+                3,
+                1,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
     private LfaStrategyProperties.SignalRunner properties(
             boolean enabled,
             String lifecycleState,
             Integer minWarmupMarketDataSymbols,
             Integer minWarmupTopOfBookSymbols,
+            Integer maxCandidateMarketDataSymbols,
             Integer maxAccountOpenPositions,
             Integer maxSymbolOpenPositions,
             String maxAccountPositionNotional,
@@ -310,6 +385,8 @@ class LfaSignalRunnerTest {
                 minWarmupMarketDataSymbols,
                 minWarmupTopOfBookSymbols,
                 30_000L,
+                true,
+                maxCandidateMarketDataSymbols,
                 new BigDecimal("1.50"),
                 new BigDecimal("5"),
                 new BigDecimal("250"),
@@ -341,6 +418,13 @@ class LfaSignalRunnerTest {
     }
 
     private ExecutionProperties executionProperties(boolean signalPlannerEnabled) {
+        return executionProperties(signalPlannerEnabled, null);
+    }
+
+    private ExecutionProperties executionProperties(
+            boolean signalPlannerEnabled,
+            ExecutionProperties.SignalPlanner.InstrumentUniverse instrumentUniverse
+    ) {
         return new ExecutionProperties(
                 new ExecutionProperties.SignalPlanner(
                         signalPlannerEnabled,
@@ -352,9 +436,46 @@ class LfaSignalRunnerTest {
                                 "BTCUSDT",
                                 "GTC",
                                 "tb-demo"
-                        )
+                        ),
+                        List.of(),
+                        instrumentUniverse
                 ),
                 null
+        );
+    }
+
+    private ExecutionProperties.SignalPlanner.InstrumentUniverse instrumentUniverse(
+            List<String> includedSymbols,
+            boolean requireIncludedSymbol
+    ) {
+        return instrumentUniverse(includedSymbols, requireIncludedSymbol, false);
+    }
+
+    private ExecutionProperties.SignalPlanner.InstrumentUniverse instrumentUniverse(
+            List<String> includedSymbols,
+            boolean requireIncludedSymbol,
+            boolean requireExchangeMetadata
+    ) {
+        return new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                true,
+                includedSymbols,
+                List.of(),
+                false,
+                requireExchangeMetadata,
+                requireIncludedSymbol,
+                true,
+                false,
+                "TRADING",
+                null,
+                List.of(),
+                List.of(),
+                null,
+                true,
+                true,
+                30_000L,
+                "5",
+                "250",
+                List.of()
         );
     }
 

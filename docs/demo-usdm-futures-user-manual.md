@@ -49,8 +49,9 @@ What is not ready yet:
 - The LFA strategy module has a conservative top-of-book imbalance analyzer
   that can emit explicit symbol-linked `ENTER_LONG` or `ENTER_SHORT` strategy
   signals from projected market data. It also has a config-gated live signal
-  runner that can publish those signals into the event bus when explicitly
-  enabled. This manual does not treat it as a complete production trading
+  runner that can filter and rank candidate projected market data before
+  publishing those signals into the event bus when explicitly enabled. This
+  manual does not treat it as a complete production trading
   strategy or portfolio manager.
 - The bot should not be considered production-ready for real-money trading.
 - Real Binance trading is not covered by this manual.
@@ -1542,6 +1543,8 @@ Catalog defaults are:
 - `min_warmup_market_data_symbols`: `1`
 - `min_warmup_top_of_book_symbols`: `1`
 - `warmup_max_market_data_age_millis`: `30000`
+- `use_signal_planner_instrument_universe`: `true`
+- `max_candidate_market_data_symbols`: `null`
 - `min_imbalance_ratio`: `1.50`
 - `max_spread_bps`: `5`
 - `min_top_of_book_quote_notional`: `250`
@@ -1570,6 +1573,7 @@ overrides for `binance/demo/main/usdm_futures`:
 - `lifecycle_state`: `PAUSED`
 - `min_warmup_market_data_symbols`: `3`
 - `min_warmup_top_of_book_symbols`: `3`
+- `max_candidate_market_data_symbols`: `13`
 - `target_quantity`: `0.001`
 - `max_account_open_positions`: `3`
 - `max_symbol_open_positions`: `1`
@@ -1593,8 +1597,12 @@ Signal attributes include:
 
 When enabled, the runner reads the current projection snapshot, requires the
 current lifecycle state to be allowed, requires projected market-data and
-top-of-book warm-up thresholds to be met, applies account budget gates, passes
-projected market data to the analyzer, applies symbol budget gates to candidate
+top-of-book warm-up thresholds to be met, applies account budget gates, filters
+candidate symbols through the core signal-planner instrument universe when
+`use_signal_planner_instrument_universe=true`, ranks candidate market data by
+projected spread, top-of-book quote depth, freshness, and symbol, applies
+`max_candidate_market_data_symbols` when configured, passes only those candidate
+market-data states to the analyzer, applies symbol budget gates to candidate
 signals, publishes at most `max_signals_per_run` ranked signals as symbol-keyed
 `STRATEGY_SIGNAL` events, and then the existing signal planner and risk gates
 decide whether any order command can be built and admitted. A lifecycle block
@@ -1624,8 +1632,9 @@ Current runner budget gates can block on:
 The checked-in demo runtime keeps the runner disabled because full position
 lifecycle and money-management allocation are still incomplete. It already
 sets `lifecycle_state=PAUSED`, three-symbol projected-data warm-up thresholds,
-and open-position caps for first-start demo operation; notional and daily-loss
-caps remain inherited as `null` until calibrated for the target account.
+`max_candidate_market_data_symbols=13`, and open-position caps for first-start
+demo operation; notional and daily-loss caps remain inherited as `null` until
+calibrated for the target account.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,

@@ -50,6 +50,10 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 "trading.strategy.lfa.signal-runner.min-warmup-top-of-book-symbols",
                 Integer.class
         )).isEqualTo(3);
+        assertThat(environment.getProperty(
+                "trading.strategy.lfa.signal-runner.max-candidate-market-data-symbols",
+                Integer.class
+        )).isEqualTo(13);
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.target-quantity")).isEqualTo("0.001");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-open-positions", Integer.class))
                 .isEqualTo(3);

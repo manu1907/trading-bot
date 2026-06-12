@@ -1,11 +1,13 @@
 package io.github.manu.strategy.lfa;
 
 import io.github.manu.execution.ExecutionProperties;
+import io.github.manu.execution.StrategyInstrumentUniverseResolver;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -23,8 +25,16 @@ public class LfaStrategyConfiguration {
             LfaStrategyProperties properties,
             TradingStateProjection projection,
             TradingEventBus eventBus,
-            ExecutionProperties executionProperties
+            ExecutionProperties executionProperties,
+            ObjectProvider<StrategyInstrumentUniverseResolver> instrumentUniverseResolver
     ) {
-        return new LfaSignalRunner(analyzer, properties, projection, eventBus, executionProperties);
+        return new LfaSignalRunner(
+                analyzer,
+                properties,
+                projection,
+                eventBus,
+                executionProperties,
+                instrumentUniverseResolver.getIfAvailable()
+        );
     }
 }

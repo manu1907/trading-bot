@@ -32,6 +32,8 @@ public record LfaStrategyProperties(
             Integer minWarmupMarketDataSymbols,
             Integer minWarmupTopOfBookSymbols,
             Long warmupMaxMarketDataAgeMillis,
+            Boolean useSignalPlannerInstrumentUniverse,
+            Integer maxCandidateMarketDataSymbols,
             BigDecimal minImbalanceRatio,
             BigDecimal maxSpreadBps,
             BigDecimal minTopOfBookQuoteNotional,
@@ -65,6 +67,9 @@ public record LfaStrategyProperties(
                     30_000L,
                     "warmupMaxMarketDataAgeMillis"
             );
+            useSignalPlannerInstrumentUniverse =
+                    useSignalPlannerInstrumentUniverse == null || Boolean.TRUE.equals(useSignalPlannerInstrumentUniverse);
+            maxCandidateMarketDataSymbols = positiveOrNull(maxCandidateMarketDataSymbols, "maxCandidateMarketDataSymbols");
             minImbalanceRatio = positive(minImbalanceRatio, new BigDecimal("1.50"), "minImbalanceRatio");
             if (minImbalanceRatio.compareTo(BigDecimal.ONE) <= 0) {
                 throw new IllegalArgumentException("minImbalanceRatio must be greater than 1");
@@ -110,6 +115,8 @@ public record LfaStrategyProperties(
                     1,
                     1,
                     30_000L,
+                    true,
+                    null,
                     new BigDecimal("1.50"),
                     new BigDecimal("5"),
                     new BigDecimal("250"),
