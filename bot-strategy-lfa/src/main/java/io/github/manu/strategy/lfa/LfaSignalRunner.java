@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class LfaSignalRunner {
 
@@ -48,6 +49,7 @@ public final class LfaSignalRunner {
     private final StrategyInstrumentUniverseResolver instrumentUniverseResolver;
     private final Clock clock;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicReference<LfaLifecycleState> lifecycleState;
 
     public LfaSignalRunner(
             LfaMarketSignalAnalyzer analyzer,
@@ -102,6 +104,7 @@ public final class LfaSignalRunner {
         this.executionProperties = Objects.requireNonNull(executionProperties, "executionProperties");
         this.instrumentUniverseResolver = instrumentUniverseResolver;
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.lifecycleState = new AtomicReference<>(LfaLifecycleState.parse(properties.lifecycleState(), "lifecycleState"));
     }
 
     @Scheduled(
@@ -241,15 +244,57 @@ public final class LfaSignalRunner {
         }
     }
 
+    public LfaLifecycleStatus lifecycleStatus() {
+        return lifecycleStatus(lifecycleState.get(), null, null);
+    }
+
+    public LfaLifecycleStatus transitionLifecycle(
+            String requestedState,
+            String changedBy,
+            String reason
+    ) {
+        LfaLifecycleState next = LfaLifecycleState.parse(requestedState, "lifecycleState");
+        lifecycleState.set(next);
+        return lifecycleStatus(next, text(changedBy), text(reason));
+    }
+
     private GateDecision lifecycleGate() {
-        LfaLifecycleState lifecycleState = LfaLifecycleState.parse(properties.lifecycleState(), "lifecycleState");
-        if (!lifecycleState.canPublishNewSignals()) {
-            return new GateDecision(List.of(lifecycleState.blockerReason()));
+        LfaLifecycleState current = lifecycleState.get();
+        if (!current.canPublishNewSignals()) {
+            return new GateDecision(List.of(current.blockerReason()));
         }
-        if (properties.allowedLifecycleStates().contains(lifecycleState.name())) {
+        if (properties.allowedLifecycleStates().contains(current.name())) {
             return GateDecision.allowed();
         }
-        return new GateDecision(List.of(lifecycleState.blockerReason()));
+        return new GateDecision(List.of(current.blockerReason()));
+    }
+
+    private LfaLifecycleStatus lifecycleStatus(
+            LfaLifecycleState current,
+            String changedBy,
+            String reason
+    ) {
+        List<String> blockers = lifecycleBlockers(current);
+        return new LfaLifecycleStatus(
+                properties.enabled(),
+                properties.lifecycleState(),
+                current.name(),
+                properties.allowedLifecycleStates(),
+                current.canPublishNewSignals() && properties.allowedLifecycleStates().contains(current.name()),
+                blockers,
+                changedBy,
+                reason
+        );
+    }
+
+    private List<String> lifecycleBlockers(LfaLifecycleState current) {
+        if (!current.canPublishNewSignals()) {
+            return List.of(current.blockerReason());
+        }
+        if (!properties.allowedLifecycleStates().contains(current.name())) {
+            return List.of(current.blockerReason());
+        }
+        return List.of();
     }
 
     private GateDecision warmupGate(TradingStateSnapshot snapshot, LfaRunnerTarget target, Instant now) {
@@ -768,6 +813,10 @@ public final class LfaSignalRunner {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
     }
 
+    private String text(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private CompletableFuture<List<PublishedTradingEvent>> publish(List<StrategySignalEvent> signals) {
         CompletableFuture<List<PublishedTradingEvent>> chain = CompletableFuture.completedFuture(List.of());
         for (StrategySignalEvent signal : signals) {
@@ -849,6 +898,23 @@ public final class LfaSignalRunner {
 
         static LfaSignalRunResult blocked(String reason, LfaRunnerTarget target) {
             return new LfaSignalRunResult(true, reason, target, 0, 0, List.of(), List.of());
+        }
+    }
+
+    public record LfaLifecycleStatus(
+            boolean enabled,
+            String configuredLifecycleState,
+            String effectiveLifecycleState,
+            List<String> allowedLifecycleStates,
+            boolean publishEnabled,
+            List<String> blockers,
+            String changedBy,
+            String reason
+    ) {
+
+        public LfaLifecycleStatus {
+            allowedLifecycleStates = allowedLifecycleStates == null ? List.of() : List.copyOf(allowedLifecycleStates);
+            blockers = blockers == null ? List.of() : List.copyOf(blockers);
         }
     }
 

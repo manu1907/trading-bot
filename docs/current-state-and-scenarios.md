@@ -149,6 +149,15 @@ effective demo runner remains disabled because the full position-lifecycle and
 broader money-management layers are not complete enough for autonomous strategy
 execution.
 
+When the LFA runner bean and internal operator API are enabled, the operator API
+also exposes `GET /internal/strategy/lfa/lifecycle` and
+`POST /internal/strategy/lfa/lifecycle` with the same `X-Operator-Token`
+authentication used by intervention endpoints. These endpoints can inspect and
+change the effective in-process LFA lifecycle state without changing code.
+Lifecycle changes are not yet journal-persisted or replayed, so restart still
+returns to the configured runtime `lifecycle_state`; durable strategy lifecycle
+state remains a pending recovery requirement.
+
 This is now strategy-side signal generation plus a controlled live publication
 hook with a first projected account-margin allocation layer. It is not yet the
 full portfolio, position-management, expected-edge, risk-adjusted-return, or

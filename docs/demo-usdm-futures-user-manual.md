@@ -1578,6 +1578,29 @@ non-entry states `STARTING`, `PAUSED`, `DRAINING`, `STOPPED`, and
 `EMERGENCY_STOP` fail closed even if accidentally added to
 `allowed_lifecycle_states`.
 
+If the LFA runner is enabled and the internal operator API is enabled, the
+effective in-process lifecycle can be inspected and changed through the same
+operator token used by remediation endpoints:
+
+```bash
+curl -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/strategy/lfa/lifecycle'
+```
+
+```bash
+curl -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'X-Operator-Token: <operator-token>' \
+  -d '{"lifecycleState":"ACTIVE","changedBy":"operator","reason":"promotion gate passed"}' \
+  'http://localhost:8080/internal/strategy/lfa/lifecycle'
+```
+
+The lifecycle endpoint is runtime control, not a code fork. It behaves the same
+for demo and real when the same code and corresponding runtime config are used.
+This control is not yet journal-persisted or replayed; after restart the runner
+returns to the configured `lifecycle_state` until persisted strategy lifecycle
+state is implemented.
+
 The checked-in demo runtime does not override `enabled`, so the active effective
 value remains the catalog value `enabled=false`. It sets only actual first-start
 overrides for `binance/demo/main/usdm_futures`:
