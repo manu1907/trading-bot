@@ -71,10 +71,14 @@ The checked-in demo runtime currently enables that catalog baseline and sets:
 - `max_order_notional="50"` per initial symbol policy
 
 The resolver returns the eligible, exchange-confirmed subset of the configured
-candidate list. The planner now rejects stale, wide-spread, or thin top-of-book
-symbols, but it does not yet rotate across eligible symbols or rank candidates
-for expected profit, risk-adjusted return, or money-management fit; that ranking
-belongs to the remaining strategy market-analysis lifecycle work.
+candidate list. When a strategy signal does not explicitly name a symbol, the
+planner can rotate across admissible universe candidates and select the highest
+ranked symbol using projected market-data freshness, top-of-book spread, and
+top-of-book quote depth. Explicit signal symbols remain authoritative and are
+still rejected if any universe, projection, reconciliation, pause, or order-limit
+gate fails. This is not yet expected-profit, risk-adjusted-return, or
+money-management ranking; that belongs to the remaining strategy market-analysis
+lifecycle work.
 
 ## Runtime Policy Boundary
 

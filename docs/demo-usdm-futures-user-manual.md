@@ -1491,7 +1491,13 @@ whose top-of-book spread is wider than the configured limit. A symbol policy
 does not carry enough projected quote notional; the effective depth is the
 smaller of best-bid quote notional and best-ask quote notional. A symbol policy
 `min_top_of_book_quote_notional` overrides the universe-level depth limit for
-that symbol.
+that symbol. When a strategy signal omits `symbol`, the planner evaluates
+admissible universe candidates and selects the highest ranked symbol using
+projected freshness, spread, and top-of-book quote depth. When a signal provides
+`symbol`, that explicit symbol is used and must pass the same gates.
+Planned order commands include `planner_symbol_selection` and
+`planner_selected_symbol` attributes so operators can distinguish default,
+explicit, and ranked-universe symbol selection.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,

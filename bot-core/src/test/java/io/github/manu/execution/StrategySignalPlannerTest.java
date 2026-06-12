@@ -373,9 +373,12 @@ class StrategySignalPlannerTest {
                         List.of()
                 ))
         );
+        StrategySignalEvent btcSignal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setSymbol("BTCUSDT")
+                .build();
 
-        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
-        planner.handleSignal(signal(StrategySignalType.ENTER_LONG)).join();
+        Optional<OrderCommandEvent> planned = planner.plan(btcSignal);
+        planner.handleSignal(btcSignal).join();
 
         assertThat(planned).isEmpty();
         assertThat(eventBus.envelopes).isEmpty();
@@ -396,8 +399,11 @@ class StrategySignalPlannerTest {
                         List.of()
                 ))
         );
+        StrategySignalEvent btcSignal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setSymbol("BTCUSDT")
+                .build();
 
-        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+        Optional<OrderCommandEvent> planned = planner.plan(btcSignal);
 
         assertThat(planned).isEmpty();
     }
@@ -577,6 +583,61 @@ class StrategySignalPlannerTest {
         Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
 
         assertThat(planned).isPresent();
+    }
+
+    @Test
+    void selects_highest_ranked_universe_symbol_when_signal_symbol_is_not_explicit() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(
+                        marketDataState("BTCUSDT", "50000.00", "0.005", "50002.00", "0.005", NOW),
+                        marketDataState("ETHUSDT", "3000.00", "1.00", "3000.10", "1.00", NOW)
+                ),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringLiquidTopOfBook(
+                        List.of("BTCUSDT", "ETHUSDT"),
+                        "5",
+                        "250",
+                        1000L
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).hasValueSatisfying(command -> {
+            assertThat(command.getSymbol()).isEqualTo("ETHUSDT");
+            assertThat(command.getAttributes())
+                    .containsEntry("planner_symbol_selection", "ranked_universe")
+                    .containsEntry("planner_selected_symbol", "ETHUSDT");
+        });
+    }
+
+    @Test
+    void keeps_explicit_signal_symbol_when_another_universe_symbol_ranks_higher() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(
+                        marketDataState("BTCUSDT", "50000.00", "0.005", "50002.00", "0.005", NOW),
+                        marketDataState("ETHUSDT", "3000.00", "1.00", "3000.10", "1.00", NOW)
+                ),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringLiquidTopOfBook(
+                        List.of("BTCUSDT", "ETHUSDT"),
+                        "5",
+                        "250",
+                        1000L
+                ))
+        );
+        StrategySignalEvent explicitBtcSignal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setSymbol("BTCUSDT")
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(explicitBtcSignal);
+
+        assertThat(planned).hasValueSatisfying(command -> {
+            assertThat(command.getSymbol()).isEqualTo("BTCUSDT");
+            assertThat(command.getAttributes())
+                    .containsEntry("planner_symbol_selection", "explicit_signal")
+                    .containsEntry("planner_selected_symbol", "BTCUSDT");
+        });
     }
 
     @Test
@@ -849,7 +910,7 @@ class StrategySignalPlannerTest {
         return projection;
     }
 
-    private TradingStateProjection projectionWithMarketData(TradingStateProjection.MarketDataState marketData) {
+    private TradingStateProjection projectionWithMarketData(TradingStateProjection.MarketDataState... marketData) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -939,9 +1000,23 @@ class StrategySignalPlannerTest {
             String minTopOfBookQuoteNotional,
             Long maxMarketDataAgeMillis
     ) {
+        return instrumentUniverseRequiringLiquidTopOfBook(
+                List.of("BTCUSDT"),
+                maxSpreadBps,
+                minTopOfBookQuoteNotional,
+                maxMarketDataAgeMillis
+        );
+    }
+
+    private ExecutionProperties.SignalPlanner.InstrumentUniverse instrumentUniverseRequiringLiquidTopOfBook(
+            List<String> symbols,
+            String maxSpreadBps,
+            String minTopOfBookQuoteNotional,
+            Long maxMarketDataAgeMillis
+    ) {
         return new ExecutionProperties.SignalPlanner.InstrumentUniverse(
                 true,
-                List.of("BTCUSDT"),
+                symbols,
                 List.of(),
                 false,
                 false,

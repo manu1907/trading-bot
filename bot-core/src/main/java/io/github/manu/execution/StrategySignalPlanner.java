@@ -20,8 +20,9 @@ import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -150,12 +151,27 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         String environment = resolve(signal.getEnvironment(), properties.signalPlanner().defaults().environment(), "environment");
         String account = resolve(signal.getAccount(), properties.signalPlanner().defaults().account(), "account");
         String market = resolve(signal.getMarket(), properties.signalPlanner().defaults().market(), "market");
-        String symbol = resolve(signal.getSymbol(), properties.signalPlanner().defaults().symbol(), "symbol");
         OrderCommandType orderType = orderType(signal, features);
         String quantity = value(signal.getTargetQuantity());
         String quoteOrderQuantity = quantity == null ? value(signal.getTargetNotional()) : null;
         String price = value(signal.getLimitPrice());
         String stopPrice = value(signal.getStopPrice());
+        Optional<String> selectedSymbol = selectSymbol(
+                signal,
+                provider,
+                environment,
+                account,
+                market,
+                orderType,
+                quantity,
+                quoteOrderQuantity,
+                price,
+                stopPrice
+        );
+        if (selectedSymbol.isEmpty()) {
+            return Optional.empty();
+        }
+        String symbol = selectedSymbol.get();
         if (instrumentUniverseBlocked(
                 provider,
                 environment,
@@ -217,6 +233,112 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 .setAttributes(attributes)
                 .build();
         return Optional.of(command);
+    }
+
+    private Optional<String> selectSymbol(
+            StrategySignalEvent signal,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            OrderCommandType orderType,
+            String quantity,
+            String quoteOrderQuantity,
+            String price,
+            String stopPrice
+    ) {
+        String explicitSymbol = value(signal.getSymbol());
+        if (explicitSymbol != null) {
+            return Optional.of(explicitSymbol.toUpperCase(Locale.ROOT));
+        }
+        ExecutionProperties.SignalPlanner.InstrumentUniverse universe =
+                properties.signalPlanner().instrumentUniverse();
+        if (!universe.enabled()) {
+            return Optional.of(resolve(null, properties.signalPlanner().defaults().symbol(), "symbol"));
+        }
+        List<String> candidates = candidateSymbols(universe, provider, environment, account, market, orderType);
+        if (candidates.isEmpty()) {
+            return Optional.empty();
+        }
+        return candidates.stream()
+                .distinct()
+                .map(symbol -> rankedCandidate(
+                        universe,
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        orderType,
+                        quantity,
+                        quoteOrderQuantity,
+                        price,
+                        stopPrice
+                ))
+                .flatMap(Optional::stream)
+                .max(Comparator
+                        .comparingDouble((RankedCandidate candidate) -> candidate.rankedInstrument().score())
+                        .thenComparing(RankedCandidate::symbol, Comparator.reverseOrder()))
+                .map(RankedCandidate::symbol);
+    }
+
+    private List<String> candidateSymbols(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            OrderCommandType orderType
+    ) {
+        if (instrumentUniverseResolver != null
+                && (universe.refreshExchangeMetadataBeforePlanning() || universe.requireExchangeMetadata())) {
+            return instrumentUniverseResolver.eligibleSymbols(universe, provider, environment, account, market, orderType);
+        }
+        if (!universe.includedSymbols().isEmpty()) {
+            return universe.includedSymbols().stream()
+                    .filter(symbol -> !universe.excludedSymbols().contains(symbol))
+                    .toList();
+        }
+        return List.of(resolve(null, properties.signalPlanner().defaults().symbol(), "symbol").toUpperCase(Locale.ROOT));
+    }
+
+    private Optional<RankedCandidate> rankedCandidate(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol,
+            OrderCommandType orderType,
+            String quantity,
+            String quoteOrderQuantity,
+            String price,
+            String stopPrice
+    ) {
+        String normalizedSymbol = symbol.toUpperCase(Locale.ROOT);
+        if (instrumentUniverseBlocked(
+                provider,
+                environment,
+                account,
+                market,
+                normalizedSymbol,
+                orderType,
+                quantity,
+                quoteOrderQuantity,
+                price
+        )) {
+            return Optional.empty();
+        }
+        if (admissionBlocked(provider, environment, account, market, normalizedSymbol)) {
+            return Optional.empty();
+        }
+        if (orderLimitBlocked(provider, environment, account, market, normalizedSymbol, quantity, quoteOrderQuantity, price, stopPrice)) {
+            return Optional.empty();
+        }
+        ExecutionProperties.SignalPlanner.SymbolPolicy policy =
+                selectedSymbolPolicy(universe, provider, environment, account, market, normalizedSymbol);
+        return instrumentMarketDataRanker.rank(universe, policy, provider, environment, market, normalizedSymbol)
+                .map(ranked -> new RankedCandidate(normalizedSymbol, ranked));
     }
 
     private boolean orderLimitBlocked(
@@ -622,6 +744,8 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         attributes.put("signal_id", requireText(value(signal.getSignalId()), "signalId"));
         attributes.put("signal_type", signal.getSignalType().name());
         attributes.put("source", "strategy_signal_planner");
+        attributes.put("planner_symbol_selection", symbolSelectionSource(signal));
+        attributes.put("planner_selected_symbol", symbol);
         if (signal.getConfidence() != null) {
             attributes.put("signal_confidence", signal.getConfidence().toString());
         }
@@ -629,6 +753,16 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             attributes.put("signal_target_notional", signal.getTargetNotional().toString());
         }
         return Map.copyOf(attributes);
+    }
+
+    private String symbolSelectionSource(StrategySignalEvent signal) {
+        if (value(signal.getSymbol()) != null) {
+            return "explicit_signal";
+        }
+        if (properties.signalPlanner().instrumentUniverse().enabled()) {
+            return "ranked_universe";
+        }
+        return "default_symbol";
     }
 
     private Map<CharSequence, CharSequence> plannerProfileAttributes(
@@ -728,6 +862,12 @@ public final class StrategySignalPlanner implements TradingEventHandler {
     }
 
     private record DecimalField(BigDecimal value, boolean invalid) {
+    }
+
+    private record RankedCandidate(
+            String symbol,
+            StrategyInstrumentMarketDataRanker.RankedInstrument rankedInstrument
+    ) {
     }
 
     private record EffectiveOrderLimit(
