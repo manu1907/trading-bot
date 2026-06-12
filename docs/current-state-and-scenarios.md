@@ -120,8 +120,14 @@ projected account margin balance and split it across candidate publish slots
 when configured, applies account and symbol budget gates, publishes symbol-keyed
 `STRATEGY_SIGNAL` events through the core event bus, and relies on the core
 signal planner, order risk gate, idempotency, reconciliation confidence, and
-execution pipeline for downstream order admission. Lifecycle and warm-up blockers include `lfa_lifecycle:not_active`,
-`lfa_warmup:market_data_symbols_below_min`, and
+execution pipeline for downstream order admission. Lifecycle states are validated
+as `STARTING`, `ACTIVE`, `PAUSED`, `DRAINING`, `STOPPED`, or
+`EMERGENCY_STOP`; only `ACTIVE` can publish new signals, and non-entry states
+fail closed even if accidentally included in `allowed_lifecycle_states`.
+Lifecycle and warm-up blockers include `lfa_lifecycle:starting`,
+`lfa_lifecycle:paused`, `lfa_lifecycle:draining`,
+`lfa_lifecycle:stopped`, `lfa_lifecycle:emergency_stop`,
+`lfa_lifecycle:not_allowed`, `lfa_warmup:market_data_symbols_below_min`, and
 `lfa_warmup:top_of_book_symbols_below_min`. Budget blockers include
 account/symbol open-position caps, account/symbol position notional caps,
 account/symbol daily realized-loss caps, missing notional or daily-PnL metadata

@@ -62,6 +62,7 @@ public record LfaStrategyProperties(
             intervalMillis = positive(intervalMillis, 30_000L, "intervalMillis");
             strategyId = text(strategyId, "lfa");
             lifecycleState = normalizedText(lifecycleState, "STOPPED");
+            LfaLifecycleState.parse(lifecycleState, "lifecycleState");
             allowedLifecycleStates = normalizedList(allowedLifecycleStates, List.of("ACTIVE"), "allowedLifecycleStates");
             requireWarmupMarketData = requireWarmupMarketData == null || Boolean.TRUE.equals(requireWarmupMarketData);
             minWarmupMarketDataSymbols = positive(minWarmupMarketDataSymbols, 1, "minWarmupMarketDataSymbols");
@@ -198,6 +199,7 @@ public record LfaStrategyProperties(
             if (normalized.isEmpty()) {
                 throw new IllegalArgumentException(field + " must contain at least one non-blank state");
             }
+            normalized.forEach(value -> LfaLifecycleState.parse(value, field));
             return normalized;
         }
 

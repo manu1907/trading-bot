@@ -1571,6 +1571,13 @@ Catalog defaults are:
 - `reject_missing_account_risk_metadata`: `true`
 - `require_signal_planner_enabled`: `true`
 
+Valid `lifecycle_state` values are `STARTING`, `ACTIVE`, `PAUSED`,
+`DRAINING`, `STOPPED`, and `EMERGENCY_STOP`. Unknown values are rejected during
+configuration binding. The runner publishes new signals only in `ACTIVE`; the
+non-entry states `STARTING`, `PAUSED`, `DRAINING`, `STOPPED`, and
+`EMERGENCY_STOP` fail closed even if accidentally added to
+`allowed_lifecycle_states`.
+
 The checked-in demo runtime does not override `enabled`, so the active effective
 value remains the catalog value `enabled=false`. It sets only actual first-start
 overrides for `binance/demo/main/usdm_futures`:
@@ -1649,7 +1656,12 @@ Allocation attributes include:
 
 Current runner lifecycle and warm-up blockers can block on:
 
-- `lfa_lifecycle:not_active`
+- `lfa_lifecycle:starting`
+- `lfa_lifecycle:paused`
+- `lfa_lifecycle:draining`
+- `lfa_lifecycle:stopped`
+- `lfa_lifecycle:emergency_stop`
+- `lfa_lifecycle:not_allowed`
 - `lfa_warmup:market_data_symbols_below_min`
 - `lfa_warmup:top_of_book_symbols_below_min`
 

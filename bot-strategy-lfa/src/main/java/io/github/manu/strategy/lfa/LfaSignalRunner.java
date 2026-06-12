@@ -242,10 +242,14 @@ public final class LfaSignalRunner {
     }
 
     private GateDecision lifecycleGate() {
-        if (properties.allowedLifecycleStates().contains(properties.lifecycleState())) {
+        LfaLifecycleState lifecycleState = LfaLifecycleState.parse(properties.lifecycleState(), "lifecycleState");
+        if (!lifecycleState.canPublishNewSignals()) {
+            return new GateDecision(List.of(lifecycleState.blockerReason()));
+        }
+        if (properties.allowedLifecycleStates().contains(lifecycleState.name())) {
             return GateDecision.allowed();
         }
-        return new GateDecision(List.of("lfa_lifecycle:not_active"));
+        return new GateDecision(List.of(lifecycleState.blockerReason()));
     }
 
     private GateDecision warmupGate(TradingStateSnapshot snapshot, LfaRunnerTarget target, Instant now) {

@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class LfaSignalRunnerTest {
 
@@ -66,7 +67,7 @@ class LfaSignalRunnerTest {
     }
 
     @Test
-    void blocks_before_analysis_when_lifecycle_is_not_active() {
+    void blocks_before_analysis_when_lifecycle_is_paused() {
         TradingStateProjection projection = projectionWith(
                 marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
         );
@@ -79,8 +80,33 @@ class LfaSignalRunnerTest {
         LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
 
         assertThat(result.reason()).isEqualTo("lfa_signal_runner:lifecycle_blocked");
-        assertThat(result.blockers()).containsExactly("lfa_lifecycle:not_active");
+        assertThat(result.blockers()).containsExactly("lfa_lifecycle:paused");
         assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_emergency_stop_even_when_allowed_lifecycle_states_include_it() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithLifecycle("EMERGENCY_STOP", List.of("ACTIVE", "EMERGENCY_STOP")),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:lifecycle_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_lifecycle:emergency_stop");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void rejects_unknown_lifecycle_state_configuration() {
+        assertThatThrownBy(() -> enabledPropertiesWithLifecycle("BROKEN", 1, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("lifecycleState must be a known LFA lifecycle state");
     }
 
     @Test
@@ -380,9 +406,31 @@ class LfaSignalRunnerTest {
             Integer minWarmupMarketDataSymbols,
             Integer minWarmupTopOfBookSymbols
     ) {
+        return enabledPropertiesWithLifecycle(
+                lifecycleState,
+                List.of("ACTIVE"),
+                minWarmupMarketDataSymbols,
+                minWarmupTopOfBookSymbols
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner enabledPropertiesWithLifecycle(
+            String lifecycleState,
+            List<String> allowedLifecycleStates
+    ) {
+        return enabledPropertiesWithLifecycle(lifecycleState, allowedLifecycleStates, 1, 1);
+    }
+
+    private LfaStrategyProperties.SignalRunner enabledPropertiesWithLifecycle(
+            String lifecycleState,
+            List<String> allowedLifecycleStates,
+            Integer minWarmupMarketDataSymbols,
+            Integer minWarmupTopOfBookSymbols
+    ) {
         return properties(
                 true,
                 lifecycleState,
+                allowedLifecycleStates,
                 minWarmupMarketDataSymbols,
                 minWarmupTopOfBookSymbols,
                 null,
@@ -505,6 +553,36 @@ class LfaSignalRunnerTest {
             String maxAccountDailyRealizedLoss,
             String maxSymbolDailyRealizedLoss
     ) {
+        return properties(
+                enabled,
+                lifecycleState,
+                List.of("ACTIVE"),
+                minWarmupMarketDataSymbols,
+                minWarmupTopOfBookSymbols,
+                maxCandidateMarketDataSymbols,
+                maxAccountOpenPositions,
+                maxSymbolOpenPositions,
+                maxAccountPositionNotional,
+                maxSymbolPositionNotional,
+                maxAccountDailyRealizedLoss,
+                maxSymbolDailyRealizedLoss
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner properties(
+            boolean enabled,
+            String lifecycleState,
+            List<String> allowedLifecycleStates,
+            Integer minWarmupMarketDataSymbols,
+            Integer minWarmupTopOfBookSymbols,
+            Integer maxCandidateMarketDataSymbols,
+            Integer maxAccountOpenPositions,
+            Integer maxSymbolOpenPositions,
+            String maxAccountPositionNotional,
+            String maxSymbolPositionNotional,
+            String maxAccountDailyRealizedLoss,
+            String maxSymbolDailyRealizedLoss
+    ) {
         return new LfaStrategyProperties.SignalRunner(
                 enabled,
                 30_000L,
@@ -515,7 +593,7 @@ class LfaSignalRunnerTest {
                 "main",
                 "usdm_futures",
                 lifecycleState,
-                List.of("ACTIVE"),
+                allowedLifecycleStates,
                 true,
                 minWarmupMarketDataSymbols,
                 minWarmupTopOfBookSymbols,
