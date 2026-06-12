@@ -909,8 +909,8 @@ This checked-in override does not make every remediation action executable. It
 only allows the executor to submit currently supported cancel, one-way
 reduce-only position, and bounded managed-order amendment plans through the
 normal order execution pipeline when all projection, identity, freshness, risk,
-policy, and idempotency gates pass. The
-remaining position-order policy fields are inherited from the catalog defaults:
+policy, and idempotency gates pass. The remaining position-order policy fields
+use active catalog values because the runtime file does not override them:
 `provider=binance`, `market=usdm_futures`, `position_side=BOTH`,
 `order_type=MARKET`, `require_reduce_only=true`,
 `require_close_position_false=true`,
@@ -933,16 +933,16 @@ first start if the demo target should use a different symbol, cap, margin mode,
 leverage, exposure budget, loss budget, account equity floor, margin drawdown
 budget, or account margin-utilization limit.
 
-Managed-order amendment policy fields are also inherited from catalog defaults
-unless overridden. The checked-in demo runtime enables amendments only for
+Managed-order amendment policy fields also use active catalog values unless a
+higher-precedence config source overrides them. The checked-in demo runtime enables amendments only for
 bot-created `BTCUSDT` and `ETHUSDT` `LIMIT` orders, permits `PRICE` and `QUANTITY`, rejects
 quantity increases, permits quantity decreases up to 50%, caps price drift at
 2%, rejects projections older than 30 seconds, and allows only projected
 `ACCEPTED` or `PARTIALLY_FILLED` target orders. The runtime file overrides only
-values that differ from the catalog default; inherited catalog defaults still
-define allowed order type, allowed fields, quantity direction, stale-projection
-rejection, open-order status enforcement, exchange-order-id requirement, and
-allowed statuses.
+values that differ from the catalog value; catalog values still define allowed
+order type, allowed fields, quantity direction, stale-projection rejection,
+open-order status enforcement, exchange-order-id requirement, and allowed
+statuses.
 
 Hedge-mode `LONG` or `SHORT` position close/reduce command construction is
 implemented, but the checked-in demo runtime keeps it disabled. Enabling it
@@ -1046,7 +1046,8 @@ corresponding event or accepting the automated batch trigger.
 
 ## Configuration Sources
 
-Live-mode config is merged in this order:
+Live-mode config is merged in this order. Catalog values execute when no
+higher-precedence source overrides them:
 
 ```text
 runtime override > environment config > default catalog config
@@ -1551,8 +1552,9 @@ Catalog defaults are:
 - `reject_missing_account_risk_metadata`: `true`
 - `require_signal_planner_enabled`: `true`
 
-The checked-in demo runtime inherits the disabled catalog default and sets only
-actual first-start overrides for `binance/demo/main/usdm_futures`:
+The checked-in demo runtime does not override `enabled`, so the active effective
+value remains the catalog value `enabled=false`. It sets only actual first-start
+overrides for `binance/demo/main/usdm_futures`:
 
 - `initial_delay_millis`: `10000`
 - `provider`: `binance`

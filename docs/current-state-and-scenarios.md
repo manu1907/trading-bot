@@ -1,6 +1,6 @@
 # Current State And Supported Scenarios
 
-This document describes the bot as implemented in this repository today. It is not a profitability claim and it is not a readiness certificate for real-money autonomous trading. Demo and real use the same codebase; the active behavior is selected by runtime profile, environment, account, market, credentials, and deployment configuration.
+This document describes the bot as implemented in this repository today. It is not a profitability claim and it is not a readiness certificate for real-money autonomous trading. Demo and real use the same codebase; the active behavior is selected by the effective merged configuration: catalog defaults execute unless overridden by environment/application config, runtime target overrides, environment variables, or command-line arguments.
 
 The intended product direction is a professional autonomous order and position
 manager: it should open, amend, reduce, close, pause, recover, and reconcile
@@ -117,11 +117,11 @@ confidence, and execution pipeline for downstream order admission. Budget
 blockers include account/symbol open-position caps, account/symbol position
 notional caps, account/symbol daily realized-loss caps, missing notional or
 daily-PnL metadata when strict metadata rejection is enabled, and unbounded
-candidate signal notional when a notional cap is configured. The runner is
-disabled by default and the checked-in demo runtime keeps it disabled while
-carrying target, sizing, and open-position-cap overrides, because the full
-position-lifecycle and money-management layers are not complete enough for
-autonomous strategy execution.
+candidate signal notional when a notional cap is configured. The catalog value for the runner currently executes as `enabled=false` unless
+overridden. The checked-in demo runtime overrides target, sizing, and
+open-position caps but does not override `enabled`, so the effective demo runner
+remains disabled because the full position-lifecycle and money-management layers
+are not complete enough for autonomous strategy execution.
 
 This is now strategy-side signal generation plus a controlled live publication
 hook. It is not yet the full portfolio, position-management, expected-edge,
@@ -323,7 +323,8 @@ Implemented persistence/recovery surfaces include:
 
 ## Configuration Surface Added For Position Remediation
 
-Catalog defaults keep these fields explicit and overridable:
+Catalog values execute for these fields unless overridden, and remain explicit
+and overridable:
 
 - `trading.intervention.remediation_executor_policy.position_order_policy.one_way_reduce_only_enabled=false`
 - `trading.intervention.remediation_executor_policy.position_order_policy.provider=binance`
