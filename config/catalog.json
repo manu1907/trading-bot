@@ -72,6 +72,28 @@
         }
       }
     },
+    "strategy": {
+      "lfa": {
+        "signal_runner": {
+          "enabled": false,
+          "initial_delay_millis": 30000,
+          "interval_millis": 30000,
+          "strategy_id": "lfa",
+          "provider": null,
+          "environment": null,
+          "account": null,
+          "market": null,
+          "min_imbalance_ratio": "1.50",
+          "max_spread_bps": "5",
+          "min_top_of_book_quote_notional": "250",
+          "max_market_data_age_millis": 30000,
+          "target_quantity": null,
+          "target_notional": null,
+          "max_signals_per_run": 1,
+          "require_signal_planner_enabled": true
+        }
+      }
+    },
     "execution": {
       "pipeline": {
         "enabled": false

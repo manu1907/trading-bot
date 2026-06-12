@@ -107,10 +107,21 @@ signal with a limit price at the best bid. Signal features include `LIMIT` and
 `GTC`, while signal attributes include source, reason, market-data age, spread,
 bid/ask quote notional, effective quote depth, and imbalance ratio.
 
-This is strategy-side signal generation only. The analyzer is not yet wired as
-an autonomous live market-data loop, and it is not yet the full portfolio,
-position-management, expected-edge, risk-adjusted-return, or money-management
-selector needed for production autonomous trading.
+The strategy module also has a config-gated LFA signal runner under
+`trading.strategy.lfa.signal_runner`. When enabled, it periodically reads the
+current projected market-data snapshot, runs the analyzer, caps publication with
+`max_signals_per_run`, publishes symbol-keyed `STRATEGY_SIGNAL` events through
+the core event bus, and relies on the core signal planner, order risk gate,
+idempotency, reconciliation confidence, and execution pipeline for downstream
+order admission. The runner is disabled by default and the checked-in demo
+runtime keeps it disabled while carrying target and sizing overrides, because
+the aggregate risk-budget, position-lifecycle, and money-management layers are
+not complete enough for autonomous strategy execution.
+
+This is now strategy-side signal generation plus a controlled live publication
+hook. It is not yet the full portfolio, position-management, expected-edge,
+risk-adjusted-return, or money-management selector needed for production
+autonomous trading.
 
 ## Runtime Policy Boundary
 

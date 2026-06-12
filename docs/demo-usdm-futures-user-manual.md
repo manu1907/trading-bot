@@ -48,8 +48,10 @@ What is not ready yet:
   default.
 - The LFA strategy module has a conservative top-of-book imbalance analyzer
   that can emit explicit symbol-linked `ENTER_LONG` or `ENTER_SHORT` strategy
-  signals from projected market data, but this manual does not treat it as a
-  complete production trading strategy or portfolio manager.
+  signals from projected market data. It also has a config-gated live signal
+  runner that can publish those signals into the event bus when explicitly
+  enabled. This manual does not treat it as a complete production trading
+  strategy or portfolio manager.
 - The bot should not be considered production-ready for real-money trading.
 - Real Binance trading is not covered by this manual.
 
@@ -1501,7 +1503,7 @@ Planned order commands include `planner_symbol_selection` and
 `planner_selected_symbol` attributes so operators can distinguish default,
 explicit, and ranked-universe symbol selection.
 
-## LFA Signal Analyzer
+## LFA Signal Analyzer And Runner
 
 The current LFA module can analyze projected top-of-book market data for a
 target provider, environment, account, and market. It evaluates each instrument
@@ -1522,6 +1524,36 @@ Current conservative request defaults for USD-M futures are:
 - `targetQuantity`: caller supplied
 - `targetNotional`: `null` unless the caller chooses notional sizing
 
+The config-gated runner is controlled by `trading.strategy.lfa.signal_runner`.
+Catalog defaults are:
+
+- `enabled`: `false`
+- `initial_delay_millis`: `30000`
+- `interval_millis`: `30000`
+- `strategy_id`: `lfa`
+- `provider`: `null`
+- `environment`: `null`
+- `account`: `null`
+- `market`: `null`
+- `min_imbalance_ratio`: `1.50`
+- `max_spread_bps`: `5`
+- `min_top_of_book_quote_notional`: `250`
+- `max_market_data_age_millis`: `30000`
+- `target_quantity`: `null`
+- `target_notional`: `null`
+- `max_signals_per_run`: `1`
+- `require_signal_planner_enabled`: `true`
+
+The checked-in demo runtime inherits the disabled catalog default and sets only
+actual first-start overrides for `binance/demo/main/usdm_futures`:
+
+- `initial_delay_millis`: `10000`
+- `provider`: `binance`
+- `environment`: `demo`
+- `account`: `main`
+- `market`: `usdm_futures`
+- `target_quantity`: `0.001`
+
 The analyzer emits no signal when market data is stale, incomplete, crossed,
 too wide, too thin, or not imbalanced enough. If bid-side quote notional
 dominates, it emits `ENTER_LONG` with `symbol` set to that instrument and
@@ -1539,12 +1571,13 @@ Signal attributes include:
 - `lfa_ask_quote_notional`
 - `lfa_imbalance_ratio`
 
-The analyzer is not yet wired as the live autonomous strategy loop. The
-remaining work is to feed it from the live market-data lifecycle, combine it
-with dynamic exchange discovery, account capital, aggregate risk budgets,
-position state, loss limits, expected opportunity, and money-management rules,
-then send only the best eligible signals through the existing planner and risk
-gates.
+When enabled, the runner reads the current projection snapshot, passes projected
+market data to the analyzer, publishes at most `max_signals_per_run` ranked
+signals as symbol-keyed `STRATEGY_SIGNAL` events, and then the existing signal
+planner and risk gates decide whether any order command can be built and
+admitted. The checked-in demo runtime keeps the runner disabled because
+aggregate account/symbol/strategy budgets, full position lifecycle, and
+money-management allocation are still incomplete.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,

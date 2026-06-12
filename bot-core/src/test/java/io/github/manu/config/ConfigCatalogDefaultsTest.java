@@ -55,6 +55,23 @@ class ConfigCatalogDefaultsTest {
         assertBoolean(catalog, "trading.observability.pause_governance.expiry_monitor.enabled", true);
         assertInt(catalog, "trading.observability.pause_governance.expiry_monitor.interval_millis", 30000);
 
+        assertBoolean(catalog, "trading.strategy.lfa.signal_runner.enabled", false);
+        assertInt(catalog, "trading.strategy.lfa.signal_runner.initial_delay_millis", 30000);
+        assertInt(catalog, "trading.strategy.lfa.signal_runner.interval_millis", 30000);
+        assertText(catalog, "trading.strategy.lfa.signal_runner.strategy_id", "lfa");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.provider");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.environment");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.account");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.market");
+        assertText(catalog, "trading.strategy.lfa.signal_runner.min_imbalance_ratio", "1.50");
+        assertText(catalog, "trading.strategy.lfa.signal_runner.max_spread_bps", "5");
+        assertText(catalog, "trading.strategy.lfa.signal_runner.min_top_of_book_quote_notional", "250");
+        assertInt(catalog, "trading.strategy.lfa.signal_runner.max_market_data_age_millis", 30000);
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.target_quantity");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.target_notional");
+        assertInt(catalog, "trading.strategy.lfa.signal_runner.max_signals_per_run", 1);
+        assertBoolean(catalog, "trading.strategy.lfa.signal_runner.require_signal_planner_enabled", true);
+
         assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_external_remediation_cancel", true);
         assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_adopted_target_orders", false);
         assertNull(catalog, "trading.execution.signal_planner.instrument_universe.min_top_of_book_quote_notional");

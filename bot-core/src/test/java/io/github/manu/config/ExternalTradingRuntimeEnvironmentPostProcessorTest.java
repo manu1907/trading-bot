@@ -34,6 +34,14 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty("trading.projection.snapshot-store.enabled", Boolean.class)).isTrue();
         assertThat(environment.getProperty("trading.messaging.enabled", Boolean.class)).isTrue();
         assertThat(environment.getProperty("trading.messaging.consumers.auto-start", Boolean.class)).isTrue();
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.enabled", Boolean.class)).isFalse();
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.initial-delay-millis", Long.class))
+                .isEqualTo(10000L);
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.provider")).isEqualTo("binance");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.environment")).isEqualTo("demo");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.account")).isEqualTo("main");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.market")).isEqualTo("usdm_futures");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.target-quantity")).isEqualTo("0.001");
         assertThat(environment.getProperty("trading.execution.pipeline.enabled", Boolean.class)).isTrue();
         assertThat(environment.getProperty("trading.execution.signal-planner.defaults.symbol")).isEqualTo("BTCUSDT");
         assertThat(environment.getProperty(

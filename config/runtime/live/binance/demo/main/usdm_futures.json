@@ -32,6 +32,18 @@
         }
       }
     },
+    "strategy": {
+      "lfa": {
+        "signal_runner": {
+          "initial_delay_millis": 10000,
+          "provider": "binance",
+          "environment": "demo",
+          "account": "main",
+          "market": "usdm_futures",
+          "target_quantity": "0.001"
+        }
+      }
+    },
     "execution": {
       "pipeline": {
         "enabled": true
