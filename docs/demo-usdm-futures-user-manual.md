@@ -1542,6 +1542,13 @@ Catalog defaults are:
 - `target_quantity`: `null`
 - `target_notional`: `null`
 - `max_signals_per_run`: `1`
+- `max_account_open_positions`: `null`
+- `max_symbol_open_positions`: `null`
+- `max_account_position_notional`: `null`
+- `max_symbol_position_notional`: `null`
+- `max_account_daily_realized_loss`: `null`
+- `max_symbol_daily_realized_loss`: `null`
+- `reject_missing_account_risk_metadata`: `true`
 - `require_signal_planner_enabled`: `true`
 
 The checked-in demo runtime inherits the disabled catalog default and sets only
@@ -1553,6 +1560,8 @@ actual first-start overrides for `binance/demo/main/usdm_futures`:
 - `account`: `main`
 - `market`: `usdm_futures`
 - `target_quantity`: `0.001`
+- `max_account_open_positions`: `3`
+- `max_symbol_open_positions`: `1`
 
 The analyzer emits no signal when market data is stale, incomplete, crossed,
 too wide, too thin, or not imbalanced enough. If bid-side quote notional
@@ -1571,13 +1580,30 @@ Signal attributes include:
 - `lfa_ask_quote_notional`
 - `lfa_imbalance_ratio`
 
-When enabled, the runner reads the current projection snapshot, passes projected
-market data to the analyzer, publishes at most `max_signals_per_run` ranked
-signals as symbol-keyed `STRATEGY_SIGNAL` events, and then the existing signal
-planner and risk gates decide whether any order command can be built and
-admitted. The checked-in demo runtime keeps the runner disabled because
-aggregate account/symbol/strategy budgets, full position lifecycle, and
-money-management allocation are still incomplete.
+When enabled, the runner reads the current projection snapshot, applies account
+budget gates, passes projected market data to the analyzer, applies symbol
+budget gates to candidate signals, publishes at most `max_signals_per_run`
+ranked signals as symbol-keyed `STRATEGY_SIGNAL` events, and then the existing
+signal planner and risk gates decide whether any order command can be built and
+admitted. A blocked budget returns `lfa_signal_runner:budget_blocked` and does
+not publish the signal.
+
+Current runner budget gates can block on:
+
+- `lfa_budget:max_account_open_positions`
+- `lfa_budget:max_symbol_open_positions`
+- `lfa_budget:max_account_position_notional`
+- `lfa_budget:max_symbol_position_notional`
+- `lfa_budget:max_account_daily_realized_loss`
+- `lfa_budget:max_symbol_daily_realized_loss`
+- `lfa_budget:position_notional_metadata_missing`
+- `lfa_budget:daily_realized_pnl_missing`
+- `lfa_budget:signal_notional_unbounded`
+
+The checked-in demo runtime keeps the runner disabled because full position
+lifecycle and money-management allocation are still incomplete. It already
+sets open-position caps for first-start demo operation; notional and daily-loss
+caps remain inherited as `null` until calibrated for the target account.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,

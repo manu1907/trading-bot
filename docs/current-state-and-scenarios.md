@@ -110,13 +110,18 @@ bid/ask quote notional, effective quote depth, and imbalance ratio.
 The strategy module also has a config-gated LFA signal runner under
 `trading.strategy.lfa.signal_runner`. When enabled, it periodically reads the
 current projected market-data snapshot, runs the analyzer, caps publication with
-`max_signals_per_run`, publishes symbol-keyed `STRATEGY_SIGNAL` events through
-the core event bus, and relies on the core signal planner, order risk gate,
-idempotency, reconciliation confidence, and execution pipeline for downstream
-order admission. The runner is disabled by default and the checked-in demo
-runtime keeps it disabled while carrying target and sizing overrides, because
-the aggregate risk-budget, position-lifecycle, and money-management layers are
-not complete enough for autonomous strategy execution.
+`max_signals_per_run`, applies account and symbol budget gates, publishes
+symbol-keyed `STRATEGY_SIGNAL` events through the core event bus, and relies on
+the core signal planner, order risk gate, idempotency, reconciliation
+confidence, and execution pipeline for downstream order admission. Budget
+blockers include account/symbol open-position caps, account/symbol position
+notional caps, account/symbol daily realized-loss caps, missing notional or
+daily-PnL metadata when strict metadata rejection is enabled, and unbounded
+candidate signal notional when a notional cap is configured. The runner is
+disabled by default and the checked-in demo runtime keeps it disabled while
+carrying target, sizing, and open-position-cap overrides, because the full
+position-lifecycle and money-management layers are not complete enough for
+autonomous strategy execution.
 
 This is now strategy-side signal generation plus a controlled live publication
 hook. It is not yet the full portfolio, position-management, expected-edge,

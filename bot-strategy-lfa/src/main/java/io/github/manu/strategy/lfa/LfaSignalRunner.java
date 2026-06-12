@@ -8,14 +8,22 @@ import io.github.manu.execution.ExecutionProperties;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.projection.TradingStateSnapshot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -95,13 +103,59 @@ public final class LfaSignalRunner {
                     target.market()
             );
             Instant now = Instant.now(clock);
+            TradingStateSnapshot snapshot = projection.snapshot();
+            BudgetDecision accountBudget = accountBudget(snapshot, target, now);
+            if (accountBudget.blocked()) {
+                return new LfaSignalRunResult(
+                        true,
+                        "lfa_signal_runner:budget_blocked",
+                        target,
+                        0,
+                        0,
+                        List.of(),
+                        accountBudget.reasons()
+                );
+            }
             List<StrategySignalEvent> signals = analyzer.analyze(
                     request,
-                    projection.snapshot().marketData(),
+                    snapshot.marketData(),
                     now
             ).stream().limit(properties.maxSignalsPerRun()).toList();
             if (signals.isEmpty()) {
-                return new LfaSignalRunResult(true, "lfa_signal_runner:no_signal", target, 0, 0, List.of());
+                return new LfaSignalRunResult(true, "lfa_signal_runner:no_signal", target, 0, 0, List.of(), List.of());
+            }
+            List<StrategySignalEvent> publishableSignals = new ArrayList<>();
+            LinkedHashSet<String> blockedReasons = new LinkedHashSet<>();
+            for (StrategySignalEvent signal : signals) {
+                BudgetDecision budget = signalBudget(snapshot, target, signal, now);
+                if (budget.blocked()) {
+                    blockedReasons.addAll(budget.reasons());
+                } else {
+                    publishableSignals.add(signal);
+                }
+            }
+            if (!blockedReasons.isEmpty()) {
+                if (!publishableSignals.isEmpty()) {
+                    List<PublishedTradingEvent> published = publish(publishableSignals).join();
+                    return new LfaSignalRunResult(
+                            true,
+                            "lfa_signal_runner:published_with_budget_blocks",
+                            target,
+                            signals.size(),
+                            published.size(),
+                            publishableSignals.stream().map(signal -> signal.getSignalId().toString()).toList(),
+                            blockedReasons.stream().toList()
+                    );
+                }
+                return new LfaSignalRunResult(
+                        true,
+                        "lfa_signal_runner:budget_blocked",
+                        target,
+                        signals.size(),
+                        0,
+                        signals.stream().map(signal -> signal.getSignalId().toString()).toList(),
+                        blockedReasons.stream().toList()
+                );
             }
             List<PublishedTradingEvent> published = publish(signals).join();
             return new LfaSignalRunResult(
@@ -110,11 +164,187 @@ public final class LfaSignalRunner {
                     target,
                     signals.size(),
                     published.size(),
-                    signals.stream().map(signal -> signal.getSignalId().toString()).toList()
+                    signals.stream().map(signal -> signal.getSignalId().toString()).toList(),
+                    List.of()
             );
         } finally {
             running.set(false);
         }
+    }
+
+    private BudgetDecision accountBudget(TradingStateSnapshot snapshot, LfaRunnerTarget target, Instant now) {
+        LinkedHashSet<String> reasons = new LinkedHashSet<>();
+        CurrentExposure exposure = currentExposure(snapshot, target, null);
+        if (properties.maxAccountOpenPositions() != null
+                && exposure.accountOpenPositions() >= properties.maxAccountOpenPositions().intValue()) {
+            reasons.add("lfa_budget:max_account_open_positions");
+        }
+        if (properties.maxAccountPositionNotional() != null) {
+            if (!exposure.valid()) {
+                addIfStrict(reasons, "lfa_budget:position_notional_metadata_missing");
+            } else if (exposure.accountPositionNotional().compareTo(properties.maxAccountPositionNotional()) > 0) {
+                reasons.add("lfa_budget:max_account_position_notional");
+            }
+        }
+        DailyLoss dailyLoss = dailyLoss(snapshot, target, null, now);
+        if (properties.maxAccountDailyRealizedLoss() != null) {
+            if (dailyLoss.accountLoss().isEmpty()) {
+                addIfStrict(reasons, "lfa_budget:daily_realized_pnl_missing");
+            } else if (dailyLoss.accountLoss().get().compareTo(properties.maxAccountDailyRealizedLoss()) > 0) {
+                reasons.add("lfa_budget:max_account_daily_realized_loss");
+            }
+        }
+        return new BudgetDecision(reasons.stream().toList());
+    }
+
+    private BudgetDecision signalBudget(
+            TradingStateSnapshot snapshot,
+            LfaRunnerTarget target,
+            StrategySignalEvent signal,
+            Instant now
+    ) {
+        String symbol = signal.getSymbol().toString();
+        LinkedHashSet<String> reasons = new LinkedHashSet<>();
+        CurrentExposure exposure = currentExposure(snapshot, target, symbol);
+        if (properties.maxSymbolOpenPositions() != null
+                && exposure.symbolOpenPositions() >= properties.maxSymbolOpenPositions().intValue()) {
+            reasons.add("lfa_budget:max_symbol_open_positions");
+        }
+        BigDecimal signalNotional = signalNotional(signal).orElse(null);
+        if ((properties.maxAccountPositionNotional() != null || properties.maxSymbolPositionNotional() != null)
+                && signalNotional == null) {
+            addIfStrict(reasons, "lfa_budget:signal_notional_unbounded");
+        }
+        if (properties.maxAccountPositionNotional() != null && exposure.valid() && signalNotional != null) {
+            BigDecimal projected = exposure.accountPositionNotional().add(signalNotional);
+            if (projected.compareTo(properties.maxAccountPositionNotional()) > 0) {
+                reasons.add("lfa_budget:max_account_position_notional");
+            }
+        }
+        if (properties.maxSymbolPositionNotional() != null) {
+            if (!exposure.valid()) {
+                addIfStrict(reasons, "lfa_budget:position_notional_metadata_missing");
+            } else if (signalNotional != null
+                    && exposure.symbolPositionNotional().add(signalNotional)
+                            .compareTo(properties.maxSymbolPositionNotional()) > 0) {
+                reasons.add("lfa_budget:max_symbol_position_notional");
+            }
+        }
+        DailyLoss dailyLoss = dailyLoss(snapshot, target, symbol, now);
+        if (properties.maxSymbolDailyRealizedLoss() != null) {
+            if (dailyLoss.symbolLoss().isEmpty()) {
+                addIfStrict(reasons, "lfa_budget:daily_realized_pnl_missing");
+            } else if (dailyLoss.symbolLoss().get().compareTo(properties.maxSymbolDailyRealizedLoss()) > 0) {
+                reasons.add("lfa_budget:max_symbol_daily_realized_loss");
+            }
+        }
+        return new BudgetDecision(reasons.stream().toList());
+    }
+
+    private CurrentExposure currentExposure(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol) {
+        BigDecimal accountNotional = BigDecimal.ZERO;
+        BigDecimal symbolNotional = BigDecimal.ZERO;
+        int accountOpenPositions = 0;
+        int symbolOpenPositions = 0;
+        boolean valid = true;
+        for (TradingStateProjection.PositionState position : snapshot.positions()) {
+            if (!matchesTarget(position, target) || !position.open()) {
+                continue;
+            }
+            accountOpenPositions++;
+            if (same(position.symbol(), symbol)) {
+                symbolOpenPositions++;
+            }
+            BigDecimal amount = decimal(position.positionAmount());
+            BigDecimal markPrice = decimal(position.markPrice());
+            if (amount == null || markPrice == null || markPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                valid = false;
+                continue;
+            }
+            BigDecimal notional = amount.abs().multiply(markPrice.abs());
+            accountNotional = accountNotional.add(notional);
+            if (same(position.symbol(), symbol)) {
+                symbolNotional = symbolNotional.add(notional);
+            }
+        }
+        return new CurrentExposure(valid, accountNotional, symbolNotional, accountOpenPositions, symbolOpenPositions);
+    }
+
+    private DailyLoss dailyLoss(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol, Instant now) {
+        String tradingDay = LocalDate.ofInstant(now, ZoneOffset.UTC).toString();
+        Optional<BigDecimal> accountLoss = Optional.empty();
+        Optional<BigDecimal> symbolLoss = Optional.empty();
+        for (TradingStateProjection.DailyRealizedPnlState state : snapshot.dailyRealizedPnl()) {
+            if (!matchesTarget(state, target) || !tradingDay.equals(state.tradingDay())) {
+                continue;
+            }
+            if (state.symbol() == null) {
+                accountLoss = loss(state.realizedPnl());
+            } else if (same(state.symbol(), symbol)) {
+                symbolLoss = loss(state.realizedPnl());
+            }
+        }
+        return new DailyLoss(accountLoss, symbolLoss);
+    }
+
+    private Optional<BigDecimal> signalNotional(StrategySignalEvent signal) {
+        BigDecimal targetNotional = decimal(signal.getTargetNotional());
+        if (targetNotional != null) {
+            return Optional.of(targetNotional);
+        }
+        BigDecimal quantity = decimal(signal.getTargetQuantity());
+        BigDecimal limitPrice = decimal(signal.getLimitPrice());
+        if (quantity == null || limitPrice == null) {
+            return Optional.empty();
+        }
+        return Optional.of(quantity.multiply(limitPrice).setScale(8, RoundingMode.HALF_UP).stripTrailingZeros());
+    }
+
+    private Optional<BigDecimal> loss(String realizedPnl) {
+        BigDecimal pnl = decimal(realizedPnl);
+        if (pnl == null) {
+            return Optional.empty();
+        }
+        return Optional.of(pnl.signum() < 0 ? pnl.abs() : BigDecimal.ZERO);
+    }
+
+    private boolean matchesTarget(TradingStateProjection.PositionState position, LfaRunnerTarget target) {
+        return same(position.provider(), target.provider())
+                && same(position.environment(), target.environment())
+                && same(position.account(), target.account())
+                && same(position.market(), target.market());
+    }
+
+    private boolean matchesTarget(TradingStateProjection.DailyRealizedPnlState state, LfaRunnerTarget target) {
+        return same(state.provider(), target.provider())
+                && same(state.environment(), target.environment())
+                && same(state.account(), target.account())
+                && same(state.market(), target.market());
+    }
+
+    private void addIfStrict(LinkedHashSet<String> reasons, String reason) {
+        if (properties.rejectMissingAccountRiskMetadata()) {
+            reasons.add(reason);
+        }
+    }
+
+    private BigDecimal decimal(CharSequence value) {
+        return value == null ? null : decimal(value.toString());
+    }
+
+    private BigDecimal decimal(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private boolean same(String left, String right) {
+        return left != null && right != null && left.equalsIgnoreCase(right);
     }
 
     private CompletableFuture<List<PublishedTradingEvent>> publish(List<StrategySignalEvent> signals) {
@@ -179,23 +409,51 @@ public final class LfaSignalRunner {
             LfaRunnerTarget target,
             int candidateSignals,
             int publishedSignals,
-            List<String> signalIds
+            List<String> signalIds,
+            List<String> blockers
     ) {
 
         public LfaSignalRunResult {
             signalIds = signalIds == null ? List.of() : List.copyOf(signalIds);
+            blockers = blockers == null ? List.of() : List.copyOf(blockers);
         }
 
         static LfaSignalRunResult disabled(String reason) {
-            return new LfaSignalRunResult(false, reason, null, 0, 0, List.of());
+            return new LfaSignalRunResult(false, reason, null, 0, 0, List.of(), List.of());
         }
 
         static LfaSignalRunResult skipped(String reason) {
-            return new LfaSignalRunResult(true, reason, null, 0, 0, List.of());
+            return new LfaSignalRunResult(true, reason, null, 0, 0, List.of(), List.of());
         }
 
         static LfaSignalRunResult blocked(String reason, LfaRunnerTarget target) {
-            return new LfaSignalRunResult(true, reason, target, 0, 0, List.of());
+            return new LfaSignalRunResult(true, reason, target, 0, 0, List.of(), List.of());
         }
+    }
+
+    private record BudgetDecision(List<String> reasons) {
+
+        private BudgetDecision {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+        }
+
+        private boolean blocked() {
+            return !reasons.isEmpty();
+        }
+    }
+
+    private record CurrentExposure(
+            boolean valid,
+            BigDecimal accountPositionNotional,
+            BigDecimal symbolPositionNotional,
+            int accountOpenPositions,
+            int symbolOpenPositions
+    ) {
+    }
+
+    private record DailyLoss(
+            Optional<BigDecimal> accountLoss,
+            Optional<BigDecimal> symbolLoss
+    ) {
     }
 }

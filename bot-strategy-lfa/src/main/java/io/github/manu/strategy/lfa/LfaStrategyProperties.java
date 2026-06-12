@@ -31,6 +31,13 @@ public record LfaStrategyProperties(
             String targetQuantity,
             String targetNotional,
             Integer maxSignalsPerRun,
+            Integer maxAccountOpenPositions,
+            Integer maxSymbolOpenPositions,
+            BigDecimal maxAccountPositionNotional,
+            BigDecimal maxSymbolPositionNotional,
+            BigDecimal maxAccountDailyRealizedLoss,
+            BigDecimal maxSymbolDailyRealizedLoss,
+            Boolean rejectMissingAccountRiskMetadata,
             Boolean requireSignalPlannerEnabled
     ) {
 
@@ -54,6 +61,14 @@ public record LfaStrategyProperties(
             targetQuantity = blankToNull(targetQuantity);
             targetNotional = blankToNull(targetNotional);
             maxSignalsPerRun = positive(maxSignalsPerRun, 1, "maxSignalsPerRun");
+            maxAccountOpenPositions = positiveOrNull(maxAccountOpenPositions, "maxAccountOpenPositions");
+            maxSymbolOpenPositions = positiveOrNull(maxSymbolOpenPositions, "maxSymbolOpenPositions");
+            maxAccountPositionNotional = positiveOrNull(maxAccountPositionNotional, "maxAccountPositionNotional");
+            maxSymbolPositionNotional = positiveOrNull(maxSymbolPositionNotional, "maxSymbolPositionNotional");
+            maxAccountDailyRealizedLoss = positiveOrNull(maxAccountDailyRealizedLoss, "maxAccountDailyRealizedLoss");
+            maxSymbolDailyRealizedLoss = positiveOrNull(maxSymbolDailyRealizedLoss, "maxSymbolDailyRealizedLoss");
+            rejectMissingAccountRiskMetadata =
+                    rejectMissingAccountRiskMetadata == null || Boolean.TRUE.equals(rejectMissingAccountRiskMetadata);
             requireSignalPlannerEnabled =
                     requireSignalPlannerEnabled == null || Boolean.TRUE.equals(requireSignalPlannerEnabled);
             if (enabled && targetQuantity == null && targetNotional == null) {
@@ -78,6 +93,13 @@ public record LfaStrategyProperties(
                     null,
                     null,
                     1,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    true,
                     true
             );
         }
@@ -128,6 +150,20 @@ public record LfaStrategyProperties(
                 throw new IllegalArgumentException(field + " must be positive");
             }
             return resolved;
+        }
+
+        private static Integer positiveOrNull(Integer value, String field) {
+            if (value != null && value.intValue() <= 0) {
+                throw new IllegalArgumentException(field + " must be positive when configured");
+            }
+            return value;
+        }
+
+        private static BigDecimal positiveOrNull(BigDecimal value, String field) {
+            if (value != null && value.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException(field + " must be positive when configured");
+            }
+            return value;
         }
     }
 }

@@ -42,6 +42,10 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.account")).isEqualTo("main");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.market")).isEqualTo("usdm_futures");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.target-quantity")).isEqualTo("0.001");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-open-positions", Integer.class))
+                .isEqualTo(3);
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-symbol-open-positions", Integer.class))
+                .isEqualTo(1);
         assertThat(environment.getProperty("trading.execution.pipeline.enabled", Boolean.class)).isTrue();
         assertThat(environment.getProperty("trading.execution.signal-planner.defaults.symbol")).isEqualTo("BTCUSDT");
         assertThat(environment.getProperty(

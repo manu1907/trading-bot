@@ -104,6 +104,86 @@ class LfaSignalRunnerTest {
         assertThat(eventBus.envelopes()).isEmpty();
     }
 
+    @Test
+    void blocks_before_analysis_when_account_open_position_budget_is_full() {
+        TradingStateProjection projection = projectionWith(
+                List.of(
+                        position("ETHUSDT", "BOTH", "0.10", "3000"),
+                        position("SOLUSDT", "BOTH", "1.00", "100"),
+                        position("BNBUSDT", "BOTH", "1.00", "600")
+                ),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(enabledProperties(), projection, enabledExecutionProperties());
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_account_open_positions");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_signal_when_symbol_open_position_budget_is_full() {
+        TradingStateProjection projection = projectionWith(
+                List.of(position("BTCUSDT", "BOTH", "0.001", "50000")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(enabledProperties(), projection, enabledExecutionProperties());
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.candidateSignals()).isEqualTo(1);
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_symbol_open_positions");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_signal_when_projected_account_position_notional_exceeds_budget() {
+        TradingStateProjection projection = projectionWith(
+                List.of(position("ETHUSDT", "BOTH", "0.20", "3000")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithBudgets(3, 1, "640", null, null, null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_account_position_notional");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_signal_when_current_symbol_daily_realized_loss_exceeds_budget() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(
+                        dailyPnl(null, "-5"),
+                        dailyPnl("BTCUSDT", "-11")
+                ),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithBudgets(3, 1, null, null, null, "10"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_symbol_daily_realized_loss");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
     private LfaSignalRunner runner(
             LfaStrategyProperties.SignalRunner properties,
             TradingStateProjection projection,
@@ -120,6 +200,17 @@ class LfaSignalRunnerTest {
     }
 
     private LfaStrategyProperties.SignalRunner enabledProperties() {
+        return enabledPropertiesWithBudgets(3, 1, null, null, null, null);
+    }
+
+    private LfaStrategyProperties.SignalRunner enabledPropertiesWithBudgets(
+            Integer maxAccountOpenPositions,
+            Integer maxSymbolOpenPositions,
+            String maxAccountPositionNotional,
+            String maxSymbolPositionNotional,
+            String maxAccountDailyRealizedLoss,
+            String maxSymbolDailyRealizedLoss
+    ) {
         return new LfaStrategyProperties.SignalRunner(
                 true,
                 30_000L,
@@ -136,6 +227,13 @@ class LfaSignalRunnerTest {
                 "0.001",
                 null,
                 1,
+                maxAccountOpenPositions,
+                maxSymbolOpenPositions,
+                decimal(maxAccountPositionNotional),
+                decimal(maxSymbolPositionNotional),
+                decimal(maxAccountDailyRealizedLoss),
+                decimal(maxSymbolDailyRealizedLoss),
+                true,
                 true
         );
     }
@@ -171,20 +269,74 @@ class LfaSignalRunnerTest {
     }
 
     private TradingStateProjection projectionWith(TradingStateProjection.MarketDataState... marketData) {
+        return projectionWith(List.of(), List.of(), marketData);
+    }
+
+    private TradingStateProjection projectionWith(
+            List<TradingStateProjection.PositionState> positions,
+            List<TradingStateProjection.DailyRealizedPnlState> dailyPnl,
+            TradingStateProjection.MarketDataState... marketData
+    ) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
                 List.of(),
-                List.of(),
+                positions,
                 List.of(),
                 List.of(),
                 List.of(marketData),
-                List.of(),
+                dailyPnl,
                 List.of(),
                 List.of(),
                 List.of(),
                 List.of()
         ));
         return projection;
+    }
+
+    private TradingStateProjection.PositionState position(
+            String symbol,
+            String positionSide,
+            String amount,
+            String markPrice
+    ) {
+        return new TradingStateProjection.PositionState(
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                symbol,
+                positionSide,
+                amount,
+                markPrice,
+                markPrice,
+                "0",
+                "1",
+                "cross",
+                null,
+                "USER_DATA",
+                false,
+                null,
+                NOW,
+                "position-" + symbol
+        );
+    }
+
+    private TradingStateProjection.DailyRealizedPnlState dailyPnl(String symbol, String pnl) {
+        return new TradingStateProjection.DailyRealizedPnlState(
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                symbol,
+                "2026-06-12",
+                pnl,
+                NOW,
+                "daily-pnl-" + (symbol == null ? "account" : symbol)
+        );
+    }
+
+    private BigDecimal decimal(String value) {
+        return value == null ? null : new BigDecimal(value);
     }
 
     private TradingStateProjection.MarketDataState marketData(

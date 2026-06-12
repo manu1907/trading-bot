@@ -70,6 +70,13 @@ class ConfigCatalogDefaultsTest {
         assertNull(catalog, "trading.strategy.lfa.signal_runner.target_quantity");
         assertNull(catalog, "trading.strategy.lfa.signal_runner.target_notional");
         assertInt(catalog, "trading.strategy.lfa.signal_runner.max_signals_per_run", 1);
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.max_account_open_positions");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.max_symbol_open_positions");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.max_account_position_notional");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.max_symbol_position_notional");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.max_account_daily_realized_loss");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.max_symbol_daily_realized_loss");
+        assertBoolean(catalog, "trading.strategy.lfa.signal_runner.reject_missing_account_risk_metadata", true);
         assertBoolean(catalog, "trading.strategy.lfa.signal_runner.require_signal_planner_enabled", true);
 
         assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_external_remediation_cancel", true);
