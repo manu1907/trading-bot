@@ -4,6 +4,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Locale;
 
 @ConfigurationProperties(prefix = "trading.strategy.lfa")
 public record LfaStrategyProperties(
@@ -24,6 +26,12 @@ public record LfaStrategyProperties(
             String environment,
             String account,
             String market,
+            String lifecycleState,
+            List<String> allowedLifecycleStates,
+            Boolean requireWarmupMarketData,
+            Integer minWarmupMarketDataSymbols,
+            Integer minWarmupTopOfBookSymbols,
+            Long warmupMaxMarketDataAgeMillis,
             BigDecimal minImbalanceRatio,
             BigDecimal maxSpreadBps,
             BigDecimal minTopOfBookQuoteNotional,
@@ -47,6 +55,16 @@ public record LfaStrategyProperties(
             initialDelayMillis = positive(initialDelayMillis, 30_000L, "initialDelayMillis");
             intervalMillis = positive(intervalMillis, 30_000L, "intervalMillis");
             strategyId = text(strategyId, "lfa");
+            lifecycleState = normalizedText(lifecycleState, "STOPPED");
+            allowedLifecycleStates = normalizedList(allowedLifecycleStates, List.of("ACTIVE"), "allowedLifecycleStates");
+            requireWarmupMarketData = requireWarmupMarketData == null || Boolean.TRUE.equals(requireWarmupMarketData);
+            minWarmupMarketDataSymbols = positive(minWarmupMarketDataSymbols, 1, "minWarmupMarketDataSymbols");
+            minWarmupTopOfBookSymbols = positive(minWarmupTopOfBookSymbols, 1, "minWarmupTopOfBookSymbols");
+            warmupMaxMarketDataAgeMillis = positive(
+                    warmupMaxMarketDataAgeMillis,
+                    30_000L,
+                    "warmupMaxMarketDataAgeMillis"
+            );
             minImbalanceRatio = positive(minImbalanceRatio, new BigDecimal("1.50"), "minImbalanceRatio");
             if (minImbalanceRatio.compareTo(BigDecimal.ONE) <= 0) {
                 throw new IllegalArgumentException("minImbalanceRatio must be greater than 1");
@@ -86,6 +104,12 @@ public record LfaStrategyProperties(
                     null,
                     null,
                     null,
+                    "STOPPED",
+                    List.of("ACTIVE"),
+                    true,
+                    1,
+                    1,
+                    30_000L,
                     new BigDecimal("1.50"),
                     new BigDecimal("5"),
                     new BigDecimal("250"),
@@ -102,6 +126,11 @@ public record LfaStrategyProperties(
                     true,
                     true
             );
+        }
+
+        @Override
+        public List<String> allowedLifecycleStates() {
+            return List.copyOf(allowedLifecycleStates);
         }
 
         LfaSignalRequest request(String provider, String environment, String account, String market) {
@@ -122,6 +151,23 @@ public record LfaStrategyProperties(
 
         private static String text(String value, String defaultValue) {
             return value == null || value.isBlank() ? defaultValue : value.trim();
+        }
+
+        private static String normalizedText(String value, String defaultValue) {
+            return text(value, defaultValue).toUpperCase(Locale.ROOT);
+        }
+
+        private static List<String> normalizedList(List<String> values, List<String> defaultValue, String field) {
+            List<String> resolved = values == null || values.isEmpty() ? defaultValue : values;
+            List<String> normalized = resolved.stream()
+                    .filter(value -> value != null && !value.isBlank())
+                    .map(value -> value.trim().toUpperCase(Locale.ROOT))
+                    .distinct()
+                    .toList();
+            if (normalized.isEmpty()) {
+                throw new IllegalArgumentException(field + " must contain at least one non-blank state");
+            }
+            return normalized;
         }
 
         private static String blankToNull(String value) {

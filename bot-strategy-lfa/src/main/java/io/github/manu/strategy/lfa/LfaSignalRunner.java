@@ -104,6 +104,30 @@ public final class LfaSignalRunner {
             );
             Instant now = Instant.now(clock);
             TradingStateSnapshot snapshot = projection.snapshot();
+            GateDecision lifecycle = lifecycleGate();
+            if (lifecycle.blocked()) {
+                return new LfaSignalRunResult(
+                        true,
+                        "lfa_signal_runner:lifecycle_blocked",
+                        target,
+                        0,
+                        0,
+                        List.of(),
+                        lifecycle.reasons()
+                );
+            }
+            GateDecision warmup = warmupGate(snapshot, target, now);
+            if (warmup.blocked()) {
+                return new LfaSignalRunResult(
+                        true,
+                        "lfa_signal_runner:warmup_incomplete",
+                        target,
+                        0,
+                        0,
+                        List.of(),
+                        warmup.reasons()
+                );
+            }
             BudgetDecision accountBudget = accountBudget(snapshot, target, now);
             if (accountBudget.blocked()) {
                 return new LfaSignalRunResult(
@@ -170,6 +194,51 @@ public final class LfaSignalRunner {
         } finally {
             running.set(false);
         }
+    }
+
+    private GateDecision lifecycleGate() {
+        if (properties.allowedLifecycleStates().contains(properties.lifecycleState())) {
+            return GateDecision.allowed();
+        }
+        return new GateDecision(List.of("lfa_lifecycle:not_active"));
+    }
+
+    private GateDecision warmupGate(TradingStateSnapshot snapshot, LfaRunnerTarget target, Instant now) {
+        if (!properties.requireWarmupMarketData()) {
+            return GateDecision.allowed();
+        }
+        LinkedHashSet<String> marketDataSymbols = new LinkedHashSet<>();
+        LinkedHashSet<String> topOfBookSymbols = new LinkedHashSet<>();
+        for (TradingStateProjection.MarketDataState state : snapshot.marketData()) {
+            if (!matchesTarget(state, target) || !fresh(state.updatedAt(), now)) {
+                continue;
+            }
+            if (state.symbol() != null && !state.symbol().isBlank()) {
+                marketDataSymbols.add(state.symbol().trim().toUpperCase(java.util.Locale.ROOT));
+            }
+            if (state.hasTopOfBook() && fresh(topOfBookTimestamp(state), now)
+                    && state.symbol() != null && !state.symbol().isBlank()) {
+                topOfBookSymbols.add(state.symbol().trim().toUpperCase(java.util.Locale.ROOT));
+            }
+        }
+        LinkedHashSet<String> reasons = new LinkedHashSet<>();
+        if (marketDataSymbols.size() < properties.minWarmupMarketDataSymbols().intValue()) {
+            reasons.add("lfa_warmup:market_data_symbols_below_min");
+        }
+        if (topOfBookSymbols.size() < properties.minWarmupTopOfBookSymbols().intValue()) {
+            reasons.add("lfa_warmup:top_of_book_symbols_below_min");
+        }
+        return new GateDecision(reasons.stream().toList());
+    }
+
+    private Instant topOfBookTimestamp(TradingStateProjection.MarketDataState state) {
+        return state.topOfBookUpdatedAt() == null ? state.updatedAt() : state.topOfBookUpdatedAt();
+    }
+
+    private boolean fresh(Instant updatedAt, Instant now) {
+        return updatedAt != null
+                && !updatedAt.isAfter(now)
+                && !updatedAt.plusMillis(properties.warmupMaxMarketDataAgeMillis()).isBefore(now);
     }
 
     private BudgetDecision accountBudget(TradingStateSnapshot snapshot, LfaRunnerTarget target, Instant now) {
@@ -322,6 +391,12 @@ public final class LfaSignalRunner {
                 && same(state.market(), target.market());
     }
 
+    private boolean matchesTarget(TradingStateProjection.MarketDataState state, LfaRunnerTarget target) {
+        return same(state.provider(), target.provider())
+                && same(state.environment(), target.environment())
+                && same(state.market(), target.market());
+    }
+
     private void addIfStrict(LinkedHashSet<String> reasons, String reason) {
         if (properties.rejectMissingAccountRiskMetadata()) {
             reasons.add(reason);
@@ -435,6 +510,21 @@ public final class LfaSignalRunner {
 
         private BudgetDecision {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
+        }
+
+        private boolean blocked() {
+            return !reasons.isEmpty();
+        }
+    }
+
+    private record GateDecision(List<String> reasons) {
+
+        private GateDecision {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+        }
+
+        private static GateDecision allowed() {
+            return new GateDecision(List.of());
         }
 
         private boolean blocked() {

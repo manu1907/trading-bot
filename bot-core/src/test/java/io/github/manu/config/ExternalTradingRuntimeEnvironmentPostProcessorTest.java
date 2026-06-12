@@ -41,6 +41,15 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.environment")).isEqualTo("demo");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.account")).isEqualTo("main");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.market")).isEqualTo("usdm_futures");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.lifecycle-state")).isEqualTo("PAUSED");
+        assertThat(environment.getProperty(
+                "trading.strategy.lfa.signal-runner.min-warmup-market-data-symbols",
+                Integer.class
+        )).isEqualTo(3);
+        assertThat(environment.getProperty(
+                "trading.strategy.lfa.signal-runner.min-warmup-top-of-book-symbols",
+                Integer.class
+        )).isEqualTo(3);
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.target-quantity")).isEqualTo("0.001");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-open-positions", Integer.class))
                 .isEqualTo(3);

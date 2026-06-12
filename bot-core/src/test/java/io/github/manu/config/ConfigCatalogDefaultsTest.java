@@ -63,6 +63,13 @@ class ConfigCatalogDefaultsTest {
         assertNull(catalog, "trading.strategy.lfa.signal_runner.environment");
         assertNull(catalog, "trading.strategy.lfa.signal_runner.account");
         assertNull(catalog, "trading.strategy.lfa.signal_runner.market");
+        assertText(catalog, "trading.strategy.lfa.signal_runner.lifecycle_state", "STOPPED");
+        assertThat(requiredNode(catalog, "trading.strategy.lfa.signal_runner.allowed_lifecycle_states").get(0)
+                .asString()).isEqualTo("ACTIVE");
+        assertBoolean(catalog, "trading.strategy.lfa.signal_runner.require_warmup_market_data", true);
+        assertInt(catalog, "trading.strategy.lfa.signal_runner.min_warmup_market_data_symbols", 1);
+        assertInt(catalog, "trading.strategy.lfa.signal_runner.min_warmup_top_of_book_symbols", 1);
+        assertInt(catalog, "trading.strategy.lfa.signal_runner.warmup_max_market_data_age_millis", 30000);
         assertText(catalog, "trading.strategy.lfa.signal_runner.min_imbalance_ratio", "1.50");
         assertText(catalog, "trading.strategy.lfa.signal_runner.max_spread_bps", "5");
         assertText(catalog, "trading.strategy.lfa.signal_runner.min_top_of_book_quote_notional", "250");

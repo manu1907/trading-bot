@@ -1536,6 +1536,12 @@ Catalog defaults are:
 - `environment`: `null`
 - `account`: `null`
 - `market`: `null`
+- `lifecycle_state`: `STOPPED`
+- `allowed_lifecycle_states`: `["ACTIVE"]`
+- `require_warmup_market_data`: `true`
+- `min_warmup_market_data_symbols`: `1`
+- `min_warmup_top_of_book_symbols`: `1`
+- `warmup_max_market_data_age_millis`: `30000`
 - `min_imbalance_ratio`: `1.50`
 - `max_spread_bps`: `5`
 - `min_top_of_book_quote_notional`: `250`
@@ -1561,6 +1567,9 @@ overrides for `binance/demo/main/usdm_futures`:
 - `environment`: `demo`
 - `account`: `main`
 - `market`: `usdm_futures`
+- `lifecycle_state`: `PAUSED`
+- `min_warmup_market_data_symbols`: `3`
+- `min_warmup_top_of_book_symbols`: `3`
 - `target_quantity`: `0.001`
 - `max_account_open_positions`: `3`
 - `max_symbol_open_positions`: `1`
@@ -1582,13 +1591,23 @@ Signal attributes include:
 - `lfa_ask_quote_notional`
 - `lfa_imbalance_ratio`
 
-When enabled, the runner reads the current projection snapshot, applies account
-budget gates, passes projected market data to the analyzer, applies symbol
-budget gates to candidate signals, publishes at most `max_signals_per_run`
-ranked signals as symbol-keyed `STRATEGY_SIGNAL` events, and then the existing
-signal planner and risk gates decide whether any order command can be built and
-admitted. A blocked budget returns `lfa_signal_runner:budget_blocked` and does
-not publish the signal.
+When enabled, the runner reads the current projection snapshot, requires the
+current lifecycle state to be allowed, requires projected market-data and
+top-of-book warm-up thresholds to be met, applies account budget gates, passes
+projected market data to the analyzer, applies symbol budget gates to candidate
+signals, publishes at most `max_signals_per_run` ranked signals as symbol-keyed
+`STRATEGY_SIGNAL` events, and then the existing signal planner and risk gates
+decide whether any order command can be built and admitted. A lifecycle block
+returns `lfa_signal_runner:lifecycle_blocked`, a warm-up block returns
+`lfa_signal_runner:warmup_incomplete`, and a budget block returns
+`lfa_signal_runner:budget_blocked`. A blocked runner does not publish the
+signal.
+
+Current runner lifecycle and warm-up blockers can block on:
+
+- `lfa_lifecycle:not_active`
+- `lfa_warmup:market_data_symbols_below_min`
+- `lfa_warmup:top_of_book_symbols_below_min`
 
 Current runner budget gates can block on:
 
@@ -1604,7 +1623,8 @@ Current runner budget gates can block on:
 
 The checked-in demo runtime keeps the runner disabled because full position
 lifecycle and money-management allocation are still incomplete. It already
-sets open-position caps for first-start demo operation; notional and daily-loss
+sets `lifecycle_state=PAUSED`, three-symbol projected-data warm-up thresholds,
+and open-position caps for first-start demo operation; notional and daily-loss
 caps remain inherited as `null` until calibrated for the target account.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,

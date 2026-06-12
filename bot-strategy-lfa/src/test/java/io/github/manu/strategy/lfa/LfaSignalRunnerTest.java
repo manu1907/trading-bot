@@ -66,6 +66,45 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void blocks_before_analysis_when_lifecycle_is_not_active() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithLifecycle("PAUSED", 1, 1),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:lifecycle_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_lifecycle:not_active");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_before_analysis_when_projected_market_data_warmup_is_incomplete() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithLifecycle("ACTIVE", 2, 2),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:warmup_incomplete");
+        assertThat(result.blockers()).containsExactly(
+                "lfa_warmup:market_data_symbols_below_min",
+                "lfa_warmup:top_of_book_symbols_below_min"
+        );
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
     void returns_no_signal_without_publishing_when_projected_market_is_not_admissible() {
         TradingStateProjection projection = projectionWith(
                 marketData("BTCUSDT", "50000.00", "0.010", "50000.50", "0.009")
@@ -203,6 +242,25 @@ class LfaSignalRunnerTest {
         return enabledPropertiesWithBudgets(3, 1, null, null, null, null);
     }
 
+    private LfaStrategyProperties.SignalRunner enabledPropertiesWithLifecycle(
+            String lifecycleState,
+            Integer minWarmupMarketDataSymbols,
+            Integer minWarmupTopOfBookSymbols
+    ) {
+        return properties(
+                true,
+                lifecycleState,
+                minWarmupMarketDataSymbols,
+                minWarmupTopOfBookSymbols,
+                3,
+                1,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
     private LfaStrategyProperties.SignalRunner enabledPropertiesWithBudgets(
             Integer maxAccountOpenPositions,
             Integer maxSymbolOpenPositions,
@@ -211,8 +269,34 @@ class LfaSignalRunnerTest {
             String maxAccountDailyRealizedLoss,
             String maxSymbolDailyRealizedLoss
     ) {
-        return new LfaStrategyProperties.SignalRunner(
+        return properties(
                 true,
+                "ACTIVE",
+                1,
+                1,
+                maxAccountOpenPositions,
+                maxSymbolOpenPositions,
+                maxAccountPositionNotional,
+                maxSymbolPositionNotional,
+                maxAccountDailyRealizedLoss,
+                maxSymbolDailyRealizedLoss
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner properties(
+            boolean enabled,
+            String lifecycleState,
+            Integer minWarmupMarketDataSymbols,
+            Integer minWarmupTopOfBookSymbols,
+            Integer maxAccountOpenPositions,
+            Integer maxSymbolOpenPositions,
+            String maxAccountPositionNotional,
+            String maxSymbolPositionNotional,
+            String maxAccountDailyRealizedLoss,
+            String maxSymbolDailyRealizedLoss
+    ) {
+        return new LfaStrategyProperties.SignalRunner(
+                enabled,
                 30_000L,
                 30_000L,
                 "lfa",
@@ -220,6 +304,12 @@ class LfaSignalRunnerTest {
                 "demo",
                 "main",
                 "usdm_futures",
+                lifecycleState,
+                List.of("ACTIVE"),
+                true,
+                minWarmupMarketDataSymbols,
+                minWarmupTopOfBookSymbols,
+                30_000L,
                 new BigDecimal("1.50"),
                 new BigDecimal("5"),
                 new BigDecimal("250"),

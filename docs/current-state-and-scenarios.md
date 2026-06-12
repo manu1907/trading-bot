@@ -109,19 +109,27 @@ bid/ask quote notional, effective quote depth, and imbalance ratio.
 
 The strategy module also has a config-gated LFA signal runner under
 `trading.strategy.lfa.signal_runner`. When enabled, it periodically reads the
-current projected market-data snapshot, runs the analyzer, caps publication with
-`max_signals_per_run`, applies account and symbol budget gates, publishes
-symbol-keyed `STRATEGY_SIGNAL` events through the core event bus, and relies on
-the core signal planner, order risk gate, idempotency, reconciliation
-confidence, and execution pipeline for downstream order admission. Budget
-blockers include account/symbol open-position caps, account/symbol position
-notional caps, account/symbol daily realized-loss caps, missing notional or
-daily-PnL metadata when strict metadata rejection is enabled, and unbounded
-candidate signal notional when a notional cap is configured. The catalog value for the runner currently executes as `enabled=false` unless
-overridden. The checked-in demo runtime overrides target, sizing, and
-open-position caps but does not override `enabled`, so the effective demo runner
-remains disabled because the full position-lifecycle and money-management layers
-are not complete enough for autonomous strategy execution.
+current projected market-data snapshot, requires the configured lifecycle state
+to be allowed, requires projected market-data and top-of-book warm-up thresholds
+to be met, runs the analyzer, caps publication with `max_signals_per_run`,
+applies account and symbol budget gates, publishes symbol-keyed
+`STRATEGY_SIGNAL` events through the core event bus, and relies on the core
+signal planner, order risk gate, idempotency, reconciliation confidence, and
+execution pipeline for downstream order admission. Lifecycle and warm-up
+blockers include `lfa_lifecycle:not_active`,
+`lfa_warmup:market_data_symbols_below_min`, and
+`lfa_warmup:top_of_book_symbols_below_min`. Budget blockers include
+account/symbol open-position caps, account/symbol position notional caps,
+account/symbol daily realized-loss caps, missing notional or daily-PnL metadata
+when strict metadata rejection is enabled, and unbounded candidate signal
+notional when a notional cap is configured. The catalog value for the runner
+currently executes as `enabled=false`, `lifecycle_state=STOPPED`, and
+one-symbol projected-data warm-up unless overridden. The checked-in demo runtime
+overrides target, sizing, open-position caps, `lifecycle_state=PAUSED`, and
+three-symbol warm-up thresholds but does not override `enabled`, so the
+effective demo runner remains disabled because the full position-lifecycle and
+money-management layers are not complete enough for autonomous strategy
+execution.
 
 This is now strategy-side signal generation plus a controlled live publication
 hook. It is not yet the full portfolio, position-management, expected-edge,
