@@ -80,6 +80,38 @@ gate fails. This is not yet expected-profit, risk-adjusted-return, or
 money-management ranking; that belongs to the remaining strategy market-analysis
 lifecycle work.
 
+## LFA Strategy Signal Analysis
+
+The LFA strategy module now includes a conservative projected top-of-book
+imbalance analyzer. It accepts projected market-data states for a target
+provider, environment, account, and market, then evaluates each instrument
+independently. A signal emitted by this analyzer always carries the selected
+instrument symbol explicitly.
+
+The analyzer suppresses an instrument instead of emitting an ambiguous signal
+when:
+
+- the projected market-data target does not match the request
+- the symbol is missing
+- the top-of-book timestamp is missing or stale
+- best bid, best ask, bid quantity, or ask quantity is missing or non-positive
+- best ask is below best bid
+- spread is wider than the configured maximum basis-points threshold
+- effective top-of-book quote notional is below the configured minimum depth
+- bid/ask quote-notional imbalance does not meet the configured ratio
+
+When bid-side quote notional dominates ask-side quote notional, the analyzer
+emits an `ENTER_LONG` signal with a limit price at the best ask. When ask-side
+quote notional dominates bid-side quote notional, it emits an `ENTER_SHORT`
+signal with a limit price at the best bid. Signal features include `LIMIT` and
+`GTC`, while signal attributes include source, reason, market-data age, spread,
+bid/ask quote notional, effective quote depth, and imbalance ratio.
+
+This is strategy-side signal generation only. The analyzer is not yet wired as
+an autonomous live market-data loop, and it is not yet the full portfolio,
+position-management, expected-edge, risk-adjusted-return, or money-management
+selector needed for production autonomous trading.
+
 ## Runtime Policy Boundary
 
 The executor remains policy-gated. A plan must pass projection identity checks, freshness checks, operation allowlists, environment checks, executor policy checks, and the order risk gate before exchange submission.

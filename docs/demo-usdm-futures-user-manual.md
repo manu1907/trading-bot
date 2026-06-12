@@ -46,8 +46,10 @@ What is not ready yet:
 - The order execution pipeline is disabled by default.
 - Runtime market-data, user-data, and reconciliation loops are disabled by
   default.
-- The LFA strategy module is present as a strategy module boundary, but this
-  manual does not treat it as a complete production trading strategy.
+- The LFA strategy module has a conservative top-of-book imbalance analyzer
+  that can emit explicit symbol-linked `ENTER_LONG` or `ENTER_SHORT` strategy
+  signals from projected market data, but this manual does not treat it as a
+  complete production trading strategy or portfolio manager.
 - The bot should not be considered production-ready for real-money trading.
 - Real Binance trading is not covered by this manual.
 
@@ -1498,6 +1500,51 @@ projected freshness, spread, and top-of-book quote depth. When a signal provides
 Planned order commands include `planner_symbol_selection` and
 `planner_selected_symbol` attributes so operators can distinguish default,
 explicit, and ranked-universe symbol selection.
+
+## LFA Signal Analyzer
+
+The current LFA module can analyze projected top-of-book market data for a
+target provider, environment, account, and market. It evaluates each instrument
+independently and only emits a strategy signal when the instrument passes the
+configured freshness, spread, depth, and imbalance gates.
+
+Current conservative request defaults for USD-M futures are:
+
+- `strategyId`: caller supplied, normally `lfa`
+- `provider`: caller supplied, normally `binance`
+- `environment`: caller supplied, normally `demo` or `real`
+- `account`: caller supplied, normally `main`
+- `market`: caller supplied, normally `usdm_futures`
+- `minImbalanceRatio`: `1.50`
+- `maxSpreadBps`: `5`
+- `minTopOfBookQuoteNotional`: `250`
+- `maxMarketDataAgeMillis`: `30000`
+- `targetQuantity`: caller supplied
+- `targetNotional`: `null` unless the caller chooses notional sizing
+
+The analyzer emits no signal when market data is stale, incomplete, crossed,
+too wide, too thin, or not imbalanced enough. If bid-side quote notional
+dominates, it emits `ENTER_LONG` with `symbol` set to that instrument and
+`limitPrice` set to the best ask. If ask-side quote notional dominates, it emits
+`ENTER_SHORT` with `symbol` set to that instrument and `limitPrice` set to the
+best bid. Signal features include `order_type=LIMIT` and `time_in_force=GTC`.
+Signal attributes include:
+
+- `source=lfa_market_signal_analyzer`
+- `lfa_signal_reason=top_of_book_imbalance`
+- `lfa_market_data_age_millis`
+- `lfa_spread_bps`
+- `lfa_top_of_book_quote_notional`
+- `lfa_bid_quote_notional`
+- `lfa_ask_quote_notional`
+- `lfa_imbalance_ratio`
+
+The analyzer is not yet wired as the live autonomous strategy loop. The
+remaining work is to feed it from the live market-data lifecycle, combine it
+with dynamic exchange discovery, account capital, aggregate risk budgets,
+position state, loss limits, expected opportunity, and money-management rules,
+then send only the best eligible signals through the existing planner and risk
+gates.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,
