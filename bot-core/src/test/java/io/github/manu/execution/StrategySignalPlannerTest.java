@@ -443,7 +443,13 @@ class StrategySignalPlannerTest {
     @Test
     void plans_order_command_for_promoted_instrument_universe_symbol() {
         StrategySignalPlanner planner = planner(
-                projectionWithMarketData(marketDataState("ETHUSDT", "3000.00", "3000.50", NOW)),
+                projectionWithMarketData(marketDataState(
+                        "ETHUSDT",
+                        "3000.00",
+                        "3000.50",
+                        NOW,
+                        Map.of("quoteVolume", "250000000")
+                )),
                 null,
                 propertiesWithInstrumentUniverse(new ExecutionProperties.SignalPlanner.InstrumentUniverse(
                         true,
@@ -473,6 +479,44 @@ class StrategySignalPlannerTest {
         Optional<OrderCommandEvent> planned = planner.plan(ethSignal);
 
         assertThat(planned).hasValueSatisfying(command -> assertThat(command.getSymbol()).isEqualTo("ETHUSDT"));
+    }
+
+    @Test
+    void suppresses_order_command_when_instrument_policy_daily_quote_volume_is_too_low() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(marketDataState(
+                        "BTCUSDT",
+                        "50000.00",
+                        "50000.50",
+                        NOW,
+                        Map.of("quoteVolume", "99999999")
+                )),
+                null,
+                propertiesWithInstrumentUniverse(new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        List.of("BTCUSDT"),
+                        List.of(),
+                        true,
+                        true,
+                        false,
+                        List.of(new ExecutionProperties.SignalPlanner.SymbolPolicy(
+                                "binance",
+                                "demo",
+                                "main",
+                                "usd_m_futures",
+                                "BTCUSDT",
+                                true,
+                                true,
+                                "100000000",
+                                "5",
+                                "50"
+                        ))
+                ))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
     }
 
     @Test
@@ -943,11 +987,44 @@ class StrategySignalPlannerTest {
     private TradingStateProjection.MarketDataState marketDataState(
             String symbol,
             String bidPrice,
+            String askPrice,
+            Instant updatedAt,
+            Map<String, String> attributes
+    ) {
+        return marketDataState(symbol, bidPrice, "0.50", askPrice, "0.50", updatedAt, attributes);
+    }
+
+    private TradingStateProjection.MarketDataState marketDataState(
+            String symbol,
+            String bidPrice,
             String bidQuantity,
             String askPrice,
             String askQuantity,
             Instant updatedAt
     ) {
+        return marketDataState(
+                symbol,
+                bidPrice,
+                bidQuantity,
+                askPrice,
+                askQuantity,
+                updatedAt,
+                Map.of()
+        );
+    }
+
+    private TradingStateProjection.MarketDataState marketDataState(
+            String symbol,
+            String bidPrice,
+            String bidQuantity,
+            String askPrice,
+            String askQuantity,
+            Instant updatedAt,
+            Map<String, String> attributes
+    ) {
+        Map<String, String> stateAttributes = new java.util.LinkedHashMap<>();
+        stateAttributes.put("stream", symbol.toLowerCase(java.util.Locale.ROOT) + "@bookTicker");
+        stateAttributes.putAll(attributes);
         return new TradingStateProjection.MarketDataState(
                 "binance",
                 "demo",
@@ -963,7 +1040,7 @@ class StrategySignalPlannerTest {
                 null,
                 null,
                 null,
-                Map.of("stream", symbol.toLowerCase(java.util.Locale.ROOT) + "@bookTicker"),
+                stateAttributes,
                 updatedAt,
                 "evt-market"
         );

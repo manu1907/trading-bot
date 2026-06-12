@@ -1075,7 +1075,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                 lastTrade.quantity(),
                 lastTrade.side(),
                 lastTrade.updatedAt(),
-                stringMap(event.getAttributes()),
+                marketDataAttributes(event, current),
                 eventTime,
                 eventId
         );
@@ -1126,6 +1126,29 @@ public final class TradingStateProjection implements TradingEventHandler {
                 value(event.getSide()),
                 firstInstant(event.getReceivedAtMicros(), event.getOccurredAtMicros())
         );
+    }
+
+    private Map<String, String> marketDataAttributes(MarketDataEvent event, MarketDataState current) {
+        Map<String, String> attributes = new LinkedHashMap<>();
+        if (current != null) {
+            preserveMarketDataAttribute(current, attributes, "quoteVolume");
+            preserveMarketDataAttribute(current, attributes, "numberOfTrades");
+            preserveMarketDataAttribute(current, attributes, "takerBuyBaseVolume");
+            preserveMarketDataAttribute(current, attributes, "takerBuyQuoteVolume");
+        }
+        attributes.putAll(stringMap(event.getAttributes()));
+        return Map.copyOf(attributes);
+    }
+
+    private void preserveMarketDataAttribute(
+            MarketDataState current,
+            Map<String, String> attributes,
+            String key
+    ) {
+        String value = current.attributes().get(key);
+        if (value != null && !value.isBlank()) {
+            attributes.put(key, value);
+        }
     }
 
     private ProjectionUpdate applyRiskDecision(

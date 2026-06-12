@@ -130,6 +130,23 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void preserves_market_data_rolling_statistics_across_top_of_book_updates() {
+        projection.apply(kline("evt-kline", "50000.25", "10", "250000000", timestamp(10)));
+        projection.apply(bookTicker("evt-book", "50000.00", "0.40", "50000.50", "0.30", timestamp(11)));
+
+        assertThat(projection.marketData(PROVIDER, ENVIRONMENT, MARKET, SYMBOL))
+                .get()
+                .satisfies(market -> {
+                    assertThat(market.bestBidPrice()).isEqualTo("50000.00");
+                    assertThat(market.bestAskPrice()).isEqualTo("50000.50");
+                    assertThat(market.attributes())
+                            .containsEntry("quoteVolume", "250000000")
+                            .containsEntry("numberOfTrades", "10")
+                            .containsEntry("stream", "btcusdt@bookTicker");
+                });
+    }
+
+    @Test
     void exposes_open_order_states_for_account_and_symbol_scoped_admission() {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -1970,6 +1987,43 @@ class TradingStateProjectionTest {
                         .setQuantity(askQuantity)
                         .build()))
                 .setAttributes(Map.of("stream", "btcusdt@bookTicker"))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.MARKET_DATA,
+                TradingEventKeys.symbol(TradingEventType.MARKET_DATA, PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, SYMBOL),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<MarketDataEvent> kline(
+            String eventId,
+            String closePrice,
+            String numberOfTrades,
+            String quoteVolume,
+            Instant eventTime
+    ) {
+        MarketDataEvent event = MarketDataEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setEventType(MarketDataEventType.KLINE)
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setOccurredAtMicros(eventTime)
+                .setReceivedAtMicros(eventTime)
+                .setExchangeSequence(1000L)
+                .setTradeId(null)
+                .setSide(null)
+                .setPrice(closePrice)
+                .setQuantity(null)
+                .setBids(List.of())
+                .setAsks(List.of())
+                .setAttributes(Map.of(
+                        "stream", "btcusdt@kline_1d",
+                        "numberOfTrades", numberOfTrades,
+                        "quoteVolume", quoteVolume
+                ))
                 .build();
         return TradingEventEnvelope.of(
                 TradingEventType.MARKET_DATA,

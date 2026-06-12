@@ -419,9 +419,9 @@ Runtime behavior:
   price, and kline payloads.
 
 For the checked-in Binance USD-M demo/real baseline, the catalog already owns
-the high-liquidity `bookTicker` and `aggTrade` stream list. The runtime file
-should normally only enable the market-data service or override operational
-settings such as route and connection mode.
+the high-liquidity `bookTicker`, `aggTrade`, and `kline_1d` stream list. The
+runtime file should normally only enable the market-data service or override
+operational settings such as route and connection mode.
 
 Example runtime override shape:
 
@@ -1232,8 +1232,8 @@ The active market-data config includes:
 - `connection_mode`: `combined`
 - `route`: `default`
 - `streams`: for Binance USD-M demo/real, the catalog baseline includes
-  `bookTicker` and `aggTrade` streams for the configured high-liquidity
-  universe
+  `bookTicker`, `aggTrade`, and `kline_1d` streams for the configured
+  high-liquidity universe
 
 Do not duplicate the baseline stream list in the runtime file. Override
 `streams` only when intentionally replacing catalog stream coverage for a
@@ -1483,6 +1483,12 @@ excluded, missing from a required include list, disabled by a matching symbol
 policy, or not marked `promotion_ready=true` while promotion readiness is
 required. If a matching symbol policy has `max_order_notional`, unbounded or
 oversized strategy orders are suppressed before publication. When
+`min_daily_quote_volume` is configured on a matching symbol policy, the planner
+requires projected market-data attribute `quoteVolume` to be present and greater
+than or equal to that floor; the catalog `kline_1d` streams provide that
+attribute, and projection preserves it across later top-of-book/trade updates.
+When the quote-volume floor cannot be proven, the command is suppressed instead
+of guessing liquidity. When
 `refresh_exchange_metadata_before_planning=true`, the planner refreshes provider
 exchange metadata before admission and only allows symbols that are currently
 present, tradable, compatible with the configured quote asset and contract type,
