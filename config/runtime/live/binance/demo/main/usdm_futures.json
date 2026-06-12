@@ -45,6 +45,8 @@
           "min_warmup_top_of_book_symbols": 3,
           "max_candidate_market_data_symbols": 13,
           "target_quantity": "0.001",
+          "target_notional_margin_balance_fraction": "0.01",
+          "max_allocated_target_notional": "50",
           "max_account_open_positions": 3,
           "max_symbol_open_positions": 1
         }

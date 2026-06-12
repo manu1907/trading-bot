@@ -32,9 +32,6 @@ public record LfaSignalRequest(
         if (maxMarketDataAgeMillis <= 0) {
             throw new IllegalArgumentException("maxMarketDataAgeMillis must be positive");
         }
-        if ((targetQuantity == null || targetQuantity.isBlank()) && (targetNotional == null || targetNotional.isBlank())) {
-            throw new IllegalArgumentException("targetQuantity or targetNotional is required");
-        }
         targetQuantity = blankToNull(targetQuantity);
         targetNotional = blankToNull(targetNotional);
     }

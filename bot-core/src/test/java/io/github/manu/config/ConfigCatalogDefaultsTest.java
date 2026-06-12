@@ -78,6 +78,10 @@ class ConfigCatalogDefaultsTest {
         assertInt(catalog, "trading.strategy.lfa.signal_runner.max_market_data_age_millis", 30000);
         assertNull(catalog, "trading.strategy.lfa.signal_runner.target_quantity");
         assertNull(catalog, "trading.strategy.lfa.signal_runner.target_notional");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.target_notional_margin_balance_fraction");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.min_allocated_target_notional");
+        assertNull(catalog, "trading.strategy.lfa.signal_runner.max_allocated_target_notional");
+        assertBoolean(catalog, "trading.strategy.lfa.signal_runner.reject_missing_allocation_balance", true);
         assertInt(catalog, "trading.strategy.lfa.signal_runner.max_signals_per_run", 1);
         assertNull(catalog, "trading.strategy.lfa.signal_runner.max_account_open_positions");
         assertNull(catalog, "trading.strategy.lfa.signal_runner.max_symbol_open_positions");

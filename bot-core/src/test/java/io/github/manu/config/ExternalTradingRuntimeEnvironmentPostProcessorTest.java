@@ -55,6 +55,10 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 Integer.class
         )).isEqualTo(13);
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.target-quantity")).isEqualTo("0.001");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.target-notional-margin-balance-fraction"))
+                .isEqualTo("0.01");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-allocated-target-notional"))
+                .isEqualTo("50");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-open-positions", Integer.class))
                 .isEqualTo(3);
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-symbol-open-positions", Integer.class))

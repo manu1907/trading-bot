@@ -40,6 +40,10 @@ public record LfaStrategyProperties(
             Long maxMarketDataAgeMillis,
             String targetQuantity,
             String targetNotional,
+            BigDecimal targetNotionalMarginBalanceFraction,
+            BigDecimal minAllocatedTargetNotional,
+            BigDecimal maxAllocatedTargetNotional,
+            Boolean rejectMissingAllocationBalance,
             Integer maxSignalsPerRun,
             Integer maxAccountOpenPositions,
             Integer maxSymbolOpenPositions,
@@ -83,6 +87,20 @@ public record LfaStrategyProperties(
             maxMarketDataAgeMillis = positive(maxMarketDataAgeMillis, 30_000L, "maxMarketDataAgeMillis");
             targetQuantity = blankToNull(targetQuantity);
             targetNotional = blankToNull(targetNotional);
+            targetNotionalMarginBalanceFraction =
+                    positiveOrNull(targetNotionalMarginBalanceFraction, "targetNotionalMarginBalanceFraction");
+            if (targetNotionalMarginBalanceFraction != null
+                    && targetNotionalMarginBalanceFraction.compareTo(BigDecimal.ONE) > 0) {
+                throw new IllegalArgumentException("targetNotionalMarginBalanceFraction must be <= 1");
+            }
+            minAllocatedTargetNotional = positiveOrNull(minAllocatedTargetNotional, "minAllocatedTargetNotional");
+            maxAllocatedTargetNotional = positiveOrNull(maxAllocatedTargetNotional, "maxAllocatedTargetNotional");
+            rejectMissingAllocationBalance =
+                    rejectMissingAllocationBalance == null || Boolean.TRUE.equals(rejectMissingAllocationBalance);
+            if (minAllocatedTargetNotional != null && maxAllocatedTargetNotional != null
+                    && minAllocatedTargetNotional.compareTo(maxAllocatedTargetNotional) > 0) {
+                throw new IllegalArgumentException("minAllocatedTargetNotional must be <= maxAllocatedTargetNotional");
+            }
             maxSignalsPerRun = positive(maxSignalsPerRun, 1, "maxSignalsPerRun");
             maxAccountOpenPositions = positiveOrNull(maxAccountOpenPositions, "maxAccountOpenPositions");
             maxSymbolOpenPositions = positiveOrNull(maxSymbolOpenPositions, "maxSymbolOpenPositions");
@@ -94,8 +112,10 @@ public record LfaStrategyProperties(
                     rejectMissingAccountRiskMetadata == null || Boolean.TRUE.equals(rejectMissingAccountRiskMetadata);
             requireSignalPlannerEnabled =
                     requireSignalPlannerEnabled == null || Boolean.TRUE.equals(requireSignalPlannerEnabled);
-            if (enabled && targetQuantity == null && targetNotional == null) {
-                throw new IllegalArgumentException("targetQuantity or targetNotional is required when LFA signal runner is enabled");
+            if (enabled && targetQuantity == null && targetNotional == null && targetNotionalMarginBalanceFraction == null) {
+                throw new IllegalArgumentException(
+                        "targetQuantity, targetNotional, or targetNotionalMarginBalanceFraction is required when LFA signal runner is enabled"
+                );
             }
         }
 
@@ -123,6 +143,10 @@ public record LfaStrategyProperties(
                     30_000L,
                     null,
                     null,
+                    null,
+                    null,
+                    null,
+                    true,
                     1,
                     null,
                     null,

@@ -188,6 +188,83 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void allocates_target_notional_from_projected_account_margin_balance() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(risk("1000")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithAllocation("0.02", null, "15"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(eventBus.envelopes()).singleElement().satisfies(envelope -> {
+            StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
+            assertThat(signal.getTargetQuantity()).isNull();
+            assertThat(signal.getTargetNotional()).isEqualTo("15");
+            assertThat(signal.getAttributes())
+                    .containsEntry("lfa_allocation_source", "account_margin_balance")
+                    .containsEntry("lfa_allocation_base", "1000")
+                    .containsEntry("lfa_allocation_fraction", "0.02")
+                    .containsEntry("lfa_allocation_total_target_notional", "15")
+                    .containsEntry("lfa_allocated_target_notional", "15");
+        });
+    }
+
+    @Test
+    void splits_allocated_target_notional_across_candidate_publish_slots() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(risk("1000")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010"),
+                marketData("ETHUSDT", "3000.00", "3.000", "3000.10", "1.000")
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithAllocation("0.02", null, null, 2),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(result.publishedSignals()).isEqualTo(2);
+        assertThat(eventBus.envelopes()).hasSize(2).allSatisfy(envelope -> {
+            StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
+            assertThat(signal.getTargetQuantity()).isNull();
+            assertThat(signal.getTargetNotional()).isEqualTo("10");
+            assertThat(signal.getAttributes())
+                    .containsEntry("lfa_allocation_total_target_notional", "20")
+                    .containsEntry("lfa_allocated_target_notional", "10");
+        });
+    }
+
+    @Test
+    void blocks_allocation_when_margin_balance_is_required_but_missing() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithAllocation("0.02", null, "15"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:allocation_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_allocation:account_margin_balance_missing");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
     void stays_disabled_without_publishing() {
         LfaSignalRunner runner = runner(disabledProperties(), new TradingStateProjection(), enabledExecutionProperties());
 
@@ -357,6 +434,64 @@ class LfaSignalRunnerTest {
         );
     }
 
+    private LfaStrategyProperties.SignalRunner propertiesWithAllocation(
+            String targetNotionalMarginBalanceFraction,
+            String minAllocatedTargetNotional,
+            String maxAllocatedTargetNotional
+    ) {
+        return propertiesWithAllocation(
+                targetNotionalMarginBalanceFraction,
+                minAllocatedTargetNotional,
+                maxAllocatedTargetNotional,
+                1
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner propertiesWithAllocation(
+            String targetNotionalMarginBalanceFraction,
+            String minAllocatedTargetNotional,
+            String maxAllocatedTargetNotional,
+            int maxSignalsPerRun
+    ) {
+        return new LfaStrategyProperties.SignalRunner(
+                true,
+                30_000L,
+                30_000L,
+                "lfa",
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                "ACTIVE",
+                List.of("ACTIVE"),
+                true,
+                1,
+                1,
+                30_000L,
+                true,
+                null,
+                new BigDecimal("1.50"),
+                new BigDecimal("5"),
+                new BigDecimal("250"),
+                30_000L,
+                "0.001",
+                null,
+                decimal(targetNotionalMarginBalanceFraction),
+                decimal(minAllocatedTargetNotional),
+                decimal(maxAllocatedTargetNotional),
+                true,
+                maxSignalsPerRun,
+                3,
+                1,
+                null,
+                null,
+                null,
+                null,
+                true,
+                true
+        );
+    }
+
     private LfaStrategyProperties.SignalRunner properties(
             boolean enabled,
             String lifecycleState,
@@ -393,6 +528,10 @@ class LfaSignalRunnerTest {
                 30_000L,
                 "0.001",
                 null,
+                null,
+                null,
+                null,
+                true,
                 1,
                 maxAccountOpenPositions,
                 maxSymbolOpenPositions,
@@ -488,12 +627,21 @@ class LfaSignalRunnerTest {
             List<TradingStateProjection.DailyRealizedPnlState> dailyPnl,
             TradingStateProjection.MarketDataState... marketData
     ) {
+        return projectionWith(positions, List.of(), dailyPnl, marketData);
+    }
+
+    private TradingStateProjection projectionWith(
+            List<TradingStateProjection.PositionState> positions,
+            List<TradingStateProjection.RiskState> risks,
+            List<TradingStateProjection.DailyRealizedPnlState> dailyPnl,
+            TradingStateProjection.MarketDataState... marketData
+    ) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 positions,
                 List.of(),
-                List.of(),
+                risks,
                 List.of(marketData),
                 dailyPnl,
                 List.of(),
@@ -502,6 +650,28 @@ class LfaSignalRunnerTest {
                 List.of()
         ));
         return projection;
+    }
+
+    private TradingStateProjection.RiskState risk(String marginBalance) {
+        return new TradingStateProjection.RiskState(
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                "ACCOUNT",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                marginBalance,
+                marginBalance,
+                null,
+                NOW,
+                "risk-account"
+        );
     }
 
     private TradingStateProjection.PositionState position(

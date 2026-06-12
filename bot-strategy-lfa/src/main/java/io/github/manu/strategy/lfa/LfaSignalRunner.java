@@ -25,9 +25,11 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -178,6 +180,19 @@ public final class LfaSignalRunner {
             if (signals.isEmpty()) {
                 return new LfaSignalRunResult(true, "lfa_signal_runner:no_signal", target, 0, 0, List.of(), List.of());
             }
+            AllocationDecision allocation = allocateSignals(snapshot, target, signals);
+            if (allocation.blocked()) {
+                return new LfaSignalRunResult(
+                        true,
+                        "lfa_signal_runner:allocation_blocked",
+                        target,
+                        signals.size(),
+                        0,
+                        signals.stream().map(signal -> signal.getSignalId().toString()).toList(),
+                        allocation.reasons()
+                );
+            }
+            signals = allocation.signals();
             List<StrategySignalEvent> publishableSignals = new ArrayList<>();
             LinkedHashSet<String> blockedReasons = new LinkedHashSet<>();
             for (StrategySignalEvent signal : signals) {
@@ -585,6 +600,89 @@ public final class LfaSignalRunner {
         return new DailyLoss(accountLoss, symbolLoss);
     }
 
+    private AllocationDecision allocateSignals(
+            TradingStateSnapshot snapshot,
+            LfaRunnerTarget target,
+            List<StrategySignalEvent> signals
+    ) {
+        if (properties.targetNotionalMarginBalanceFraction() == null) {
+            return AllocationDecision.allowed(signals);
+        }
+        BigDecimal marginBalance = accountMarginBalance(snapshot, target).orElse(null);
+        if (marginBalance == null) {
+            if (properties.rejectMissingAllocationBalance()) {
+                return AllocationDecision.blocked("lfa_allocation:account_margin_balance_missing");
+            }
+            return AllocationDecision.allowed(signals);
+        }
+        BigDecimal allocated = marginBalance.multiply(properties.targetNotionalMarginBalanceFraction());
+        if (properties.maxAllocatedTargetNotional() != null
+                && allocated.compareTo(properties.maxAllocatedTargetNotional()) > 0) {
+            allocated = properties.maxAllocatedTargetNotional();
+        }
+        int allocationSlots = Math.min(signals.size(), properties.maxSignalsPerRun());
+        if (allocationSlots <= 0) {
+            return AllocationDecision.blocked("lfa_allocation:target_notional_non_positive");
+        }
+        BigDecimal perSignalAllocated = allocated.divide(BigDecimal.valueOf(allocationSlots), 8, RoundingMode.HALF_UP);
+        if (properties.minAllocatedTargetNotional() != null
+                && perSignalAllocated.compareTo(properties.minAllocatedTargetNotional()) < 0) {
+            return AllocationDecision.blocked("lfa_allocation:target_notional_below_min");
+        }
+        if (perSignalAllocated.compareTo(BigDecimal.ZERO) <= 0) {
+            return AllocationDecision.blocked("lfa_allocation:target_notional_non_positive");
+        }
+        String allocatedText = decimalText(perSignalAllocated);
+        String totalAllocatedText = decimalText(allocated);
+        return AllocationDecision.allowed(signals.stream()
+                .map(signal -> allocatedSignal(signal, marginBalance, totalAllocatedText, allocatedText))
+                .toList());
+    }
+
+    private Optional<BigDecimal> accountMarginBalance(TradingStateSnapshot snapshot, LfaRunnerTarget target) {
+        TradingStateProjection.RiskState selected = null;
+        for (TradingStateProjection.RiskState state : snapshot.risks()) {
+            if (!matchesTarget(state, target) || !same(state.riskScope(), "ACCOUNT")) {
+                continue;
+            }
+            BigDecimal marginBalance = decimal(state.marginBalance());
+            if (marginBalance == null || marginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (selected == null || selected.updatedAt() == null
+                    || (state.updatedAt() != null && state.updatedAt().isAfter(selected.updatedAt()))) {
+                selected = state;
+            }
+        }
+        return selected == null ? Optional.empty() : Optional.of(decimal(selected.marginBalance()));
+    }
+
+    private StrategySignalEvent allocatedSignal(
+            StrategySignalEvent signal,
+            BigDecimal marginBalance,
+            String totalAllocatedTargetNotional,
+            String allocatedTargetNotional
+    ) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        if (signal.getAttributes() != null) {
+            attributes.putAll(signal.getAttributes());
+        }
+        attributes.put("lfa_allocation_source", "account_margin_balance");
+        attributes.put("lfa_allocation_base", decimalText(marginBalance));
+        attributes.put("lfa_allocation_fraction", properties.targetNotionalMarginBalanceFraction().toPlainString());
+        attributes.put("lfa_allocation_total_target_notional", totalAllocatedTargetNotional);
+        attributes.put("lfa_allocated_target_notional", allocatedTargetNotional);
+        return StrategySignalEvent.newBuilder(signal)
+                .setTargetQuantity(null)
+                .setTargetNotional(allocatedTargetNotional)
+                .setAttributes(attributes)
+                .build();
+    }
+
+    private String decimalText(BigDecimal value) {
+        return value.setScale(8, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
+    }
+
     private Optional<BigDecimal> signalNotional(StrategySignalEvent signal) {
         BigDecimal targetNotional = decimal(signal.getTargetNotional());
         if (targetNotional != null) {
@@ -614,6 +712,13 @@ public final class LfaSignalRunner {
     }
 
     private boolean matchesTarget(TradingStateProjection.DailyRealizedPnlState state, LfaRunnerTarget target) {
+        return same(state.provider(), target.provider())
+                && same(state.environment(), target.environment())
+                && same(state.account(), target.account())
+                && same(state.market(), target.market());
+    }
+
+    private boolean matchesTarget(TradingStateProjection.RiskState state, LfaRunnerTarget target) {
         return same(state.provider(), target.provider())
                 && same(state.environment(), target.environment())
                 && same(state.account(), target.account())
@@ -762,6 +867,26 @@ public final class LfaSignalRunner {
 
         private static GateDecision allowed() {
             return new GateDecision(List.of());
+        }
+
+        private boolean blocked() {
+            return !reasons.isEmpty();
+        }
+    }
+
+    private record AllocationDecision(List<StrategySignalEvent> signals, List<String> reasons) {
+
+        private AllocationDecision {
+            signals = signals == null ? List.of() : List.copyOf(signals);
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+        }
+
+        private static AllocationDecision allowed(List<StrategySignalEvent> signals) {
+            return new AllocationDecision(signals, List.of());
+        }
+
+        private static AllocationDecision blocked(String reason) {
+            return new AllocationDecision(List.of(), List.of(reason));
         }
 
         private boolean blocked() {

@@ -1551,6 +1551,10 @@ Catalog defaults are:
 - `max_market_data_age_millis`: `30000`
 - `target_quantity`: `null`
 - `target_notional`: `null`
+- `target_notional_margin_balance_fraction`: `null`
+- `min_allocated_target_notional`: `null`
+- `max_allocated_target_notional`: `null`
+- `reject_missing_allocation_balance`: `true`
 - `max_signals_per_run`: `1`
 - `max_account_open_positions`: `null`
 - `max_symbol_open_positions`: `null`
@@ -1575,6 +1579,8 @@ overrides for `binance/demo/main/usdm_futures`:
 - `min_warmup_top_of_book_symbols`: `3`
 - `max_candidate_market_data_symbols`: `13`
 - `target_quantity`: `0.001`
+- `target_notional_margin_balance_fraction`: `0.01`
+- `max_allocated_target_notional`: `50`
 - `max_account_open_positions`: `3`
 - `max_symbol_open_positions`: `1`
 
@@ -1602,14 +1608,38 @@ candidate symbols through the core signal-planner instrument universe when
 `use_signal_planner_instrument_universe=true`, ranks candidate market data by
 projected spread, top-of-book quote depth, freshness, and symbol, applies
 `max_candidate_market_data_symbols` when configured, passes only those candidate
-market-data states to the analyzer, applies symbol budget gates to candidate
-signals, publishes at most `max_signals_per_run` ranked signals as symbol-keyed
-`STRATEGY_SIGNAL` events, and then the existing signal planner and risk gates
-decide whether any order command can be built and admitted. A lifecycle block
-returns `lfa_signal_runner:lifecycle_blocked`, a warm-up block returns
-`lfa_signal_runner:warmup_incomplete`, and a budget block returns
+market-data states to the analyzer, optionally replaces fixed signal sizing
+with target notional allocated from the latest projected account margin balance,
+applies symbol budget gates to candidate signals, publishes at most
+`max_signals_per_run` ranked signals as symbol-keyed `STRATEGY_SIGNAL` events,
+and then the existing signal planner and risk gates decide whether any order
+command can be built and admitted. A lifecycle block returns
+`lfa_signal_runner:lifecycle_blocked`, a warm-up block returns
+`lfa_signal_runner:warmup_incomplete`, an allocation block returns
+`lfa_signal_runner:allocation_blocked`, and a budget block returns
 `lfa_signal_runner:budget_blocked`. A blocked runner does not publish the
 signal.
+
+When `target_notional_margin_balance_fraction` is configured, the runner reads
+the latest projected account-level risk state for the same provider,
+environment, account, and market with `risk_scope=ACCOUNT`. If that projection
+contains a positive `margin_balance`, the runner computes target notional as
+`margin_balance * target_notional_margin_balance_fraction`, applies
+`max_allocated_target_notional` when configured, divides that total run budget
+across the number of candidate publish slots for the run, enforces
+`min_allocated_target_notional` on the per-signal target notional when
+configured, clears `targetQuantity`, sets `targetNotional`, and records
+allocation attributes on each signal. With the catalog default
+`reject_missing_allocation_balance=true`, missing account margin balance blocks
+publication instead of falling back to stale or ambiguous sizing.
+
+Allocation attributes include:
+
+- `lfa_allocation_source=account_margin_balance`
+- `lfa_allocation_base`
+- `lfa_allocation_fraction`
+- `lfa_allocation_total_target_notional`
+- `lfa_allocated_target_notional`
 
 Current runner lifecycle and warm-up blockers can block on:
 
@@ -1629,12 +1659,20 @@ Current runner budget gates can block on:
 - `lfa_budget:daily_realized_pnl_missing`
 - `lfa_budget:signal_notional_unbounded`
 
+Current runner allocation gates can block on:
+
+- `lfa_allocation:account_margin_balance_missing`
+- `lfa_allocation:target_notional_below_min`
+- `lfa_allocation:target_notional_non_positive`
+
 The checked-in demo runtime keeps the runner disabled because full position
-lifecycle and money-management allocation are still incomplete. It already
+lifecycle and broader money-management controls are still incomplete. It already
 sets `lifecycle_state=PAUSED`, three-symbol projected-data warm-up thresholds,
-`max_candidate_market_data_symbols=13`, and open-position caps for first-start
-demo operation; notional and daily-loss caps remain inherited as `null` until
-calibrated for the target account.
+`max_candidate_market_data_symbols=13`, open-position caps,
+`target_notional_margin_balance_fraction=0.01`, and
+`max_allocated_target_notional=50` for first-start demo operation; notional and
+daily-loss caps remain inherited as `null` until calibrated for the target
+account.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,
