@@ -301,9 +301,34 @@ class ExecutionPropertiesTest {
                         true,
                         1000L,
                         "0",
+                        null,
                         java.util.List.of()
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("instrument universe maxSpreadBps must be positive when configured");
+
+        assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        java.util.List.of("BTCUSDT"),
+                        java.util.List.of(),
+                        true,
+                        true,
+                        true,
+                        true,
+                        false,
+                        "TRADING",
+                        null,
+                        java.util.List.of("USDT"),
+                        java.util.List.of("PERPETUAL"),
+                        null,
+                        true,
+                        true,
+                        1000L,
+                        "5",
+                        "0",
+                        java.util.List.of()
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("instrument universe minTopOfBookQuoteNotional must be positive when configured");
     }
 }

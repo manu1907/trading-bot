@@ -69,6 +69,9 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 Integer.class
         )).isEqualTo(13);
         assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.min-top-of-book-quote-notional"
+        )).isEqualTo("250");
+        assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.symbol-policies[1].symbol"
         )).isEqualTo("ETHUSDT");
         assertThat(environment.getProperty("trading.intervention.automated-policy.external-order-action"))

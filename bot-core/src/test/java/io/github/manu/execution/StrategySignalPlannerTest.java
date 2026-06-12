@@ -541,11 +541,37 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_order_command_when_required_top_of_book_quote_notional_is_too_thin() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(marketDataState("BTCUSDT", "50000.00", "0.001", "50000.50", "0.001", NOW)),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringLiquidTopOfBook("5", "250", 1000L))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
+    }
+
+    @Test
     void plans_order_command_when_required_market_data_is_fresh_and_tight() {
         StrategySignalPlanner planner = planner(
                 projectionWithMarketData(marketDataState("50000.00", "50000.50", NOW)),
                 null,
                 propertiesWithInstrumentUniverse(instrumentUniverseRequiringMarketData("5", 1000L))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isPresent();
+    }
+
+    @Test
+    void plans_order_command_when_required_top_of_book_quote_notional_is_deep_enough() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(marketDataState("BTCUSDT", "50000.00", "0.01", "50000.50", "0.01", NOW)),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringLiquidTopOfBook("5", "250", 1000L))
         );
 
         Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
@@ -850,6 +876,17 @@ class StrategySignalPlannerTest {
             String askPrice,
             Instant updatedAt
     ) {
+        return marketDataState(symbol, bidPrice, "0.50", askPrice, "0.50", updatedAt);
+    }
+
+    private TradingStateProjection.MarketDataState marketDataState(
+            String symbol,
+            String bidPrice,
+            String bidQuantity,
+            String askPrice,
+            String askQuantity,
+            Instant updatedAt
+    ) {
         return new TradingStateProjection.MarketDataState(
                 "binance",
                 "demo",
@@ -857,9 +894,9 @@ class StrategySignalPlannerTest {
                 symbol,
                 MarketDataEventType.BOOK_TICKER.name(),
                 bidPrice,
-                "0.50",
+                bidQuantity,
                 askPrice,
-                "0.50",
+                askQuantity,
                 updatedAt,
                 null,
                 null,
@@ -893,6 +930,34 @@ class StrategySignalPlannerTest {
                 true,
                 maxMarketDataAgeMillis,
                 maxSpreadBps,
+                List.of()
+        );
+    }
+
+    private ExecutionProperties.SignalPlanner.InstrumentUniverse instrumentUniverseRequiringLiquidTopOfBook(
+            String maxSpreadBps,
+            String minTopOfBookQuoteNotional,
+            Long maxMarketDataAgeMillis
+    ) {
+        return new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                true,
+                List.of("BTCUSDT"),
+                List.of(),
+                false,
+                false,
+                true,
+                true,
+                false,
+                "TRADING",
+                null,
+                List.of(),
+                List.of(),
+                null,
+                true,
+                true,
+                maxMarketDataAgeMillis,
+                maxSpreadBps,
+                minTopOfBookQuoteNotional,
                 List.of()
         );
     }

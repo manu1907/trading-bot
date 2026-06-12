@@ -134,6 +134,7 @@ public record ExecutionProperties(
                 Boolean requireTopOfBook,
                 Long maxMarketDataAgeMillis,
                 String maxSpreadBps,
+                String minTopOfBookQuoteNotional,
                 List<SymbolPolicy> symbolPolicies
         ) {
 
@@ -162,7 +163,51 @@ public record ExecutionProperties(
                     );
                 }
                 validatePositiveDecimal("instrument universe maxSpreadBps", maxSpreadBps);
+                validatePositiveDecimal("instrument universe minTopOfBookQuoteNotional", minTopOfBookQuoteNotional);
                 symbolPolicies = symbolPolicies == null ? List.of() : List.copyOf(symbolPolicies);
+            }
+
+            public InstrumentUniverse(
+                    Boolean enabled,
+                    List<String> includedSymbols,
+                    List<String> excludedSymbols,
+                    Boolean refreshExchangeMetadataBeforePlanning,
+                    Boolean requireExchangeMetadata,
+                    Boolean requireIncludedSymbol,
+                    Boolean requireSymbolEnabled,
+                    Boolean requirePromotionReady,
+                    String requiredStatus,
+                    String requiredOrderType,
+                    List<String> allowedQuoteAssets,
+                    List<String> allowedContractTypes,
+                    Integer maxEligibleSymbols,
+                    Boolean requireMarketData,
+                    Boolean requireTopOfBook,
+                    Long maxMarketDataAgeMillis,
+                    String maxSpreadBps,
+                    List<SymbolPolicy> symbolPolicies
+            ) {
+                this(
+                        enabled,
+                        includedSymbols,
+                        excludedSymbols,
+                        refreshExchangeMetadataBeforePlanning,
+                        requireExchangeMetadata,
+                        requireIncludedSymbol,
+                        requireSymbolEnabled,
+                        requirePromotionReady,
+                        requiredStatus,
+                        requiredOrderType,
+                        allowedQuoteAssets,
+                        allowedContractTypes,
+                        maxEligibleSymbols,
+                        requireMarketData,
+                        requireTopOfBook,
+                        maxMarketDataAgeMillis,
+                        maxSpreadBps,
+                        null,
+                        symbolPolicies
+                );
             }
 
             public InstrumentUniverse(
@@ -192,6 +237,7 @@ public record ExecutionProperties(
                         false,
                         60000L,
                         null,
+                        null,
                         symbolPolicies
                 );
             }
@@ -214,6 +260,7 @@ public record ExecutionProperties(
                         false,
                         false,
                         60000L,
+                        null,
                         null,
                         List.of()
                 );
@@ -297,6 +344,7 @@ public record ExecutionProperties(
                 Boolean promotionReady,
                 String minDailyQuoteVolume,
                 String maxSpreadBps,
+                String minTopOfBookQuoteNotional,
                 String maxOrderNotional
         ) {
 
@@ -308,7 +356,35 @@ public record ExecutionProperties(
                 symbol = symbol.trim().toUpperCase(java.util.Locale.ROOT);
                 validatePositiveDecimal("symbolPolicies.minDailyQuoteVolume", minDailyQuoteVolume);
                 validatePositiveDecimal("symbolPolicies.maxSpreadBps", maxSpreadBps);
+                validatePositiveDecimal("symbolPolicies.minTopOfBookQuoteNotional", minTopOfBookQuoteNotional);
                 validatePositiveDecimal("symbolPolicies.maxOrderNotional", maxOrderNotional);
+            }
+
+            public SymbolPolicy(
+                    String provider,
+                    String environment,
+                    String account,
+                    String market,
+                    String symbol,
+                    Boolean enabled,
+                    Boolean promotionReady,
+                    String minDailyQuoteVolume,
+                    String maxSpreadBps,
+                    String maxOrderNotional
+            ) {
+                this(
+                        provider,
+                        environment,
+                        account,
+                        market,
+                        symbol,
+                        enabled,
+                        promotionReady,
+                        minDailyQuoteVolume,
+                        maxSpreadBps,
+                        null,
+                        maxOrderNotional
+                );
             }
 
             private static void validatePositiveDecimal(String field, String value) {

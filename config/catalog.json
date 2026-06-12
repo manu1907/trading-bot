@@ -126,6 +126,7 @@
           "require_top_of_book": false,
           "max_market_data_age_millis": 60000,
           "max_spread_bps": null,
+          "min_top_of_book_quote_notional": null,
           "symbol_policies": [
             {
               "symbol": "BTCUSDT",
@@ -133,6 +134,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -141,6 +143,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -149,6 +152,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -157,6 +161,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -165,6 +170,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -173,6 +179,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -181,6 +188,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -189,6 +197,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -197,6 +206,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -205,6 +215,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -213,6 +224,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -221,6 +233,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             },
             {
@@ -229,6 +242,7 @@
               "promotion_ready": true,
               "min_daily_quote_volume": "100000000",
               "max_spread_bps": "5",
+              "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             }
           ]

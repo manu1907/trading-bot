@@ -84,7 +84,8 @@
           "require_market_data": true,
           "require_top_of_book": true,
           "max_market_data_age_millis": 30000,
-          "max_spread_bps": "5"
+          "max_spread_bps": "5",
+          "min_top_of_book_quote_notional": "250"
         }
       }
     },

@@ -57,6 +57,11 @@ class ConfigCatalogDefaultsTest {
 
         assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_external_remediation_cancel", true);
         assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_adopted_target_orders", false);
+        assertNull(catalog, "trading.execution.signal_planner.instrument_universe.min_top_of_book_quote_notional");
+        assertThat(requiredNode(catalog, "trading.execution.signal_planner.instrument_universe.symbol_policies")
+                .get(0)
+                .path("min_top_of_book_quote_notional")
+                .asString()).isEqualTo("250");
 
         assertBoolean(catalog, "trading.intervention.remediation_orchestrator.enabled", false);
         assertBoolean(catalog,

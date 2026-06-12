@@ -38,7 +38,9 @@ Latest market-data projection is now also available to the planner. When
 configured, a strategy signal is suppressed unless recent market data exists,
 top-of-book bid/ask are present, the top-of-book snapshot is fresh enough, and
 the effective spread is below the configured universe or symbol-policy
-`max_spread_bps`.
+`max_spread_bps`. The planner can also require a minimum projected
+top-of-book quote notional using `min_top_of_book_quote_notional`; the effective
+depth is the smaller quote notional available on the best bid and best ask.
 
 The checked-in catalog currently provides this bounded high-liquidity USD-M
 futures candidate baseline:
@@ -65,13 +67,14 @@ The checked-in demo runtime currently enables that catalog baseline and sets:
 - `require_top_of_book=true`
 - `max_market_data_age_millis=30000`
 - `max_spread_bps="5"`
+- `min_top_of_book_quote_notional="250"`
 - `max_order_notional="50"` per initial symbol policy
 
 The resolver returns the eligible, exchange-confirmed subset of the configured
-candidate list. The planner now rejects stale or wide-spread symbols, but it
-does not yet rotate across eligible symbols or rank candidates for expected
-profit, risk-adjusted return, or money-management fit; that ranking belongs to
-the remaining strategy market-analysis lifecycle work.
+candidate list. The planner now rejects stale, wide-spread, or thin top-of-book
+symbols, but it does not yet rotate across eligible symbols or rank candidates
+for expected profit, risk-adjusted return, or money-management fit; that ranking
+belongs to the remaining strategy market-analysis lifecycle work.
 
 ## Runtime Policy Boundary
 

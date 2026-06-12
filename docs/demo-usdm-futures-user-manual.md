@@ -1463,10 +1463,11 @@ Current planner defaults include:
 - `instrument_universe.require_top_of_book`: `false`
 - `instrument_universe.max_market_data_age_millis`: `60000`
 - `instrument_universe.max_spread_bps`: `null`
+- `instrument_universe.min_top_of_book_quote_notional`: `null`
 - `instrument_universe.symbol_policies`: catalog baseline policies for the same
   USD-M futures candidate list, each enabled and promotion-ready with
-  `min_daily_quote_volume=100000000`, `max_spread_bps=5`, and
-  `max_order_notional=50`
+  `min_daily_quote_volume=100000000`, `max_spread_bps=5`,
+  `min_top_of_book_quote_notional=250`, and `max_order_notional=50`
 
 When enabled, the planner handles `STRATEGY_SIGNAL` events in live mode. It is
 not enabled by default because automated strategy-to-order planning still needs
@@ -1486,6 +1487,11 @@ requires projected best bid and best ask. `max_market_data_age_millis` bounds
 the maximum age of the required snapshot, and `max_spread_bps` rejects symbols
 whose top-of-book spread is wider than the configured limit. A symbol policy
 `max_spread_bps` overrides the universe-level spread limit for that symbol.
+`min_top_of_book_quote_notional` rejects symbols whose best bid or best ask
+does not carry enough projected quote notional; the effective depth is the
+smaller of best-bid quote notional and best-ask quote notional. A symbol policy
+`min_top_of_book_quote_notional` overrides the universe-level depth limit for
+that symbol.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,
@@ -1496,7 +1502,7 @@ The checked-in demo runtime opts into that catalog baseline and sets
 `allowed_quote_assets=["USDT"]`, `allowed_contract_types=["PERPETUAL"]`, and
 `max_eligible_symbols=13`. It also sets `require_market_data=true`,
 `require_top_of_book=true`, `max_market_data_age_millis=30000`, and
-`max_spread_bps="5"`.
+`max_spread_bps="5"`, and `min_top_of_book_quote_notional="250"`.
 
 ## Risk Gate Options
 

@@ -33,8 +33,9 @@ final class StrategyInstrumentMarketDataRanker {
         if (!universe.requireMarketData()
                 && !universe.requireTopOfBook()
                 && universe.maxSpreadBps() == null
-                && (policy == null || policy.maxSpreadBps() == null)) {
-            return Optional.of(new RankedInstrument(symbol, null, null, null, 0.0D));
+                && universe.minTopOfBookQuoteNotional() == null
+                && (policy == null || (policy.maxSpreadBps() == null && policy.minTopOfBookQuoteNotional() == null))) {
+            return Optional.of(new RankedInstrument(symbol, null, null, null, null, 0.0D));
         }
         Optional<TradingStateProjection.MarketDataState> state =
                 projection.marketData(provider, environment, market, symbol);
@@ -62,13 +63,21 @@ final class StrategyInstrumentMarketDataRanker {
                 return Optional.empty();
             }
         }
+        BigDecimal minTopOfBookQuoteNotional = minTopOfBookQuoteNotional(universe, policy);
+        BigDecimal topOfBookQuoteNotional = topOfBookQuoteNotional(marketData).orElse(null);
+        if (minTopOfBookQuoteNotional != null) {
+            if (topOfBookQuoteNotional == null || topOfBookQuoteNotional.compareTo(minTopOfBookQuoteNotional) < 0) {
+                return Optional.empty();
+            }
+        }
         Long ageMillis = Duration.between(referenceTime, Instant.now(clock)).toMillis();
         return Optional.of(new RankedInstrument(
                 symbol,
                 marketData,
                 spreadBps,
+                topOfBookQuoteNotional,
                 ageMillis,
-                score(spreadBps, ageMillis)
+                score(spreadBps, topOfBookQuoteNotional, minTopOfBookQuoteNotional, ageMillis)
         ));
     }
 
@@ -85,11 +94,34 @@ final class StrategyInstrumentMarketDataRanker {
         return Optional.of(ask.subtract(bid).multiply(TEN_THOUSAND).divide(mid, 8, RoundingMode.HALF_UP));
     }
 
+    private Optional<BigDecimal> topOfBookQuoteNotional(TradingStateProjection.MarketDataState marketData) {
+        BigDecimal bidPrice = decimal(marketData.bestBidPrice());
+        BigDecimal bidQuantity = decimal(marketData.bestBidQuantity());
+        BigDecimal askPrice = decimal(marketData.bestAskPrice());
+        BigDecimal askQuantity = decimal(marketData.bestAskQuantity());
+        if (!positive(bidPrice) || !positive(bidQuantity) || !positive(askPrice) || !positive(askQuantity)) {
+            return Optional.empty();
+        }
+        BigDecimal bidNotional = bidPrice.multiply(bidQuantity);
+        BigDecimal askNotional = askPrice.multiply(askQuantity);
+        return Optional.of(bidNotional.min(askNotional));
+    }
+
     private BigDecimal maxSpreadBps(
             ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
             ExecutionProperties.SignalPlanner.SymbolPolicy policy
     ) {
         String configured = policy == null || policy.maxSpreadBps() == null ? universe.maxSpreadBps() : policy.maxSpreadBps();
+        return decimal(configured);
+    }
+
+    private BigDecimal minTopOfBookQuoteNotional(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            ExecutionProperties.SignalPlanner.SymbolPolicy policy
+    ) {
+        String configured = policy == null || policy.minTopOfBookQuoteNotional() == null
+                ? universe.minTopOfBookQuoteNotional()
+                : policy.minTopOfBookQuoteNotional();
         return decimal(configured);
     }
 
@@ -104,16 +136,39 @@ final class StrategyInstrumentMarketDataRanker {
         }
     }
 
-    private double score(BigDecimal spreadBps, Long ageMillis) {
+    private boolean positive(BigDecimal value) {
+        return value != null && value.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    private double score(
+            BigDecimal spreadBps,
+            BigDecimal topOfBookQuoteNotional,
+            BigDecimal minTopOfBookQuoteNotional,
+            Long ageMillis
+    ) {
         double spreadPenalty = spreadBps == null ? 0.0D : spreadBps.doubleValue();
         double agePenalty = ageMillis == null ? 0.0D : ageMillis.doubleValue() / 1000.0D;
-        return 1.0D / (1.0D + spreadPenalty + agePenalty);
+        double liquidityPenalty = liquidityPenalty(topOfBookQuoteNotional, minTopOfBookQuoteNotional);
+        return 1.0D / (1.0D + spreadPenalty + liquidityPenalty + agePenalty);
+    }
+
+    private double liquidityPenalty(BigDecimal topOfBookQuoteNotional, BigDecimal minTopOfBookQuoteNotional) {
+        if (topOfBookQuoteNotional == null || minTopOfBookQuoteNotional == null) {
+            return 0.0D;
+        }
+        if (topOfBookQuoteNotional.compareTo(BigDecimal.ZERO) <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return minTopOfBookQuoteNotional
+                .divide(topOfBookQuoteNotional, 8, RoundingMode.HALF_UP)
+                .doubleValue();
     }
 
     record RankedInstrument(
             String symbol,
             TradingStateProjection.MarketDataState marketData,
             BigDecimal spreadBps,
+            BigDecimal topOfBookQuoteNotional,
             Long ageMillis,
             double score
     ) {
