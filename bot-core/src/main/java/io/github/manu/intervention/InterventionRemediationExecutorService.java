@@ -213,6 +213,7 @@ public final class InterventionRemediationExecutorService {
         attributes.put("executor_exchange_execution_enabled", Boolean.toString(policy.exchangeExecutionEnabled()));
         attributes.put("executor_report_only", Boolean.toString(policy.reportOnly()));
         attributes.put("executor_mode", mode.name());
+        putAuditSummaryAttributes(plan, mode, attributes);
 
         if (plan.status() == InterventionRemediationCommandPlanner.PlanStatus.NO_ACTION) {
             return report(plan, ExecutionStatus.NO_ACTION, "executor:no_action_plan", attributes);
@@ -301,6 +302,77 @@ public final class InterventionRemediationExecutorService {
         attributes.put("executor_submitted_close_position",
                 Boolean.toString(Boolean.TRUE.equals(command.getClosePosition())));
         return report(plan, ExecutionStatus.SUBMITTED_TO_PIPELINE, "executor:submitted_to_order_execution_pipeline", attributes);
+    }
+
+    private void putAuditSummaryAttributes(
+            InterventionRemediationCommandPlanner.RemediationCommandPlan plan,
+            ExecutionMode mode,
+            Map<String, String> attributes
+    ) {
+        attributes.put("executor_plan_summary", String.join(
+                "|",
+                "plan_status=" + plan.status().name(),
+                "operation=" + plan.operation().name(),
+                "exchange_executable=" + plan.exchangeExecutable(),
+                "mode=" + mode.name()
+        ));
+        attributes.put("executor_target_summary", targetSummary(plan));
+        attributes.put("executor_policy_summary", String.join(
+                "|",
+                "enabled=" + policy.enabled(),
+                "exchange_execution_enabled=" + policy.exchangeExecutionEnabled(),
+                "report_only=" + policy.reportOnly(),
+                "allow_real_environment=" + policy.allowRealEnvironment()
+        ));
+        String ambiguousReason = ambiguousReason(plan);
+        attributes.put("executor_ambiguous_outcome_detected", Boolean.toString(ambiguousReason != null));
+        if (ambiguousReason != null) {
+            attributes.put("executor_ambiguous_outcome_reason", ambiguousReason);
+            attributes.put("executor_ambiguous_outcome_action", "reconcile_before_retry");
+        }
+    }
+
+    private String targetSummary(InterventionRemediationCommandPlanner.RemediationCommandPlan plan) {
+        List<String> parts = new ArrayList<>();
+        addSummaryPart(parts, "provider", plan.provider());
+        addSummaryPart(parts, "environment", plan.environment());
+        addSummaryPart(parts, "account", plan.account());
+        addSummaryPart(parts, "market", plan.market());
+        addSummaryPart(parts, "symbol", plan.symbol());
+        addSummaryPart(parts, "client_order_id", plan.clientOrderId());
+        addSummaryPart(parts, "position_side", plan.positionSide());
+        addSummaryPart(parts, "scope", plan.scope());
+        addSummaryPart(parts, "action", plan.action());
+        return String.join("|", parts);
+    }
+
+    private void addSummaryPart(List<String> parts, String name, String value) {
+        String text = text(value);
+        if (text != null) {
+            parts.add(name + "=" + text);
+        }
+    }
+
+    private String ambiguousReason(InterventionRemediationCommandPlanner.RemediationCommandPlan plan) {
+        String blocker = text(plan.attributes().get("exchange_execution_blocker"));
+        if (ambiguousText(blocker)) {
+            return blocker;
+        }
+        for (String reason : plan.reasons()) {
+            if (ambiguousText(reason)) {
+                return reason;
+            }
+        }
+        return null;
+    }
+
+    private boolean ambiguousText(String value) {
+        String text = text(value);
+        return text != null
+                && (text.contains("unknown")
+                || text.contains("ambiguous")
+                || text.contains("pending_reconciliation")
+                || text.contains("reconciliation_required"));
     }
 
     private OrderCommandEvent cancelOrderCommand(

@@ -90,7 +90,21 @@ class InterventionRemediationExecutorServiceTest {
             assertThat(report.attributes())
                     .containsEntry("executor_status", "PREVIEW_ONLY")
                     .containsEntry("executor_reason", "executor:exchange_execution_disabled")
-                    .containsEntry("executor_exchange_execution_enabled", "false");
+                    .containsEntry("executor_exchange_execution_enabled", "false")
+                    .containsEntry(
+                            "executor_plan_summary",
+                            "plan_status=READY|operation=CANCEL_ORDER|exchange_executable=true|mode=PREVIEW"
+                    )
+                    .containsEntry(
+                            "executor_target_summary",
+                            "provider=binance|environment=demo|account=main|market=usd_m_futures|symbol=BTCUSDT|"
+                                    + "client_order_id=client-1|scope=ORDER|action=CLOSE"
+                    )
+                    .containsEntry(
+                            "executor_policy_summary",
+                            "enabled=true|exchange_execution_enabled=false|report_only=true|allow_real_environment=false"
+                    )
+                    .containsEntry("executor_ambiguous_outcome_detected", "false");
         });
         assertThat(outcomeCount("PREVIEW", "CANCEL_ORDER", "PREVIEW_ONLY", "executor:exchange_execution_disabled"))
                 .isEqualTo(1.0d);
@@ -391,6 +405,51 @@ class InterventionRemediationExecutorServiceTest {
                     assertThat(result.getPrice()).hasToString("49950.00");
                     assertThat(result.getOriginalQuantity()).hasToString("0.0009");
                 });
+    }
+
+    @Test
+    void reports_ambiguous_unknown_modify_outcome_as_reconciliation_required_without_execution() {
+        restoreManagedAmendRemediationDecisionWithOrder("UNKNOWN", "MODIFY");
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy()
+        );
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service(liveAmendPolicy(), null, amendPlanner)
+                        .preview("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isEqualTo(1);
+        assertThat(batch.submittedCount()).isZero();
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.planStatus()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
+            assertThat(report.status()).isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.BLOCKED);
+            assertThat(report.reasons())
+                    .containsExactly(
+                            "remediation:amend_order",
+                            "executor:plan_not_exchange_executable"
+                    );
+            assertThat(report.attributes())
+                    .containsEntry("executor_status", "BLOCKED")
+                    .containsEntry("executor_reason", "executor:plan_not_exchange_executable")
+                    .containsEntry(
+                            "exchange_execution_blocker",
+                            "managed_order_amendment_modify_unknown_reconciliation_required"
+                    )
+                    .containsEntry(
+                            "executor_plan_summary",
+                            "plan_status=READY|operation=AMEND_ORDER|exchange_executable=false|mode=PREVIEW"
+                    )
+                    .containsEntry("executor_ambiguous_outcome_detected", "true")
+                    .containsEntry(
+                            "executor_ambiguous_outcome_reason",
+                            "managed_order_amendment_modify_unknown_reconciliation_required"
+                    )
+                    .containsEntry("executor_ambiguous_outcome_action", "reconcile_before_retry");
+        });
     }
 
     @Test
@@ -896,6 +955,13 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     private void restoreManagedAmendRemediationDecisionWithOrder() {
+        restoreManagedAmendRemediationDecisionWithOrder("ACCEPTED", "AMENDMENT");
+    }
+
+    private void restoreManagedAmendRemediationDecisionWithOrder(
+            String status,
+            String executionType
+    ) {
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 List.of(),
@@ -908,7 +974,7 @@ class InterventionRemediationExecutorServiceTest {
                         "cmd-managed-1",
                         "client-1",
                         "exchange-client-1",
-                        "ACCEPTED",
+                        status,
                         "NEW",
                         "BUY",
                         "LIMIT",
@@ -918,7 +984,7 @@ class InterventionRemediationExecutorServiceTest {
                         null,
                         null,
                         "USER_DATA",
-                        "AMENDMENT",
+                        executionType,
                         true,
                         true,
                         "unplanned_managed_order_change",

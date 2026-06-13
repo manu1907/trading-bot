@@ -276,6 +276,13 @@ Supported exchange-executable order remediation today:
 - A qualified amendment is submitted as a `MODIFY` command through `OrderExecutionPipeline`. The command uses the projected target client/exchange identity, projected side, projected order type, requested or retained price, and requested or retained quantity.
 - Managed amendment commands are still checked by the order risk gate and provider preflight. Binance futures preflight validates `MODIFY` target identity, side, type, quantity, and price before gateway submission.
 - A target with a pending `MODIFY` command or an unknown `MODIFY` result is blocked from repeat amendment until reconciliation updates the projection. The planner reports `managed_order_amendment_modify_pending_reconciliation` or `managed_order_amendment_modify_unknown_reconciliation_required`.
+- Remediation executor reports now include compact `executor_plan_summary`,
+  `executor_target_summary`, and `executor_policy_summary` attributes for
+  operator/API audit. Reports also include
+  `executor_ambiguous_outcome_detected`,
+  `executor_ambiguous_outcome_reason`, and
+  `executor_ambiguous_outcome_action=reconcile_before_retry` when an unknown,
+  pending-reconciliation, or ambiguous condition is detected.
 - Provider gateways can reject approved commands during preflight before gateway submission. Binance uses this for `NEW` order capability and exchange-filter validation, `CANCEL` target identity validation, and futures `MODIFY` target/parameter validation.
 
 Supported non-exchange order remediation today:
@@ -462,7 +469,7 @@ Remaining work includes:
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Broader account-level and symbol-level risk budgets beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account/symbol daily realized-loss caps.
 - Cancel/replace fallback for unsupported amendments and executable rollback behavior for ambiguous adopted-order lifecycle outcomes.
-- Broader operational audit summaries and hedge-mode remediation runbooks.
+- Deeper hedge-mode remediation runbooks.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - V1 live validation, demo soak criteria, promotion gates, and real-trading runbooks.
 - Backtesting and historical simulation are intentionally deferred to v2.

@@ -2046,6 +2046,13 @@ the planner blocks another amendment until reconciliation refreshes the target.
 Adopted-order amendments must also pass `adopted_order_lifecycle_policy`.
 Cancel/replace fallback remains unimplemented, so unsupported amendment shapes
 are blocked with an explicit fallback blocker instead of replaced.
+Executor preview and execute reports include `executor_plan_summary`,
+`executor_target_summary`, and `executor_policy_summary` attributes so the
+operator API exposes the evaluated plan, target, and policy state without log
+parsing. If a pending, unknown, or ambiguous exchange state is involved, reports
+also include `executor_ambiguous_outcome_detected=true`,
+`executor_ambiguous_outcome_reason`, and
+`executor_ambiguous_outcome_action=reconcile_before_retry`.
 
 The system can track and expose:
 
@@ -2442,6 +2449,9 @@ Default behavior:
 Expected result:
 
 - The bot avoids compounding ambiguous exchange state with new commands.
+- Remediation executor reports mark ambiguous cases with
+  `executor_ambiguous_outcome_detected=true` and instruct reconciliation before
+  retry instead of submitting another command.
 
 ### Scenario: Block New Commands On Degraded Reconciliation
 
