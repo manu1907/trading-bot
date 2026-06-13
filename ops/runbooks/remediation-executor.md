@@ -75,8 +75,9 @@ state.
 1. Do not retry execute immediately. A second command can compound the unknown
    exchange state.
 2. Read `executor_ambiguous_outcome_reason` and
-   `executor_ambiguous_outcome_action`. The expected action is
-   `reconcile_before_retry`.
+   `executor_ambiguous_outcome_action`. Generic ambiguous outcomes use
+   `reconcile_before_retry`; adopted-order lifecycle ambiguity uses
+   `reconcile_projection_then_repreview`.
 3. Query the latest projected order or position state for the target in
    `executor_target_summary`.
 4. Check user-data stream freshness for the target account and market.
@@ -101,7 +102,9 @@ Expected safe outcomes:
 
 Do not use cancel/replace as an implicit rollback. Cancel/replace fallback and
 adopted-order ambiguous rollback are not executable behaviors in the current
-codebase.
+codebase. If `executor_ambiguous_outcome_rollback_blocker` is present, preserve
+it with the incident evidence; it explains whether rollback is disabled by
+policy or blocked because executable rollback is not implemented.
 
 ## Hedge-Mode Remediation
 

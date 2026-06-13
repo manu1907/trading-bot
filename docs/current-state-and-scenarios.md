@@ -289,7 +289,7 @@ Supported non-exchange order remediation today:
 
 - External order adoption: an order-scope `ADOPT` remediation decision can publish an auditable intervention acknowledgement when `trading.intervention.remediation_orchestrator.enabled=true` and `order_adoption_acknowledgement_enabled=true`.
 - Adoption acknowledgement replay marks the projected external order as bot-managed and clears the unresolved external-order intervention. It does not submit, amend, or cancel an exchange order.
-- Adopted orders remain protected after ownership transfer. The order risk gate treats a managed target with no bot command id as adopted and blocks ordinary target-order commands unless `trading.execution.risk_gate.target_order.allow_adopted_target_orders=true`. Policy-qualified adopted cancels can pass only when `adopted_order_lifecycle_policy.allow_cancel=true` and the executor command carries matching lifecycle metadata. Policy-qualified adopted amendments can pass only when both `managed_order_amendment_policy.allow_adopted_orders=true` and `adopted_order_lifecycle_policy.allow_amend=true`.
+- Adopted orders remain protected after ownership transfer. The order risk gate treats a managed target with no bot command id as adopted and blocks ordinary target-order commands unless `trading.execution.risk_gate.target_order.allow_adopted_target_orders=true`. Policy-qualified adopted cancels can pass only when `adopted_order_lifecycle_policy.allow_cancel=true` and the executor command carries matching lifecycle metadata. Policy-qualified adopted amendments can pass only when both `managed_order_amendment_policy.allow_adopted_orders=true` and `adopted_order_lifecycle_policy.allow_amend=true`. Adopted pending/unknown modify outcomes are blocked with explicit reconciliation action metadata, rollback policy state, and rollback blocker metadata.
 
 Current non-executable order intents:
 
@@ -470,7 +470,7 @@ Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
 - Broader account-level and symbol-level risk budgets beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account/symbol daily realized-loss caps.
-- Cancel/replace fallback for unsupported amendments and executable rollback behavior for ambiguous adopted-order lifecycle outcomes.
+- Cancel/replace fallback for unsupported amendments and executable adopted replace/rollback behavior if a safe design is accepted.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - V1 live validation, demo soak criteria, promotion gates, and real-trading runbooks.
 - Backtesting and historical simulation are intentionally deferred to v2.

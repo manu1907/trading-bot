@@ -190,6 +190,7 @@ public final class InterventionRemediationCommandPlanner {
         if (blocker != null) {
             attributes.put("adopted_order_lifecycle_result", "blocked");
             attributes.put("exchange_execution_blocker", blocker);
+            putAdoptedOrderLifecycleAmbiguousOutcomeAttributes(attributes, blocker);
             return ready(event, Operation.CANCEL_ORDER, false, "remediation:cancel_adopted_order", attributes);
         }
         attributes.put("adopted_order_lifecycle_result", "eligible");
@@ -217,6 +218,7 @@ public final class InterventionRemediationCommandPlanner {
         if (blocker != null) {
             attributes.put("amendment_policy_result", "blocked");
             attributes.put("exchange_execution_blocker", blocker);
+            putAdoptedOrderLifecycleAmbiguousOutcomeAttributes(attributes, blocker);
             return ready(event, Operation.AMEND_ORDER, false, "remediation:amend_order", attributes);
         }
         if (!request.valid()) {
@@ -1423,6 +1425,42 @@ public final class InterventionRemediationCommandPlanner {
             }
         }
         return null;
+    }
+
+    private void putAdoptedOrderLifecycleAmbiguousOutcomeAttributes(
+            Map<String, String> attributes,
+            String blocker
+    ) {
+        if (!adoptedOrderLifecycleAmbiguousBlocker(blocker)) {
+            return;
+        }
+        attributes.put("adopted_order_lifecycle_ambiguous_outcome_detected", "true");
+        attributes.put("adopted_order_lifecycle_ambiguous_outcome_reason", blocker);
+        attributes.put("adopted_order_lifecycle_ambiguous_outcome_action", "reconcile_projection_then_repreview");
+        attributes.put(
+                "adopted_order_lifecycle_rollback_policy_enabled",
+                Boolean.toString(adoptedOrderLifecyclePolicy.rollbackOnAmbiguousOutcome())
+        );
+        attributes.put("adopted_order_lifecycle_retry_blocker", "reconciliation_required");
+        attributes.put("adopted_order_lifecycle_rollback_exchange_executable", "false");
+        if (adoptedOrderLifecyclePolicy.rollbackOnAmbiguousOutcome()) {
+            attributes.put("adopted_order_lifecycle_rollback_result", "blocked");
+            attributes.put(
+                    "adopted_order_lifecycle_rollback_blocker",
+                    "adopted_order_lifecycle_rollback_not_implemented"
+            );
+        } else {
+            attributes.put("adopted_order_lifecycle_rollback_result", "disabled");
+            attributes.put(
+                    "adopted_order_lifecycle_rollback_blocker",
+                    "adopted_order_lifecycle_rollback_policy_disabled"
+            );
+        }
+    }
+
+    private boolean adoptedOrderLifecycleAmbiguousBlocker(String blocker) {
+        return "adopted_order_lifecycle_modify_pending_reconciliation".equals(blocker)
+                || "adopted_order_lifecycle_modify_unknown_reconciliation_required".equals(blocker);
     }
 
     private AmendmentRequest amendmentRequest(RemediationDecisionEvent event) {

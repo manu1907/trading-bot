@@ -205,6 +205,72 @@ class InterventionRemediationCommandPlannerTest {
     }
 
     @Test
+    void blocks_adopted_order_amend_after_unknown_modify_with_reconciliation_action() {
+        restoreAdoptedOrderIntervention("unplanned_managed_order_change", "UNKNOWN", null, "ORDER_RESULT", "MODIFY");
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy(true, false, true),
+                adoptedOrderLifecyclePolicy(false, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = amendPlanner.plan(orderDecision(
+                "AMEND",
+                "unplanned_managed_order_change",
+                Map.of("amend_price", "49950.00")
+        ));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("amendment_policy_result", "blocked")
+                .containsEntry("exchange_execution_blocker",
+                        "adopted_order_lifecycle_modify_unknown_reconciliation_required")
+                .containsEntry("adopted_order_lifecycle_ambiguous_outcome_detected", "true")
+                .containsEntry("adopted_order_lifecycle_ambiguous_outcome_action",
+                        "reconcile_projection_then_repreview")
+                .containsEntry("adopted_order_lifecycle_rollback_policy_enabled", "false")
+                .containsEntry("adopted_order_lifecycle_retry_blocker", "reconciliation_required")
+                .containsEntry("adopted_order_lifecycle_rollback_exchange_executable", "false")
+                .containsEntry("adopted_order_lifecycle_rollback_result", "disabled")
+                .containsEntry("adopted_order_lifecycle_rollback_blocker",
+                        "adopted_order_lifecycle_rollback_policy_disabled")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
+    void blocks_adopted_order_cancel_rollback_after_pending_modify_until_reconciled() {
+        restoreAdoptedOrderIntervention("external_order_observed", "COMMAND_RECEIVED", "NEW", "ORDER_COMMAND", "MODIFY");
+        InterventionRemediationCommandPlanner adoptedPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy(false),
+                adoptedOrderLifecyclePolicy(true, false, true)
+        );
+
+        InterventionRemediationCommandPlanner.RemediationCommandPlan plan = adoptedPlanner.plan(orderDecision("CLOSE"));
+
+        assertThat(plan.status()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+        assertThat(plan.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.CANCEL_ORDER);
+        assertThat(plan.exchangeExecutable()).isFalse();
+        assertThat(plan.attributes())
+                .containsEntry("adopted_order_lifecycle_result", "blocked")
+                .containsEntry("exchange_execution_blocker",
+                        "adopted_order_lifecycle_modify_pending_reconciliation")
+                .containsEntry("adopted_order_lifecycle_ambiguous_outcome_detected", "true")
+                .containsEntry("adopted_order_lifecycle_ambiguous_outcome_action",
+                        "reconcile_projection_then_repreview")
+                .containsEntry("adopted_order_lifecycle_rollback_policy_enabled", "true")
+                .containsEntry("adopted_order_lifecycle_retry_blocker", "reconciliation_required")
+                .containsEntry("adopted_order_lifecycle_rollback_exchange_executable", "false")
+                .containsEntry("adopted_order_lifecycle_rollback_result", "blocked")
+                .containsEntry("adopted_order_lifecycle_rollback_blocker",
+                        "adopted_order_lifecycle_rollback_not_implemented")
+                .containsEntry("exchange_executable", "false");
+    }
+
+    @Test
     void blocks_managed_order_amendment_when_quantity_increase_is_not_allowed() {
         restoreManagedOrderIntervention();
         InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
@@ -1228,6 +1294,25 @@ class InterventionRemediationCommandPlannerTest {
         restoreOrderIntervention(interventionReason, true, true, null);
     }
 
+    private void restoreAdoptedOrderIntervention(
+            String interventionReason,
+            String status,
+            String exchangeStatus,
+            String updateSource,
+            String executionType
+    ) {
+        restoreOrderIntervention(
+                interventionReason,
+                true,
+                true,
+                null,
+                status,
+                exchangeStatus,
+                updateSource,
+                executionType
+        );
+    }
+
     private void restoreManagedOrderIntervention(
             String status,
             String exchangeStatus,
@@ -1616,6 +1701,14 @@ class InterventionRemediationCommandPlannerTest {
             boolean allowCancel,
             boolean allowAmend
     ) {
+        return adoptedOrderLifecyclePolicy(allowCancel, allowAmend, false);
+    }
+
+    private InterventionProperties.AdoptedOrderLifecyclePolicy adoptedOrderLifecyclePolicy(
+            boolean allowCancel,
+            boolean allowAmend,
+            boolean rollbackOnAmbiguousOutcome
+    ) {
         return new InterventionProperties.AdoptedOrderLifecyclePolicy(
                 true,
                 "binance",
@@ -1624,7 +1717,7 @@ class InterventionRemediationCommandPlannerTest {
                 allowCancel,
                 allowAmend,
                 false,
-                false,
+                rollbackOnAmbiguousOutcome,
                 true,
                 30_000L,
                 true,

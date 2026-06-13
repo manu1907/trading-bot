@@ -453,6 +453,51 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     @Test
+    void reports_adopted_order_ambiguous_outcome_with_lifecycle_reconciliation_action() {
+        restoreAdoptedAmendRemediationDecisionWithOrder("UNKNOWN", "MODIFY");
+        InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
+                projection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicyAllowingAdoptedOrders(),
+                adoptedOrderLifecyclePolicy(true)
+        );
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service(liveAdoptedAmendPolicy(), null, amendPlanner)
+                        .preview("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isEqualTo(1);
+        assertThat(batch.submittedCount()).isZero();
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.planStatus()).isEqualTo(InterventionRemediationCommandPlanner.PlanStatus.READY);
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
+            assertThat(report.status()).isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.BLOCKED);
+            assertThat(report.attributes())
+                    .containsEntry("executor_status", "BLOCKED")
+                    .containsEntry("executor_reason", "executor:plan_not_exchange_executable")
+                    .containsEntry(
+                            "exchange_execution_blocker",
+                            "adopted_order_lifecycle_modify_unknown_reconciliation_required"
+                    )
+                    .containsEntry("adopted_order_lifecycle_ambiguous_outcome_detected", "true")
+                    .containsEntry("adopted_order_lifecycle_rollback_policy_enabled", "true")
+                    .containsEntry("adopted_order_lifecycle_rollback_blocker",
+                            "adopted_order_lifecycle_rollback_not_implemented")
+                    .containsEntry("executor_ambiguous_outcome_detected", "true")
+                    .containsEntry(
+                            "executor_ambiguous_outcome_reason",
+                            "adopted_order_lifecycle_modify_unknown_reconciliation_required"
+                    )
+                    .containsEntry("executor_ambiguous_outcome_action", "reconcile_projection_then_repreview")
+                    .containsEntry(
+                            "executor_ambiguous_outcome_rollback_blocker",
+                            "adopted_order_lifecycle_rollback_not_implemented"
+                    );
+        });
+    }
+
+    @Test
     void submits_position_close_remediation_as_reduce_only_market_order_through_execution_pipeline_when_policy_allows() {
         restorePositionCloseRemediationDecision("0.25", "CLOSE", Map.of());
         CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
@@ -749,6 +794,28 @@ class InterventionRemediationExecutorServiceTest {
         );
     }
 
+    private InterventionProperties.RemediationExecutorPolicy liveAdoptedAmendPolicy() {
+        return new InterventionProperties.RemediationExecutorPolicy(
+                true,
+                true,
+                false,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                25,
+                List.of(InterventionProperties.ExecutableOperation.AMEND_ORDER),
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicyAllowingAdoptedOrders(),
+                adoptedOrderLifecyclePolicy(true)
+        );
+    }
+
     private InterventionProperties.RemediationExecutorPolicy livePositionPolicy(
             InterventionProperties.ExecutableOperation operation
     ) {
@@ -868,6 +935,52 @@ class InterventionRemediationExecutorServiceTest {
                 30_000L,
                 true,
                 false,
+                List.of("ACCEPTED", "PARTIALLY_FILLED")
+        );
+    }
+
+    private static InterventionProperties.ManagedOrderAmendmentPolicy managedOrderAmendmentPolicyAllowingAdoptedOrders() {
+        return new InterventionProperties.ManagedOrderAmendmentPolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                true,
+                true,
+                List.of("BTCUSDT"),
+                List.of("LIMIT"),
+                List.of("PRICE", "QUANTITY"),
+                false,
+                true,
+                null,
+                "0.50",
+                "0.02",
+                false,
+                true,
+                30_000L,
+                true,
+                false,
+                List.of("ACCEPTED", "PARTIALLY_FILLED")
+        );
+    }
+
+    private static InterventionProperties.AdoptedOrderLifecyclePolicy adoptedOrderLifecyclePolicy(
+            boolean rollbackOnAmbiguousOutcome
+    ) {
+        return new InterventionProperties.AdoptedOrderLifecyclePolicy(
+                true,
+                "binance",
+                "usd_m_futures",
+                true,
+                false,
+                true,
+                false,
+                rollbackOnAmbiguousOutcome,
+                true,
+                30_000L,
+                true,
+                false,
+                true,
+                List.of("BTCUSDT"),
                 List.of("ACCEPTED", "PARTIALLY_FILLED")
         );
     }
@@ -1017,6 +1130,68 @@ class InterventionRemediationExecutorServiceTest {
                         "evt-remediation-amend-1"
                 )),
                 List.of("evt-remediation-amend-1")
+        ));
+    }
+
+    private void restoreAdoptedAmendRemediationDecisionWithOrder(
+            String status,
+            String executionType
+    ) {
+        projection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.OrderState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        null,
+                        "client-1",
+                        "exchange-client-1",
+                        status,
+                        "NEW",
+                        "BUY",
+                        "LIMIT",
+                        "50000.00",
+                        "0.001",
+                        "0",
+                        null,
+                        null,
+                        "USER_DATA",
+                        executionType,
+                        true,
+                        true,
+                        "unplanned_managed_order_change",
+                        NOW.minusSeconds(1),
+                        "evt-adopted-order-intervention"
+                )),
+                List.of(),
+                List.of(),
+                List.of(new TradingStateProjection.RemediationDecisionState(
+                        "binance",
+                        "demo",
+                        "main",
+                        "usd_m_futures",
+                        "BTCUSDT",
+                        "remediation-adopted-amend-1",
+                        "ORDER",
+                        "AMEND",
+                        "client-1",
+                        null,
+                        "unplanned_managed_order_change",
+                        List.of("intervention:unplanned_managed_order_change"),
+                        "automated_remediation_policy",
+                        "policy action selected",
+                        Map.of(
+                                "target_order_type", "LIMIT",
+                                "amend_price", "49950.00",
+                                "amend_quantity", "0.0009"
+                        ),
+                        NOW.minusSeconds(1),
+                        "evt-remediation-adopted-amend-1"
+                )),
+                List.of("evt-remediation-adopted-amend-1")
         ));
     }
 

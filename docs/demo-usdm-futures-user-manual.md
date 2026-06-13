@@ -1848,7 +1848,9 @@ Important defaults:
 - Adopted remediation executor commands have a narrower policy path:
   `adopted_order_lifecycle_policy` must explicitly allow cancel or amend before
   the executor can submit a policy-qualified adopted-order cancel or amendment
-  through the normal execution pipeline.
+  through the normal execution pipeline. Pending or unknown adopted modify state
+  blocks execution and reports the reconciliation action, rollback policy state,
+  and rollback blocker before any retry.
 
 This means enabling execution without also configuring appropriate risk limits
 is intentionally restrictive.
@@ -2034,8 +2036,10 @@ The checked-in demo runtime also enables
 `adopted_order_lifecycle_policy.enabled=true`, `allow_cancel=true`,
 `allow_amend=true`, `allowed_symbols=["BTCUSDT","ETHUSDT"]`, and
 `max_projection_age_millis=30000`, while inheriting `allow_replace=false`, so
-adopted BTCUSDT or ETHUSDT orders can be automatically canceled or amended only through the
-same executor, risk gate, and pipeline.
+adopted BTCUSDT or ETHUSDT orders can be automatically canceled or amended only
+through the same executor, risk gate, and pipeline. Adopted replace and
+exchange-executable rollback are not enabled; ambiguous adopted modify state is
+reconciled and re-previewed before any new command.
 
 Managed order amendment planning and execution are also configurable. An
 `AMEND` remediation decision can be policy-qualified or blocked by
@@ -2045,7 +2049,10 @@ builds a `MODIFY` command with projected side/order type and requested or
 retained price/quantity, then submits it through the normal order execution
 pipeline. If a previous `MODIFY` is still pending or produced an unknown result,
 the planner blocks another amendment until reconciliation refreshes the target.
-Adopted-order amendments must also pass `adopted_order_lifecycle_policy`.
+Adopted-order amendments must also pass `adopted_order_lifecycle_policy`; if the
+adopted target itself is pending or unknown after a modify, the executor report
+uses `executor_ambiguous_outcome_action=reconcile_projection_then_repreview` and
+includes any rollback blocker.
 Cancel/replace fallback remains unimplemented, so unsupported amendment shapes
 are blocked with an explicit fallback blocker instead of replaced.
 Executor preview and execute reports include `executor_plan_summary`,

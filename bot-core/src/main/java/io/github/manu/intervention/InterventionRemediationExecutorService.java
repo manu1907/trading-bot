@@ -328,7 +328,11 @@ public final class InterventionRemediationExecutorService {
         attributes.put("executor_ambiguous_outcome_detected", Boolean.toString(ambiguousReason != null));
         if (ambiguousReason != null) {
             attributes.put("executor_ambiguous_outcome_reason", ambiguousReason);
-            attributes.put("executor_ambiguous_outcome_action", "reconcile_before_retry");
+            attributes.put("executor_ambiguous_outcome_action", ambiguousOutcomeAction(plan));
+            String rollbackBlocker = text(plan.attributes().get("adopted_order_lifecycle_rollback_blocker"));
+            if (rollbackBlocker != null) {
+                attributes.put("executor_ambiguous_outcome_rollback_blocker", rollbackBlocker);
+            }
         }
     }
 
@@ -364,6 +368,11 @@ public final class InterventionRemediationExecutorService {
             }
         }
         return null;
+    }
+
+    private String ambiguousOutcomeAction(InterventionRemediationCommandPlanner.RemediationCommandPlan plan) {
+        String adoptedLifecycleAction = text(plan.attributes().get("adopted_order_lifecycle_ambiguous_outcome_action"));
+        return adoptedLifecycleAction == null ? "reconcile_before_retry" : adoptedLifecycleAction;
     }
 
     private boolean ambiguousText(String value) {
