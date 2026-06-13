@@ -1563,6 +1563,7 @@ Catalog defaults are:
 - `min_allocated_target_notional`: `null`
 - `max_allocated_target_notional`: `null`
 - `reject_missing_allocation_balance`: `true`
+- `allocation_weighting_mode`: `EQUAL`
 - `max_signals_per_run`: `1`
 - `max_account_open_orders`: `null`
 - `max_symbol_open_orders`: `null`
@@ -1635,6 +1636,7 @@ overrides for `binance/demo/main/usdm_futures`:
 - `target_quantity`: `0.001`
 - `target_notional_margin_balance_fraction`: `0.01`
 - `max_allocated_target_notional`: `50`
+- `allocation_weighting_mode`: `MARKET_QUALITY`
 - `max_account_open_positions`: `3`
 - `max_symbol_open_positions`: `1`
 
@@ -1680,10 +1682,13 @@ environment, account, and market with `risk_scope=ACCOUNT`. If that projection
 contains a positive `margin_balance`, the runner computes target notional as
 `margin_balance * target_notional_margin_balance_fraction`, applies
 `max_allocated_target_notional` when configured, divides that total run budget
-across the number of candidate publish slots for the run, enforces
-`min_allocated_target_notional` on the per-signal target notional when
-configured, clears `targetQuantity`, sets `targetNotional`, and records
-allocation attributes on each signal. With the catalog default
+across the candidate publish slots for the run using `allocation_weighting_mode`,
+enforces `min_allocated_target_notional` on each target notional when configured,
+clears `targetQuantity`, sets `targetNotional`, and records allocation
+attributes on each signal. `EQUAL` preserves flat allocation,
+`CONFIDENCE` weights by analyzer confidence, and `MARKET_QUALITY` weights by
+confidence, top-of-book imbalance, effective quote depth, spread, and freshness.
+With the catalog default
 `reject_missing_allocation_balance=true`, missing account margin balance blocks
 publication instead of falling back to stale or ambiguous sizing.
 
@@ -1694,6 +1699,9 @@ Allocation attributes include:
 - `lfa_allocation_fraction`
 - `lfa_allocation_total_target_notional`
 - `lfa_allocated_target_notional`
+- `lfa_allocation_weighting_mode`
+- `lfa_allocation_weight`
+- `lfa_allocation_weight_sum`
 
 Current runner lifecycle and warm-up blockers can block on:
 
@@ -1741,9 +1749,10 @@ lifecycle and broader money-management controls are still incomplete. It already
 sets `lifecycle_state=PAUSED`, three-symbol projected-data warm-up thresholds,
 `max_candidate_market_data_symbols=13`, open-position caps,
 `target_notional_margin_balance_fraction=0.01`, and
-`max_allocated_target_notional=50` for first-start demo operation; notional and
-daily-loss caps remain inherited as `null` until calibrated for the target
-account.
+`max_allocated_target_notional=50` with
+`allocation_weighting_mode=MARKET_QUALITY` for first-start demo operation;
+notional and daily-loss caps remain inherited as `null` until calibrated for the
+target account.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,

@@ -987,11 +987,101 @@ public final class LfaSignalRunner {
         if (perSignalAllocated.compareTo(BigDecimal.ZERO) <= 0) {
             return AllocationDecision.blocked("lfa_allocation:target_notional_non_positive");
         }
-        String allocatedText = decimalText(perSignalAllocated);
         String totalAllocatedText = decimalText(allocated);
-        return AllocationDecision.allowed(signals.stream()
-                .map(signal -> allocatedSignal(signal, marginBalance, totalAllocatedText, allocatedText))
-                .toList());
+        return weightedSignals(signals, marginBalance, allocated, totalAllocatedText);
+    }
+
+    private AllocationDecision weightedSignals(
+            List<StrategySignalEvent> signals,
+            BigDecimal marginBalance,
+            BigDecimal totalAllocated,
+            String totalAllocatedText
+    ) {
+        List<BigDecimal> weights = signals.stream().map(this::allocationWeight).toList();
+        BigDecimal weightSum = weights.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (weightSum.compareTo(BigDecimal.ZERO) <= 0) {
+            weights = signals.stream().map(ignored -> BigDecimal.ONE).toList();
+            weightSum = BigDecimal.valueOf(signals.size());
+        }
+        String weightSumText = decimalText(weightSum);
+        List<StrategySignalEvent> allocated = new ArrayList<>();
+        for (int index = 0; index < signals.size(); index++) {
+            BigDecimal signalAllocated = totalAllocated
+                    .multiply(weights.get(index))
+                    .divide(weightSum, 8, RoundingMode.HALF_UP);
+            if (properties.minAllocatedTargetNotional() != null
+                    && signalAllocated.compareTo(properties.minAllocatedTargetNotional()) < 0) {
+                return AllocationDecision.blocked("lfa_allocation:target_notional_below_min");
+            }
+            if (signalAllocated.compareTo(BigDecimal.ZERO) <= 0) {
+                return AllocationDecision.blocked("lfa_allocation:target_notional_non_positive");
+            }
+            allocated.add(allocatedSignal(
+                    signals.get(index),
+                    marginBalance,
+                    totalAllocatedText,
+                    decimalText(signalAllocated),
+                    decimalText(weights.get(index)),
+                    weightSumText
+            ));
+        }
+        return AllocationDecision.allowed(allocated);
+    }
+
+    private BigDecimal allocationWeight(StrategySignalEvent signal) {
+        return switch (properties.allocationWeightingMode()) {
+            case "EQUAL" -> BigDecimal.ONE;
+            case "CONFIDENCE" -> positiveWeight(BigDecimal.valueOf(Math.max(0.0D, signal.getConfidence())));
+            case "MARKET_QUALITY" -> marketQualityWeight(signal);
+            default -> throw new IllegalArgumentException(
+                    "Unsupported LFA allocation weighting mode: " + properties.allocationWeightingMode()
+            );
+        };
+    }
+
+    private BigDecimal marketQualityWeight(StrategySignalEvent signal) {
+        BigDecimal confidence = BigDecimal.valueOf(Math.max(0.0D, signal.getConfidence()));
+        BigDecimal imbalanceRatio = attributeDecimal(signal, "lfa_imbalance_ratio").orElse(BigDecimal.ONE);
+        BigDecimal spreadBps = attributeDecimal(signal, "lfa_spread_bps").orElse(properties.maxSpreadBps());
+        BigDecimal quoteNotional = attributeDecimal(signal, "lfa_top_of_book_quote_notional")
+                .orElse(properties.minTopOfBookQuoteNotional());
+        BigDecimal ageMillis = attributeDecimal(signal, "lfa_market_data_age_millis").orElse(BigDecimal.ZERO);
+
+        BigDecimal imbalanceScore = imbalanceRatio
+                .divide(properties.minImbalanceRatio(), 8, RoundingMode.HALF_UP)
+                .max(BigDecimal.ONE);
+        BigDecimal depthScore = quoteNotional
+                .divide(properties.minTopOfBookQuoteNotional(), 8, RoundingMode.HALF_UP)
+                .max(BigDecimal.ONE);
+        BigDecimal spreadScore = properties.maxSpreadBps()
+                .divide(spreadBps.max(new BigDecimal("0.00000001")), 8, RoundingMode.HALF_UP)
+                .max(BigDecimal.ONE);
+        BigDecimal freshnessScore = BigDecimal.ONE.divide(
+                BigDecimal.ONE.add(ageMillis.divide(new BigDecimal("1000"), 8, RoundingMode.HALF_UP)),
+                8,
+                RoundingMode.HALF_UP
+        );
+        return positiveWeight(confidence.multiply(imbalanceScore).multiply(depthScore).multiply(spreadScore)
+                .multiply(freshnessScore));
+    }
+
+    private BigDecimal positiveWeight(BigDecimal value) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
+            return new BigDecimal("0.00000001");
+        }
+        return value.setScale(8, RoundingMode.HALF_UP).stripTrailingZeros();
+    }
+
+    private Optional<BigDecimal> attributeDecimal(StrategySignalEvent signal, String key) {
+        if (signal.getAttributes() == null) {
+            return Optional.empty();
+        }
+        for (Map.Entry<CharSequence, CharSequence> entry : signal.getAttributes().entrySet()) {
+            if (entry.getKey() != null && key.contentEquals(entry.getKey())) {
+                return Optional.ofNullable(decimal(entry.getValue()));
+            }
+        }
+        return Optional.empty();
     }
 
     private Optional<BigDecimal> accountMarginBalance(TradingStateSnapshot snapshot, LfaRunnerTarget target) {
@@ -1005,7 +1095,9 @@ public final class LfaSignalRunner {
             StrategySignalEvent signal,
             BigDecimal marginBalance,
             String totalAllocatedTargetNotional,
-            String allocatedTargetNotional
+            String allocatedTargetNotional,
+            String allocationWeight,
+            String allocationWeightSum
     ) {
         Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
         if (signal.getAttributes() != null) {
@@ -1016,6 +1108,9 @@ public final class LfaSignalRunner {
         attributes.put("lfa_allocation_fraction", properties.targetNotionalMarginBalanceFraction().toPlainString());
         attributes.put("lfa_allocation_total_target_notional", totalAllocatedTargetNotional);
         attributes.put("lfa_allocated_target_notional", allocatedTargetNotional);
+        attributes.put("lfa_allocation_weighting_mode", properties.allocationWeightingMode());
+        attributes.put("lfa_allocation_weight", allocationWeight);
+        attributes.put("lfa_allocation_weight_sum", allocationWeightSum);
         return StrategySignalEvent.newBuilder(signal)
                 .setTargetQuantity(null)
                 .setTargetNotional(allocatedTargetNotional)

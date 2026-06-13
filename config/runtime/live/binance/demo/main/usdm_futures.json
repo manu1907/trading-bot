@@ -47,6 +47,7 @@
           "target_quantity": "0.001",
           "target_notional_margin_balance_fraction": "0.01",
           "max_allocated_target_notional": "50",
+          "allocation_weighting_mode": "MARKET_QUALITY",
           "max_account_open_positions": 3,
           "max_symbol_open_positions": 1
         }

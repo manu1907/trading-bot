@@ -48,6 +48,7 @@ public record LfaStrategyProperties(
             BigDecimal minAllocatedTargetNotional,
             BigDecimal maxAllocatedTargetNotional,
             Boolean rejectMissingAllocationBalance,
+            String allocationWeightingMode,
             Integer maxSignalsPerRun,
             Integer maxAccountOpenOrders,
             Integer maxSymbolOpenOrders,
@@ -111,6 +112,7 @@ public record LfaStrategyProperties(
             maxAllocatedTargetNotional = positiveOrNull(maxAllocatedTargetNotional, "maxAllocatedTargetNotional");
             rejectMissingAllocationBalance =
                     rejectMissingAllocationBalance == null || Boolean.TRUE.equals(rejectMissingAllocationBalance);
+            allocationWeightingMode = normalizedAllocationWeightingMode(allocationWeightingMode);
             if (minAllocatedTargetNotional != null && maxAllocatedTargetNotional != null
                     && minAllocatedTargetNotional.compareTo(maxAllocatedTargetNotional) > 0) {
                 throw new IllegalArgumentException("minAllocatedTargetNotional must be <= maxAllocatedTargetNotional");
@@ -175,6 +177,7 @@ public record LfaStrategyProperties(
                     null,
                     null,
                     true,
+                    "EQUAL",
                     1,
                     null,
                     null,
@@ -264,6 +267,16 @@ public record LfaStrategyProperties(
             defaults.put("STOPPED", List.of("STARTING", "PAUSED", "EMERGENCY_STOP"));
             defaults.put("EMERGENCY_STOP", List.of("STOPPED"));
             return copyTransitions(defaults);
+        }
+
+        private static String normalizedAllocationWeightingMode(String value) {
+            String normalized = normalizedText(value, "EQUAL");
+            if (!List.of("EQUAL", "CONFIDENCE", "MARKET_QUALITY").contains(normalized)) {
+                throw new IllegalArgumentException(
+                        "allocationWeightingMode must be EQUAL, CONFIDENCE, or MARKET_QUALITY"
+                );
+            }
+            return normalized;
         }
 
         private static Map<String, List<String>> copyTransitions(Map<String, List<String>> transitions) {

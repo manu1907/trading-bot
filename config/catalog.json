@@ -135,6 +135,7 @@
           "min_allocated_target_notional": null,
           "max_allocated_target_notional": null,
           "reject_missing_allocation_balance": true,
+          "allocation_weighting_mode": "EQUAL",
           "max_signals_per_run": 1,
           "max_account_open_orders": null,
           "max_symbol_open_orders": null,

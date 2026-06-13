@@ -116,11 +116,12 @@ instrument universe, ranks candidate market data by projected spread,
 top-of-book quote depth, freshness, and symbol, optionally caps candidate market
 data before analysis, runs the analyzer, caps publication with
 `max_signals_per_run`, can allocate a total run target notional from the latest
-projected account margin balance and split it across candidate publish slots
-when configured, applies account and symbol budget gates, publishes symbol-keyed
-`STRATEGY_SIGNAL` events through the core event bus, and relies on the core
-signal planner, order risk gate, idempotency, reconciliation confidence, and
-execution pipeline for downstream order admission. Lifecycle states are validated
+projected account margin balance, and splits it across candidate publish slots
+by configured `allocation_weighting_mode` (`EQUAL`, `CONFIDENCE`, or
+`MARKET_QUALITY`) when configured, applies account and symbol budget gates,
+publishes symbol-keyed `STRATEGY_SIGNAL` events through the core event bus, and
+relies on the core signal planner, order risk gate, idempotency, reconciliation
+confidence, and execution pipeline for downstream order admission. Lifecycle states are validated
 as `STARTING`, `ACTIVE`, `PAUSED`, `DRAINING`, `STOPPED`, or
 `EMERGENCY_STOP`; only `ACTIVE` can publish new signals, and non-entry states
 fail closed even if accidentally included in `allowed_lifecycle_states`.
@@ -146,13 +147,14 @@ currently executes as `enabled=false`, `lifecycle_state=STOPPED`,
 one-symbol projected-data warm-up,
 `use_signal_planner_instrument_universe=true`, no LFA-specific candidate cap,
 unset allocation fraction/min/max, and `reject_missing_allocation_balance=true`
-unless overridden. LFA signal-runner notional, current unrealized-loss,
+with `allocation_weighting_mode=EQUAL` unless overridden. LFA signal-runner notional, current unrealized-loss,
 account-margin-health, and daily realized-loss caps default to `null` until
 calibrated by a runtime override. The checked-in demo runtime overrides target, bootstrap sizing,
 open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,
 `max_candidate_market_data_symbols=13`,
 `target_notional_margin_balance_fraction=0.01`, and
-`max_allocated_target_notional=50` but does not override `enabled`, so the
+`max_allocated_target_notional=50` with
+`allocation_weighting_mode=MARKET_QUALITY` but does not override `enabled`, so the
 effective demo runner remains disabled because the full position-lifecycle and
 broader money-management layers are not complete enough for autonomous strategy
 execution.
@@ -171,9 +173,10 @@ runner refreshes from projected strategy lifecycle state before status checks or
 scheduled signal runs.
 
 This is now strategy-side signal generation plus a controlled live publication
-hook with a first projected account-margin allocation layer. It is not yet the
-full portfolio, position-management, expected-edge, risk-adjusted-return, or
-money-management selector needed for production autonomous trading.
+hook with a first projected account-margin allocation layer that can weight
+capital toward stronger liquid signals. It is not yet the full portfolio,
+position-management, expected-edge, risk-adjusted-return, or money-management
+selector needed for production autonomous trading.
 
 ## Runtime Policy Boundary
 

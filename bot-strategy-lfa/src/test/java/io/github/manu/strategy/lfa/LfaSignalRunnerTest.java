@@ -273,6 +273,40 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void weights_allocated_target_notional_by_market_quality_when_configured() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(risk("1000")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010"),
+                marketData("ETHUSDT", "3000.00", "3.000", "3000.10", "1.000")
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithAllocation("0.02", null, null, 2, "MARKET_QUALITY"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(result.publishedSignals()).isEqualTo(2);
+        StrategySignalEvent first = (StrategySignalEvent) eventBus.envelopes().get(0).value();
+        StrategySignalEvent second = (StrategySignalEvent) eventBus.envelopes().get(1).value();
+        assertThat(first.getSymbol()).isEqualTo("ETHUSDT");
+        assertThat(second.getSymbol()).isEqualTo("BTCUSDT");
+        assertThat(new BigDecimal(first.getTargetNotional().toString()))
+                .isGreaterThan(new BigDecimal(second.getTargetNotional().toString()));
+        assertThat(first.getAttributes())
+                .containsEntry("lfa_allocation_weighting_mode", "MARKET_QUALITY")
+                .containsKey("lfa_allocation_weight")
+                .containsEntry("lfa_allocation_total_target_notional", "20");
+        assertThat(second.getAttributes())
+                .containsEntry("lfa_allocation_weighting_mode", "MARKET_QUALITY")
+                .containsKey("lfa_allocation_weight");
+    }
+
+    @Test
     void blocks_allocation_when_margin_balance_is_required_but_missing() {
         TradingStateProjection projection = projectionWith(
                 marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
@@ -746,6 +780,22 @@ class LfaSignalRunnerTest {
             String maxAllocatedTargetNotional,
             int maxSignalsPerRun
     ) {
+        return propertiesWithAllocation(
+                targetNotionalMarginBalanceFraction,
+                minAllocatedTargetNotional,
+                maxAllocatedTargetNotional,
+                maxSignalsPerRun,
+                "EQUAL"
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner propertiesWithAllocation(
+            String targetNotionalMarginBalanceFraction,
+            String minAllocatedTargetNotional,
+            String maxAllocatedTargetNotional,
+            int maxSignalsPerRun,
+            String allocationWeightingMode
+    ) {
         return new LfaStrategyProperties.SignalRunner(
                 true,
                 30_000L,
@@ -775,6 +825,7 @@ class LfaSignalRunnerTest {
                 decimal(minAllocatedTargetNotional),
                 decimal(maxAllocatedTargetNotional),
                 true,
+                allocationWeightingMode,
                 maxSignalsPerRun,
                 null,
                 null,
@@ -884,6 +935,7 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 true,
+                "EQUAL",
                 1,
                 maxAccountOpenOrders,
                 maxSymbolOpenOrders,
