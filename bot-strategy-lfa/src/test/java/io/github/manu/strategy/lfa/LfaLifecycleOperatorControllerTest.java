@@ -116,6 +116,64 @@ class LfaLifecycleOperatorControllerTest {
     }
 
     @Test
+    void emergency_stop_transition_records_projected_exposure_evidence() {
+        TradingStateProjection emergencyProjection = new TradingStateProjection();
+        emergencyProjection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(openPosition()),
+                List.of(openOrder()),
+                List.of(),
+                List.of()
+        ));
+        NoopTradingEventBus emergencyEventBus = new NoopTradingEventBus();
+        LfaSignalRunner emergencyRunner = runner("ACTIVE", emergencyProjection, emergencyEventBus);
+        LfaLifecycleOperatorController emergencyController = new LfaLifecycleOperatorController(
+                emergencyRunner,
+                new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null, null)
+        );
+
+        WebTestClient.bindToController(emergencyController)
+                .build()
+                .post()
+                .uri("/internal/strategy/lfa/lifecycle")
+                .header(LfaLifecycleOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(new LfaLifecycleOperatorController.LifecycleTransitionRequest(
+                        "EMERGENCY_STOP",
+                        "operator",
+                        "operator kill switch"
+                ))
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.effectiveLifecycleState")
+                .isEqualTo("EMERGENCY_STOP")
+                .jsonPath("$.publishEnabled")
+                .isEqualTo(false)
+                .jsonPath("$.openOrderCount")
+                .isEqualTo(1)
+                .jsonPath("$.openPositionCount")
+                .isEqualTo(1)
+                .jsonPath("$.drainComplete")
+                .isEqualTo(false);
+
+        org.assertj.core.api.Assertions.assertThat(emergencyProjection.strategyLifecycle(
+                        "lfa",
+                        "binance",
+                        "demo",
+                        "main",
+                        "usdm_futures"
+                ))
+                .get()
+                .satisfies(state -> org.assertj.core.api.Assertions.assertThat(state.attributes())
+                        .containsEntry("open_order_count", "1")
+                        .containsEntry("open_position_count", "1")
+                        .containsEntry("drain_complete", "false")
+                        .containsEntry("emergency_stop_transition", "true")
+                        .containsEntry("emergency_stop_reactivation_allowed", "false"));
+    }
+
+    @Test
     void rejects_unknown_lifecycle_transition() {
         client.post()
                 .uri("/internal/strategy/lfa/lifecycle")

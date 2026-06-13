@@ -1608,7 +1608,9 @@ Successful transitions publish a durable `STRATEGY_LIFECYCLE` event and apply it
 to projection state, so restart recovery can restore the latest projected
 lifecycle before status checks or scheduled signal runs. Status responses include
 `openOrderCount`, `openPositionCount`, and `drainComplete` so an operator can see
-whether controlled drain can move to `STOPPED`.
+whether controlled drain can move to `STOPPED`. Each successful lifecycle event
+records those counts plus drain readiness, allowed next states, and
+emergency-stop flags in durable event attributes for audit/restart evidence.
 
 The checked-in demo runtime does not override `enabled`, so the active effective
 value remains the catalog value `enabled=false`. It sets only actual first-start

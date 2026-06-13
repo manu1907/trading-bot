@@ -266,7 +266,7 @@ public final class LfaSignalRunner {
         LfaLifecycleState previous = lifecycleState.get();
         validateLifecycleTransition(previous, next, snapshot);
         Instant changedAt = Instant.now(clock);
-        StrategyLifecycleEvent event = lifecycleEvent(previous, next, changedBy, reason, changedAt);
+        StrategyLifecycleEvent event = lifecycleEvent(previous, next, changedBy, reason, changedAt, snapshot);
         TradingEventEnvelope<StrategyLifecycleEvent> envelope = TradingEventEnvelope.of(
                 TradingEventType.STRATEGY_LIFECYCLE,
                 TradingEventKeys.strategy(TradingEventType.STRATEGY_LIFECYCLE, event.getLifecycleId().toString()),
@@ -411,10 +411,12 @@ public final class LfaSignalRunner {
             LfaLifecycleState next,
             String changedBy,
             String reason,
-            Instant changedAt
+            Instant changedAt,
+            TradingStateSnapshot snapshot
     ) {
         LfaRunnerTarget target = target();
         String lifecycleId = lifecycleId(target);
+        DrainStatus drainStatus = drainStatus(snapshot, target);
         return StrategyLifecycleEvent.newBuilder()
                 .setEventId("evt-" + lifecycleId + "-" + UUID.randomUUID())
                 .setSchemaVersion(1)
@@ -431,7 +433,14 @@ public final class LfaSignalRunner {
                 .setChangedAtMicros(changedAt)
                 .setAttributes(Map.of(
                         "configured_lifecycle_state", properties.lifecycleState(),
-                        "allowed_lifecycle_states", String.join(",", properties.allowedLifecycleStates())
+                        "allowed_lifecycle_states", String.join(",", properties.allowedLifecycleStates()),
+                        "allowed_next_lifecycle_states", String.join(",", allowedNextLifecycleStates(previous)),
+                        "open_order_count", Integer.toString(drainStatus.openOrders()),
+                        "open_position_count", Integer.toString(drainStatus.openPositions()),
+                        "drain_complete", Boolean.toString(drainStatus.complete()),
+                        "emergency_stop_transition", Boolean.toString(next == LfaLifecycleState.EMERGENCY_STOP),
+                        "emergency_stop_reactivation_allowed",
+                        Boolean.toString(properties.allowEmergencyStopReactivation())
                 ))
                 .build();
     }

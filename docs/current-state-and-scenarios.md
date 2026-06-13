@@ -159,8 +159,11 @@ authentication used by intervention endpoints. These endpoints inspect and chang
 changing code, subject to the configured transition policy. Successful transitions publish a durable `STRATEGY_LIFECYCLE`
 event, apply it to the local projection, and are recoverable through the normal
 journal/projection replay path. Lifecycle status also reports drain readiness from
-projected open orders and positions. On restart, the runner refreshes from projected
-strategy lifecycle state before status checks or scheduled signal runs.
+projected open orders and positions. The durable lifecycle event records projected
+open order count, open position count, drain readiness, allowed next states, and
+emergency-stop transition/reactivation flags as audit evidence. On restart, the
+runner refreshes from projected strategy lifecycle state before status checks or
+scheduled signal runs.
 
 This is now strategy-side signal generation plus a controlled live publication
 hook with a first projected account-margin allocation layer. It is not yet the
