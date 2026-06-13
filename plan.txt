@@ -210,16 +210,19 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery: 24 to 42 commits/slices.
+Estimated remaining delivery from commit `602f6f6`: 38 to 59 commits/slices.
 
-- Core remediation execution and governance: 0 to 2 slices.
-- Strategy runtime and trading lifecycle: 8 to 14 slices.
-- Persistence, recovery, and replay hardening: 6 to 10 slices.
-- Live demo/real validation and promotion gates: 3 to 6 slices.
-- Observability, alerts, and operator controls: 3 to 6 slices.
-- Google Cloud infrastructure and CI/CD: 8 to 12 slices.
-- Security, secrets, operations, and live runbooks: 5 to 8 slices.
-- Final demo-live burn-in and real-live readiness: 4 to 7 slices.
+This estimate must be revised after meaningful capability changes. It counts production-quality slices that include implementation, docs/plan updates, formatting, tests/build, live smoke when relevant, commit, push, and CI verification. It is not a feature-count only estimate.
+
+- Remediation governance closure and ambiguous-outcome hardening: 2 to 4 slices.
+- Strategy runtime and trading lifecycle: 9 to 13 slices.
+- Persistence, recovery, replay, retention, backup, and restore hardening: 4 to 7 slices.
+- Live demo/real validation reports and promotion gates: 4 to 6 slices.
+- Observability, alerts, dashboards, and operator controls: 5 to 8 slices.
+- Google Cloud infrastructure and AWS-compatible deployment contract: 5 to 8 slices.
+- CI/CD build, publish, deploy, smoke, rollback, and approval workflows: 4 to 6 slices.
+- Security, secrets, operational runbooks, and incident procedures: 3 to 5 slices.
+- Demo-live burn-in evidence and real-readiness promotion package: 2 to 2 slices.
 
 ### Roadmap Slice 1: Complete Automated Remediation Governance
 
