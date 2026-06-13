@@ -1570,6 +1570,9 @@ Catalog defaults are:
 - `max_symbol_position_notional`: `null`
 - `max_account_unrealized_loss`: `null`
 - `max_symbol_unrealized_loss`: `null`
+- `min_account_margin_balance`: `null`
+- `max_account_margin_drawdown_fraction`: `null`
+- `max_account_margin_utilization`: `null`
 - `max_account_daily_realized_loss`: `null`
 - `max_symbol_daily_realized_loss`: `null`
 - `reject_missing_account_risk_metadata`: `true`
@@ -1709,8 +1712,15 @@ Current runner budget gates can block on:
 - `lfa_budget:max_symbol_position_notional`
 - `lfa_budget:max_account_unrealized_loss`
 - `lfa_budget:max_symbol_unrealized_loss`
+- `lfa_budget:min_account_margin_balance`
+- `lfa_budget:max_account_margin_drawdown`
+- `lfa_budget:max_account_margin_utilization`
 - `lfa_budget:max_account_daily_realized_loss`
 - `lfa_budget:max_symbol_daily_realized_loss`
+- `lfa_budget:account_risk_missing`
+- `lfa_budget:margin_balance_missing`
+- `lfa_budget:max_margin_balance_missing`
+- `lfa_budget:maintenance_margin_missing`
 - `lfa_budget:position_notional_metadata_missing`
 - `lfa_budget:unrealized_pnl_missing`
 - `lfa_budget:daily_realized_pnl_missing`

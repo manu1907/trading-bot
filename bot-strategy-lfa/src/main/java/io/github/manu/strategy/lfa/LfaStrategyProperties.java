@@ -55,6 +55,9 @@ public record LfaStrategyProperties(
             BigDecimal maxSymbolPositionNotional,
             BigDecimal maxAccountUnrealizedLoss,
             BigDecimal maxSymbolUnrealizedLoss,
+            BigDecimal minAccountMarginBalance,
+            BigDecimal maxAccountMarginDrawdownFraction,
+            BigDecimal maxAccountMarginUtilization,
             BigDecimal maxAccountDailyRealizedLoss,
             BigDecimal maxSymbolDailyRealizedLoss,
             Boolean rejectMissingAccountRiskMetadata,
@@ -117,6 +120,14 @@ public record LfaStrategyProperties(
             maxSymbolPositionNotional = positiveOrNull(maxSymbolPositionNotional, "maxSymbolPositionNotional");
             maxAccountUnrealizedLoss = positiveOrNull(maxAccountUnrealizedLoss, "maxAccountUnrealizedLoss");
             maxSymbolUnrealizedLoss = positiveOrNull(maxSymbolUnrealizedLoss, "maxSymbolUnrealizedLoss");
+            minAccountMarginBalance = positiveOrNull(minAccountMarginBalance, "minAccountMarginBalance");
+            maxAccountMarginDrawdownFraction =
+                    positiveOrNull(maxAccountMarginDrawdownFraction, "maxAccountMarginDrawdownFraction");
+            if (maxAccountMarginDrawdownFraction != null
+                    && maxAccountMarginDrawdownFraction.compareTo(BigDecimal.ONE) > 0) {
+                throw new IllegalArgumentException("maxAccountMarginDrawdownFraction must be <= 1");
+            }
+            maxAccountMarginUtilization = positiveOrNull(maxAccountMarginUtilization, "maxAccountMarginUtilization");
             maxAccountDailyRealizedLoss = positiveOrNull(maxAccountDailyRealizedLoss, "maxAccountDailyRealizedLoss");
             maxSymbolDailyRealizedLoss = positiveOrNull(maxSymbolDailyRealizedLoss, "maxSymbolDailyRealizedLoss");
             rejectMissingAccountRiskMetadata =
@@ -161,6 +172,9 @@ public record LfaStrategyProperties(
                     null,
                     true,
                     1,
+                    null,
+                    null,
+                    null,
                     null,
                     null,
                     null,

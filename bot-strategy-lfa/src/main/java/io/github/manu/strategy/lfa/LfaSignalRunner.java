@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
@@ -725,6 +726,7 @@ public final class LfaSignalRunner {
                 reasons.add("lfa_budget:max_account_unrealized_loss");
             }
         }
+        reasons.addAll(accountMarginHealthBlockers(snapshot, target));
         DailyLoss dailyLoss = dailyLoss(snapshot, target, null, now);
         if (properties.maxAccountDailyRealizedLoss() != null) {
             if (dailyLoss.accountLoss().isEmpty()) {
@@ -842,6 +844,75 @@ public final class LfaSignalRunner {
         return new UnrealizedLoss(valid, accountLoss, symbolLoss);
     }
 
+    private List<String> accountMarginHealthBlockers(TradingStateSnapshot snapshot, LfaRunnerTarget target) {
+        if (properties.minAccountMarginBalance() == null
+                && properties.maxAccountMarginDrawdownFraction() == null
+                && properties.maxAccountMarginUtilization() == null) {
+            return List.of();
+        }
+        LinkedHashSet<String> reasons = new LinkedHashSet<>();
+        TradingStateProjection.RiskState accountRisk = accountRisk(snapshot, target).orElse(null);
+        if (accountRisk == null) {
+            addIfStrict(reasons, "lfa_budget:account_risk_missing");
+            return reasons.stream().toList();
+        }
+        BigDecimal marginBalance = decimal(accountRisk.marginBalance());
+        if (properties.minAccountMarginBalance() != null
+                || properties.maxAccountMarginDrawdownFraction() != null
+                || properties.maxAccountMarginUtilization() != null) {
+            if (marginBalance == null || marginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                addIfStrict(reasons, "lfa_budget:margin_balance_missing");
+                return reasons.stream().toList();
+            }
+        }
+        if (properties.minAccountMarginBalance() != null
+                && marginBalance.compareTo(properties.minAccountMarginBalance()) < 0) {
+            reasons.add("lfa_budget:min_account_margin_balance");
+        }
+        if (properties.maxAccountMarginDrawdownFraction() != null) {
+            BigDecimal maxMarginBalance = decimal(accountRisk.maxMarginBalance());
+            if (maxMarginBalance == null || maxMarginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                addIfStrict(reasons, "lfa_budget:max_margin_balance_missing");
+            } else {
+                BigDecimal drawdown = marginBalance.compareTo(maxMarginBalance) >= 0
+                        ? BigDecimal.ZERO
+                        : maxMarginBalance.subtract(marginBalance).divide(maxMarginBalance, MathContext.DECIMAL64);
+                if (drawdown.compareTo(properties.maxAccountMarginDrawdownFraction()) > 0) {
+                    reasons.add("lfa_budget:max_account_margin_drawdown");
+                }
+            }
+        }
+        if (properties.maxAccountMarginUtilization() != null) {
+            BigDecimal maintenanceMargin = decimal(accountRisk.maintenanceMargin());
+            if (maintenanceMargin == null || maintenanceMargin.compareTo(BigDecimal.ZERO) < 0) {
+                addIfStrict(reasons, "lfa_budget:maintenance_margin_missing");
+            } else {
+                BigDecimal utilization = maintenanceMargin.divide(marginBalance, MathContext.DECIMAL64);
+                if (utilization.compareTo(properties.maxAccountMarginUtilization()) > 0) {
+                    reasons.add("lfa_budget:max_account_margin_utilization");
+                }
+            }
+        }
+        return reasons.stream().toList();
+    }
+
+    private Optional<TradingStateProjection.RiskState> accountRisk(
+            TradingStateSnapshot snapshot,
+            LfaRunnerTarget target
+    ) {
+        TradingStateProjection.RiskState selected = null;
+        for (TradingStateProjection.RiskState state : snapshot.risks()) {
+            if (!matchesTarget(state, target) || !same(state.riskScope(), "ACCOUNT")) {
+                continue;
+            }
+            if (selected == null || selected.updatedAt() == null
+                    || (state.updatedAt() != null && state.updatedAt().isAfter(selected.updatedAt()))) {
+                selected = state;
+            }
+        }
+        return Optional.ofNullable(selected);
+    }
+
     private DailyLoss dailyLoss(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol, Instant now) {
         String tradingDay = LocalDate.ofInstant(now, ZoneOffset.UTC).toString();
         Optional<BigDecimal> accountLoss = Optional.empty();
@@ -899,21 +970,10 @@ public final class LfaSignalRunner {
     }
 
     private Optional<BigDecimal> accountMarginBalance(TradingStateSnapshot snapshot, LfaRunnerTarget target) {
-        TradingStateProjection.RiskState selected = null;
-        for (TradingStateProjection.RiskState state : snapshot.risks()) {
-            if (!matchesTarget(state, target) || !same(state.riskScope(), "ACCOUNT")) {
-                continue;
-            }
-            BigDecimal marginBalance = decimal(state.marginBalance());
-            if (marginBalance == null || marginBalance.compareTo(BigDecimal.ZERO) <= 0) {
-                continue;
-            }
-            if (selected == null || selected.updatedAt() == null
-                    || (state.updatedAt() != null && state.updatedAt().isAfter(selected.updatedAt()))) {
-                selected = state;
-            }
-        }
-        return selected == null ? Optional.empty() : Optional.of(decimal(selected.marginBalance()));
+        return accountRisk(snapshot, target)
+                .map(TradingStateProjection.RiskState::marginBalance)
+                .map(this::decimal)
+                .filter(balance -> balance.compareTo(BigDecimal.ZERO) > 0);
     }
 
     private StrategySignalEvent allocatedSignal(

@@ -448,6 +448,69 @@ class LfaSignalRunnerTest {
         assertThat(eventBus.envelopes()).hasSize(1);
     }
 
+    @Test
+    void blocks_before_analysis_when_account_margin_balance_is_below_floor() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(risk("700", "1000", "100")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithAccountHealth("750", null, null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:min_account_margin_balance");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_before_analysis_when_account_margin_drawdown_exceeds_cap() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(risk("700", "1000", "100")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithAccountHealth(null, "0.20", null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_account_margin_drawdown");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_before_analysis_when_account_margin_utilization_exceeds_cap() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(risk("1000", "1000", "850")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithAccountHealth(null, null, "0.80"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_account_margin_utilization");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
     private LfaSignalRunner runner(
             LfaStrategyProperties.SignalRunner properties,
             TradingStateProjection projection,
@@ -508,6 +571,9 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 null
         );
     }
@@ -536,6 +602,32 @@ class LfaSignalRunnerTest {
                 maxSymbolUnrealizedLoss,
                 maxAccountDailyRealizedLoss,
                 maxSymbolDailyRealizedLoss
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner enabledPropertiesWithAccountHealth(
+            String minAccountMarginBalance,
+            String maxAccountMarginDrawdownFraction,
+            String maxAccountMarginUtilization
+    ) {
+        return properties(
+                true,
+                "ACTIVE",
+                List.of("ACTIVE"),
+                1,
+                1,
+                null,
+                3,
+                1,
+                null,
+                null,
+                null,
+                null,
+                minAccountMarginBalance,
+                maxAccountMarginDrawdownFraction,
+                maxAccountMarginUtilization,
+                null,
+                null
         );
     }
 
@@ -614,6 +706,9 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 true,
                 true
         );
@@ -647,6 +742,9 @@ class LfaSignalRunnerTest {
                 maxSymbolPositionNotional,
                 maxAccountUnrealizedLoss,
                 maxSymbolUnrealizedLoss,
+                null,
+                null,
+                null,
                 maxAccountDailyRealizedLoss,
                 maxSymbolDailyRealizedLoss
         );
@@ -665,6 +763,9 @@ class LfaSignalRunnerTest {
             String maxSymbolPositionNotional,
             String maxAccountUnrealizedLoss,
             String maxSymbolUnrealizedLoss,
+            String minAccountMarginBalance,
+            String maxAccountMarginDrawdownFraction,
+            String maxAccountMarginUtilization,
             String maxAccountDailyRealizedLoss,
             String maxSymbolDailyRealizedLoss
     ) {
@@ -704,6 +805,9 @@ class LfaSignalRunnerTest {
                 decimal(maxSymbolPositionNotional),
                 decimal(maxAccountUnrealizedLoss),
                 decimal(maxSymbolUnrealizedLoss),
+                decimal(minAccountMarginBalance),
+                decimal(maxAccountMarginDrawdownFraction),
+                decimal(maxAccountMarginUtilization),
                 decimal(maxAccountDailyRealizedLoss),
                 decimal(maxSymbolDailyRealizedLoss),
                 true,
@@ -820,6 +924,14 @@ class LfaSignalRunnerTest {
     }
 
     private TradingStateProjection.RiskState risk(String marginBalance) {
+        return risk(marginBalance, marginBalance, null);
+    }
+
+    private TradingStateProjection.RiskState risk(
+            String marginBalance,
+            String maxMarginBalance,
+            String maintenanceMargin
+    ) {
         return new TradingStateProjection.RiskState(
                 "binance",
                 "demo",
@@ -834,8 +946,8 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 marginBalance,
-                marginBalance,
-                null,
+                maxMarginBalance,
+                maintenanceMargin,
                 NOW,
                 "risk-account"
         );
