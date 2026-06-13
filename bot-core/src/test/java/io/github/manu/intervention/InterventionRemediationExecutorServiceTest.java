@@ -498,6 +498,59 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     @Test
+    void restored_adopted_order_ambiguous_outcome_keeps_reconciliation_action_after_restart() {
+        restoreAdoptedAmendRemediationDecisionWithOrder("UNKNOWN", "MODIFY");
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(projection.snapshot());
+        TradingStateProjection restoredProjection = new TradingStateProjection();
+        restoredProjection.restore(store.load().orElseThrow());
+        InterventionRemediationCommandPlanner restoredPlanner = new InterventionRemediationCommandPlanner(
+                restoredProjection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicyAllowingAdoptedOrders(),
+                adoptedOrderLifecyclePolicy(true)
+        );
+        InterventionRemediationExecutorService service = new InterventionRemediationExecutorService(
+                restoredProjection,
+                restoredPlanner,
+                new InterventionProperties(null, null, null, null, liveAdoptedAmendPolicy()),
+                null,
+                new RemediationExecutorMetrics(meterRegistry)
+        );
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service.preview("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isEqualTo(1);
+        assertThat(batch.submittedCount()).isZero();
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.remediationId()).isEqualTo("remediation-adopted-amend-1");
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
+            assertThat(report.status()).isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.BLOCKED);
+            assertThat(report.attributes())
+                    .containsEntry(
+                            "exchange_execution_blocker",
+                            "adopted_order_lifecycle_modify_unknown_reconciliation_required"
+                    )
+                    .containsEntry("adopted_order_lifecycle_ambiguous_outcome_detected", "true")
+                    .containsEntry("adopted_order_lifecycle_ambiguous_outcome_action",
+                            "reconcile_projection_then_repreview")
+                    .containsEntry("adopted_order_lifecycle_rollback_policy_enabled", "true")
+                    .containsEntry("adopted_order_lifecycle_rollback_blocker",
+                            "adopted_order_lifecycle_rollback_not_implemented")
+                    .containsEntry("executor_ambiguous_outcome_action", "reconcile_projection_then_repreview")
+                    .containsEntry(
+                            "executor_ambiguous_outcome_rollback_blocker",
+                            "adopted_order_lifecycle_rollback_not_implemented"
+                    );
+        });
+    }
+
+    @Test
     void submits_position_close_remediation_as_reduce_only_market_order_through_execution_pipeline_when_policy_allows() {
         restorePositionCloseRemediationDecision("0.25", "CLOSE", Map.of());
         CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
