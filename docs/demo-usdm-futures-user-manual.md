@@ -1597,9 +1597,9 @@ curl -X POST \
 
 The lifecycle endpoint is runtime control, not a code fork. It behaves the same
 for demo and real when the same code and corresponding runtime config are used.
-This control is not yet journal-persisted or replayed; after restart the runner
-returns to the configured `lifecycle_state` until persisted strategy lifecycle
-state is implemented.
+Successful transitions publish a durable `STRATEGY_LIFECYCLE` event and apply it
+to projection state, so restart recovery can restore the latest projected
+lifecycle before status checks or scheduled signal runs.
 
 The checked-in demo runtime does not override `enabled`, so the active effective
 value remains the catalog value `enabled=false`. It sets only actual first-start

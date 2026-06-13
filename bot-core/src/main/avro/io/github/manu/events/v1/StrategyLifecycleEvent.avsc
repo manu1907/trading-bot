@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "StrategyLifecycleEvent",
+  "namespace": "io.github.manu.events.v1",
+  "doc": "Durable lifecycle transition for a strategy runtime.",
+  "fields": [
+    { "name": "eventId", "type": "string" },
+    { "name": "schemaVersion", "type": "int", "default": 1 },
+    { "name": "lifecycleId", "type": "string" },
+    { "name": "strategyId", "type": "string" },
+    { "name": "provider", "type": "string" },
+    { "name": "environment", "type": "string" },
+    { "name": "account", "type": "string" },
+    { "name": "market", "type": "string" },
+    { "name": "previousLifecycleState", "type": ["null", "string"], "default": null },
+    { "name": "lifecycleState", "type": "string" },
+    { "name": "changedBy", "type": ["null", "string"], "default": null },
+    { "name": "reason", "type": ["null", "string"], "default": null },
+    { "name": "changedAtMicros", "type": { "type": "long", "logicalType": "timestamp-micros" } },
+    { "name": "attributes", "type": { "type": "map", "values": "string" }, "default": {} }
+  ]
+}

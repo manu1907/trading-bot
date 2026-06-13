@@ -14,6 +14,7 @@ public enum TradingEventSchema {
     INTERVENTION_ACKNOWLEDGEMENT("InterventionAcknowledgementEvent.avsc"),
     REMEDIATION_DECISION("RemediationDecisionEvent.avsc"),
     STRATEGY_SIGNAL("StrategySignalEvent.avsc"),
+    STRATEGY_LIFECYCLE("StrategyLifecycleEvent.avsc"),
     CONFIG_CHANGE("ConfigChangeEvent.avsc");
 
     private final String fileName;

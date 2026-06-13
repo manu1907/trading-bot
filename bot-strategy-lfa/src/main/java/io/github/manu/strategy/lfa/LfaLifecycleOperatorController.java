@@ -55,18 +55,18 @@ public final class LfaLifecycleOperatorController {
             return Mono.just(error(HttpStatus.UNAUTHORIZED, "unauthorized", "Invalid operator token"));
         }
         return request
-                .map(this::transition)
+                .flatMap(this::transition)
                 .onErrorResume(IllegalArgumentException.class, exception ->
                         Mono.just(error(HttpStatus.BAD_REQUEST, "bad_request", exception.getMessage())));
     }
 
-    private ResponseEntity<?> transition(LifecycleTransitionRequest request) {
+    private Mono<ResponseEntity<?>> transition(LifecycleTransitionRequest request) {
         LifecycleTransitionRequest required = Objects.requireNonNull(request, "request");
-        return ResponseEntity.ok(runner.transitionLifecycle(
+        return Mono.fromFuture(runner.transitionLifecycle(
                 requireText(required.lifecycleState(), "lifecycleState"),
                 required.changedBy(),
                 required.reason()
-        ));
+        )).map(ResponseEntity::ok);
     }
 
     private ResponseEntity<ErrorResponse> error(HttpStatus status, String error, String message) {

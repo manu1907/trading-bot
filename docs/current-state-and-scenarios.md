@@ -152,11 +152,11 @@ execution.
 When the LFA runner bean and internal operator API are enabled, the operator API
 also exposes `GET /internal/strategy/lfa/lifecycle` and
 `POST /internal/strategy/lfa/lifecycle` with the same `X-Operator-Token`
-authentication used by intervention endpoints. These endpoints can inspect and
-change the effective in-process LFA lifecycle state without changing code.
-Lifecycle changes are not yet journal-persisted or replayed, so restart still
-returns to the configured runtime `lifecycle_state`; durable strategy lifecycle
-state remains a pending recovery requirement.
+authentication used by intervention endpoints. These endpoints inspect and change the effective LFA lifecycle state without
+changing code. Successful transitions publish a durable `STRATEGY_LIFECYCLE`
+event, apply it to the local projection, and are recoverable through the normal
+journal/projection replay path. On restart, the runner refreshes from projected
+strategy lifecycle state before status checks or scheduled signal runs.
 
 This is now strategy-side signal generation plus a controlled live publication
 hook with a first projected account-margin allocation layer. It is not yet the

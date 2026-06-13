@@ -4,6 +4,7 @@ import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventKeys;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.OrderCommandType;
+import io.github.manu.events.v1.StrategyLifecycleEvent;
 import io.github.manu.events.v1.StrategySignalEvent;
 import io.github.manu.execution.ExecutionProperties;
 import io.github.manu.execution.StrategyInstrumentUniverseResolver;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,6 +52,7 @@ public final class LfaSignalRunner {
     private final Clock clock;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicReference<LfaLifecycleState> lifecycleState;
+    private final AtomicReference<LfaLifecycleMetadata> lifecycleMetadata;
 
     public LfaSignalRunner(
             LfaMarketSignalAnalyzer analyzer,
@@ -105,6 +108,7 @@ public final class LfaSignalRunner {
         this.instrumentUniverseResolver = instrumentUniverseResolver;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.lifecycleState = new AtomicReference<>(LfaLifecycleState.parse(properties.lifecycleState(), "lifecycleState"));
+        this.lifecycleMetadata = new AtomicReference<>(new LfaLifecycleMetadata(null, null, null, Instant.EPOCH));
     }
 
     @Scheduled(
@@ -139,6 +143,7 @@ public final class LfaSignalRunner {
             );
             Instant now = Instant.now(clock);
             TradingStateSnapshot snapshot = projection.snapshot();
+            refreshLifecycleFromProjection(snapshot);
             GateDecision lifecycle = lifecycleGate();
             if (lifecycle.blocked()) {
                 return new LfaSignalRunResult(
@@ -245,17 +250,36 @@ public final class LfaSignalRunner {
     }
 
     public LfaLifecycleStatus lifecycleStatus() {
-        return lifecycleStatus(lifecycleState.get(), null, null);
+        refreshLifecycleFromProjection(projection.snapshot());
+        return lifecycleStatus(lifecycleState.get(), lifecycleMetadata.get());
     }
 
-    public LfaLifecycleStatus transitionLifecycle(
+    public CompletableFuture<LfaLifecycleStatus> transitionLifecycle(
             String requestedState,
             String changedBy,
             String reason
     ) {
         LfaLifecycleState next = LfaLifecycleState.parse(requestedState, "lifecycleState");
-        lifecycleState.set(next);
-        return lifecycleStatus(next, text(changedBy), text(reason));
+        LfaLifecycleState previous = lifecycleState.get();
+        Instant changedAt = Instant.now(clock);
+        StrategyLifecycleEvent event = lifecycleEvent(previous, next, changedBy, reason, changedAt);
+        TradingEventEnvelope<StrategyLifecycleEvent> envelope = TradingEventEnvelope.of(
+                TradingEventType.STRATEGY_LIFECYCLE,
+                TradingEventKeys.strategy(TradingEventType.STRATEGY_LIFECYCLE, event.getLifecycleId().toString()),
+                event
+        );
+        return eventBus.publish(envelope).thenApply(published -> {
+            lifecycleState.set(next);
+            LfaLifecycleMetadata metadata = new LfaLifecycleMetadata(
+                    text(changedBy),
+                    text(reason),
+                    event.getEventId().toString(),
+                    changedAt
+            );
+            lifecycleMetadata.set(metadata);
+            projection.apply(envelope);
+            return lifecycleStatus(next, metadata);
+        });
     }
 
     private GateDecision lifecycleGate() {
@@ -271,8 +295,7 @@ public final class LfaSignalRunner {
 
     private LfaLifecycleStatus lifecycleStatus(
             LfaLifecycleState current,
-            String changedBy,
-            String reason
+            LfaLifecycleMetadata metadata
     ) {
         List<String> blockers = lifecycleBlockers(current);
         return new LfaLifecycleStatus(
@@ -282,8 +305,80 @@ public final class LfaSignalRunner {
                 properties.allowedLifecycleStates(),
                 current.canPublishNewSignals() && properties.allowedLifecycleStates().contains(current.name()),
                 blockers,
-                changedBy,
-                reason
+                metadata.changedBy(),
+                metadata.reason(),
+                metadata.changedAt(),
+                metadata.eventId()
+        );
+    }
+
+    private void refreshLifecycleFromProjection(TradingStateSnapshot snapshot) {
+        LfaRunnerTarget target = target();
+        snapshot.strategyLifecycle()
+                .stream()
+                .filter(state -> "lfa".equalsIgnoreCase(text(state.strategyId())))
+                .filter(state -> target.provider().equalsIgnoreCase(text(state.provider())))
+                .filter(state -> target.environment().equalsIgnoreCase(text(state.environment())))
+                .filter(state -> target.account().equalsIgnoreCase(text(state.account())))
+                .filter(state -> target.market().equalsIgnoreCase(text(state.market())))
+                .max(Comparator.comparing(TradingStateProjection.StrategyLifecycleState::updatedAt))
+                .ifPresent(this::applyProjectedLifecycleState);
+    }
+
+    private void applyProjectedLifecycleState(TradingStateProjection.StrategyLifecycleState state) {
+        Instant updatedAt = state.updatedAt() == null ? Instant.EPOCH : state.updatedAt();
+        LfaLifecycleMetadata current = lifecycleMetadata.get();
+        if (updatedAt.isBefore(current.changedAt())) {
+            return;
+        }
+        LfaLifecycleState projected = LfaLifecycleState.parse(state.lifecycleState(), "lifecycleState");
+        lifecycleState.set(projected);
+        lifecycleMetadata.set(new LfaLifecycleMetadata(
+                state.changedBy(),
+                state.reason(),
+                state.eventId(),
+                updatedAt
+        ));
+    }
+
+    private StrategyLifecycleEvent lifecycleEvent(
+            LfaLifecycleState previous,
+            LfaLifecycleState next,
+            String changedBy,
+            String reason,
+            Instant changedAt
+    ) {
+        LfaRunnerTarget target = target();
+        String lifecycleId = lifecycleId(target);
+        return StrategyLifecycleEvent.newBuilder()
+                .setEventId("evt-" + lifecycleId + "-" + UUID.randomUUID())
+                .setSchemaVersion(1)
+                .setLifecycleId(lifecycleId)
+                .setStrategyId("lfa")
+                .setProvider(target.provider())
+                .setEnvironment(target.environment())
+                .setAccount(target.account())
+                .setMarket(target.market())
+                .setPreviousLifecycleState(previous.name())
+                .setLifecycleState(next.name())
+                .setChangedBy(text(changedBy))
+                .setReason(text(reason))
+                .setChangedAtMicros(changedAt)
+                .setAttributes(Map.of(
+                        "configured_lifecycle_state", properties.lifecycleState(),
+                        "allowed_lifecycle_states", String.join(",", properties.allowedLifecycleStates())
+                ))
+                .build();
+    }
+
+    private String lifecycleId(LfaRunnerTarget target) {
+        return String.join(
+                "/",
+                "lfa",
+                target.provider(),
+                target.environment(),
+                target.account(),
+                target.market()
         );
     }
 
@@ -909,12 +1004,26 @@ public final class LfaSignalRunner {
             boolean publishEnabled,
             List<String> blockers,
             String changedBy,
-            String reason
+            String reason,
+            Instant changedAt,
+            String eventId
     ) {
 
         public LfaLifecycleStatus {
             allowedLifecycleStates = allowedLifecycleStates == null ? List.of() : List.copyOf(allowedLifecycleStates);
             blockers = blockers == null ? List.of() : List.copyOf(blockers);
+        }
+    }
+
+    private record LfaLifecycleMetadata(
+            String changedBy,
+            String reason,
+            String eventId,
+            Instant changedAt
+    ) {
+
+        private LfaLifecycleMetadata {
+            changedAt = changedAt == null ? Instant.EPOCH : changedAt;
         }
     }
 

@@ -11,6 +11,7 @@ import io.github.manu.events.v1.PositionUpdateEvent;
 import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
+import io.github.manu.events.v1.StrategyLifecycleEvent;
 import io.github.manu.events.v1.StrategySignalEvent;
 import org.apache.avro.Schema;
 import org.apache.avro.specific.SpecificRecord;
@@ -38,6 +39,11 @@ public enum TradingEventType {
             "remediation-decision"
     ),
     STRATEGY_SIGNAL(TradingEventSchema.STRATEGY_SIGNAL, StrategySignalEvent.class, "strategy-signal"),
+    STRATEGY_LIFECYCLE(
+            TradingEventSchema.STRATEGY_LIFECYCLE,
+            StrategyLifecycleEvent.class,
+            "strategy-lifecycle"
+    ),
     CONFIG_CHANGE(TradingEventSchema.CONFIG_CHANGE, ConfigChangeEvent.class, "config-change");
 
     private static final String TOPIC_PREFIX = "trading.v1.";

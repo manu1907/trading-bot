@@ -20,6 +20,7 @@ import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
+import io.github.manu.events.v1.StrategyLifecycleEvent;
 import io.github.manu.events.v1.StrategySignalEvent;
 import io.github.manu.events.v1.StrategySignalType;
 import io.github.manu.events.v1.TradingEventKey;
@@ -57,6 +58,7 @@ final class TradingEventFixtureFactory {
         envelopes.put(TradingEventType.INTERVENTION_ACKNOWLEDGEMENT, interventionAcknowledgement());
         envelopes.put(TradingEventType.REMEDIATION_DECISION, remediationDecision());
         envelopes.put(TradingEventType.STRATEGY_SIGNAL, strategySignal());
+        envelopes.put(TradingEventType.STRATEGY_LIFECYCLE, strategyLifecycle());
         envelopes.put(TradingEventType.CONFIG_CHANGE, configChange());
         return Map.copyOf(envelopes);
     }
@@ -388,6 +390,28 @@ final class TradingEventFixtureFactory {
                 .setAttributes(Map.of())
                 .build();
         return TradingEventEnvelope.of(TradingEventType.STRATEGY_SIGNAL, key, event);
+    }
+
+    private static TradingEventEnvelope<StrategyLifecycleEvent> strategyLifecycle() {
+        String lifecycleId = "lfa/" + PROVIDER + "/" + ENVIRONMENT + "/" + ACCOUNT + "/" + MARKET;
+        TradingEventKey key = TradingEventKeys.strategy(TradingEventType.STRATEGY_LIFECYCLE, lifecycleId);
+        StrategyLifecycleEvent event = StrategyLifecycleEvent.newBuilder()
+                .setEventId("evt-strategy-lifecycle")
+                .setSchemaVersion(1)
+                .setLifecycleId(lifecycleId)
+                .setStrategyId("lfa")
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setPreviousLifecycleState("PAUSED")
+                .setLifecycleState("ACTIVE")
+                .setChangedBy("operator")
+                .setReason("fixture transition")
+                .setChangedAtMicros(TIMESTAMP)
+                .setAttributes(Map.of("source", "fixture"))
+                .build();
+        return TradingEventEnvelope.of(TradingEventType.STRATEGY_LIFECYCLE, key, event);
     }
 
     private static TradingEventKey orderKey(TradingEventType eventType) {

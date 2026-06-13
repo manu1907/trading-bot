@@ -1,6 +1,7 @@
 package io.github.manu.strategy.lfa;
 
 import io.github.manu.events.TradingEventEnvelope;
+import io.github.manu.events.TradingEventType;
 import io.github.manu.execution.ExecutionProperties;
 import io.github.manu.intervention.InterventionProperties;
 import io.github.manu.messaging.DeadLetterTradingEvent;
@@ -17,7 +18,9 @@ import java.util.concurrent.CompletableFuture;
 
 class LfaLifecycleOperatorControllerTest {
 
-    private final LfaSignalRunner runner = runner("PAUSED");
+    private final NoopTradingEventBus eventBus = new NoopTradingEventBus();
+    private final TradingStateProjection projection = new TradingStateProjection();
+    private final LfaSignalRunner runner = runner("PAUSED", projection, eventBus);
     private final LfaLifecycleOperatorController controller = new LfaLifecycleOperatorController(
             runner,
             new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null, null)
@@ -79,7 +82,24 @@ class LfaLifecycleOperatorControllerTest {
                 .jsonPath("$.changedBy")
                 .isEqualTo("operator")
                 .jsonPath("$.reason")
-                .isEqualTo("promotion gate passed");
+                .isEqualTo("promotion gate passed")
+                .jsonPath("$.eventId")
+                .exists();
+        org.assertj.core.api.Assertions.assertThat(eventBus.envelope.eventType())
+                .isEqualTo(TradingEventType.STRATEGY_LIFECYCLE);
+        org.assertj.core.api.Assertions.assertThat(projection.strategyLifecycle(
+                        "lfa",
+                        "binance",
+                        "demo",
+                        "main",
+                        "usdm_futures"
+                ))
+                .get()
+                .satisfies(state -> {
+                    org.assertj.core.api.Assertions.assertThat(state.previousLifecycleState()).isEqualTo("PAUSED");
+                    org.assertj.core.api.Assertions.assertThat(state.lifecycleState()).isEqualTo("ACTIVE");
+                    org.assertj.core.api.Assertions.assertThat(state.changedBy()).isEqualTo("operator");
+                });
     }
 
     @Test
@@ -102,12 +122,16 @@ class LfaLifecycleOperatorControllerTest {
                 .isEqualTo("lifecycleState must be a known LFA lifecycle state");
     }
 
-    private LfaSignalRunner runner(String lifecycleState) {
+    private LfaSignalRunner runner(
+            String lifecycleState,
+            TradingStateProjection projection,
+            TradingEventBus eventBus
+    ) {
         return new LfaSignalRunner(
                 new LfaMarketSignalAnalyzer(),
                 properties(lifecycleState),
-                new TradingStateProjection(),
-                new NoopTradingEventBus(),
+                projection,
+                eventBus,
                 new ExecutionProperties(new ExecutionProperties.SignalPlanner(true, null), null),
                 null,
                 java.time.Clock.systemUTC()
@@ -156,10 +180,13 @@ class LfaLifecycleOperatorControllerTest {
 
     private static final class NoopTradingEventBus implements TradingEventBus {
 
+        private TradingEventEnvelope<? extends SpecificRecord> envelope;
+
         @Override
         public CompletableFuture<PublishedTradingEvent> publish(
                 TradingEventEnvelope<? extends SpecificRecord> envelope
         ) {
+            this.envelope = envelope;
             return CompletableFuture.completedFuture(new PublishedTradingEvent(
                     envelope.eventType(),
                     envelope.route().topic(),

@@ -16,6 +16,7 @@ import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
+import io.github.manu.events.v1.StrategyLifecycleEvent;
 import io.github.manu.messaging.TradingEventHandler;
 import org.apache.avro.specific.SpecificRecord;
 import org.springframework.stereotype.Component;
@@ -49,6 +50,7 @@ public final class TradingStateProjection implements TradingEventHandler {
     private final Map<String, ManualReviewDecisionState> manualReviewDecisions = new ConcurrentHashMap<>();
     private final Map<String, RemediationDecisionState> remediationDecisions = new ConcurrentHashMap<>();
     private final Map<String, PauseGovernanceState> pauseGovernance = new ConcurrentHashMap<>();
+    private final Map<String, StrategyLifecycleState> strategyLifecycle = new ConcurrentHashMap<>();
     private final LinkedHashSet<String> appliedEventIds = new LinkedHashSet<>();
     private final int maxAppliedEventIds;
     private final Object lock = new Object();
@@ -88,6 +90,10 @@ public final class TradingStateProjection implements TradingEventHandler {
             case REMEDIATION_DECISION -> applyRemediationDecision(
                     envelope,
                     cast(envelope.value(), RemediationDecisionEvent.class)
+            );
+            case STRATEGY_LIFECYCLE -> applyStrategyLifecycle(
+                    envelope,
+                    cast(envelope.value(), StrategyLifecycleEvent.class)
             );
             default -> ProjectionUpdate.ignored(envelope.eventType(), null);
         };
@@ -447,6 +453,16 @@ public final class TradingStateProjection implements TradingEventHandler {
                 || activePause(pauseGovernance.get(key(provider, environment, account, market, "SYMBOL", symbol)), now);
     }
 
+    public Optional<StrategyLifecycleState> strategyLifecycle(
+            String strategyId,
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        return Optional.ofNullable(strategyLifecycle.get(key(strategyId, provider, environment, account, market)));
+    }
+
     private boolean activePause(PauseGovernanceState state, Instant now) {
         return state != null && state.effectiveActive(now);
     }
@@ -463,6 +479,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                     valuesByKey(manualReviewDecisions),
                     valuesByKey(remediationDecisions),
                     valuesByKey(pauseGovernance),
+                    valuesByKey(strategyLifecycle),
                     List.copyOf(appliedEventIds)
             );
         }
@@ -480,6 +497,7 @@ public final class TradingStateProjection implements TradingEventHandler {
             manualReviewDecisions.clear();
             remediationDecisions.clear();
             pauseGovernance.clear();
+            strategyLifecycle.clear();
             appliedEventIds.clear();
             for (BalanceState state : snapshot.balances()) {
                 balances.put(key(state.provider(), state.environment(), state.account(), state.market(), state.asset()), state);
@@ -562,6 +580,15 @@ public final class TradingStateProjection implements TradingEventHandler {
                         state.market(),
                         state.pauseScope(),
                         state.pauseTarget()
+                ), state);
+            }
+            for (StrategyLifecycleState state : snapshot.strategyLifecycle()) {
+                strategyLifecycle.put(key(
+                        state.strategyId(),
+                        state.provider(),
+                        state.environment(),
+                        state.account(),
+                        state.market()
                 ), state);
             }
             for (String eventId : snapshot.appliedEventIds()) {
@@ -1318,6 +1345,36 @@ public final class TradingStateProjection implements TradingEventHandler {
             case "SYMBOL" -> state.symbol();
             default -> null;
         };
+    }
+
+    private ProjectionUpdate applyStrategyLifecycle(
+            TradingEventEnvelope<?> envelope,
+            StrategyLifecycleEvent event
+    ) {
+        String eventId = value(event.getEventId());
+        String entityKey = key(
+                event.getStrategyId(),
+                event.getProvider(),
+                event.getEnvironment(),
+                event.getAccount(),
+                event.getMarket()
+        );
+        StrategyLifecycleState state = new StrategyLifecycleState(
+                value(event.getLifecycleId()),
+                value(event.getStrategyId()),
+                value(event.getProvider()),
+                value(event.getEnvironment()),
+                value(event.getAccount()),
+                value(event.getMarket()),
+                value(event.getPreviousLifecycleState()),
+                value(event.getLifecycleState()),
+                value(event.getChangedBy()),
+                value(event.getReason()),
+                stringMap(event.getAttributes()),
+                event.getChangedAtMicros(),
+                eventId
+        );
+        return applyState(envelope.eventType(), entityKey, eventId, state.updatedAt(), strategyLifecycle, state);
     }
 
     private void clearManualReviewDecision(RemediationDecisionState state) {
@@ -2211,6 +2268,27 @@ public final class TradingStateProjection implements TradingEventHandler {
             } catch (RuntimeException ignored) {
                 return null;
             }
+        }
+    }
+
+    public record StrategyLifecycleState(
+            String lifecycleId,
+            String strategyId,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String previousLifecycleState,
+            String lifecycleState,
+            String changedBy,
+            String reason,
+            Map<String, String> attributes,
+            Instant updatedAt,
+            String eventId
+    ) implements TimedState {
+
+        public StrategyLifecycleState {
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
         }
     }
 }

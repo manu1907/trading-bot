@@ -22,6 +22,7 @@ import io.github.manu.events.v1.RemediationDecisionEvent;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
+import io.github.manu.events.v1.StrategyLifecycleEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -1351,6 +1352,46 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void projects_latest_strategy_lifecycle_state() {
+        ProjectionUpdate first = projection.apply(strategyLifecycle(
+                "evt-lifecycle-paused",
+                "STARTING",
+                "PAUSED",
+                timestamp(50)
+        ));
+        ProjectionUpdate stale = projection.apply(strategyLifecycle(
+                "evt-lifecycle-stale",
+                "PAUSED",
+                "STARTING",
+                timestamp(49)
+        ));
+        ProjectionUpdate active = projection.apply(strategyLifecycle(
+                "evt-lifecycle-active",
+                "PAUSED",
+                "ACTIVE",
+                timestamp(51)
+        ));
+
+        assertThat(first.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(stale.status()).isEqualTo(ProjectionUpdateStatus.STALE);
+        assertThat(active.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(projection.strategyLifecycle("lfa", PROVIDER, ENVIRONMENT, ACCOUNT, MARKET))
+                .get()
+                .satisfies(state -> {
+                    assertThat(state.lifecycleId())
+                            .isEqualTo("lfa/" + PROVIDER + "/" + ENVIRONMENT + "/" + ACCOUNT + "/" + MARKET);
+                    assertThat(state.previousLifecycleState()).isEqualTo("PAUSED");
+                    assertThat(state.lifecycleState()).isEqualTo("ACTIVE");
+                    assertThat(state.changedBy()).isEqualTo("operator");
+                    assertThat(state.reason()).isEqualTo("test transition");
+                    assertThat(state.updatedAt()).isEqualTo(timestamp(51));
+                });
+        assertThat(projection.snapshot().strategyLifecycle())
+                .singleElement()
+                .satisfies(state -> assertThat(state.lifecycleState()).isEqualTo("ACTIVE"));
+    }
+
+    @Test
     void remediation_decision_clears_matching_manual_review_decision() {
         projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(40)));
         projection.apply(riskDecision(
@@ -2272,6 +2313,36 @@ class TradingStateProjectionTest {
                         MARKET,
                         SYMBOL
                 ),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<StrategyLifecycleEvent> strategyLifecycle(
+            String eventId,
+            String previousState,
+            String lifecycleState,
+            Instant changedAt
+    ) {
+        String lifecycleId = "lfa/" + PROVIDER + "/" + ENVIRONMENT + "/" + ACCOUNT + "/" + MARKET;
+        StrategyLifecycleEvent event = StrategyLifecycleEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setLifecycleId(lifecycleId)
+                .setStrategyId("lfa")
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setPreviousLifecycleState(previousState)
+                .setLifecycleState(lifecycleState)
+                .setChangedBy("operator")
+                .setReason("test transition")
+                .setChangedAtMicros(changedAt)
+                .setAttributes(Map.of("source", "test"))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.STRATEGY_LIFECYCLE,
+                TradingEventKeys.strategy(TradingEventType.STRATEGY_LIFECYCLE, lifecycleId),
                 event
         );
     }

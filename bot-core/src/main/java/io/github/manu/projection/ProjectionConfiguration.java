@@ -94,4 +94,9 @@ public class ProjectionConfiguration {
     TradingEventHandlerRegistration remediationDecisionProjectionHandler(TradingStateProjection projection) {
         return new TradingEventHandlerRegistration(TradingEventType.REMEDIATION_DECISION, projection);
     }
+
+    @Bean
+    TradingEventHandlerRegistration strategyLifecycleProjectionHandler(TradingStateProjection projection) {
+        return new TradingEventHandlerRegistration(TradingEventType.STRATEGY_LIFECYCLE, projection);
+    }
 }
