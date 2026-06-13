@@ -698,7 +698,9 @@ Pause governance metrics:
 - An importable Grafana dashboard for remediation executor outcomes lives in
   `ops/grafana/remediation-executor-dashboard.json`.
 - The remediation executor operator runbook lives in
-  `ops/runbooks/remediation-executor.md`.
+  `ops/runbooks/remediation-executor.md`; it covers disabled, blocked,
+  preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,
+  ambiguous/unknown reconciliation, and hedge-mode remediation outcomes.
 - The Alertmanager profile maps alert labels such as `severity` and
   `routing_hint` to operator/platform PagerDuty and Slack receivers.
 - Real webhook URLs, Slack channels, and PagerDuty routing keys must be injected
