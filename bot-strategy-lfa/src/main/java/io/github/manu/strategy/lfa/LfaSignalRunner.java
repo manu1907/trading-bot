@@ -1102,6 +1102,10 @@ public final class LfaSignalRunner {
             List<StrategySignalEvent> signals
     ) {
         if (properties.targetNotionalMarginBalanceFraction() == null) {
+            AllocationDecision runCap = fixedSignalRunNotionalAllowed(signals);
+            if (runCap.blocked()) {
+                return runCap;
+            }
             return AllocationDecision.allowed(signals);
         }
         BigDecimal marginBalance = accountMarginBalance(snapshot, target).orElse(null);
@@ -1115,6 +1119,10 @@ public final class LfaSignalRunner {
         if (properties.maxAllocatedTargetNotional() != null
                 && allocated.compareTo(properties.maxAllocatedTargetNotional()) > 0) {
             allocated = properties.maxAllocatedTargetNotional();
+        }
+        if (properties.maxStrategyRunNotional() != null
+                && allocated.compareTo(properties.maxStrategyRunNotional()) > 0) {
+            allocated = properties.maxStrategyRunNotional();
         }
         int allocationSlots = Math.min(signals.size(), properties.maxSignalsPerRun());
         if (allocationSlots <= 0) {
@@ -1130,6 +1138,28 @@ public final class LfaSignalRunner {
         }
         String totalAllocatedText = decimalText(allocated);
         return weightedSignals(signals, marginBalance, allocated, totalAllocatedText);
+    }
+
+    private AllocationDecision fixedSignalRunNotionalAllowed(List<StrategySignalEvent> signals) {
+        if (properties.maxStrategyRunNotional() == null) {
+            return AllocationDecision.allowed(signals);
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        int checked = 0;
+        for (StrategySignalEvent signal : signals) {
+            if (checked++ >= properties.maxSignalsPerRun()) {
+                break;
+            }
+            Optional<BigDecimal> notional = signalNotional(signal);
+            if (notional.isEmpty()) {
+                return AllocationDecision.blocked("lfa_allocation:strategy_run_notional_unbounded");
+            }
+            total = total.add(notional.get());
+        }
+        if (total.compareTo(properties.maxStrategyRunNotional()) > 0) {
+            return AllocationDecision.blocked("lfa_allocation:max_strategy_run_notional");
+        }
+        return AllocationDecision.allowed(signals);
     }
 
     private AllocationDecision weightedSignals(
@@ -1385,6 +1415,9 @@ public final class LfaSignalRunner {
         attributes.put("lfa_allocation_fraction", properties.targetNotionalMarginBalanceFraction().toPlainString());
         attributes.put("lfa_allocation_total_target_notional", totalAllocatedTargetNotional);
         attributes.put("lfa_allocated_target_notional", allocatedTargetNotional);
+        if (properties.maxStrategyRunNotional() != null) {
+            attributes.put("lfa_allocation_strategy_run_notional_cap", decimalText(properties.maxStrategyRunNotional()));
+        }
         attributes.put("lfa_allocation_weighting_mode", properties.allocationWeightingMode());
         attributes.put("lfa_allocation_weight", allocationWeight);
         attributes.put("lfa_allocation_weight_sum", allocationWeightSum);

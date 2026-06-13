@@ -134,6 +134,7 @@
           "target_notional_margin_balance_fraction": null,
           "min_allocated_target_notional": null,
           "max_allocated_target_notional": null,
+          "max_strategy_run_notional": null,
           "reject_missing_allocation_balance": true,
           "allocation_weighting_mode": "EQUAL",
           "market_quality_quote_volume_baseline": "100000000",

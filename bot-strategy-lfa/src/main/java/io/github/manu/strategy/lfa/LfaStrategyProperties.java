@@ -47,6 +47,7 @@ public record LfaStrategyProperties(
             BigDecimal targetNotionalMarginBalanceFraction,
             BigDecimal minAllocatedTargetNotional,
             BigDecimal maxAllocatedTargetNotional,
+            BigDecimal maxStrategyRunNotional,
             Boolean rejectMissingAllocationBalance,
             String allocationWeightingMode,
             BigDecimal marketQualityQuoteVolumeBaseline,
@@ -116,6 +117,7 @@ public record LfaStrategyProperties(
             }
             minAllocatedTargetNotional = positiveOrNull(minAllocatedTargetNotional, "minAllocatedTargetNotional");
             maxAllocatedTargetNotional = positiveOrNull(maxAllocatedTargetNotional, "maxAllocatedTargetNotional");
+            maxStrategyRunNotional = positiveOrNull(maxStrategyRunNotional, "maxStrategyRunNotional");
             rejectMissingAllocationBalance =
                     rejectMissingAllocationBalance == null || Boolean.TRUE.equals(rejectMissingAllocationBalance);
             allocationWeightingMode = normalizedAllocationWeightingMode(allocationWeightingMode);
@@ -137,6 +139,10 @@ public record LfaStrategyProperties(
             if (minAllocatedTargetNotional != null && maxAllocatedTargetNotional != null
                     && minAllocatedTargetNotional.compareTo(maxAllocatedTargetNotional) > 0) {
                 throw new IllegalArgumentException("minAllocatedTargetNotional must be <= maxAllocatedTargetNotional");
+            }
+            if (minAllocatedTargetNotional != null && maxStrategyRunNotional != null
+                    && minAllocatedTargetNotional.compareTo(maxStrategyRunNotional) > 0) {
+                throw new IllegalArgumentException("minAllocatedTargetNotional must be <= maxStrategyRunNotional");
             }
             maxSignalsPerRun = positive(maxSignalsPerRun, 1, "maxSignalsPerRun");
             maxAccountOpenOrders = positiveOrNull(maxAccountOpenOrders, "maxAccountOpenOrders");
@@ -197,6 +203,7 @@ public record LfaStrategyProperties(
                     new BigDecimal("5"),
                     new BigDecimal("250"),
                     30_000L,
+                    null,
                     null,
                     null,
                     null,

@@ -121,7 +121,10 @@ analysis, runs the analyzer, caps publication with `max_signals_per_run`, record
 `lfa_reconciliation_availability_score` when symbol-level reconciliation observations exist, can allocate a total run target notional from
 the latest projected account margin balance, and splits it across candidate publish slots
 by configured `allocation_weighting_mode` (`EQUAL`, `CONFIDENCE`, or
-`MARKET_QUALITY`) when configured. `MARKET_QUALITY` includes projected daily
+`MARKET_QUALITY`) when configured. The optional `max_strategy_run_notional` cap
+limits total notional published by one runner cycle: margin-balance allocation is
+reduced to the cap automatically, while fixed/unallocated sizing blocks when the
+runner cannot prove or safely resize total run notional. `MARKET_QUALITY` includes projected daily
 `quoteVolume`, projected daily trade count, and projected daily taker-buy quote
 volume against their configured market-quality baselines in addition to
 confidence, imbalance, spread, depth, and freshness. The runner applies account
@@ -152,6 +155,8 @@ caps use projected remaining order quantity and limit price, and block with
 `lfa_budget:open_order_notional_metadata_missing` when relevant open-order
 metadata is unusable under strict metadata rejection. Allocation blockers include
 `lfa_allocation:account_margin_balance_missing`,
+`lfa_allocation:max_strategy_run_notional`,
+`lfa_allocation:strategy_run_notional_unbounded`,
 `lfa_allocation:target_notional_below_min`, and
 `lfa_allocation:target_notional_non_positive`. Runner reconciliation blockers
 include `lfa_reconciliation:no_observations` and `lfa_reconciliation:degraded`
@@ -159,7 +164,7 @@ when `require_reconciliation_confidence=true`. The catalog value for the runner
 currently executes as `enabled=false`, `lifecycle_state=STOPPED`,
 one-symbol projected-data warm-up,
 `use_signal_planner_instrument_universe=true`, no LFA-specific candidate cap,
-unset allocation fraction/min/max, and `reject_missing_allocation_balance=true`
+unset allocation fraction/min/max/run-notional cap, and `reject_missing_allocation_balance=true`
 with `allocation_weighting_mode=EQUAL`,
 `market_quality_quote_volume_baseline=100000000`,
 `market_quality_trade_count_baseline=100000`,
@@ -171,7 +176,7 @@ calibrated by a runtime override. The checked-in demo runtime overrides target, 
 open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,
 `max_candidate_market_data_symbols=13`,
 `target_notional_margin_balance_fraction=0.01`, and
-`max_allocated_target_notional=50` with
+`max_allocated_target_notional=50`, `max_strategy_run_notional=50`, and
 `allocation_weighting_mode=MARKET_QUALITY` but does not override `enabled`, so the
 effective demo runner remains disabled because the full position-lifecycle and
 broader money-management layers are not complete enough for autonomous strategy

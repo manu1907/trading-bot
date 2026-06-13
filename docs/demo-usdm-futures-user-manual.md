@@ -1562,6 +1562,7 @@ Catalog defaults are:
 - `target_notional_margin_balance_fraction`: `null`
 - `min_allocated_target_notional`: `null`
 - `max_allocated_target_notional`: `null`
+- `max_strategy_run_notional`: `null`
 - `reject_missing_allocation_balance`: `true`
 - `allocation_weighting_mode`: `EQUAL`
 - `market_quality_quote_volume_baseline`: `100000000`
@@ -1642,6 +1643,7 @@ overrides for `binance/demo/main/usdm_futures`:
 - `target_quantity`: `0.001`
 - `target_notional_margin_balance_fraction`: `0.01`
 - `max_allocated_target_notional`: `50`
+- `max_strategy_run_notional`: `50`
 - `allocation_weighting_mode`: `MARKET_QUALITY`
 - `max_account_open_positions`: `3`
 - `max_symbol_open_positions`: `1`
@@ -1688,7 +1690,8 @@ the latest projected account-level risk state for the same provider,
 environment, account, and market with `risk_scope=ACCOUNT`. If that projection
 contains a positive `margin_balance`, the runner computes target notional as
 `margin_balance * target_notional_margin_balance_fraction`, applies
-`max_allocated_target_notional` when configured, divides that total run budget
+`max_allocated_target_notional` when configured, applies
+`max_strategy_run_notional` when configured, divides that total run budget
 across the candidate publish slots for the run using `allocation_weighting_mode`,
 enforces `min_allocated_target_notional` on each target notional when configured,
 clears `targetQuantity`, sets `targetNotional`, and records allocation
@@ -1707,6 +1710,11 @@ references the candidate symbol, emitted signals include
 With the catalog default
 `reject_missing_allocation_balance=true`, missing account margin balance blocks
 publication instead of falling back to stale or ambiguous sizing.
+If `target_notional_margin_balance_fraction` is not configured and
+`max_strategy_run_notional` is configured, the runner verifies the fixed or
+pre-supplied signal notional for the publish slots. It blocks instead of
+publishing if projected total run notional exceeds the cap or if any signal
+notional is unbounded.
 
 Allocation attributes include:
 
@@ -1715,6 +1723,7 @@ Allocation attributes include:
 - `lfa_allocation_fraction`
 - `lfa_allocation_total_target_notional`
 - `lfa_allocated_target_notional`
+- `lfa_allocation_strategy_run_notional_cap` when the strategy-run cap is configured for allocated signals
 - `lfa_allocation_weighting_mode`
 - `lfa_allocation_weight`
 - `lfa_allocation_weight_sum`
@@ -1777,6 +1786,8 @@ safe.
 Current runner allocation gates can block on:
 
 - `lfa_allocation:account_margin_balance_missing`
+- `lfa_allocation:max_strategy_run_notional`
+- `lfa_allocation:strategy_run_notional_unbounded`
 - `lfa_allocation:target_notional_below_min`
 - `lfa_allocation:target_notional_non_positive`
 
@@ -1790,7 +1801,7 @@ lifecycle and broader money-management controls are still incomplete. It already
 sets `lifecycle_state=PAUSED`, three-symbol projected-data warm-up thresholds,
 `max_candidate_market_data_symbols=13`, open-position caps,
 `target_notional_margin_balance_fraction=0.01`, and
-`max_allocated_target_notional=50` with
+`max_allocated_target_notional=50`, `max_strategy_run_notional=50`, and
 `allocation_weighting_mode=MARKET_QUALITY` for first-start demo operation;
 notional and daily-loss caps remain inherited as `null` until calibrated for the
 target account.

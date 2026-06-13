@@ -445,6 +445,36 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void caps_allocated_target_notional_by_strategy_run_notional_limit() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(risk("1000")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010"),
+                marketData("ETHUSDT", "3000.00", "3.000", "3000.10", "1.000")
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithAllocation("0.02", null, null, 2, "EQUAL", "12"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(result.publishedSignals()).isEqualTo(2);
+        assertThat(eventBus.envelopes()).hasSize(2).allSatisfy(envelope -> {
+            StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
+            assertThat(signal.getTargetQuantity()).isNull();
+            assertThat(signal.getTargetNotional()).isEqualTo("6");
+            assertThat(signal.getAttributes())
+                    .containsEntry("lfa_allocation_total_target_notional", "12")
+                    .containsEntry("lfa_allocated_target_notional", "6")
+                    .containsEntry("lfa_allocation_strategy_run_notional_cap", "12");
+        });
+    }
+
+    @Test
     void weights_allocated_target_notional_by_market_quality_when_configured() {
         TradingStateProjection projection = projectionWith(
                 List.of(),
@@ -564,6 +594,24 @@ class LfaSignalRunnerTest {
 
         assertThat(result.reason()).isEqualTo("lfa_signal_runner:allocation_blocked");
         assertThat(result.blockers()).containsExactly("lfa_allocation:account_margin_balance_missing");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_fixed_sizing_when_strategy_run_notional_limit_would_be_exceeded() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithFixedStrategyRunNotionalCap("10"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:allocation_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_allocation:max_strategy_run_notional");
         assertThat(eventBus.envelopes()).isEmpty();
     }
 
@@ -1180,6 +1228,24 @@ class LfaSignalRunnerTest {
             int maxSignalsPerRun,
             String allocationWeightingMode
     ) {
+        return propertiesWithAllocation(
+                targetNotionalMarginBalanceFraction,
+                minAllocatedTargetNotional,
+                maxAllocatedTargetNotional,
+                maxSignalsPerRun,
+                allocationWeightingMode,
+                null
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner propertiesWithAllocation(
+            String targetNotionalMarginBalanceFraction,
+            String minAllocatedTargetNotional,
+            String maxAllocatedTargetNotional,
+            int maxSignalsPerRun,
+            String allocationWeightingMode,
+            String maxStrategyRunNotional
+    ) {
         return new LfaStrategyProperties.SignalRunner(
                 true,
                 30_000L,
@@ -1208,12 +1274,72 @@ class LfaSignalRunnerTest {
                 decimal(targetNotionalMarginBalanceFraction),
                 decimal(minAllocatedTargetNotional),
                 decimal(maxAllocatedTargetNotional),
+                decimal(maxStrategyRunNotional),
                 true,
                 allocationWeightingMode,
                 new BigDecimal("100000000"),
                 new BigDecimal("100000"),
                 new BigDecimal("50000000"),
                 maxSignalsPerRun,
+                null,
+                null,
+                null,
+                null,
+                3,
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                true,
+                true
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner propertiesWithFixedStrategyRunNotionalCap(
+            String maxStrategyRunNotional
+    ) {
+        return new LfaStrategyProperties.SignalRunner(
+                true,
+                30_000L,
+                30_000L,
+                "lfa",
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                "ACTIVE",
+                List.of("ACTIVE"),
+                null,
+                false,
+                true,
+                1,
+                1,
+                30_000L,
+                true,
+                null,
+                new BigDecimal("1.50"),
+                new BigDecimal("5"),
+                new BigDecimal("250"),
+                30_000L,
+                "0.001",
+                null,
+                null,
+                null,
+                null,
+                decimal(maxStrategyRunNotional),
+                true,
+                "EQUAL",
+                new BigDecimal("100000000"),
+                new BigDecimal("100000"),
+                new BigDecimal("50000000"),
+                1,
                 null,
                 null,
                 null,
@@ -1324,6 +1450,7 @@ class LfaSignalRunnerTest {
                 new BigDecimal("250"),
                 30_000L,
                 "0.001",
+                null,
                 null,
                 null,
                 null,

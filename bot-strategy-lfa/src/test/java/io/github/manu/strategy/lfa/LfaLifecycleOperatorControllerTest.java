@@ -327,6 +327,7 @@ class LfaLifecycleOperatorControllerTest {
                 null,
                 null,
                 null,
+                null,
                 true,
                 "EQUAL",
                 new BigDecimal("100000000"),
