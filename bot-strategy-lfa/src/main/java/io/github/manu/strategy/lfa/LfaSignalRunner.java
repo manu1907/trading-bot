@@ -222,10 +222,13 @@ public final class LfaSignalRunner {
                         reconciliation.reasons()
                 );
             }
-            List<TradingStateProjection.MarketDataState> candidates = candidateMarketData(snapshot, target, now);
+            Map<String, BigDecimal> providerCapabilityScores = providerCapabilityScores(target);
+            List<TradingStateProjection.MarketDataState> candidates =
+                    candidateMarketData(snapshot, target, now, providerCapabilityScores);
             Map<String, BigDecimal> reconciliationAvailabilityScores =
                     reconciliationAvailabilityScores(target, candidates);
             List<StrategySignalEvent> signals = analyzer.analyze(request, candidates, now).stream()
+                    .map(signal -> withProviderCapability(signal, providerCapabilityScores))
                     .map(signal -> withReconciliationAvailability(signal, reconciliationAvailabilityScores))
                     .limit(properties.maxSignalsPerRun())
                     .toList();
@@ -551,7 +554,8 @@ public final class LfaSignalRunner {
     private List<TradingStateProjection.MarketDataState> candidateMarketData(
             TradingStateSnapshot snapshot,
             LfaRunnerTarget target,
-            Instant now
+            Instant now,
+            Map<String, BigDecimal> providerCapabilityScores
     ) {
         ExecutionProperties.SignalPlanner.InstrumentUniverse universe =
                 executionProperties.signalPlanner().instrumentUniverse();
@@ -566,7 +570,7 @@ public final class LfaSignalRunner {
                         .map(symbols -> symbols.contains(normalize(state.symbol())))
                         .orElse(true))
                 .filter(state -> universePolicyAllows(universe, target, state.symbol()))
-                .map(state -> rankedMarketData(state, now, reconciliationStates))
+                .map(state -> rankedMarketData(state, now, reconciliationStates, providerCapabilityScores))
                 .flatMap(Optional::stream)
                 .filter(candidate -> universeMarketDataAllows(universe, target, candidate))
                 .sorted(Comparator
@@ -574,6 +578,7 @@ public final class LfaSignalRunner {
                         .thenComparing(RankedMarketData::dailyQuoteVolume, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::dailyNumberOfTrades, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::dailyTakerBuyQuoteVolume, Comparator.reverseOrder())
+                        .thenComparing(RankedMarketData::providerCapabilityScore, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::reconciliationAvailabilityScore, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::topOfBookQuoteNotional, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::ageMillis)
@@ -682,7 +687,8 @@ public final class LfaSignalRunner {
     private Optional<RankedMarketData> rankedMarketData(
             TradingStateProjection.MarketDataState state,
             Instant now,
-            List<ReconciliationConfidenceState> reconciliationStates
+            List<ReconciliationConfidenceState> reconciliationStates,
+            Map<String, BigDecimal> providerCapabilityScores
     ) {
         BigDecimal bidPrice = decimal(state.bestBidPrice());
         BigDecimal bidQuantity = decimal(state.bestBidQuantity());
@@ -713,6 +719,7 @@ public final class LfaSignalRunner {
         BigDecimal dailyQuoteVolume = dailyQuoteVolume(state);
         BigDecimal dailyNumberOfTrades = dailyNumberOfTrades(state);
         BigDecimal dailyTakerBuyQuoteVolume = dailyTakerBuyQuoteVolume(state);
+        BigDecimal providerCapabilityScore = providerCapabilityScore(state.symbol(), providerCapabilityScores);
         BigDecimal reconciliationAvailabilityScore = reconciliationAvailabilityScore(state.symbol(), reconciliationStates);
         return Optional.of(new RankedMarketData(
                 state,
@@ -721,6 +728,7 @@ public final class LfaSignalRunner {
                 dailyQuoteVolume,
                 dailyNumberOfTrades,
                 dailyTakerBuyQuoteVolume,
+                providerCapabilityScore,
                 reconciliationAvailabilityScore,
                 ageMillis
         ));
@@ -1253,6 +1261,31 @@ public final class LfaSignalRunner {
         return positive(takerBuyQuoteVolume) ? takerBuyQuoteVolume : BigDecimal.ZERO;
     }
 
+    private Map<String, BigDecimal> providerCapabilityScores(LfaRunnerTarget target) {
+        ExecutionProperties.SignalPlanner.InstrumentUniverse universe =
+                executionProperties.signalPlanner().instrumentUniverse();
+        if (!properties.useSignalPlannerInstrumentUniverse()
+                || !universe.enabled()
+                || instrumentUniverseResolver == null) {
+            return Map.of();
+        }
+        return instrumentUniverseResolver.providerCapabilityScores(
+                universe,
+                target.provider(),
+                target.environment(),
+                target.account(),
+                target.market(),
+                OrderCommandType.LIMIT
+        );
+    }
+
+    private BigDecimal providerCapabilityScore(
+            String symbol,
+            Map<String, BigDecimal> providerCapabilityScores
+    ) {
+        return providerCapabilityScores.getOrDefault(normalize(symbol), BigDecimal.ZERO);
+    }
+
     private Map<String, BigDecimal> reconciliationAvailabilityScores(
             LfaRunnerTarget target,
             List<TradingStateProjection.MarketDataState> candidates
@@ -1290,6 +1323,24 @@ public final class LfaSignalRunner {
                 .filter(state -> normalize(state.entityKey()).contains(normalizedSymbol))
                 .count();
         return BigDecimal.valueOf(Math.min(confidentSymbolStates, 10L));
+    }
+
+    private StrategySignalEvent withProviderCapability(
+            StrategySignalEvent signal,
+            Map<String, BigDecimal> providerCapabilityScores
+    ) {
+        BigDecimal score = providerCapabilityScore(signal.getSymbol().toString(), providerCapabilityScores);
+        if (score.compareTo(BigDecimal.ZERO) <= 0) {
+            return signal;
+        }
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        if (signal.getAttributes() != null) {
+            attributes.putAll(signal.getAttributes());
+        }
+        attributes.put("lfa_provider_capability_score", decimalText(score));
+        return StrategySignalEvent.newBuilder(signal)
+                .setAttributes(attributes)
+                .build();
     }
 
     private StrategySignalEvent withReconciliationAvailability(
@@ -1642,6 +1693,7 @@ public final class LfaSignalRunner {
             BigDecimal dailyQuoteVolume,
             BigDecimal dailyNumberOfTrades,
             BigDecimal dailyTakerBuyQuoteVolume,
+            BigDecimal providerCapabilityScore,
             BigDecimal reconciliationAvailabilityScore,
             long ageMillis
     ) {

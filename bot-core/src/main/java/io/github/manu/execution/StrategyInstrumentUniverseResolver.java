@@ -8,8 +8,11 @@ import io.github.manu.exchange.InstrumentExchangeMetadata;
 import io.github.manu.exchange.ResolvedExchangeConfig;
 import io.github.manu.events.v1.OrderCommandType;
 
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -73,6 +76,47 @@ public final class StrategyInstrumentUniverseResolver {
         return List.copyOf(eligible.subList(0, universe.maxEligibleSymbols().intValue()));
     }
 
+    public Map<String, BigDecimal> providerCapabilityScores(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            OrderCommandType orderType
+    ) {
+        Objects.requireNonNull(universe, "universe");
+        if (!universe.enabled()) {
+            return Map.of();
+        }
+        Optional<InstrumentExchangeMetadata> metadata =
+                instrumentMetadata(universe, provider, environment, account, market, false);
+        if (metadata.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, BigDecimal> scores = new LinkedHashMap<>();
+        metadata.get().instruments().stream()
+                .filter(instrument -> eligibleInstrument(universe, instrument, orderType))
+                .forEach(instrument -> {
+                    String symbol = normalize(instrument.symbol());
+                    if (symbol.isBlank() || universe.excludedSymbols().contains(symbol)) {
+                        return;
+                    }
+                    if (universe.requireIncludedSymbol() && !universe.includedSymbols().contains(symbol)) {
+                        return;
+                    }
+                    scores.putIfAbsent(symbol, providerCapabilityScore(
+                            universe,
+                            provider,
+                            environment,
+                            account,
+                            market,
+                            instrument,
+                            orderType
+                    ));
+                });
+        return Map.copyOf(scores);
+    }
+
     private Optional<InstrumentExchangeMetadata> instrumentMetadata(
             ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
             String provider,
@@ -80,7 +124,18 @@ public final class StrategyInstrumentUniverseResolver {
             String account,
             String market
     ) {
-        if (universe.refreshExchangeMetadataBeforePlanning()) {
+        return instrumentMetadata(universe, provider, environment, account, market, true);
+    }
+
+    private Optional<InstrumentExchangeMetadata> instrumentMetadata(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            boolean refreshAllowed
+    ) {
+        if (refreshAllowed && universe.refreshExchangeMetadataBeforePlanning()) {
             refresh(provider, environment, account, market);
         }
         Optional<? extends ExchangeMetadata> metadata = exchangeMetadataService.current(provider);
@@ -148,6 +203,81 @@ public final class StrategyInstrumentUniverseResolver {
                     .toList();
         }
         return List.of();
+    }
+
+    private BigDecimal providerCapabilityScore(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            InstrumentExchangeMetadata.Instrument instrument,
+            OrderCommandType orderType
+    ) {
+        BigDecimal score = BigDecimal.ONE;
+        if (equalsIgnoreCase(universe.requiredStatus(), instrument.status())) {
+            score = score.add(BigDecimal.ONE);
+        }
+        String requiredOrderType = universe.requiredOrderType() == null
+                ? orderType.name()
+                : universe.requiredOrderType();
+        if (supportsOrderType(instrument, requiredOrderType)) {
+            score = score.add(BigDecimal.ONE);
+        }
+        if (!universe.allowedQuoteAssets().isEmpty()
+                && universe.allowedQuoteAssets().contains(normalize(instrument.quoteAsset()))) {
+            score = score.add(new BigDecimal("0.50"));
+        }
+        if (!universe.allowedContractTypes().isEmpty()
+                && universe.allowedContractTypes().contains(normalize(instrument.contractType()))) {
+            score = score.add(new BigDecimal("0.50"));
+        }
+        long orderTypeCount = instrument.orderTypes().stream()
+                .map(this::normalize)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .count();
+        score = score.add(new BigDecimal("0.25").multiply(BigDecimal.valueOf(Math.min(orderTypeCount, 6L))));
+        ExecutionProperties.SignalPlanner.SymbolPolicy policy =
+                selectedSymbolPolicy(universe, provider, environment, account, market, normalize(instrument.symbol()));
+        if (policy != null) {
+            if (Boolean.TRUE.equals(policy.enabled())) {
+                score = score.add(new BigDecimal("0.50"));
+            }
+            if (Boolean.TRUE.equals(policy.promotionReady())) {
+                score = score.add(new BigDecimal("0.50"));
+            }
+        }
+        return score.stripTrailingZeros();
+    }
+
+    private boolean supportsOrderType(InstrumentExchangeMetadata.Instrument instrument, String requiredOrderType) {
+        return instrument.orderTypes().stream()
+                .map(this::normalize)
+                .anyMatch(requiredOrderType::equals);
+    }
+
+    private ExecutionProperties.SignalPlanner.SymbolPolicy selectedSymbolPolicy(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            String provider,
+            String environment,
+            String account,
+            String market,
+            String symbol
+    ) {
+        String normalizedSymbol = normalize(symbol);
+        return universe.symbolPolicies().stream()
+                .filter(policy -> normalizedSymbol.equals(policy.symbol()))
+                .filter(policy -> targetMatches(policy.provider(), provider))
+                .filter(policy -> targetMatches(policy.environment(), environment))
+                .filter(policy -> targetMatches(policy.account(), account))
+                .filter(policy -> targetMatches(policy.market(), market))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean targetMatches(String configured, String actual) {
+        return configured == null || configured.isBlank() || equalsIgnoreCase(configured, actual);
     }
 
     private boolean equalsIgnoreCase(String left, String right) {

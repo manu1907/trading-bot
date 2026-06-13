@@ -9,8 +9,10 @@ import io.github.manu.config.runtime.ConfigManager;
 import io.github.manu.events.v1.OrderCommandType;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -118,6 +120,64 @@ class StrategyInstrumentUniverseResolverTest {
                 "usdm_futures",
                 OrderCommandType.LIMIT
         )).isEmpty();
+    }
+
+    @Test
+    void scores_provider_capabilities_from_exchange_metadata_and_symbol_policy() {
+        StrategyInstrumentUniverseResolver resolver = new StrategyInstrumentUniverseResolver(
+                new ExchangeMetadataService(List.of(new StaticFetcher(new Metadata(List.of(
+                        instrument("BTCUSDT", "TRADING", "USDT", "PERPETUAL", List.of("LIMIT", "MARKET")),
+                        instrument("ETHUSDT", "TRADING", "USDT", "PERPETUAL", List.of("LIMIT"))
+                ))))),
+                (ConfigManager) null
+        );
+        ExecutionProperties.SignalPlanner.InstrumentUniverse universe =
+                new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        List.of("BTCUSDT", "ETHUSDT"),
+                        List.of(),
+                        false,
+                        true,
+                        false,
+                        true,
+                        false,
+                        "TRADING",
+                        null,
+                        List.of("USDT"),
+                        List.of("PERPETUAL"),
+                        null,
+                        false,
+                        false,
+                        30000L,
+                        null,
+                        null,
+                        List.of(new ExecutionProperties.SignalPlanner.SymbolPolicy(
+                                "binance",
+                                "demo",
+                                "main",
+                                "usdm_futures",
+                                "BTCUSDT",
+                                true,
+                                true,
+                                null,
+                                null,
+                                null,
+                                null
+                        ))
+                );
+
+        Map<String, BigDecimal> scores = resolver.providerCapabilityScores(
+                universe,
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                OrderCommandType.LIMIT
+        );
+
+        assertThat(scores).containsEntry("BTCUSDT", new BigDecimal("5.5"));
+        assertThat(scores).containsEntry("ETHUSDT", new BigDecimal("4.25"));
+        assertThat(scores.get("BTCUSDT")).isGreaterThan(scores.get("ETHUSDT"));
     }
 
     private InstrumentExchangeMetadata.Instrument instrument(

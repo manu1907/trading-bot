@@ -1668,7 +1668,7 @@ current lifecycle state to be allowed, requires projected market-data and
 top-of-book warm-up thresholds to be met, applies account budget gates, filters
 candidate symbols through the core signal-planner instrument universe when
 `use_signal_planner_instrument_universe=true`, ranks candidate market data by
-projected spread, top-of-book quote depth, freshness, and symbol, applies
+projected spread, daily quote volume, daily trade count, daily taker-buy quote volume, provider capability score, reconciliation availability, top-of-book quote depth, freshness, and symbol, applies
 `max_candidate_market_data_symbols` when configured, passes only those candidate
 market-data states to the analyzer, optionally replaces fixed signal sizing
 with target notional allocated from the latest projected account margin balance,
@@ -1700,9 +1700,7 @@ quote volume, and freshness. Daily quote volume, trade count, and taker-buy
 quote volume are compared with their `market_quality_*_baseline` values and
 capped inside the quality score so highly active markets are preferred without
 allowing one raw liquidity number to consume the whole run allocation.
-Before analysis, candidate market data is also ranked by symbol-level
-reconciliation availability when comparable spread, volume, and trade-statistic
-conditions exist.
+Before analysis, candidate market data is also ranked by provider capability score when exchange metadata is available and by symbol-level reconciliation availability when comparable spread, volume, and trade-statistic conditions exist.
 When the reconciliation tracker has confident observations whose entity key
 references the candidate symbol, emitted signals include
 `lfa_reconciliation_availability_score` for auditability.
@@ -1724,6 +1722,8 @@ Allocation attributes include:
 - `lfa_daily_number_of_trades` when projected daily trade count is available
 - `lfa_daily_taker_buy_quote_volume` when projected daily taker-buy quote
   volume is available
+- `lfa_provider_capability_score` when exchange metadata contributed to
+  candidate ranking
 - `lfa_reconciliation_availability_score` when symbol-level reconciliation
   availability contributed to candidate ranking
 

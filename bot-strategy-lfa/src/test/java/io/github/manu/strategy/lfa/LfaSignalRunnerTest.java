@@ -3,7 +3,13 @@ package io.github.manu.strategy.lfa;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.StrategySignalEvent;
+import io.github.manu.exchange.ExchangeMetadata;
+import io.github.manu.exchange.ExchangeMetadataFetcher;
+import io.github.manu.exchange.ExchangeMetadataService;
+import io.github.manu.exchange.InstrumentExchangeMetadata;
+import io.github.manu.exchange.ResolvedExchangeConfig;
 import io.github.manu.execution.ExecutionProperties;
+import io.github.manu.execution.StrategyInstrumentUniverseResolver;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
@@ -22,6 +28,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -311,6 +318,47 @@ class LfaSignalRunnerTest {
             assertThat(signal.getAttributes())
                     .containsEntry("lfa_daily_number_of_trades", "900000")
                     .containsEntry("lfa_daily_taker_buy_quote_volume", "70000000");
+        });
+    }
+
+    @Test
+    void ranks_candidate_market_data_by_provider_capability_when_market_statistics_match() {
+        TradingStateProjection projection = projectionWith(
+                marketData(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.020",
+                        "50000.50",
+                        "0.010",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                ),
+                marketData(
+                        "ETHUSDT",
+                        "3000.00",
+                        "0.400",
+                        "3000.03",
+                        "0.200",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                )
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithCandidateCap(1),
+                projection,
+                executionProperties(true, instrumentUniverse(List.of("BTCUSDT", "ETHUSDT"), true, true)),
+                strategyInstrumentUniverseResolver(
+                        instrument("BTCUSDT", "TRADING", "USDT", "PERPETUAL", List.of("LIMIT", "MARKET")),
+                        instrument("ETHUSDT", "TRADING", "USDT", "PERPETUAL", List.of("LIMIT"))
+                ),
+                reconciliationTrackerForSymbols("BTCUSDT", "ETHUSDT")
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(eventBus.envelopes()).singleElement().satisfies(envelope -> {
+            assertThat(envelope.key().getSymbol()).isEqualTo("BTCUSDT");
+            StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
+            assertThat(signal.getAttributes()).containsEntry("lfa_provider_capability_score", "3.5");
         });
     }
 
@@ -845,13 +893,23 @@ class LfaSignalRunnerTest {
             ExecutionProperties executionProperties,
             ReconciliationConfidenceTracker reconciliationConfidenceTracker
     ) {
+        return runner(properties, projection, executionProperties, null, reconciliationConfidenceTracker);
+    }
+
+    private LfaSignalRunner runner(
+            LfaStrategyProperties.SignalRunner properties,
+            TradingStateProjection projection,
+            ExecutionProperties executionProperties,
+            StrategyInstrumentUniverseResolver instrumentUniverseResolver,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
+    ) {
         return new LfaSignalRunner(
                 new LfaMarketSignalAnalyzer(),
                 properties,
                 projection,
                 eventBus,
                 executionProperties,
-                null,
+                instrumentUniverseResolver,
                 reconciliationConfidenceTracker,
                 Clock.fixed(NOW, ZoneOffset.UTC)
         );
@@ -887,6 +945,32 @@ class LfaSignalRunnerTest {
             ));
         }
         return tracker;
+    }
+
+    private StrategyInstrumentUniverseResolver strategyInstrumentUniverseResolver(
+            InstrumentExchangeMetadata.Instrument... instruments
+    ) {
+        return new StrategyInstrumentUniverseResolver(
+                new ExchangeMetadataService(List.of(new StaticMetadataFetcher(new Metadata(List.of(instruments))))),
+                (io.github.manu.config.runtime.ConfigManager) null
+        );
+    }
+
+    private InstrumentExchangeMetadata.Instrument instrument(
+            String symbol,
+            String status,
+            String quoteAsset,
+            String contractType,
+            List<String> orderTypes
+    ) {
+        return new InstrumentExchangeMetadata.Instrument(
+                symbol,
+                status,
+                symbol.replace(quoteAsset, ""),
+                quoteAsset,
+                contractType,
+                orderTypes
+        );
     }
 
     private LfaStrategyProperties.SignalRunner enabledProperties() {
@@ -1579,6 +1663,41 @@ class LfaSignalRunnerTest {
                 NOW,
                 "evt-" + symbol
         );
+    }
+
+    private record Metadata(List<InstrumentExchangeMetadata.Instrument> instruments) implements InstrumentExchangeMetadata {
+
+        private Metadata {
+            instruments = List.copyOf(instruments);
+        }
+
+        @Override
+        public String provider() {
+            return "binance";
+        }
+
+        @Override
+        public Instant fetchedAt() {
+            return NOW;
+        }
+    }
+
+    private record StaticMetadataFetcher(Metadata metadata) implements ExchangeMetadataFetcher {
+
+        @Override
+        public String provider() {
+            return "binance";
+        }
+
+        @Override
+        public Optional<? extends ExchangeMetadata> current() {
+            return Optional.of(metadata);
+        }
+
+        @Override
+        public Optional<? extends ExchangeMetadata> refresh(ResolvedExchangeConfig config) {
+            return current();
+        }
     }
 
     private static final class CapturingTradingEventBus implements TradingEventBus {
