@@ -1697,6 +1697,11 @@ daily `quoteVolume`, and freshness. Daily quote volume is compared with
 `market_quality_quote_volume_baseline` and capped inside the quality score so
 high-volume markets are preferred without allowing one raw volume number to
 consume the whole run allocation.
+Before analysis, candidate market data is also ranked by symbol-level
+reconciliation availability when comparable spread and volume conditions exist.
+When the reconciliation tracker has confident observations whose entity key
+references the candidate symbol, emitted signals include
+`lfa_reconciliation_availability_score` for auditability.
 With the catalog default
 `reject_missing_allocation_balance=true`, missing account margin balance blocks
 publication instead of falling back to stale or ambiguous sizing.
@@ -1711,6 +1716,8 @@ Allocation attributes include:
 - `lfa_allocation_weighting_mode`
 - `lfa_allocation_weight`
 - `lfa_allocation_weight_sum`
+- `lfa_reconciliation_availability_score` when symbol-level reconciliation
+  availability contributed to candidate ranking
 
 Current runner lifecycle and warm-up blockers can block on:
 

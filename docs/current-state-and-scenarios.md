@@ -113,11 +113,12 @@ current projected market-data snapshot, requires the configured lifecycle state
 to be allowed, requires projected market-data and top-of-book warm-up thresholds
 to be met, optionally filters candidate symbols through the core signal-planner
 instrument universe, ranks candidate market data by projected spread,
-projected daily `quoteVolume`, top-of-book quote depth, freshness, and symbol,
-optionally caps candidate market data before analysis, runs the analyzer, caps
-publication with
-`max_signals_per_run`, can allocate a total run target notional from the latest
-projected account margin balance, and splits it across candidate publish slots
+projected daily `quoteVolume`, reconciliation availability, top-of-book quote
+depth, freshness, and symbol, optionally caps candidate market data before
+analysis, runs the analyzer, caps publication with `max_signals_per_run`, records
+`lfa_reconciliation_availability_score` on signals when symbol-level
+reconciliation observations exist, can allocate a total run target notional from
+the latest projected account margin balance, and splits it across candidate publish slots
 by configured `allocation_weighting_mode` (`EQUAL`, `CONFIDENCE`, or
 `MARKET_QUALITY`) when configured. `MARKET_QUALITY` includes projected daily
 `quoteVolume` against `market_quality_quote_volume_baseline` in addition to

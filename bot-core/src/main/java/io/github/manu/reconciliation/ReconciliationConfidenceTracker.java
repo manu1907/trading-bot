@@ -72,9 +72,7 @@ public final class ReconciliationConfidenceTracker {
         String normalizedEnvironment = requireText(environment, "environment");
         String normalizedAccount = requireText(account, "account");
         String normalizedMarket = requireText(market, "market");
-        List<ReconciliationConfidenceState> targetStates = states.values().stream()
-                .filter(state -> sameTarget(state, normalizedProvider, normalizedEnvironment, normalizedAccount, normalizedMarket))
-                .toList();
+        List<ReconciliationConfidenceState> targetStates = targetStates(provider, environment, account, market);
         int degradedStates = (int) targetStates.stream()
                 .filter(state -> !state.confident())
                 .count();
@@ -100,6 +98,23 @@ public final class ReconciliationConfidenceTracker {
                 degradedStates,
                 observedAt
         );
+    }
+
+    public List<ReconciliationConfidenceState> targetStates(
+            String provider,
+            String environment,
+            String account,
+            String market
+    ) {
+        String normalizedProvider = requireText(provider, "provider");
+        String normalizedEnvironment = requireText(environment, "environment");
+        String normalizedAccount = requireText(account, "account");
+        String normalizedMarket = requireText(market, "market");
+        return states.values().stream()
+                .filter(state -> sameTarget(state, normalizedProvider, normalizedEnvironment, normalizedAccount, normalizedMarket))
+                .sorted(Comparator.comparing(ReconciliationConfidenceState::eventType)
+                        .thenComparing(ReconciliationConfidenceState::entityKey))
+                .toList();
     }
 
     public List<ReconciliationConfidenceState> degradedStates(

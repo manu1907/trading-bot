@@ -83,6 +83,19 @@ class ReconciliationConfidenceTrackerTest {
                 });
     }
 
+    @Test
+    void returns_sorted_target_states_for_availability_scoring() {
+        tracker.record(observation("ETHUSDT|long", ReconciliationConfidenceStatus.CONFIDENT, List.of()));
+        tracker.record(observation("BTCUSDT|long", ReconciliationConfidenceStatus.CONFIDENT, List.of()));
+
+        assertThat(tracker.targetStates("binance", "demo", "main", "usd_m_futures"))
+                .extracting(ReconciliationConfidenceState::entityKey)
+                .containsExactly(
+                        "binance|demo|main|usd_m_futures|BTCUSDT|long",
+                        "binance|demo|main|usd_m_futures|ETHUSDT|long"
+                );
+    }
+
     private ReconciliationObservation observation(
             String entitySuffix,
             ReconciliationConfidenceStatus status,

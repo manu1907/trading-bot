@@ -277,6 +277,29 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void ranks_candidate_market_data_by_reconciliation_availability_when_market_quality_matches() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010", "100000000"),
+                marketData("ETHUSDT", "3000.00", "0.400", "3000.03", "0.200", "100000000")
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithCandidateCap(1),
+                projection,
+                enabledExecutionProperties(),
+                reconciliationTrackerForSymbols("ETHUSDT")
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(eventBus.envelopes()).singleElement().satisfies(envelope -> {
+            assertThat(envelope.key().getSymbol()).isEqualTo("ETHUSDT");
+            StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
+            assertThat(signal.getAttributes()).containsEntry("lfa_reconciliation_availability_score", "1");
+        });
+    }
+
+    @Test
     void allocates_target_notional_from_projected_account_margin_balance() {
         TradingStateProjection projection = projectionWith(
                 List.of(),
@@ -765,6 +788,23 @@ class LfaSignalRunnerTest {
                 status,
                 List.of()
         ));
+        return tracker;
+    }
+
+    private ReconciliationConfidenceTracker reconciliationTrackerForSymbols(String... symbols) {
+        ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
+        for (String symbol : symbols) {
+            tracker.record(new ReconciliationObservation(
+                    "binance",
+                    "demo",
+                    "main",
+                    "usdm_futures",
+                    TradingEventType.ORDER_RESULT,
+                    "binance|demo|main|usdm_futures|" + symbol,
+                    ReconciliationConfidenceStatus.CONFIDENT,
+                    List.of()
+            ));
+        }
         return tracker;
     }
 
