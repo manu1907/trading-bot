@@ -127,7 +127,7 @@ fail closed even if accidentally included in `allowed_lifecycle_states`.
 Lifecycle transitions are policy-gated by the catalog-backed
 `allowed_lifecycle_transitions` matrix, and leaving `EMERGENCY_STOP` is blocked
 unless `allow_emergency_stop_reactivation=true`; the default emergency recovery
-path only permits moving to `STOPPED`. Lifecycle and warm-up blockers include `lfa_lifecycle:starting`,
+path only permits moving to `STOPPED`. `DRAINING` now reports projected open order and open position counts for the runner target and rejects `DRAINING -> STOPPED` until both counts are zero. Lifecycle and warm-up blockers include `lfa_lifecycle:starting`,
 `lfa_lifecycle:paused`, `lfa_lifecycle:draining`,
 `lfa_lifecycle:stopped`, `lfa_lifecycle:emergency_stop`,
 `lfa_lifecycle:not_allowed`, `lfa_warmup:market_data_symbols_below_min`, and
@@ -158,7 +158,8 @@ also exposes `GET /internal/strategy/lfa/lifecycle` and
 authentication used by intervention endpoints. These endpoints inspect and change the effective LFA lifecycle state without
 changing code, subject to the configured transition policy. Successful transitions publish a durable `STRATEGY_LIFECYCLE`
 event, apply it to the local projection, and are recoverable through the normal
-journal/projection replay path. On restart, the runner refreshes from projected
+journal/projection replay path. Lifecycle status also reports drain readiness from
+projected open orders and positions. On restart, the runner refreshes from projected
 strategy lifecycle state before status checks or scheduled signal runs.
 
 This is now strategy-side signal generation plus a controlled live publication

@@ -1581,7 +1581,9 @@ non-entry states `STARTING`, `PAUSED`, `DRAINING`, `STOPPED`, and
 `allowed_lifecycle_states`. Lifecycle transitions are also policy-gated by
 `allowed_lifecycle_transitions`; leaving `EMERGENCY_STOP` requires
 `allow_emergency_stop_reactivation=true`, and the default path only permits
-returning from emergency stop to `STOPPED`, not directly to `ACTIVE`.
+returning from emergency stop to `STOPPED`, not directly to `ACTIVE`. The
+`DRAINING -> STOPPED` transition is accepted only when projected open order and
+open position counts for the runner target are both zero.
 
 If the LFA runner is enabled and the internal operator API is enabled, the
 effective in-process lifecycle can be inspected and changed through the same
@@ -1604,7 +1606,9 @@ The lifecycle endpoint is runtime control, not a code fork. It behaves the same
 for demo and real when the same code and corresponding runtime config are used.
 Successful transitions publish a durable `STRATEGY_LIFECYCLE` event and apply it
 to projection state, so restart recovery can restore the latest projected
-lifecycle before status checks or scheduled signal runs.
+lifecycle before status checks or scheduled signal runs. Status responses include
+`openOrderCount`, `openPositionCount`, and `drainComplete` so an operator can see
+whether controlled drain can move to `STOPPED`.
 
 The checked-in demo runtime does not override `enabled`, so the active effective
 value remains the catalog value `enabled=false`. It sets only actual first-start

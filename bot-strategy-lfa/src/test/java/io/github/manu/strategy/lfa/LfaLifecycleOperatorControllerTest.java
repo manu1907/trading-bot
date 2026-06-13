@@ -8,11 +8,13 @@ import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.projection.TradingStateSnapshot;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +62,12 @@ class LfaLifecycleOperatorControllerTest {
                 .isEqualTo("ACTIVE")
                 .jsonPath("$.emergencyStopReactivationAllowed")
                 .isEqualTo(false)
+                .jsonPath("$.openOrderCount")
+                .isEqualTo(0)
+                .jsonPath("$.openPositionCount")
+                .isEqualTo(0)
+                .jsonPath("$.drainComplete")
+                .isEqualTo(true)
                 .jsonPath("$.blockers[0]")
                 .isEqualTo("lfa_lifecycle:paused");
     }
@@ -154,6 +162,60 @@ class LfaLifecycleOperatorControllerTest {
                 .isEqualTo("lifecycle transition from EMERGENCY_STOP requires allowEmergencyStopReactivation=true");
     }
 
+    @Test
+    void rejects_draining_to_stopped_when_projection_still_has_open_exposure() {
+        TradingStateProjection drainingProjection = new TradingStateProjection();
+        drainingProjection.restore(new TradingStateSnapshot(
+                List.of(),
+                List.of(openPosition()),
+                List.of(openOrder()),
+                List.of(),
+                List.of()
+        ));
+        LfaSignalRunner drainingRunner = runner("DRAINING", drainingProjection, new NoopTradingEventBus());
+        LfaLifecycleOperatorController drainingController = new LfaLifecycleOperatorController(
+                drainingRunner,
+                new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null, null)
+        );
+
+        WebTestClient.bindToController(drainingController)
+                .build()
+                .post()
+                .uri("/internal/strategy/lfa/lifecycle")
+                .header(LfaLifecycleOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(new LfaLifecycleOperatorController.LifecycleTransitionRequest(
+                        "STOPPED",
+                        "operator",
+                        "drain complete"
+                ))
+                .exchange()
+                .expectStatus()
+                .isBadRequest()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("bad_request")
+                .jsonPath("$.message")
+                .isEqualTo("lifecycle transition DRAINING->STOPPED requires no open orders or positions");
+
+        WebTestClient.bindToController(drainingController)
+                .build()
+                .get()
+                .uri("/internal/strategy/lfa/lifecycle")
+                .header(LfaLifecycleOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.effectiveLifecycleState")
+                .isEqualTo("DRAINING")
+                .jsonPath("$.openOrderCount")
+                .isEqualTo(1)
+                .jsonPath("$.openPositionCount")
+                .isEqualTo(1)
+                .jsonPath("$.drainComplete")
+                .isEqualTo(false);
+    }
+
     private LfaSignalRunner runner(
             String lifecycleState,
             TradingStateProjection projection,
@@ -216,6 +278,59 @@ class LfaLifecycleOperatorControllerTest {
                 null,
                 true,
                 true
+        );
+    }
+
+    private TradingStateProjection.OrderState openOrder() {
+        return new TradingStateProjection.OrderState(
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                "BTCUSDT",
+                "cmd-open",
+                "client-open",
+                "exchange-open",
+                "ACCEPTED",
+                "NEW",
+                "BUY",
+                "LIMIT",
+                "50000.00",
+                "0.001",
+                "0",
+                null,
+                null,
+                "ORDER_RESULT",
+                "NEW",
+                true,
+                false,
+                null,
+                Instant.parse("2026-06-13T00:00:00Z"),
+                "evt-order-open"
+        );
+    }
+
+    private TradingStateProjection.PositionState openPosition() {
+        return new TradingStateProjection.PositionState(
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                "BTCUSDT",
+                "BOTH",
+                "ONE_WAY",
+                "0.001",
+                "50000.00",
+                "50010.00",
+                "0.01",
+                "5",
+                "cross",
+                null,
+                "POSITION_UPDATE",
+                false,
+                null,
+                Instant.parse("2026-06-13T00:00:01Z"),
+                "evt-position-open"
         );
     }
 

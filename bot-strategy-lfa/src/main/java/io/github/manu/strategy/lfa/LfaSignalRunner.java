@@ -250,8 +250,9 @@ public final class LfaSignalRunner {
     }
 
     public LfaLifecycleStatus lifecycleStatus() {
-        refreshLifecycleFromProjection(projection.snapshot());
-        return lifecycleStatus(lifecycleState.get(), lifecycleMetadata.get());
+        TradingStateSnapshot snapshot = projection.snapshot();
+        refreshLifecycleFromProjection(snapshot);
+        return lifecycleStatus(lifecycleState.get(), lifecycleMetadata.get(), snapshot);
     }
 
     public CompletableFuture<LfaLifecycleStatus> transitionLifecycle(
@@ -259,9 +260,11 @@ public final class LfaSignalRunner {
             String changedBy,
             String reason
     ) {
+        TradingStateSnapshot snapshot = projection.snapshot();
+        refreshLifecycleFromProjection(snapshot);
         LfaLifecycleState next = LfaLifecycleState.parse(requestedState, "lifecycleState");
         LfaLifecycleState previous = lifecycleState.get();
-        validateLifecycleTransition(previous, next);
+        validateLifecycleTransition(previous, next, snapshot);
         Instant changedAt = Instant.now(clock);
         StrategyLifecycleEvent event = lifecycleEvent(previous, next, changedBy, reason, changedAt);
         TradingEventEnvelope<StrategyLifecycleEvent> envelope = TradingEventEnvelope.of(
@@ -279,7 +282,7 @@ public final class LfaSignalRunner {
             );
             lifecycleMetadata.set(metadata);
             projection.apply(envelope);
-            return lifecycleStatus(next, metadata);
+            return lifecycleStatus(next, metadata, snapshot);
         });
     }
 
@@ -296,9 +299,11 @@ public final class LfaSignalRunner {
 
     private LfaLifecycleStatus lifecycleStatus(
             LfaLifecycleState current,
-            LfaLifecycleMetadata metadata
+            LfaLifecycleMetadata metadata,
+            TradingStateSnapshot snapshot
     ) {
         List<String> blockers = lifecycleBlockers(current);
+        DrainStatus drainStatus = drainStatus(snapshot, target());
         return new LfaLifecycleStatus(
                 properties.enabled(),
                 properties.lifecycleState(),
@@ -311,11 +316,18 @@ public final class LfaSignalRunner {
                 metadata.changedBy(),
                 metadata.reason(),
                 metadata.changedAt(),
-                metadata.eventId()
+                metadata.eventId(),
+                drainStatus.openOrders(),
+                drainStatus.openPositions(),
+                drainStatus.complete()
         );
     }
 
-    private void validateLifecycleTransition(LfaLifecycleState previous, LfaLifecycleState next) {
+    private void validateLifecycleTransition(
+            LfaLifecycleState previous,
+            LfaLifecycleState next,
+            TradingStateSnapshot snapshot
+    ) {
         if (previous == next) {
             return;
         }
@@ -330,6 +342,14 @@ public final class LfaSignalRunner {
                     "lifecycle transition " + previous.name() + "->" + next.name() + " is not allowed"
             );
         }
+        if (previous == LfaLifecycleState.DRAINING && next == LfaLifecycleState.STOPPED) {
+            DrainStatus drainStatus = drainStatus(snapshot, target());
+            if (!drainStatus.complete()) {
+                throw new IllegalArgumentException(
+                        "lifecycle transition DRAINING->STOPPED requires no open orders or positions"
+                );
+            }
+        }
     }
 
     private List<String> allowedNextLifecycleStates(LfaLifecycleState current) {
@@ -341,6 +361,20 @@ public final class LfaSignalRunner {
             return List.of();
         }
         return configured;
+    }
+
+    private DrainStatus drainStatus(TradingStateSnapshot snapshot, LfaRunnerTarget target) {
+        int openOrders = (int) snapshot.orders()
+                .stream()
+                .filter(order -> matchesTarget(order, target))
+                .filter(TradingStateProjection.OrderState::open)
+                .count();
+        int openPositions = (int) snapshot.positions()
+                .stream()
+                .filter(position -> matchesTarget(position, target))
+                .filter(TradingStateProjection.PositionState::open)
+                .count();
+        return new DrainStatus(openOrders, openPositions);
     }
 
     private void refreshLifecycleFromProjection(TradingStateSnapshot snapshot) {
@@ -886,6 +920,13 @@ public final class LfaSignalRunner {
                 && same(position.market(), target.market());
     }
 
+    private boolean matchesTarget(TradingStateProjection.OrderState order, LfaRunnerTarget target) {
+        return same(order.provider(), target.provider())
+                && same(order.environment(), target.environment())
+                && same(order.account(), target.account())
+                && same(order.market(), target.market());
+    }
+
     private boolean matchesTarget(TradingStateProjection.DailyRealizedPnlState state, LfaRunnerTarget target) {
         return same(state.provider(), target.provider())
                 && same(state.environment(), target.environment())
@@ -1039,7 +1080,10 @@ public final class LfaSignalRunner {
             String changedBy,
             String reason,
             Instant changedAt,
-            String eventId
+            String eventId,
+            int openOrderCount,
+            int openPositionCount,
+            boolean drainComplete
     ) {
 
         public LfaLifecycleStatus {
@@ -1047,6 +1091,13 @@ public final class LfaSignalRunner {
             allowedNextLifecycleStates =
                     allowedNextLifecycleStates == null ? List.of() : List.copyOf(allowedNextLifecycleStates);
             blockers = blockers == null ? List.of() : List.copyOf(blockers);
+        }
+    }
+
+    private record DrainStatus(int openOrders, int openPositions) {
+
+        private boolean complete() {
+            return openOrders == 0 && openPositions == 0;
         }
     }
 
