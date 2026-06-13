@@ -65,6 +65,8 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 .isEqualTo(3);
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-symbol-open-positions", Integer.class))
                 .isEqualTo(1);
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.require-reconciliation-confidence", Boolean.class))
+                .isTrue();
         assertThat(environment.getProperty("trading.execution.pipeline.enabled", Boolean.class)).isTrue();
         assertThat(environment.getProperty("trading.execution.signal-planner.defaults.symbol")).isEqualTo("BTCUSDT");
         assertThat(environment.getProperty(

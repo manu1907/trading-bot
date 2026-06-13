@@ -286,6 +286,7 @@ class LfaLifecycleOperatorControllerTest {
                 eventBus,
                 new ExecutionProperties(new ExecutionProperties.SignalPlanner(true, null), null),
                 null,
+                null,
                 java.time.Clock.systemUTC()
         );
     }
@@ -342,6 +343,7 @@ class LfaLifecycleOperatorControllerTest {
                 null,
                 null,
                 null,
+                true,
                 true,
                 true
         );

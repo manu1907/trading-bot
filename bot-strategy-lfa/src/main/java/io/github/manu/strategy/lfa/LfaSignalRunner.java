@@ -12,6 +12,8 @@ import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -50,6 +52,7 @@ public final class LfaSignalRunner {
     private final TradingEventBus eventBus;
     private final ExecutionProperties executionProperties;
     private final StrategyInstrumentUniverseResolver instrumentUniverseResolver;
+    private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
     private final Clock clock;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicReference<LfaLifecycleState> lifecycleState;
@@ -68,6 +71,7 @@ public final class LfaSignalRunner {
                 projection,
                 eventBus,
                 executionProperties,
+                null,
                 null,
                 Clock.systemUTC()
         );
@@ -88,6 +92,28 @@ public final class LfaSignalRunner {
                 eventBus,
                 executionProperties,
                 instrumentUniverseResolver,
+                null,
+                Clock.systemUTC()
+        );
+    }
+
+    public LfaSignalRunner(
+            LfaMarketSignalAnalyzer analyzer,
+            LfaStrategyProperties properties,
+            TradingStateProjection projection,
+            TradingEventBus eventBus,
+            ExecutionProperties executionProperties,
+            StrategyInstrumentUniverseResolver instrumentUniverseResolver,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
+    ) {
+        this(
+                analyzer,
+                properties.signalRunner(),
+                projection,
+                eventBus,
+                executionProperties,
+                instrumentUniverseResolver,
+                reconciliationConfidenceTracker,
                 Clock.systemUTC()
         );
     }
@@ -99,6 +125,7 @@ public final class LfaSignalRunner {
             TradingEventBus eventBus,
             ExecutionProperties executionProperties,
             StrategyInstrumentUniverseResolver instrumentUniverseResolver,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             Clock clock
     ) {
         this.analyzer = Objects.requireNonNull(analyzer, "analyzer");
@@ -107,6 +134,7 @@ public final class LfaSignalRunner {
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.executionProperties = Objects.requireNonNull(executionProperties, "executionProperties");
         this.instrumentUniverseResolver = instrumentUniverseResolver;
+        this.reconciliationConfidenceTracker = reconciliationConfidenceTracker;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.lifecycleState = new AtomicReference<>(LfaLifecycleState.parse(properties.lifecycleState(), "lifecycleState"));
         this.lifecycleMetadata = new AtomicReference<>(new LfaLifecycleMetadata(null, null, null, Instant.EPOCH));
@@ -179,6 +207,18 @@ public final class LfaSignalRunner {
                         0,
                         List.of(),
                         accountBudget.reasons()
+                );
+            }
+            GateDecision reconciliation = reconciliationGate(target);
+            if (reconciliation.blocked()) {
+                return new LfaSignalRunResult(
+                        true,
+                        "lfa_signal_runner:reconciliation_blocked",
+                        target,
+                        0,
+                        0,
+                        List.of(),
+                        reconciliation.reasons()
                 );
             }
             List<StrategySignalEvent> signals = analyzer.analyze(
@@ -741,6 +781,26 @@ public final class LfaSignalRunner {
             }
         }
         return new BudgetDecision(reasons.stream().toList());
+    }
+
+    private GateDecision reconciliationGate(LfaRunnerTarget target) {
+        if (!properties.requireReconciliationConfidence()) {
+            return GateDecision.allowed();
+        }
+        if (reconciliationConfidenceTracker == null) {
+            return new GateDecision(List.of("lfa_reconciliation:no_observations"));
+        }
+        ReconciliationTargetConfidence confidence = reconciliationConfidenceTracker.targetConfidence(
+                target.provider(),
+                target.environment(),
+                target.account(),
+                target.market()
+        );
+        return switch (confidence.status()) {
+            case CONFIDENT -> GateDecision.allowed();
+            case NO_OBSERVATIONS -> new GateDecision(List.of("lfa_reconciliation:no_observations"));
+            case DEGRADED -> new GateDecision(List.of("lfa_reconciliation:degraded"));
+        };
     }
 
     private BudgetDecision signalBudget(

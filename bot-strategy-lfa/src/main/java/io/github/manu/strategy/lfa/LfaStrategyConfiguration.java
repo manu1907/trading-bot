@@ -4,6 +4,7 @@ import io.github.manu.execution.ExecutionProperties;
 import io.github.manu.execution.StrategyInstrumentUniverseResolver;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -26,7 +27,8 @@ public class LfaStrategyConfiguration {
             TradingStateProjection projection,
             TradingEventBus eventBus,
             ExecutionProperties executionProperties,
-            ObjectProvider<StrategyInstrumentUniverseResolver> instrumentUniverseResolver
+            ObjectProvider<StrategyInstrumentUniverseResolver> instrumentUniverseResolver,
+            ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTracker
     ) {
         return new LfaSignalRunner(
                 analyzer,
@@ -34,7 +36,8 @@ public class LfaStrategyConfiguration {
                 projection,
                 eventBus,
                 executionProperties,
-                instrumentUniverseResolver.getIfAvailable()
+                instrumentUniverseResolver.getIfAvailable(),
+                reconciliationConfidenceTracker.getIfAvailable()
         );
     }
 }

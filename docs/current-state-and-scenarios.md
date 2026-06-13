@@ -142,12 +142,15 @@ daily-PnL metadata when strict metadata rejection is enabled, and unbounded
 candidate signal notional when a notional cap is configured. Allocation blockers include
 `lfa_allocation:account_margin_balance_missing`,
 `lfa_allocation:target_notional_below_min`, and
-`lfa_allocation:target_notional_non_positive`. The catalog value for the runner
+`lfa_allocation:target_notional_non_positive`. Runner reconciliation blockers
+include `lfa_reconciliation:no_observations` and `lfa_reconciliation:degraded`
+when `require_reconciliation_confidence=true`. The catalog value for the runner
 currently executes as `enabled=false`, `lifecycle_state=STOPPED`,
 one-symbol projected-data warm-up,
 `use_signal_planner_instrument_universe=true`, no LFA-specific candidate cap,
 unset allocation fraction/min/max, and `reject_missing_allocation_balance=true`
-with `allocation_weighting_mode=EQUAL` unless overridden. LFA signal-runner notional, current unrealized-loss,
+with `allocation_weighting_mode=EQUAL` and `require_reconciliation_confidence=true`
+unless overridden. LFA signal-runner notional, current unrealized-loss,
 account-margin-health, and daily realized-loss caps default to `null` until
 calibrated by a runtime override. The checked-in demo runtime overrides target, bootstrap sizing,
 open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,

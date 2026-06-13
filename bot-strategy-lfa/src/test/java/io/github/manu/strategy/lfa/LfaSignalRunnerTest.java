@@ -9,6 +9,9 @@ import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
+import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
+import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import io.github.manu.reconciliation.ReconciliationObservation;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
 
@@ -140,6 +143,44 @@ class LfaSignalRunnerTest {
         LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
 
         assertThat(result.reason()).isEqualTo("lfa_signal_runner:no_signal");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_before_analysis_when_target_reconciliation_has_no_observations() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledProperties(),
+                projection,
+                enabledExecutionProperties(),
+                new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC))
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:reconciliation_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_reconciliation:no_observations");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_before_analysis_when_target_reconciliation_is_degraded() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledProperties(),
+                projection,
+                enabledExecutionProperties(),
+                reconciliationTracker(ReconciliationConfidenceStatus.MISSING_PROJECTION)
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:reconciliation_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_reconciliation:degraded");
         assertThat(eventBus.envelopes()).isEmpty();
     }
 
@@ -593,6 +634,20 @@ class LfaSignalRunnerTest {
             TradingStateProjection projection,
             ExecutionProperties executionProperties
     ) {
+        return runner(
+                properties,
+                projection,
+                executionProperties,
+                reconciliationTracker(ReconciliationConfidenceStatus.CONFIDENT)
+        );
+    }
+
+    private LfaSignalRunner runner(
+            LfaStrategyProperties.SignalRunner properties,
+            TradingStateProjection projection,
+            ExecutionProperties executionProperties,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker
+    ) {
         return new LfaSignalRunner(
                 new LfaMarketSignalAnalyzer(),
                 properties,
@@ -600,8 +655,24 @@ class LfaSignalRunnerTest {
                 eventBus,
                 executionProperties,
                 null,
+                reconciliationConfidenceTracker,
                 Clock.fixed(NOW, ZoneOffset.UTC)
         );
+    }
+
+    private ReconciliationConfidenceTracker reconciliationTracker(ReconciliationConfidenceStatus status) {
+        ReconciliationConfidenceTracker tracker = new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC));
+        tracker.record(new ReconciliationObservation(
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                TradingEventType.ORDER_RESULT,
+                "binance/demo/main/usdm_futures/BTCUSDT",
+                status,
+                List.of()
+        ));
+        return tracker;
     }
 
     private LfaStrategyProperties.SignalRunner enabledProperties() {
@@ -841,6 +912,7 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 true,
+                true,
                 true
         );
     }
@@ -950,6 +1022,7 @@ class LfaSignalRunnerTest {
                 decimal(maxAccountMarginUtilization),
                 decimal(maxAccountDailyRealizedLoss),
                 decimal(maxSymbolDailyRealizedLoss),
+                true,
                 true,
                 true
         );

@@ -1580,6 +1580,7 @@ Catalog defaults are:
 - `max_symbol_daily_realized_loss`: `null`
 - `reject_missing_account_risk_metadata`: `true`
 - `require_signal_planner_enabled`: `true`
+- `require_reconciliation_confidence`: `true`
 
 Valid `lifecycle_state` values are `STARTING`, `ACTIVE`, `PAUSED`,
 `DRAINING`, `STOPPED`, and `EMERGENCY_STOP`. Unknown values are rejected during
@@ -1673,8 +1674,9 @@ command can be built and admitted. A lifecycle block returns
 `lfa_signal_runner:lifecycle_blocked`, a warm-up block returns
 `lfa_signal_runner:warmup_incomplete`, an allocation block returns
 `lfa_signal_runner:allocation_blocked`, and a budget block returns
-`lfa_signal_runner:budget_blocked`. A blocked runner does not publish the
-signal.
+`lfa_signal_runner:budget_blocked`. A reconciliation-confidence block returns
+`lfa_signal_runner:reconciliation_blocked`. A blocked runner does not publish
+the signal.
 
 When `target_notional_margin_balance_fraction` is configured, the runner reads
 the latest projected account-level risk state for the same provider,
@@ -1743,6 +1745,11 @@ Current runner allocation gates can block on:
 - `lfa_allocation:account_margin_balance_missing`
 - `lfa_allocation:target_notional_below_min`
 - `lfa_allocation:target_notional_non_positive`
+
+Current runner reconciliation gates can block on:
+
+- `lfa_reconciliation:no_observations`
+- `lfa_reconciliation:degraded`
 
 The checked-in demo runtime keeps the runner disabled because full position
 lifecycle and broader money-management controls are still incomplete. It already

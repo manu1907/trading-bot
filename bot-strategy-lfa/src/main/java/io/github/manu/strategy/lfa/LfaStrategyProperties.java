@@ -64,7 +64,8 @@ public record LfaStrategyProperties(
             BigDecimal maxAccountDailyRealizedLoss,
             BigDecimal maxSymbolDailyRealizedLoss,
             Boolean rejectMissingAccountRiskMetadata,
-            Boolean requireSignalPlannerEnabled
+            Boolean requireSignalPlannerEnabled,
+            Boolean requireReconciliationConfidence
     ) {
 
         @ConstructorBinding
@@ -140,6 +141,8 @@ public record LfaStrategyProperties(
                     rejectMissingAccountRiskMetadata == null || Boolean.TRUE.equals(rejectMissingAccountRiskMetadata);
             requireSignalPlannerEnabled =
                     requireSignalPlannerEnabled == null || Boolean.TRUE.equals(requireSignalPlannerEnabled);
+            requireReconciliationConfidence =
+                    requireReconciliationConfidence == null || Boolean.TRUE.equals(requireReconciliationConfidence);
             if (enabled && targetQuantity == null && targetNotional == null && targetNotionalMarginBalanceFraction == null) {
                 throw new IllegalArgumentException(
                         "targetQuantity, targetNotional, or targetNotionalMarginBalanceFraction is required when LFA signal runner is enabled"
@@ -192,6 +195,7 @@ public record LfaStrategyProperties(
                     null,
                     null,
                     null,
+                    true,
                     true,
                     true
             );
