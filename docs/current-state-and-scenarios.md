@@ -399,6 +399,7 @@ Implemented persistence/recovery surfaces include:
 - JDBC projection snapshot store.
 - Recovery test coverage now verifies that a file snapshot containing an external-order intervention and matching automated remediation decision can be restored into a new projection, then the scheduled remediation runner executes the restored decision before publishing new decisions and skips republishing a duplicate recommendation decision.
 - Recovery test coverage now verifies that active symbol pause governance restored from a file snapshot still blocks new order admission through the order risk gate after restart.
+- Recovery test coverage now verifies that restored managed-order unknown modify state still blocks execution and preserves the generic reconciliation action in the remediation executor report after restart.
 - Recovery test coverage now verifies that restored adopted-order ambiguous modify state still blocks execution and preserves reconciliation action plus rollback blocker metadata in the remediation executor report after restart.
 - Position projection metadata now retains `leverage`, `margin_type`, and `isolated_margin` so recovered snapshots keep the account-risk data used by remediation policy.
 - Daily realized PnL projection now accumulates non-duplicate, non-stale execution-report attributes (`realizedProfit`, `realizedPnl`, or `realized_pnl`) by provider, environment, account, market, optional symbol, and UTC trading day. File and JDBC snapshots persist account-scope and symbol-scope accounting state for recovery and risk policy.

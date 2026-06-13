@@ -453,6 +453,55 @@ class InterventionRemediationExecutorServiceTest {
     }
 
     @Test
+    void restored_managed_order_unknown_modify_keeps_reconciliation_block_after_restart() {
+        restoreManagedAmendRemediationDecisionWithOrder("UNKNOWN", "MODIFY");
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(projection.snapshot());
+        TradingStateProjection restoredProjection = new TradingStateProjection();
+        restoredProjection.restore(store.load().orElseThrow());
+        InterventionRemediationCommandPlanner restoredPlanner = new InterventionRemediationCommandPlanner(
+                restoredProjection,
+                enabledPositionOrderPolicy(),
+                managedOrderAmendmentPolicy()
+        );
+        InterventionRemediationExecutorService service = new InterventionRemediationExecutorService(
+                restoredProjection,
+                restoredPlanner,
+                new InterventionProperties(null, null, null, null, liveAmendPolicy()),
+                null,
+                new RemediationExecutorMetrics(meterRegistry)
+        );
+
+        InterventionRemediationExecutorService.RemediationExecutionBatch batch =
+                service.preview("binance", "demo", "main", "usd_m_futures");
+
+        assertThat(batch.evaluatedCount()).isEqualTo(1);
+        assertThat(batch.blockedCount()).isEqualTo(1);
+        assertThat(batch.submittedCount()).isZero();
+        assertThat(batch.reports()).singleElement().satisfies(report -> {
+            assertThat(report.remediationId()).isEqualTo("remediation-amend-1");
+            assertThat(report.operation()).isEqualTo(InterventionRemediationCommandPlanner.Operation.AMEND_ORDER);
+            assertThat(report.status()).isEqualTo(InterventionRemediationExecutorService.ExecutionStatus.BLOCKED);
+            assertThat(report.attributes())
+                    .containsEntry("executor_status", "BLOCKED")
+                    .containsEntry("executor_reason", "executor:plan_not_exchange_executable")
+                    .containsEntry(
+                            "exchange_execution_blocker",
+                            "managed_order_amendment_modify_unknown_reconciliation_required"
+                    )
+                    .containsEntry("executor_ambiguous_outcome_detected", "true")
+                    .containsEntry(
+                            "executor_ambiguous_outcome_reason",
+                            "managed_order_amendment_modify_unknown_reconciliation_required"
+                    )
+                    .containsEntry("executor_ambiguous_outcome_action", "reconcile_before_retry");
+        });
+    }
+
+    @Test
     void reports_adopted_order_ambiguous_outcome_with_lifecycle_reconciliation_action() {
         restoreAdoptedAmendRemediationDecisionWithOrder("UNKNOWN", "MODIFY");
         InterventionRemediationCommandPlanner amendPlanner = new InterventionRemediationCommandPlanner(
