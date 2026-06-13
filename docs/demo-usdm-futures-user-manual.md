@@ -1564,6 +1564,8 @@ Catalog defaults are:
 - `max_allocated_target_notional`: `null`
 - `reject_missing_allocation_balance`: `true`
 - `max_signals_per_run`: `1`
+- `max_account_open_orders`: `null`
+- `max_symbol_open_orders`: `null`
 - `max_account_open_positions`: `null`
 - `max_symbol_open_positions`: `null`
 - `max_account_position_notional`: `null`
@@ -1706,6 +1708,8 @@ Current runner lifecycle and warm-up blockers can block on:
 
 Current runner budget gates can block on:
 
+- `lfa_budget:max_account_open_orders`
+- `lfa_budget:max_symbol_open_orders`
 - `lfa_budget:max_account_open_positions`
 - `lfa_budget:max_symbol_open_positions`
 - `lfa_budget:max_account_position_notional`

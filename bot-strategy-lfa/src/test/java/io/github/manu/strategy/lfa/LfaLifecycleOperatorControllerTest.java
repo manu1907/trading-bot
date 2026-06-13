@@ -328,6 +328,8 @@ class LfaLifecycleOperatorControllerTest {
                 null,
                 true,
                 1,
+                null,
+                null,
                 3,
                 1,
                 null,

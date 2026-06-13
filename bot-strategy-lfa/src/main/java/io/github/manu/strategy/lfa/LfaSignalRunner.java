@@ -706,6 +706,11 @@ public final class LfaSignalRunner {
 
     private BudgetDecision accountBudget(TradingStateSnapshot snapshot, LfaRunnerTarget target, Instant now) {
         LinkedHashSet<String> reasons = new LinkedHashSet<>();
+        CurrentOrders orders = currentOrders(snapshot, target, null);
+        if (properties.maxAccountOpenOrders() != null
+                && orders.accountOpenOrders() >= properties.maxAccountOpenOrders().intValue()) {
+            reasons.add("lfa_budget:max_account_open_orders");
+        }
         CurrentExposure exposure = currentExposure(snapshot, target, null);
         if (properties.maxAccountOpenPositions() != null
                 && exposure.accountOpenPositions() >= properties.maxAccountOpenPositions().intValue()) {
@@ -746,6 +751,11 @@ public final class LfaSignalRunner {
     ) {
         String symbol = signal.getSymbol().toString();
         LinkedHashSet<String> reasons = new LinkedHashSet<>();
+        CurrentOrders orders = currentOrders(snapshot, target, symbol);
+        if (properties.maxSymbolOpenOrders() != null
+                && orders.symbolOpenOrders() >= properties.maxSymbolOpenOrders().intValue()) {
+            reasons.add("lfa_budget:max_symbol_open_orders");
+        }
         CurrentExposure exposure = currentExposure(snapshot, target, symbol);
         if (properties.maxSymbolOpenPositions() != null
                 && exposure.symbolOpenPositions() >= properties.maxSymbolOpenPositions().intValue()) {
@@ -788,6 +798,21 @@ public final class LfaSignalRunner {
             }
         }
         return new BudgetDecision(reasons.stream().toList());
+    }
+
+    private CurrentOrders currentOrders(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol) {
+        int accountOpenOrders = 0;
+        int symbolOpenOrders = 0;
+        for (TradingStateProjection.OrderState order : snapshot.orders()) {
+            if (!matchesTarget(order, target) || !order.open()) {
+                continue;
+            }
+            accountOpenOrders++;
+            if (same(order.symbol(), symbol)) {
+                symbolOpenOrders++;
+            }
+        }
+        return new CurrentOrders(accountOpenOrders, symbolOpenOrders);
     }
 
     private CurrentExposure currentExposure(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol) {
@@ -1283,6 +1308,12 @@ public final class LfaSignalRunner {
             BigDecimal symbolPositionNotional,
             int accountOpenPositions,
             int symbolOpenPositions
+    ) {
+    }
+
+    private record CurrentOrders(
+            int accountOpenOrders,
+            int symbolOpenOrders
     ) {
     }
 

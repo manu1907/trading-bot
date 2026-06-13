@@ -49,6 +49,8 @@ public record LfaStrategyProperties(
             BigDecimal maxAllocatedTargetNotional,
             Boolean rejectMissingAllocationBalance,
             Integer maxSignalsPerRun,
+            Integer maxAccountOpenOrders,
+            Integer maxSymbolOpenOrders,
             Integer maxAccountOpenPositions,
             Integer maxSymbolOpenPositions,
             BigDecimal maxAccountPositionNotional,
@@ -114,6 +116,8 @@ public record LfaStrategyProperties(
                 throw new IllegalArgumentException("minAllocatedTargetNotional must be <= maxAllocatedTargetNotional");
             }
             maxSignalsPerRun = positive(maxSignalsPerRun, 1, "maxSignalsPerRun");
+            maxAccountOpenOrders = positiveOrNull(maxAccountOpenOrders, "maxAccountOpenOrders");
+            maxSymbolOpenOrders = positiveOrNull(maxSymbolOpenOrders, "maxSymbolOpenOrders");
             maxAccountOpenPositions = positiveOrNull(maxAccountOpenPositions, "maxAccountOpenPositions");
             maxSymbolOpenPositions = positiveOrNull(maxSymbolOpenPositions, "maxSymbolOpenPositions");
             maxAccountPositionNotional = positiveOrNull(maxAccountPositionNotional, "maxAccountPositionNotional");
@@ -172,6 +176,8 @@ public record LfaStrategyProperties(
                     null,
                     true,
                     1,
+                    null,
+                    null,
                     null,
                     null,
                     null,

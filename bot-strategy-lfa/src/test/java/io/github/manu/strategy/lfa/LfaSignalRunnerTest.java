@@ -339,6 +339,49 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void blocks_before_analysis_when_account_open_order_budget_is_full() {
+        TradingStateProjection projection = projectionWithOrders(
+                List.of(openOrder("ETHUSDT"), openOrder("SOLUSDT")),
+                List.of(),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithOpenOrderBudgets(2, null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_account_open_orders");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_signal_when_symbol_open_order_budget_is_full() {
+        TradingStateProjection projection = projectionWithOrders(
+                List.of(openOrder("BTCUSDT")),
+                List.of(),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithOpenOrderBudgets(null, 1),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.candidateSignals()).isEqualTo(1);
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_symbol_open_orders");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
     void blocks_signal_when_projected_account_position_notional_exceeds_budget() {
         TradingStateProjection projection = projectionWith(
                 List.of(position("ETHUSDT", "BOTH", "0.20", "3000")),
@@ -564,6 +607,8 @@ class LfaSignalRunnerTest {
                 minWarmupMarketDataSymbols,
                 minWarmupTopOfBookSymbols,
                 null,
+                null,
+                null,
                 3,
                 1,
                 null,
@@ -594,6 +639,8 @@ class LfaSignalRunnerTest {
                 1,
                 1,
                 null,
+                null,
+                null,
                 maxAccountOpenPositions,
                 maxSymbolOpenPositions,
                 maxAccountPositionNotional,
@@ -602,6 +649,33 @@ class LfaSignalRunnerTest {
                 maxSymbolUnrealizedLoss,
                 maxAccountDailyRealizedLoss,
                 maxSymbolDailyRealizedLoss
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner enabledPropertiesWithOpenOrderBudgets(
+            Integer maxAccountOpenOrders,
+            Integer maxSymbolOpenOrders
+    ) {
+        return properties(
+                true,
+                "ACTIVE",
+                List.of("ACTIVE"),
+                1,
+                1,
+                null,
+                maxAccountOpenOrders,
+                maxSymbolOpenOrders,
+                3,
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -616,6 +690,8 @@ class LfaSignalRunnerTest {
                 List.of("ACTIVE"),
                 1,
                 1,
+                null,
+                null,
                 null,
                 3,
                 1,
@@ -638,6 +714,8 @@ class LfaSignalRunnerTest {
                 1,
                 1,
                 maxCandidateMarketDataSymbols,
+                null,
+                null,
                 3,
                 1,
                 null,
@@ -698,6 +776,8 @@ class LfaSignalRunnerTest {
                 decimal(maxAllocatedTargetNotional),
                 true,
                 maxSignalsPerRun,
+                null,
+                null,
                 3,
                 1,
                 null,
@@ -720,6 +800,8 @@ class LfaSignalRunnerTest {
             Integer minWarmupMarketDataSymbols,
             Integer minWarmupTopOfBookSymbols,
             Integer maxCandidateMarketDataSymbols,
+            Integer maxAccountOpenOrders,
+            Integer maxSymbolOpenOrders,
             Integer maxAccountOpenPositions,
             Integer maxSymbolOpenPositions,
             String maxAccountPositionNotional,
@@ -736,6 +818,8 @@ class LfaSignalRunnerTest {
                 minWarmupMarketDataSymbols,
                 minWarmupTopOfBookSymbols,
                 maxCandidateMarketDataSymbols,
+                maxAccountOpenOrders,
+                maxSymbolOpenOrders,
                 maxAccountOpenPositions,
                 maxSymbolOpenPositions,
                 maxAccountPositionNotional,
@@ -757,6 +841,8 @@ class LfaSignalRunnerTest {
             Integer minWarmupMarketDataSymbols,
             Integer minWarmupTopOfBookSymbols,
             Integer maxCandidateMarketDataSymbols,
+            Integer maxAccountOpenOrders,
+            Integer maxSymbolOpenOrders,
             Integer maxAccountOpenPositions,
             Integer maxSymbolOpenPositions,
             String maxAccountPositionNotional,
@@ -799,6 +885,8 @@ class LfaSignalRunnerTest {
                 null,
                 true,
                 1,
+                maxAccountOpenOrders,
+                maxSymbolOpenOrders,
                 maxAccountOpenPositions,
                 maxSymbolOpenPositions,
                 decimal(maxAccountPositionNotional),
@@ -907,11 +995,30 @@ class LfaSignalRunnerTest {
             List<TradingStateProjection.DailyRealizedPnlState> dailyPnl,
             TradingStateProjection.MarketDataState... marketData
     ) {
+        return projectionWith(List.of(), positions, risks, dailyPnl, marketData);
+    }
+
+    private TradingStateProjection projectionWithOrders(
+            List<TradingStateProjection.OrderState> orders,
+            List<TradingStateProjection.PositionState> positions,
+            List<TradingStateProjection.DailyRealizedPnlState> dailyPnl,
+            TradingStateProjection.MarketDataState... marketData
+    ) {
+        return projectionWith(orders, positions, List.of(), dailyPnl, marketData);
+    }
+
+    private TradingStateProjection projectionWith(
+            List<TradingStateProjection.OrderState> orders,
+            List<TradingStateProjection.PositionState> positions,
+            List<TradingStateProjection.RiskState> risks,
+            List<TradingStateProjection.DailyRealizedPnlState> dailyPnl,
+            TradingStateProjection.MarketDataState... marketData
+    ) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
                 List.of(),
                 positions,
-                List.of(),
+                orders,
                 risks,
                 List.of(marketData),
                 dailyPnl,
@@ -950,6 +1057,35 @@ class LfaSignalRunnerTest {
                 maintenanceMargin,
                 NOW,
                 "risk-account"
+        );
+    }
+
+    private TradingStateProjection.OrderState openOrder(String symbol) {
+        return new TradingStateProjection.OrderState(
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                symbol,
+                "cmd-open-" + symbol,
+                "client-open-" + symbol,
+                "exchange-open-" + symbol,
+                "ACCEPTED",
+                "NEW",
+                "BUY",
+                "LIMIT",
+                "50000.00",
+                "0.001",
+                "0",
+                null,
+                null,
+                "ORDER_RESULT",
+                "NEW",
+                true,
+                false,
+                null,
+                NOW,
+                "order-" + symbol
         );
     }
 
