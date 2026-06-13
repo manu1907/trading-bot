@@ -133,13 +133,17 @@ path only permits moving to `STOPPED`. `DRAINING` now reports projected open ord
 `lfa_lifecycle:stopped`, `lfa_lifecycle:emergency_stop`,
 `lfa_lifecycle:not_allowed`, `lfa_warmup:market_data_symbols_below_min`, and
 `lfa_warmup:top_of_book_symbols_below_min`. Budget blockers include
-account/symbol open-order caps, account/symbol open-position caps, account/symbol position notional caps,
+account/symbol open-order count caps, account/symbol open-order notional caps,
+account/symbol open-position caps, account/symbol position notional caps,
 account/symbol current unrealized-loss caps, account margin-balance floor,
 account margin-balance high-watermark drawdown cap, account margin-utilization
 cap, account/symbol daily realized-loss caps, missing notional, account-risk,
 margin-balance, max-margin-balance, maintenance-margin, unrealized-PnL, or
 daily-PnL metadata when strict metadata rejection is enabled, and unbounded
-candidate signal notional when a notional cap is configured. Allocation blockers include
+candidate signal notional when a notional cap is configured. Open-order notional
+caps use projected remaining order quantity and limit price, and block with
+`lfa_budget:open_order_notional_metadata_missing` when relevant open-order
+metadata is unusable under strict metadata rejection. Allocation blockers include
 `lfa_allocation:account_margin_balance_missing`,
 `lfa_allocation:target_notional_below_min`, and
 `lfa_allocation:target_notional_non_positive`. Runner reconciliation blockers

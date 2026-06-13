@@ -751,6 +751,13 @@ public final class LfaSignalRunner {
                 && orders.accountOpenOrders() >= properties.maxAccountOpenOrders().intValue()) {
             reasons.add("lfa_budget:max_account_open_orders");
         }
+        if (properties.maxAccountOpenOrderNotional() != null) {
+            if (!orders.accountNotionalValid()) {
+                addIfStrict(reasons, "lfa_budget:open_order_notional_metadata_missing");
+            } else if (orders.accountOpenOrderNotional().compareTo(properties.maxAccountOpenOrderNotional()) > 0) {
+                reasons.add("lfa_budget:max_account_open_order_notional");
+            }
+        }
         CurrentExposure exposure = currentExposure(snapshot, target, null);
         if (properties.maxAccountOpenPositions() != null
                 && exposure.accountOpenPositions() >= properties.maxAccountOpenPositions().intValue()) {
@@ -822,9 +829,28 @@ public final class LfaSignalRunner {
             reasons.add("lfa_budget:max_symbol_open_positions");
         }
         BigDecimal signalNotional = signalNotional(signal).orElse(null);
-        if ((properties.maxAccountPositionNotional() != null || properties.maxSymbolPositionNotional() != null)
+        if ((properties.maxAccountPositionNotional() != null
+                        || properties.maxSymbolPositionNotional() != null
+                        || properties.maxAccountOpenOrderNotional() != null
+                        || properties.maxSymbolOpenOrderNotional() != null)
                 && signalNotional == null) {
             addIfStrict(reasons, "lfa_budget:signal_notional_unbounded");
+        }
+        if (properties.maxAccountOpenOrderNotional() != null && signalNotional != null) {
+            if (!orders.accountNotionalValid()) {
+                addIfStrict(reasons, "lfa_budget:open_order_notional_metadata_missing");
+            } else if (orders.accountOpenOrderNotional().add(signalNotional)
+                            .compareTo(properties.maxAccountOpenOrderNotional()) > 0) {
+                reasons.add("lfa_budget:max_account_open_order_notional");
+            }
+        }
+        if (properties.maxSymbolOpenOrderNotional() != null && signalNotional != null) {
+            if (!orders.symbolNotionalValid()) {
+                addIfStrict(reasons, "lfa_budget:open_order_notional_metadata_missing");
+            } else if (orders.symbolOpenOrderNotional().add(signalNotional)
+                            .compareTo(properties.maxSymbolOpenOrderNotional()) > 0) {
+                reasons.add("lfa_budget:max_symbol_open_order_notional");
+            }
         }
         if (properties.maxAccountPositionNotional() != null && exposure.valid() && signalNotional != null) {
             BigDecimal projected = exposure.accountPositionNotional().add(signalNotional);
@@ -863,16 +889,38 @@ public final class LfaSignalRunner {
     private CurrentOrders currentOrders(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol) {
         int accountOpenOrders = 0;
         int symbolOpenOrders = 0;
+        BigDecimal accountOpenOrderNotional = BigDecimal.ZERO;
+        BigDecimal symbolOpenOrderNotional = BigDecimal.ZERO;
+        boolean accountNotionalValid = true;
+        boolean symbolNotionalValid = true;
         for (TradingStateProjection.OrderState order : snapshot.orders()) {
             if (!matchesTarget(order, target) || !order.open()) {
                 continue;
             }
             accountOpenOrders++;
+            BigDecimal notional = orderNotional(order);
+            if (notional == null) {
+                accountNotionalValid = false;
+            } else {
+                accountOpenOrderNotional = accountOpenOrderNotional.add(notional);
+            }
             if (same(order.symbol(), symbol)) {
                 symbolOpenOrders++;
+                if (notional != null) {
+                    symbolOpenOrderNotional = symbolOpenOrderNotional.add(notional);
+                } else {
+                    symbolNotionalValid = false;
+                }
             }
         }
-        return new CurrentOrders(accountOpenOrders, symbolOpenOrders);
+        return new CurrentOrders(
+                accountNotionalValid,
+                symbolNotionalValid,
+                accountOpenOrderNotional,
+                symbolOpenOrderNotional,
+                accountOpenOrders,
+                symbolOpenOrders
+        );
     }
 
     private CurrentExposure currentExposure(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol) {
@@ -1195,6 +1243,26 @@ public final class LfaSignalRunner {
         return Optional.of(quantity.multiply(limitPrice).setScale(8, RoundingMode.HALF_UP).stripTrailingZeros());
     }
 
+    private BigDecimal orderNotional(TradingStateProjection.OrderState order) {
+        BigDecimal price = decimal(order.price());
+        BigDecimal originalQuantity = decimal(order.originalQuantity());
+        BigDecimal executedQuantity = decimal(order.executedQuantity());
+        if (price == null || originalQuantity == null || !positive(price) || originalQuantity.signum() < 0) {
+            return null;
+        }
+        BigDecimal remainingQuantity = originalQuantity;
+        if (executedQuantity != null && executedQuantity.signum() >= 0) {
+            remainingQuantity = originalQuantity.subtract(executedQuantity);
+            if (remainingQuantity.signum() < 0) {
+                remainingQuantity = BigDecimal.ZERO;
+            }
+        }
+        return remainingQuantity
+                .multiply(price.abs())
+                .setScale(8, RoundingMode.HALF_UP)
+                .stripTrailingZeros();
+    }
+
     private Optional<BigDecimal> loss(String realizedPnl) {
         BigDecimal pnl = decimal(realizedPnl);
         if (pnl == null) {
@@ -1467,6 +1535,10 @@ public final class LfaSignalRunner {
     }
 
     private record CurrentOrders(
+            boolean accountNotionalValid,
+            boolean symbolNotionalValid,
+            BigDecimal accountOpenOrderNotional,
+            BigDecimal symbolOpenOrderNotional,
             int accountOpenOrders,
             int symbolOpenOrders
     ) {

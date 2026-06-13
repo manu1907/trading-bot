@@ -52,6 +52,8 @@ public record LfaStrategyProperties(
             Integer maxSignalsPerRun,
             Integer maxAccountOpenOrders,
             Integer maxSymbolOpenOrders,
+            BigDecimal maxAccountOpenOrderNotional,
+            BigDecimal maxSymbolOpenOrderNotional,
             Integer maxAccountOpenPositions,
             Integer maxSymbolOpenPositions,
             BigDecimal maxAccountPositionNotional,
@@ -121,6 +123,9 @@ public record LfaStrategyProperties(
             maxSignalsPerRun = positive(maxSignalsPerRun, 1, "maxSignalsPerRun");
             maxAccountOpenOrders = positiveOrNull(maxAccountOpenOrders, "maxAccountOpenOrders");
             maxSymbolOpenOrders = positiveOrNull(maxSymbolOpenOrders, "maxSymbolOpenOrders");
+            maxAccountOpenOrderNotional =
+                    positiveOrNull(maxAccountOpenOrderNotional, "maxAccountOpenOrderNotional");
+            maxSymbolOpenOrderNotional = positiveOrNull(maxSymbolOpenOrderNotional, "maxSymbolOpenOrderNotional");
             maxAccountOpenPositions = positiveOrNull(maxAccountOpenPositions, "maxAccountOpenPositions");
             maxSymbolOpenPositions = positiveOrNull(maxSymbolOpenPositions, "maxSymbolOpenPositions");
             maxAccountPositionNotional = positiveOrNull(maxAccountPositionNotional, "maxAccountPositionNotional");
@@ -182,6 +187,8 @@ public record LfaStrategyProperties(
                     true,
                     "EQUAL",
                     1,
+                    null,
+                    null,
                     null,
                     null,
                     null,

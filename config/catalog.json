@@ -139,6 +139,8 @@
           "max_signals_per_run": 1,
           "max_account_open_orders": null,
           "max_symbol_open_orders": null,
+          "max_account_open_order_notional": null,
+          "max_symbol_open_order_notional": null,
           "max_account_open_positions": null,
           "max_symbol_open_positions": null,
           "max_account_position_notional": null,

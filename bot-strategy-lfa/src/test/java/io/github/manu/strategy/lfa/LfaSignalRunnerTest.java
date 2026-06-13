@@ -457,6 +457,49 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void blocks_before_analysis_when_account_open_order_notional_budget_is_exceeded() {
+        TradingStateProjection projection = projectionWithOrders(
+                List.of(openOrder("ETHUSDT")),
+                List.of(),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithOpenOrderBudgets(null, null, "40", null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_account_open_order_notional");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_signal_when_projected_symbol_open_order_notional_exceeds_budget() {
+        TradingStateProjection projection = projectionWithOrders(
+                List.of(openOrder("BTCUSDT")),
+                List.of(),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithOpenOrderBudgets(null, null, null, "80"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.candidateSignals()).isEqualTo(1);
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_symbol_open_order_notional");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
     void blocks_signal_when_projected_account_position_notional_exceeds_budget() {
         TradingStateProjection projection = projectionWith(
                 List.of(position("ETHUSDT", "BOTH", "0.20", "3000")),
@@ -714,6 +757,8 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 3,
                 1,
                 null,
@@ -761,6 +806,15 @@ class LfaSignalRunnerTest {
             Integer maxAccountOpenOrders,
             Integer maxSymbolOpenOrders
     ) {
+        return enabledPropertiesWithOpenOrderBudgets(maxAccountOpenOrders, maxSymbolOpenOrders, null, null);
+    }
+
+    private LfaStrategyProperties.SignalRunner enabledPropertiesWithOpenOrderBudgets(
+            Integer maxAccountOpenOrders,
+            Integer maxSymbolOpenOrders,
+            String maxAccountOpenOrderNotional,
+            String maxSymbolOpenOrderNotional
+    ) {
         return properties(
                 true,
                 "ACTIVE",
@@ -770,6 +824,8 @@ class LfaSignalRunnerTest {
                 null,
                 maxAccountOpenOrders,
                 maxSymbolOpenOrders,
+                maxAccountOpenOrderNotional,
+                maxSymbolOpenOrderNotional,
                 3,
                 1,
                 null,
@@ -795,6 +851,8 @@ class LfaSignalRunnerTest {
                 List.of("ACTIVE"),
                 1,
                 1,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -900,6 +958,8 @@ class LfaSignalRunnerTest {
                 maxSignalsPerRun,
                 null,
                 null,
+                null,
+                null,
                 3,
                 1,
                 null,
@@ -943,6 +1003,8 @@ class LfaSignalRunnerTest {
                 maxCandidateMarketDataSymbols,
                 maxAccountOpenOrders,
                 maxSymbolOpenOrders,
+                null,
+                null,
                 maxAccountOpenPositions,
                 maxSymbolOpenPositions,
                 maxAccountPositionNotional,
@@ -966,6 +1028,8 @@ class LfaSignalRunnerTest {
             Integer maxCandidateMarketDataSymbols,
             Integer maxAccountOpenOrders,
             Integer maxSymbolOpenOrders,
+            String maxAccountOpenOrderNotional,
+            String maxSymbolOpenOrderNotional,
             Integer maxAccountOpenPositions,
             Integer maxSymbolOpenPositions,
             String maxAccountPositionNotional,
@@ -1011,6 +1075,8 @@ class LfaSignalRunnerTest {
                 1,
                 maxAccountOpenOrders,
                 maxSymbolOpenOrders,
+                decimal(maxAccountOpenOrderNotional),
+                decimal(maxSymbolOpenOrderNotional),
                 maxAccountOpenPositions,
                 maxSymbolOpenPositions,
                 decimal(maxAccountPositionNotional),
