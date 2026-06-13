@@ -1565,6 +1565,8 @@ Catalog defaults are:
 - `reject_missing_allocation_balance`: `true`
 - `allocation_weighting_mode`: `EQUAL`
 - `market_quality_quote_volume_baseline`: `100000000`
+- `market_quality_trade_count_baseline`: `100000`
+- `market_quality_taker_buy_quote_volume_baseline`: `50000000`
 - `max_signals_per_run`: `1`
 - `max_account_open_orders`: `null`
 - `max_symbol_open_orders`: `null`
@@ -1693,12 +1695,14 @@ clears `targetQuantity`, sets `targetNotional`, and records allocation
 attributes on each signal. `EQUAL` preserves flat allocation,
 `CONFIDENCE` weights by analyzer confidence, and `MARKET_QUALITY` weights by
 confidence, top-of-book imbalance, effective quote depth, spread, projected
-daily `quoteVolume`, and freshness. Daily quote volume is compared with
-`market_quality_quote_volume_baseline` and capped inside the quality score so
-high-volume markets are preferred without allowing one raw volume number to
-consume the whole run allocation.
+daily `quoteVolume`, projected daily trade count, projected daily taker-buy
+quote volume, and freshness. Daily quote volume, trade count, and taker-buy
+quote volume are compared with their `market_quality_*_baseline` values and
+capped inside the quality score so highly active markets are preferred without
+allowing one raw liquidity number to consume the whole run allocation.
 Before analysis, candidate market data is also ranked by symbol-level
-reconciliation availability when comparable spread and volume conditions exist.
+reconciliation availability when comparable spread, volume, and trade-statistic
+conditions exist.
 When the reconciliation tracker has confident observations whose entity key
 references the candidate symbol, emitted signals include
 `lfa_reconciliation_availability_score` for auditability.
@@ -1716,6 +1720,10 @@ Allocation attributes include:
 - `lfa_allocation_weighting_mode`
 - `lfa_allocation_weight`
 - `lfa_allocation_weight_sum`
+- `lfa_daily_quote_volume` when projected daily quote volume is available
+- `lfa_daily_number_of_trades` when projected daily trade count is available
+- `lfa_daily_taker_buy_quote_volume` when projected daily taker-buy quote
+  volume is available
 - `lfa_reconciliation_availability_score` when symbol-level reconciliation
   availability contributed to candidate ranking
 

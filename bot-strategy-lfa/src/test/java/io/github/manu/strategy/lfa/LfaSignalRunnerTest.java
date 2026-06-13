@@ -277,6 +277,44 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void ranks_candidate_market_data_by_projected_trade_statistics_when_volume_matches() {
+        TradingStateProjection projection = projectionWith(
+                marketData(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.020",
+                        "50000.50",
+                        "0.010",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                ),
+                marketData(
+                        "ETHUSDT",
+                        "3000.00",
+                        "0.400",
+                        "3000.03",
+                        "0.200",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "900000", "takerBuyQuoteVolume", "70000000")
+                )
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithCandidateCap(1),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(eventBus.envelopes()).singleElement().satisfies(envelope -> {
+            assertThat(envelope.key().getSymbol()).isEqualTo("ETHUSDT");
+            StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
+            assertThat(signal.getAttributes())
+                    .containsEntry("lfa_daily_number_of_trades", "900000")
+                    .containsEntry("lfa_daily_taker_buy_quote_volume", "70000000");
+        });
+    }
+
+    @Test
     void ranks_candidate_market_data_by_reconciliation_availability_when_market_quality_matches() {
         TradingStateProjection projection = projectionWith(
                 marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010", "100000000"),
@@ -417,6 +455,49 @@ class LfaSignalRunnerTest {
                 .isGreaterThan(new BigDecimal(btc.getTargetNotional().toString()));
         assertThat(eth.getAttributes())
                 .containsEntry("lfa_daily_quote_volume", "900000000")
+                .containsEntry("lfa_allocation_weighting_mode", "MARKET_QUALITY");
+    }
+
+    @Test
+    void weights_allocated_target_notional_by_projected_trade_statistics_when_configured() {
+        TradingStateProjection projection = projectionWith(
+                List.of(),
+                List.of(risk("1000")),
+                List.of(),
+                marketData(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.020",
+                        "50000.50",
+                        "0.010",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                ),
+                marketData(
+                        "ETHUSDT",
+                        "3000.00",
+                        "0.400",
+                        "3000.03",
+                        "0.200",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "900000", "takerBuyQuoteVolume", "70000000")
+                )
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithAllocation("0.02", null, null, 2, "MARKET_QUALITY"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(result.publishedSignals()).isEqualTo(2);
+        StrategySignalEvent btc = signal("BTCUSDT");
+        StrategySignalEvent eth = signal("ETHUSDT");
+        assertThat(new BigDecimal(eth.getTargetNotional().toString()))
+                .isGreaterThan(new BigDecimal(btc.getTargetNotional().toString()));
+        assertThat(eth.getAttributes())
+                .containsEntry("lfa_daily_number_of_trades", "900000")
+                .containsEntry("lfa_daily_taker_buy_quote_volume", "70000000")
                 .containsEntry("lfa_allocation_weighting_mode", "MARKET_QUALITY");
     }
 
@@ -1046,6 +1127,8 @@ class LfaSignalRunnerTest {
                 true,
                 allocationWeightingMode,
                 new BigDecimal("100000000"),
+                new BigDecimal("100000"),
+                new BigDecimal("50000000"),
                 maxSignalsPerRun,
                 null,
                 null,
@@ -1164,6 +1247,8 @@ class LfaSignalRunnerTest {
                 true,
                 "EQUAL",
                 new BigDecimal("100000000"),
+                new BigDecimal("100000"),
+                new BigDecimal("50000000"),
                 1,
                 maxAccountOpenOrders,
                 maxSymbolOpenOrders,
@@ -1443,7 +1528,7 @@ class LfaSignalRunnerTest {
             String askPrice,
             String askQuantity
     ) {
-        return marketData(symbol, bidPrice, bidQuantity, askPrice, askQuantity, null);
+        return marketData(symbol, bidPrice, bidQuantity, askPrice, askQuantity, Map.of());
     }
 
     private TradingStateProjection.MarketDataState marketData(
@@ -1458,6 +1543,22 @@ class LfaSignalRunnerTest {
         attributes.put("stream", symbol.toLowerCase() + "@bookTicker");
         if (quoteVolume != null) {
             attributes.put("quoteVolume", quoteVolume);
+        }
+        return marketData(symbol, bidPrice, bidQuantity, askPrice, askQuantity, attributes);
+    }
+
+    private TradingStateProjection.MarketDataState marketData(
+            String symbol,
+            String bidPrice,
+            String bidQuantity,
+            String askPrice,
+            String askQuantity,
+            Map<String, String> attributes
+    ) {
+        Map<String, String> resolvedAttributes = new java.util.LinkedHashMap<>();
+        resolvedAttributes.put("stream", symbol.toLowerCase() + "@bookTicker");
+        if (attributes != null) {
+            resolvedAttributes.putAll(attributes);
         }
         return new TradingStateProjection.MarketDataState(
                 "binance",
@@ -1474,7 +1575,7 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 null,
-                attributes,
+                resolvedAttributes,
                 NOW,
                 "evt-" + symbol
         );

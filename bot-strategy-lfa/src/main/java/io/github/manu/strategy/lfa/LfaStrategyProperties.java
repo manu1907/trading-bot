@@ -50,6 +50,8 @@ public record LfaStrategyProperties(
             Boolean rejectMissingAllocationBalance,
             String allocationWeightingMode,
             BigDecimal marketQualityQuoteVolumeBaseline,
+            BigDecimal marketQualityTradeCountBaseline,
+            BigDecimal marketQualityTakerBuyQuoteVolumeBaseline,
             Integer maxSignalsPerRun,
             Integer maxAccountOpenOrders,
             Integer maxSymbolOpenOrders,
@@ -122,6 +124,16 @@ public record LfaStrategyProperties(
                     new BigDecimal("100000000"),
                     "marketQualityQuoteVolumeBaseline"
             );
+            marketQualityTradeCountBaseline = positive(
+                    marketQualityTradeCountBaseline,
+                    new BigDecimal("100000"),
+                    "marketQualityTradeCountBaseline"
+            );
+            marketQualityTakerBuyQuoteVolumeBaseline = positive(
+                    marketQualityTakerBuyQuoteVolumeBaseline,
+                    new BigDecimal("50000000"),
+                    "marketQualityTakerBuyQuoteVolumeBaseline"
+            );
             if (minAllocatedTargetNotional != null && maxAllocatedTargetNotional != null
                     && minAllocatedTargetNotional.compareTo(maxAllocatedTargetNotional) > 0) {
                 throw new IllegalArgumentException("minAllocatedTargetNotional must be <= maxAllocatedTargetNotional");
@@ -193,6 +205,8 @@ public record LfaStrategyProperties(
                     true,
                     "EQUAL",
                     new BigDecimal("100000000"),
+                    new BigDecimal("100000"),
+                    new BigDecimal("50000000"),
                     1,
                     null,
                     null,

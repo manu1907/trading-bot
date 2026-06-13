@@ -99,6 +99,14 @@ public final class LfaMarketSignalAnalyzer {
         if (positive(decimal(quoteVolume))) {
             attributes.put("lfa_daily_quote_volume", quoteVolume.trim());
         }
+        String numberOfTrades = state.attributes().get("numberOfTrades");
+        if (positive(decimal(numberOfTrades))) {
+            attributes.put("lfa_daily_number_of_trades", numberOfTrades.trim());
+        }
+        String takerBuyQuoteVolume = state.attributes().get("takerBuyQuoteVolume");
+        if (positive(decimal(takerBuyQuoteVolume))) {
+            attributes.put("lfa_daily_taker_buy_quote_volume", takerBuyQuoteVolume.trim());
+        }
 
         StrategySignalEvent event = StrategySignalEvent.newBuilder()
                 .setEventId("strategy-signal:" + signalId)

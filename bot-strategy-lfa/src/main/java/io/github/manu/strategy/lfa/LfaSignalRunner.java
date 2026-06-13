@@ -572,6 +572,8 @@ public final class LfaSignalRunner {
                 .sorted(Comparator
                         .comparing(RankedMarketData::spreadBps)
                         .thenComparing(RankedMarketData::dailyQuoteVolume, Comparator.reverseOrder())
+                        .thenComparing(RankedMarketData::dailyNumberOfTrades, Comparator.reverseOrder())
+                        .thenComparing(RankedMarketData::dailyTakerBuyQuoteVolume, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::reconciliationAvailabilityScore, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::topOfBookQuoteNotional, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::ageMillis)
@@ -709,12 +711,16 @@ public final class LfaSignalRunner {
                 .divide(mid, 8, RoundingMode.HALF_UP);
         BigDecimal topOfBookQuoteNotional = bidPrice.multiply(bidQuantity).min(askPrice.multiply(askQuantity));
         BigDecimal dailyQuoteVolume = dailyQuoteVolume(state);
+        BigDecimal dailyNumberOfTrades = dailyNumberOfTrades(state);
+        BigDecimal dailyTakerBuyQuoteVolume = dailyTakerBuyQuoteVolume(state);
         BigDecimal reconciliationAvailabilityScore = reconciliationAvailabilityScore(state.symbol(), reconciliationStates);
         return Optional.of(new RankedMarketData(
                 state,
                 spreadBps,
                 topOfBookQuoteNotional,
                 dailyQuoteVolume,
+                dailyNumberOfTrades,
+                dailyTakerBuyQuoteVolume,
                 reconciliationAvailabilityScore,
                 ageMillis
         ));
@@ -1174,6 +1180,10 @@ public final class LfaSignalRunner {
                 .orElse(properties.minTopOfBookQuoteNotional());
         BigDecimal dailyQuoteVolume = attributeDecimal(signal, "lfa_daily_quote_volume")
                 .orElse(properties.marketQualityQuoteVolumeBaseline());
+        BigDecimal dailyNumberOfTrades = attributeDecimal(signal, "lfa_daily_number_of_trades")
+                .orElse(properties.marketQualityTradeCountBaseline());
+        BigDecimal dailyTakerBuyQuoteVolume = attributeDecimal(signal, "lfa_daily_taker_buy_quote_volume")
+                .orElse(properties.marketQualityTakerBuyQuoteVolumeBaseline());
         BigDecimal ageMillis = attributeDecimal(signal, "lfa_market_data_age_millis").orElse(BigDecimal.ZERO);
 
         BigDecimal imbalanceScore = imbalanceRatio
@@ -1189,6 +1199,14 @@ public final class LfaSignalRunner {
                 .divide(properties.marketQualityQuoteVolumeBaseline(), 8, RoundingMode.HALF_UP)
                 .max(BigDecimal.ONE)
                 .min(new BigDecimal("10"));
+        BigDecimal tradeCountScore = dailyNumberOfTrades
+                .divide(properties.marketQualityTradeCountBaseline(), 8, RoundingMode.HALF_UP)
+                .max(BigDecimal.ONE)
+                .min(new BigDecimal("10"));
+        BigDecimal takerBuyQuoteVolumeScore = dailyTakerBuyQuoteVolume
+                .divide(properties.marketQualityTakerBuyQuoteVolumeBaseline(), 8, RoundingMode.HALF_UP)
+                .max(BigDecimal.ONE)
+                .min(new BigDecimal("10"));
         BigDecimal freshnessScore = BigDecimal.ONE.divide(
                 BigDecimal.ONE.add(ageMillis.divide(new BigDecimal("1000"), 8, RoundingMode.HALF_UP)),
                 8,
@@ -1196,6 +1214,8 @@ public final class LfaSignalRunner {
         );
         return positiveWeight(confidence.multiply(imbalanceScore).multiply(depthScore).multiply(spreadScore)
                 .multiply(volumeScore)
+                .multiply(tradeCountScore)
+                .multiply(takerBuyQuoteVolumeScore)
                 .multiply(freshnessScore));
     }
 
@@ -1221,6 +1241,16 @@ public final class LfaSignalRunner {
     private BigDecimal dailyQuoteVolume(TradingStateProjection.MarketDataState state) {
         BigDecimal quoteVolume = decimal(state.attributes().get("quoteVolume"));
         return positive(quoteVolume) ? quoteVolume : BigDecimal.ZERO;
+    }
+
+    private BigDecimal dailyNumberOfTrades(TradingStateProjection.MarketDataState state) {
+        BigDecimal numberOfTrades = decimal(state.attributes().get("numberOfTrades"));
+        return positive(numberOfTrades) ? numberOfTrades : BigDecimal.ZERO;
+    }
+
+    private BigDecimal dailyTakerBuyQuoteVolume(TradingStateProjection.MarketDataState state) {
+        BigDecimal takerBuyQuoteVolume = decimal(state.attributes().get("takerBuyQuoteVolume"));
+        return positive(takerBuyQuoteVolume) ? takerBuyQuoteVolume : BigDecimal.ZERO;
     }
 
     private Map<String, BigDecimal> reconciliationAvailabilityScores(
@@ -1610,6 +1640,8 @@ public final class LfaSignalRunner {
             BigDecimal spreadBps,
             BigDecimal topOfBookQuoteNotional,
             BigDecimal dailyQuoteVolume,
+            BigDecimal dailyNumberOfTrades,
+            BigDecimal dailyTakerBuyQuoteVolume,
             BigDecimal reconciliationAvailabilityScore,
             long ageMillis
     ) {

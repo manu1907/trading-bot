@@ -137,6 +137,8 @@
           "reject_missing_allocation_balance": true,
           "allocation_weighting_mode": "EQUAL",
           "market_quality_quote_volume_baseline": "100000000",
+          "market_quality_trade_count_baseline": "100000",
+          "market_quality_taker_buy_quote_volume_baseline": "50000000",
           "max_signals_per_run": 1,
           "max_account_open_orders": null,
           "max_symbol_open_orders": null,
