@@ -53,6 +53,8 @@ public record LfaStrategyProperties(
             Integer maxSymbolOpenPositions,
             BigDecimal maxAccountPositionNotional,
             BigDecimal maxSymbolPositionNotional,
+            BigDecimal maxAccountUnrealizedLoss,
+            BigDecimal maxSymbolUnrealizedLoss,
             BigDecimal maxAccountDailyRealizedLoss,
             BigDecimal maxSymbolDailyRealizedLoss,
             Boolean rejectMissingAccountRiskMetadata,
@@ -113,6 +115,8 @@ public record LfaStrategyProperties(
             maxSymbolOpenPositions = positiveOrNull(maxSymbolOpenPositions, "maxSymbolOpenPositions");
             maxAccountPositionNotional = positiveOrNull(maxAccountPositionNotional, "maxAccountPositionNotional");
             maxSymbolPositionNotional = positiveOrNull(maxSymbolPositionNotional, "maxSymbolPositionNotional");
+            maxAccountUnrealizedLoss = positiveOrNull(maxAccountUnrealizedLoss, "maxAccountUnrealizedLoss");
+            maxSymbolUnrealizedLoss = positiveOrNull(maxSymbolUnrealizedLoss, "maxSymbolUnrealizedLoss");
             maxAccountDailyRealizedLoss = positiveOrNull(maxAccountDailyRealizedLoss, "maxAccountDailyRealizedLoss");
             maxSymbolDailyRealizedLoss = positiveOrNull(maxSymbolDailyRealizedLoss, "maxSymbolDailyRealizedLoss");
             rejectMissingAccountRiskMetadata =
@@ -157,6 +161,8 @@ public record LfaStrategyProperties(
                     null,
                     true,
                     1,
+                    null,
+                    null,
                     null,
                     null,
                     null,

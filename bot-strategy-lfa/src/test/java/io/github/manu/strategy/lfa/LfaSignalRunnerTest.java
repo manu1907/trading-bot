@@ -346,7 +346,7 @@ class LfaSignalRunnerTest {
                 marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
         );
         LfaSignalRunner runner = runner(
-                enabledPropertiesWithBudgets(3, 1, "640", null, null, null),
+                enabledPropertiesWithBudgets(3, 1, "640", null, null, null, null, null),
                 projection,
                 enabledExecutionProperties()
         );
@@ -369,7 +369,7 @@ class LfaSignalRunnerTest {
                 marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
         );
         LfaSignalRunner runner = runner(
-                enabledPropertiesWithBudgets(3, 1, null, null, null, "10"),
+                enabledPropertiesWithBudgets(3, 1, null, null, null, null, null, "10"),
                 projection,
                 enabledExecutionProperties()
         );
@@ -379,6 +379,73 @@ class LfaSignalRunnerTest {
         assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
         assertThat(result.blockers()).containsExactly("lfa_budget:max_symbol_daily_realized_loss");
         assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_before_analysis_when_current_account_unrealized_loss_exceeds_budget() {
+        TradingStateProjection projection = projectionWith(
+                List.of(
+                        position("ETHUSDT", "BOTH", "0.20", "3000", "-12"),
+                        position("SOLUSDT", "BOTH", "1.00", "100", "3")
+                ),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithBudgets(3, 1, null, null, "10", null, null, null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_account_unrealized_loss");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_signal_when_current_symbol_unrealized_loss_exceeds_budget() {
+        TradingStateProjection projection = projectionWith(
+                List.of(position("BTCUSDT", "BOTH", "0.001", "50000", "-7")),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithBudgets(3, 2, null, null, null, "5", null, null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.candidateSignals()).isEqualTo(1);
+        assertThat(result.blockers()).containsExactly("lfa_budget:max_symbol_unrealized_loss");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void symbol_unrealized_loss_budget_ignores_missing_pnl_on_other_symbols() {
+        TradingStateProjection projection = projectionWith(
+                List.of(
+                        position("BTCUSDT", "BOTH", "0.001", "50000", "-3"),
+                        position("ETHUSDT", "BOTH", "0.100", "3000", null)
+                ),
+                List.of(),
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithBudgets(3, 2, null, null, null, "5", null, null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(result.publishedSignals()).isEqualTo(1);
+        assertThat(eventBus.envelopes()).hasSize(1);
     }
 
     private LfaSignalRunner runner(
@@ -398,7 +465,7 @@ class LfaSignalRunnerTest {
     }
 
     private LfaStrategyProperties.SignalRunner enabledProperties() {
-        return enabledPropertiesWithBudgets(3, 1, null, null, null, null);
+        return enabledPropertiesWithBudgets(3, 1, null, null, null, null, null, null);
     }
 
     private LfaStrategyProperties.SignalRunner enabledPropertiesWithLifecycle(
@@ -439,6 +506,8 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null
         );
     }
@@ -448,6 +517,8 @@ class LfaSignalRunnerTest {
             Integer maxSymbolOpenPositions,
             String maxAccountPositionNotional,
             String maxSymbolPositionNotional,
+            String maxAccountUnrealizedLoss,
+            String maxSymbolUnrealizedLoss,
             String maxAccountDailyRealizedLoss,
             String maxSymbolDailyRealizedLoss
     ) {
@@ -461,6 +532,8 @@ class LfaSignalRunnerTest {
                 maxSymbolOpenPositions,
                 maxAccountPositionNotional,
                 maxSymbolPositionNotional,
+                maxAccountUnrealizedLoss,
+                maxSymbolUnrealizedLoss,
                 maxAccountDailyRealizedLoss,
                 maxSymbolDailyRealizedLoss
         );
@@ -475,6 +548,8 @@ class LfaSignalRunnerTest {
                 maxCandidateMarketDataSymbols,
                 3,
                 1,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -537,6 +612,8 @@ class LfaSignalRunnerTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 true,
                 true
         );
@@ -552,6 +629,8 @@ class LfaSignalRunnerTest {
             Integer maxSymbolOpenPositions,
             String maxAccountPositionNotional,
             String maxSymbolPositionNotional,
+            String maxAccountUnrealizedLoss,
+            String maxSymbolUnrealizedLoss,
             String maxAccountDailyRealizedLoss,
             String maxSymbolDailyRealizedLoss
     ) {
@@ -566,6 +645,8 @@ class LfaSignalRunnerTest {
                 maxSymbolOpenPositions,
                 maxAccountPositionNotional,
                 maxSymbolPositionNotional,
+                maxAccountUnrealizedLoss,
+                maxSymbolUnrealizedLoss,
                 maxAccountDailyRealizedLoss,
                 maxSymbolDailyRealizedLoss
         );
@@ -582,6 +663,8 @@ class LfaSignalRunnerTest {
             Integer maxSymbolOpenPositions,
             String maxAccountPositionNotional,
             String maxSymbolPositionNotional,
+            String maxAccountUnrealizedLoss,
+            String maxSymbolUnrealizedLoss,
             String maxAccountDailyRealizedLoss,
             String maxSymbolDailyRealizedLoss
     ) {
@@ -619,6 +702,8 @@ class LfaSignalRunnerTest {
                 maxSymbolOpenPositions,
                 decimal(maxAccountPositionNotional),
                 decimal(maxSymbolPositionNotional),
+                decimal(maxAccountUnrealizedLoss),
+                decimal(maxSymbolUnrealizedLoss),
                 decimal(maxAccountDailyRealizedLoss),
                 decimal(maxSymbolDailyRealizedLoss),
                 true,
@@ -762,6 +847,16 @@ class LfaSignalRunnerTest {
             String amount,
             String markPrice
     ) {
+        return position(symbol, positionSide, amount, markPrice, "0");
+    }
+
+    private TradingStateProjection.PositionState position(
+            String symbol,
+            String positionSide,
+            String amount,
+            String markPrice,
+            String unrealizedPnl
+    ) {
         return new TradingStateProjection.PositionState(
                 "binance",
                 "demo",
@@ -772,7 +867,7 @@ class LfaSignalRunnerTest {
                 amount,
                 markPrice,
                 markPrice,
-                "0",
+                unrealizedPnl,
                 "1",
                 "cross",
                 null,

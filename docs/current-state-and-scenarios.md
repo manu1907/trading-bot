@@ -133,9 +133,10 @@ path only permits moving to `STOPPED`. `DRAINING` now reports projected open ord
 `lfa_lifecycle:not_allowed`, `lfa_warmup:market_data_symbols_below_min`, and
 `lfa_warmup:top_of_book_symbols_below_min`. Budget blockers include
 account/symbol open-position caps, account/symbol position notional caps,
-account/symbol daily realized-loss caps, missing notional or daily-PnL metadata
-when strict metadata rejection is enabled, and unbounded candidate signal
-notional when a notional cap is configured. Allocation blockers include
+account/symbol current unrealized-loss caps, account/symbol daily realized-loss
+caps, missing notional, unrealized-PnL, or daily-PnL metadata when strict
+metadata rejection is enabled, and unbounded candidate signal notional when a
+notional cap is configured. Allocation blockers include
 `lfa_allocation:account_margin_balance_missing`,
 `lfa_allocation:target_notional_below_min`, and
 `lfa_allocation:target_notional_non_positive`. The catalog value for the runner
@@ -143,9 +144,11 @@ currently executes as `enabled=false`, `lifecycle_state=STOPPED`,
 one-symbol projected-data warm-up,
 `use_signal_planner_instrument_universe=true`, no LFA-specific candidate cap,
 unset allocation fraction/min/max, and `reject_missing_allocation_balance=true`
-unless overridden. The checked-in demo runtime overrides target, bootstrap
-sizing, open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up
-thresholds, `max_candidate_market_data_symbols=13`,
+unless overridden. LFA signal-runner notional, current unrealized-loss, and
+daily realized-loss caps default to `null` until calibrated by a runtime
+override. The checked-in demo runtime overrides target, bootstrap sizing,
+open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,
+`max_candidate_market_data_symbols=13`,
 `target_notional_margin_balance_fraction=0.01`, and
 `max_allocated_target_notional=50` but does not override `enabled`, so the
 effective demo runner remains disabled because the full position-lifecycle and

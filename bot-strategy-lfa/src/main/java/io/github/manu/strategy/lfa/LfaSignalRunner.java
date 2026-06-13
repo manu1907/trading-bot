@@ -717,6 +717,14 @@ public final class LfaSignalRunner {
                 reasons.add("lfa_budget:max_account_position_notional");
             }
         }
+        UnrealizedLoss unrealizedLoss = unrealizedLoss(snapshot, target, null);
+        if (properties.maxAccountUnrealizedLoss() != null) {
+            if (!unrealizedLoss.valid()) {
+                addIfStrict(reasons, "lfa_budget:unrealized_pnl_missing");
+            } else if (unrealizedLoss.accountLoss().compareTo(properties.maxAccountUnrealizedLoss()) > 0) {
+                reasons.add("lfa_budget:max_account_unrealized_loss");
+            }
+        }
         DailyLoss dailyLoss = dailyLoss(snapshot, target, null, now);
         if (properties.maxAccountDailyRealizedLoss() != null) {
             if (dailyLoss.accountLoss().isEmpty()) {
@@ -761,6 +769,14 @@ public final class LfaSignalRunner {
                 reasons.add("lfa_budget:max_symbol_position_notional");
             }
         }
+        UnrealizedLoss unrealizedLoss = unrealizedLoss(snapshot, target, symbol);
+        if (properties.maxSymbolUnrealizedLoss() != null) {
+            if (!unrealizedLoss.valid()) {
+                addIfStrict(reasons, "lfa_budget:unrealized_pnl_missing");
+            } else if (unrealizedLoss.symbolLoss().compareTo(properties.maxSymbolUnrealizedLoss()) > 0) {
+                reasons.add("lfa_budget:max_symbol_unrealized_loss");
+            }
+        }
         DailyLoss dailyLoss = dailyLoss(snapshot, target, symbol, now);
         if (properties.maxSymbolDailyRealizedLoss() != null) {
             if (dailyLoss.symbolLoss().isEmpty()) {
@@ -799,6 +815,31 @@ public final class LfaSignalRunner {
             }
         }
         return new CurrentExposure(valid, accountNotional, symbolNotional, accountOpenPositions, symbolOpenPositions);
+    }
+
+    private UnrealizedLoss unrealizedLoss(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol) {
+        BigDecimal accountLoss = BigDecimal.ZERO;
+        BigDecimal symbolLoss = BigDecimal.ZERO;
+        boolean valid = true;
+        for (TradingStateProjection.PositionState position : snapshot.positions()) {
+            if (!matchesTarget(position, target) || !position.open()) {
+                continue;
+            }
+            boolean matchesSymbol = same(position.symbol(), symbol);
+            BigDecimal unrealizedPnl = decimal(position.unrealizedPnl());
+            if (unrealizedPnl == null) {
+                if (symbol == null || matchesSymbol) {
+                    valid = false;
+                }
+                continue;
+            }
+            BigDecimal loss = unrealizedPnl.signum() < 0 ? unrealizedPnl.abs() : BigDecimal.ZERO;
+            accountLoss = accountLoss.add(loss);
+            if (matchesSymbol) {
+                symbolLoss = symbolLoss.add(loss);
+            }
+        }
+        return new UnrealizedLoss(valid, accountLoss, symbolLoss);
     }
 
     private DailyLoss dailyLoss(TradingStateSnapshot snapshot, LfaRunnerTarget target, String symbol, Instant now) {
@@ -1182,6 +1223,13 @@ public final class LfaSignalRunner {
             BigDecimal symbolPositionNotional,
             int accountOpenPositions,
             int symbolOpenPositions
+    ) {
+    }
+
+    private record UnrealizedLoss(
+            boolean valid,
+            BigDecimal accountLoss,
+            BigDecimal symbolLoss
     ) {
     }
 
