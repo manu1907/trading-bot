@@ -9,6 +9,7 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -85,6 +86,20 @@ public final class LfaMarketSignalAnalyzer {
                 emittedAtMicros
         );
 
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        attributes.put("source", "lfa_market_signal_analyzer");
+        attributes.put("lfa_signal_reason", "top_of_book_imbalance");
+        attributes.put("lfa_market_data_age_millis", Long.toString(marketDataAgeMillis));
+        attributes.put("lfa_spread_bps", spreadBps.toPlainString());
+        attributes.put("lfa_top_of_book_quote_notional", effectiveDepth.toPlainString());
+        attributes.put("lfa_bid_quote_notional", bidNotional.toPlainString());
+        attributes.put("lfa_ask_quote_notional", askNotional.toPlainString());
+        attributes.put("lfa_imbalance_ratio", imbalanceRatio.toPlainString());
+        String quoteVolume = state.attributes().get("quoteVolume");
+        if (positive(decimal(quoteVolume))) {
+            attributes.put("lfa_daily_quote_volume", quoteVolume.trim());
+        }
+
         StrategySignalEvent event = StrategySignalEvent.newBuilder()
                 .setEventId("strategy-signal:" + signalId)
                 .setSchemaVersion(1)
@@ -103,16 +118,7 @@ public final class LfaMarketSignalAnalyzer {
                 .setStopPrice(null)
                 .setEmittedAtMicros(emittedAt)
                 .setFeatures(Map.<CharSequence, CharSequence>of("order_type", "LIMIT", "time_in_force", "GTC"))
-                .setAttributes(Map.<CharSequence, CharSequence>of(
-                        "source", "lfa_market_signal_analyzer",
-                        "lfa_signal_reason", "top_of_book_imbalance",
-                        "lfa_market_data_age_millis", Long.toString(marketDataAgeMillis),
-                        "lfa_spread_bps", spreadBps.toPlainString(),
-                        "lfa_top_of_book_quote_notional", effectiveDepth.toPlainString(),
-                        "lfa_bid_quote_notional", bidNotional.toPlainString(),
-                        "lfa_ask_quote_notional", askNotional.toPlainString(),
-                        "lfa_imbalance_ratio", imbalanceRatio.toPlainString()
-                ))
+                .setAttributes(attributes)
                 .build();
         return Optional.of(event);
     }

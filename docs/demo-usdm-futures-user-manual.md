@@ -1564,6 +1564,7 @@ Catalog defaults are:
 - `max_allocated_target_notional`: `null`
 - `reject_missing_allocation_balance`: `true`
 - `allocation_weighting_mode`: `EQUAL`
+- `market_quality_quote_volume_baseline`: `100000000`
 - `max_signals_per_run`: `1`
 - `max_account_open_orders`: `null`
 - `max_symbol_open_orders`: `null`
@@ -1691,7 +1692,11 @@ enforces `min_allocated_target_notional` on each target notional when configured
 clears `targetQuantity`, sets `targetNotional`, and records allocation
 attributes on each signal. `EQUAL` preserves flat allocation,
 `CONFIDENCE` weights by analyzer confidence, and `MARKET_QUALITY` weights by
-confidence, top-of-book imbalance, effective quote depth, spread, and freshness.
+confidence, top-of-book imbalance, effective quote depth, spread, projected
+daily `quoteVolume`, and freshness. Daily quote volume is compared with
+`market_quality_quote_volume_baseline` and capped inside the quality score so
+high-volume markets are preferred without allowing one raw volume number to
+consume the whole run allocation.
 With the catalog default
 `reject_missing_allocation_balance=true`, missing account margin balance blocks
 publication instead of falling back to stale or ambiguous sizing.

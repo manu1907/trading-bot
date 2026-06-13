@@ -567,6 +567,7 @@ public final class LfaSignalRunner {
                 .filter(candidate -> universeMarketDataAllows(universe, target, candidate))
                 .sorted(Comparator
                         .comparing(RankedMarketData::spreadBps)
+                        .thenComparing(RankedMarketData::dailyQuoteVolume, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::topOfBookQuoteNotional, Comparator.reverseOrder())
                         .thenComparing(RankedMarketData::ageMillis)
                         .thenComparing(candidate -> normalize(candidate.state().symbol())))
@@ -698,7 +699,8 @@ public final class LfaSignalRunner {
                 .multiply(new BigDecimal("10000"))
                 .divide(mid, 8, RoundingMode.HALF_UP);
         BigDecimal topOfBookQuoteNotional = bidPrice.multiply(bidQuantity).min(askPrice.multiply(askQuantity));
-        return Optional.of(new RankedMarketData(state, spreadBps, topOfBookQuoteNotional, ageMillis));
+        BigDecimal dailyQuoteVolume = dailyQuoteVolume(state);
+        return Optional.of(new RankedMarketData(state, spreadBps, topOfBookQuoteNotional, dailyQuoteVolume, ageMillis));
     }
 
     private ExecutionProperties.SignalPlanner.SymbolPolicy selectedSymbolPolicy(
@@ -1153,6 +1155,8 @@ public final class LfaSignalRunner {
         BigDecimal spreadBps = attributeDecimal(signal, "lfa_spread_bps").orElse(properties.maxSpreadBps());
         BigDecimal quoteNotional = attributeDecimal(signal, "lfa_top_of_book_quote_notional")
                 .orElse(properties.minTopOfBookQuoteNotional());
+        BigDecimal dailyQuoteVolume = attributeDecimal(signal, "lfa_daily_quote_volume")
+                .orElse(properties.marketQualityQuoteVolumeBaseline());
         BigDecimal ageMillis = attributeDecimal(signal, "lfa_market_data_age_millis").orElse(BigDecimal.ZERO);
 
         BigDecimal imbalanceScore = imbalanceRatio
@@ -1164,12 +1168,17 @@ public final class LfaSignalRunner {
         BigDecimal spreadScore = properties.maxSpreadBps()
                 .divide(spreadBps.max(new BigDecimal("0.00000001")), 8, RoundingMode.HALF_UP)
                 .max(BigDecimal.ONE);
+        BigDecimal volumeScore = dailyQuoteVolume
+                .divide(properties.marketQualityQuoteVolumeBaseline(), 8, RoundingMode.HALF_UP)
+                .max(BigDecimal.ONE)
+                .min(new BigDecimal("10"));
         BigDecimal freshnessScore = BigDecimal.ONE.divide(
                 BigDecimal.ONE.add(ageMillis.divide(new BigDecimal("1000"), 8, RoundingMode.HALF_UP)),
                 8,
                 RoundingMode.HALF_UP
         );
         return positiveWeight(confidence.multiply(imbalanceScore).multiply(depthScore).multiply(spreadScore)
+                .multiply(volumeScore)
                 .multiply(freshnessScore));
     }
 
@@ -1190,6 +1199,11 @@ public final class LfaSignalRunner {
             }
         }
         return Optional.empty();
+    }
+
+    private BigDecimal dailyQuoteVolume(TradingStateProjection.MarketDataState state) {
+        BigDecimal quoteVolume = decimal(state.attributes().get("quoteVolume"));
+        return positive(quoteVolume) ? quoteVolume : BigDecimal.ZERO;
     }
 
     private Optional<BigDecimal> accountMarginBalance(TradingStateSnapshot snapshot, LfaRunnerTarget target) {
@@ -1521,6 +1535,7 @@ public final class LfaSignalRunner {
             TradingStateProjection.MarketDataState state,
             BigDecimal spreadBps,
             BigDecimal topOfBookQuoteNotional,
+            BigDecimal dailyQuoteVolume,
             long ageMillis
     ) {
     }

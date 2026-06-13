@@ -113,13 +113,17 @@ current projected market-data snapshot, requires the configured lifecycle state
 to be allowed, requires projected market-data and top-of-book warm-up thresholds
 to be met, optionally filters candidate symbols through the core signal-planner
 instrument universe, ranks candidate market data by projected spread,
-top-of-book quote depth, freshness, and symbol, optionally caps candidate market
-data before analysis, runs the analyzer, caps publication with
+projected daily `quoteVolume`, top-of-book quote depth, freshness, and symbol,
+optionally caps candidate market data before analysis, runs the analyzer, caps
+publication with
 `max_signals_per_run`, can allocate a total run target notional from the latest
 projected account margin balance, and splits it across candidate publish slots
 by configured `allocation_weighting_mode` (`EQUAL`, `CONFIDENCE`, or
-`MARKET_QUALITY`) when configured, applies account and symbol budget gates,
-publishes symbol-keyed `STRATEGY_SIGNAL` events through the core event bus, and
+`MARKET_QUALITY`) when configured. `MARKET_QUALITY` includes projected daily
+`quoteVolume` against `market_quality_quote_volume_baseline` in addition to
+confidence, imbalance, spread, depth, and freshness. The runner applies account
+and symbol budget gates, publishes symbol-keyed `STRATEGY_SIGNAL` events through
+the core event bus, and
 relies on the core signal planner, order risk gate, idempotency, reconciliation
 confidence, and execution pipeline for downstream order admission. Lifecycle states are validated
 as `STARTING`, `ACTIVE`, `PAUSED`, `DRAINING`, `STOPPED`, or
@@ -153,7 +157,9 @@ currently executes as `enabled=false`, `lifecycle_state=STOPPED`,
 one-symbol projected-data warm-up,
 `use_signal_planner_instrument_universe=true`, no LFA-specific candidate cap,
 unset allocation fraction/min/max, and `reject_missing_allocation_balance=true`
-with `allocation_weighting_mode=EQUAL` and `require_reconciliation_confidence=true`
+with `allocation_weighting_mode=EQUAL`,
+`market_quality_quote_volume_baseline=100000000`, and
+`require_reconciliation_confidence=true`
 unless overridden. LFA signal-runner notional, current unrealized-loss,
 account-margin-health, and daily realized-loss caps default to `null` until
 calibrated by a runtime override. The checked-in demo runtime overrides target, bootstrap sizing,

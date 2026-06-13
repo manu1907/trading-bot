@@ -136,6 +136,7 @@
           "max_allocated_target_notional": null,
           "reject_missing_allocation_balance": true,
           "allocation_weighting_mode": "EQUAL",
+          "market_quality_quote_volume_baseline": "100000000",
           "max_signals_per_run": 1,
           "max_account_open_orders": null,
           "max_symbol_open_orders": null,
