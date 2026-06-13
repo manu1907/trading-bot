@@ -1545,6 +1545,8 @@ Catalog defaults are:
 - `market`: `null`
 - `lifecycle_state`: `STOPPED`
 - `allowed_lifecycle_states`: `["ACTIVE"]`
+- `allowed_lifecycle_transitions`: `STARTING->[PAUSED,STOPPED,EMERGENCY_STOP]`, `PAUSED->[ACTIVE,DRAINING,STOPPED,EMERGENCY_STOP]`, `ACTIVE->[PAUSED,DRAINING,EMERGENCY_STOP]`, `DRAINING->[PAUSED,STOPPED,EMERGENCY_STOP]`, `STOPPED->[STARTING,PAUSED,EMERGENCY_STOP]`, `EMERGENCY_STOP->[STOPPED]`
+- `allow_emergency_stop_reactivation`: `false`
 - `require_warmup_market_data`: `true`
 - `min_warmup_market_data_symbols`: `1`
 - `min_warmup_top_of_book_symbols`: `1`
@@ -1576,7 +1578,10 @@ Valid `lifecycle_state` values are `STARTING`, `ACTIVE`, `PAUSED`,
 configuration binding. The runner publishes new signals only in `ACTIVE`; the
 non-entry states `STARTING`, `PAUSED`, `DRAINING`, `STOPPED`, and
 `EMERGENCY_STOP` fail closed even if accidentally added to
-`allowed_lifecycle_states`.
+`allowed_lifecycle_states`. Lifecycle transitions are also policy-gated by
+`allowed_lifecycle_transitions`; leaving `EMERGENCY_STOP` requires
+`allow_emergency_stop_reactivation=true`, and the default path only permits
+returning from emergency stop to `STOPPED`, not directly to `ACTIVE`.
 
 If the LFA runner is enabled and the internal operator API is enabled, the
 effective in-process lifecycle can be inspected and changed through the same

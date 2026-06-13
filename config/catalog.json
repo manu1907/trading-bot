@@ -87,6 +87,38 @@
           "allowed_lifecycle_states": [
             "ACTIVE"
           ],
+          "allowed_lifecycle_transitions": {
+            "STARTING": [
+              "PAUSED",
+              "STOPPED",
+              "EMERGENCY_STOP"
+            ],
+            "PAUSED": [
+              "ACTIVE",
+              "DRAINING",
+              "STOPPED",
+              "EMERGENCY_STOP"
+            ],
+            "ACTIVE": [
+              "PAUSED",
+              "DRAINING",
+              "EMERGENCY_STOP"
+            ],
+            "DRAINING": [
+              "PAUSED",
+              "STOPPED",
+              "EMERGENCY_STOP"
+            ],
+            "STOPPED": [
+              "STARTING",
+              "PAUSED",
+              "EMERGENCY_STOP"
+            ],
+            "EMERGENCY_STOP": [
+              "STOPPED"
+            ]
+          },
+          "allow_emergency_stop_reactivation": false,
           "require_warmup_market_data": true,
           "min_warmup_market_data_symbols": 1,
           "min_warmup_top_of_book_symbols": 1,

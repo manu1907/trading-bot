@@ -124,7 +124,10 @@ execution pipeline for downstream order admission. Lifecycle states are validate
 as `STARTING`, `ACTIVE`, `PAUSED`, `DRAINING`, `STOPPED`, or
 `EMERGENCY_STOP`; only `ACTIVE` can publish new signals, and non-entry states
 fail closed even if accidentally included in `allowed_lifecycle_states`.
-Lifecycle and warm-up blockers include `lfa_lifecycle:starting`,
+Lifecycle transitions are policy-gated by the catalog-backed
+`allowed_lifecycle_transitions` matrix, and leaving `EMERGENCY_STOP` is blocked
+unless `allow_emergency_stop_reactivation=true`; the default emergency recovery
+path only permits moving to `STOPPED`. Lifecycle and warm-up blockers include `lfa_lifecycle:starting`,
 `lfa_lifecycle:paused`, `lfa_lifecycle:draining`,
 `lfa_lifecycle:stopped`, `lfa_lifecycle:emergency_stop`,
 `lfa_lifecycle:not_allowed`, `lfa_warmup:market_data_symbols_below_min`, and
@@ -153,7 +156,7 @@ When the LFA runner bean and internal operator API are enabled, the operator API
 also exposes `GET /internal/strategy/lfa/lifecycle` and
 `POST /internal/strategy/lfa/lifecycle` with the same `X-Operator-Token`
 authentication used by intervention endpoints. These endpoints inspect and change the effective LFA lifecycle state without
-changing code. Successful transitions publish a durable `STRATEGY_LIFECYCLE`
+changing code, subject to the configured transition policy. Successful transitions publish a durable `STRATEGY_LIFECYCLE`
 event, apply it to the local projection, and are recoverable through the normal
 journal/projection replay path. On restart, the runner refreshes from projected
 strategy lifecycle state before status checks or scheduled signal runs.

@@ -261,6 +261,7 @@ public final class LfaSignalRunner {
     ) {
         LfaLifecycleState next = LfaLifecycleState.parse(requestedState, "lifecycleState");
         LfaLifecycleState previous = lifecycleState.get();
+        validateLifecycleTransition(previous, next);
         Instant changedAt = Instant.now(clock);
         StrategyLifecycleEvent event = lifecycleEvent(previous, next, changedBy, reason, changedAt);
         TradingEventEnvelope<StrategyLifecycleEvent> envelope = TradingEventEnvelope.of(
@@ -303,6 +304,8 @@ public final class LfaSignalRunner {
                 properties.lifecycleState(),
                 current.name(),
                 properties.allowedLifecycleStates(),
+                allowedNextLifecycleStates(current),
+                properties.allowEmergencyStopReactivation(),
                 current.canPublishNewSignals() && properties.allowedLifecycleStates().contains(current.name()),
                 blockers,
                 metadata.changedBy(),
@@ -310,6 +313,34 @@ public final class LfaSignalRunner {
                 metadata.changedAt(),
                 metadata.eventId()
         );
+    }
+
+    private void validateLifecycleTransition(LfaLifecycleState previous, LfaLifecycleState next) {
+        if (previous == next) {
+            return;
+        }
+        if (previous == LfaLifecycleState.EMERGENCY_STOP && !properties.allowEmergencyStopReactivation()) {
+            throw new IllegalArgumentException(
+                    "lifecycle transition from EMERGENCY_STOP requires allowEmergencyStopReactivation=true"
+            );
+        }
+        List<String> allowedNext = allowedNextLifecycleStates(previous);
+        if (!allowedNext.contains(next.name())) {
+            throw new IllegalArgumentException(
+                    "lifecycle transition " + previous.name() + "->" + next.name() + " is not allowed"
+            );
+        }
+    }
+
+    private List<String> allowedNextLifecycleStates(LfaLifecycleState current) {
+        List<String> configured = properties.allowedLifecycleTransitions().get(current.name());
+        if (configured == null || configured.isEmpty()) {
+            return List.of();
+        }
+        if (current == LfaLifecycleState.EMERGENCY_STOP && !properties.allowEmergencyStopReactivation()) {
+            return List.of();
+        }
+        return configured;
     }
 
     private void refreshLifecycleFromProjection(TradingStateSnapshot snapshot) {
@@ -1001,6 +1032,8 @@ public final class LfaSignalRunner {
             String configuredLifecycleState,
             String effectiveLifecycleState,
             List<String> allowedLifecycleStates,
+            List<String> allowedNextLifecycleStates,
+            boolean emergencyStopReactivationAllowed,
             boolean publishEnabled,
             List<String> blockers,
             String changedBy,
@@ -1011,6 +1044,8 @@ public final class LfaSignalRunner {
 
         public LfaLifecycleStatus {
             allowedLifecycleStates = allowedLifecycleStates == null ? List.of() : List.copyOf(allowedLifecycleStates);
+            allowedNextLifecycleStates =
+                    allowedNextLifecycleStates == null ? List.of() : List.copyOf(allowedNextLifecycleStates);
             blockers = blockers == null ? List.of() : List.copyOf(blockers);
         }
     }

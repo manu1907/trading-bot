@@ -4,8 +4,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @ConfigurationProperties(prefix = "trading.strategy.lfa")
 public record LfaStrategyProperties(
@@ -28,6 +30,8 @@ public record LfaStrategyProperties(
             String market,
             String lifecycleState,
             List<String> allowedLifecycleStates,
+            Map<String, List<String>> allowedLifecycleTransitions,
+            Boolean allowEmergencyStopReactivation,
             Boolean requireWarmupMarketData,
             Integer minWarmupMarketDataSymbols,
             Integer minWarmupTopOfBookSymbols,
@@ -64,6 +68,8 @@ public record LfaStrategyProperties(
             lifecycleState = normalizedText(lifecycleState, "STOPPED");
             LfaLifecycleState.parse(lifecycleState, "lifecycleState");
             allowedLifecycleStates = normalizedList(allowedLifecycleStates, List.of("ACTIVE"), "allowedLifecycleStates");
+            allowedLifecycleTransitions = normalizedTransitions(allowedLifecycleTransitions);
+            allowEmergencyStopReactivation = Boolean.TRUE.equals(allowEmergencyStopReactivation);
             requireWarmupMarketData = requireWarmupMarketData == null || Boolean.TRUE.equals(requireWarmupMarketData);
             minWarmupMarketDataSymbols = positive(minWarmupMarketDataSymbols, 1, "minWarmupMarketDataSymbols");
             minWarmupTopOfBookSymbols = positive(minWarmupTopOfBookSymbols, 1, "minWarmupTopOfBookSymbols");
@@ -132,6 +138,8 @@ public record LfaStrategyProperties(
                     null,
                     "STOPPED",
                     List.of("ACTIVE"),
+                    defaultAllowedLifecycleTransitions(),
+                    false,
                     true,
                     1,
                     1,
@@ -163,6 +171,11 @@ public record LfaStrategyProperties(
         @Override
         public List<String> allowedLifecycleStates() {
             return List.copyOf(allowedLifecycleStates);
+        }
+
+        @Override
+        public Map<String, List<String>> allowedLifecycleTransitions() {
+            return copyTransitions(allowedLifecycleTransitions);
         }
 
         LfaSignalRequest request(String provider, String environment, String account, String market) {
@@ -201,6 +214,36 @@ public record LfaStrategyProperties(
             }
             normalized.forEach(value -> LfaLifecycleState.parse(value, field));
             return normalized;
+        }
+
+        private static Map<String, List<String>> normalizedTransitions(Map<String, List<String>> transitions) {
+            Map<String, List<String>> resolved = transitions == null || transitions.isEmpty()
+                    ? defaultAllowedLifecycleTransitions()
+                    : transitions;
+            LinkedHashMap<String, List<String>> normalized = new LinkedHashMap<>();
+            resolved.forEach((from, toStates) -> {
+                LfaLifecycleState fromState = LfaLifecycleState.parse(from, "allowedLifecycleTransitions");
+                List<String> to = normalizedList(toStates, List.of(), "allowedLifecycleTransitions." + fromState.name());
+                normalized.put(fromState.name(), to);
+            });
+            return Map.copyOf(normalized);
+        }
+
+        private static Map<String, List<String>> defaultAllowedLifecycleTransitions() {
+            LinkedHashMap<String, List<String>> defaults = new LinkedHashMap<>();
+            defaults.put("STARTING", List.of("PAUSED", "STOPPED", "EMERGENCY_STOP"));
+            defaults.put("PAUSED", List.of("ACTIVE", "DRAINING", "STOPPED", "EMERGENCY_STOP"));
+            defaults.put("ACTIVE", List.of("PAUSED", "DRAINING", "EMERGENCY_STOP"));
+            defaults.put("DRAINING", List.of("PAUSED", "STOPPED", "EMERGENCY_STOP"));
+            defaults.put("STOPPED", List.of("STARTING", "PAUSED", "EMERGENCY_STOP"));
+            defaults.put("EMERGENCY_STOP", List.of("STOPPED"));
+            return copyTransitions(defaults);
+        }
+
+        private static Map<String, List<String>> copyTransitions(Map<String, List<String>> transitions) {
+            LinkedHashMap<String, List<String>> copy = new LinkedHashMap<>();
+            transitions.forEach((state, nextStates) -> copy.put(state, List.copyOf(nextStates)));
+            return Map.copyOf(copy);
         }
 
         private static String blankToNull(String value) {

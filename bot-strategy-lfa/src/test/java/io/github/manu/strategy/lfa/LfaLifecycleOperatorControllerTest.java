@@ -14,6 +14,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 class LfaLifecycleOperatorControllerTest {
@@ -54,6 +55,10 @@ class LfaLifecycleOperatorControllerTest {
                 .jsonPath("$.effectiveLifecycleState")
                 .isEqualTo("PAUSED")
                 .jsonPath("$.publishEnabled")
+                .isEqualTo(false)
+                .jsonPath("$.allowedNextLifecycleStates[0]")
+                .isEqualTo("ACTIVE")
+                .jsonPath("$.emergencyStopReactivationAllowed")
                 .isEqualTo(false)
                 .jsonPath("$.blockers[0]")
                 .isEqualTo("lfa_lifecycle:paused");
@@ -122,6 +127,33 @@ class LfaLifecycleOperatorControllerTest {
                 .isEqualTo("lifecycleState must be a known LFA lifecycle state");
     }
 
+    @Test
+    void rejects_disallowed_lifecycle_transition() {
+        LfaSignalRunner emergencyRunner = runner("EMERGENCY_STOP", new TradingStateProjection(), new NoopTradingEventBus());
+        LfaLifecycleOperatorController emergencyController = new LfaLifecycleOperatorController(
+                emergencyRunner,
+                new InterventionProperties(new InterventionProperties.OperatorApi(true, "secret-token"), null, null, null, null)
+        );
+        WebTestClient.bindToController(emergencyController)
+                .build()
+                .post()
+                .uri("/internal/strategy/lfa/lifecycle")
+                .header(LfaLifecycleOperatorController.OPERATOR_TOKEN_HEADER, "secret-token")
+                .bodyValue(new LfaLifecycleOperatorController.LifecycleTransitionRequest(
+                        "ACTIVE",
+                        "operator",
+                        "unsafe restart"
+                ))
+                .exchange()
+                .expectStatus()
+                .isBadRequest()
+                .expectBody()
+                .jsonPath("$.error")
+                .isEqualTo("bad_request")
+                .jsonPath("$.message")
+                .isEqualTo("lifecycle transition from EMERGENCY_STOP requires allowEmergencyStopReactivation=true");
+    }
+
     private LfaSignalRunner runner(
             String lifecycleState,
             TradingStateProjection projection,
@@ -150,6 +182,15 @@ class LfaLifecycleOperatorControllerTest {
                 "usdm_futures",
                 lifecycleState,
                 List.of("ACTIVE"),
+                Map.of(
+                        "STARTING", List.of("PAUSED", "STOPPED", "EMERGENCY_STOP"),
+                        "PAUSED", List.of("ACTIVE", "DRAINING", "STOPPED", "EMERGENCY_STOP"),
+                        "ACTIVE", List.of("PAUSED", "DRAINING", "EMERGENCY_STOP"),
+                        "DRAINING", List.of("PAUSED", "STOPPED", "EMERGENCY_STOP"),
+                        "STOPPED", List.of("STARTING", "PAUSED", "EMERGENCY_STOP"),
+                        "EMERGENCY_STOP", List.of("STOPPED")
+                ),
+                false,
                 true,
                 1,
                 1,
