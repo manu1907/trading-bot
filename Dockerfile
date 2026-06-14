@@ -1,8 +1,16 @@
 FROM eclipse-temurin:25-jre
 
+ARG IMAGE_CREATED="unknown"
+ARG IMAGE_REVISION="unknown"
+ARG IMAGE_SOURCE="https://github.com/manu1907/trading-bot"
+ARG IMAGE_VERSION="dev"
+
 LABEL org.opencontainers.image.title="trading-bot"
 LABEL org.opencontainers.image.description="Live trading-bot runtime image"
-LABEL org.opencontainers.image.source="https://github.com/manu1907/trading-bot"
+LABEL org.opencontainers.image.created="${IMAGE_CREATED}"
+LABEL org.opencontainers.image.revision="${IMAGE_REVISION}"
+LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
+LABEL org.opencontainers.image.version="${IMAGE_VERSION}"
 
 WORKDIR /app
 

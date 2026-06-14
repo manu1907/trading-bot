@@ -16,6 +16,14 @@ class ContainerImageContractTest {
 
         assertThat(dockerfile)
                 .contains("FROM eclipse-temurin:25-jre")
+                .contains("ARG IMAGE_CREATED=\"unknown\"")
+                .contains("ARG IMAGE_REVISION=\"unknown\"")
+                .contains("ARG IMAGE_SOURCE=\"https://github.com/manu1907/trading-bot\"")
+                .contains("ARG IMAGE_VERSION=\"dev\"")
+                .contains("org.opencontainers.image.created=\"${IMAGE_CREATED}\"")
+                .contains("org.opencontainers.image.revision=\"${IMAGE_REVISION}\"")
+                .contains("org.opencontainers.image.source=\"${IMAGE_SOURCE}\"")
+                .contains("org.opencontainers.image.version=\"${IMAGE_VERSION}\"")
                 .contains("COPY --chown=tradingbot:tradingbot bot-app/build/libs/bot-app.jar /app/trading-bot.jar")
                 .contains("COPY --chown=tradingbot:tradingbot config /app/config")
                 .contains("ENV SPRING_PROFILES_ACTIVE=live")
@@ -47,9 +55,15 @@ class ContainerImageContractTest {
                 .contains("needs:")
                 .contains("- quality-gate")
                 .contains("./gradlew --no-daemon :bot-app:bootJar")
+                .contains("Capture image metadata")
                 .contains("docker/build-push-action@v6")
+                .contains("IMAGE_REVISION=${{ github.sha }}")
+                .contains("org.opencontainers.image.revision=${{ github.sha }}")
+                .contains("metadata-file: build/container/buildx-metadata.json")
                 .contains("push: false")
-                .contains("tags: trading-bot:${{ github.sha }}");
+                .contains("tags: trading-bot:${{ github.sha }}")
+                .contains("actions/upload-artifact@v5")
+                .contains("trading-bot-image-metadata-${{ github.sha }}");
     }
 
     private Path resolve(String path) {

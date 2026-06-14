@@ -734,9 +734,10 @@ Pause governance metrics:
   packages the `bot-app` boot jar, copies `/app/config`, defaults to
   `SPRING_PROFILES_ACTIVE=live`, sets `BOT_CONFIG_DIR=/app/config`, applies the
   Chronicle Queue JVM access flags, runs as a non-root user, and exposes the
-  readiness health endpoint.
-- GitHub Actions builds that image after the Gradle quality gate but does not
-  publish it yet.
+  readiness health endpoint. It also carries OCI source, revision, version, and
+  build-created labels.
+- GitHub Actions builds that image after the Gradle quality gate and uploads
+  Buildx metadata as a CI artifact, but does not publish the image yet.
 - An AWS equivalent contract already exists at
   `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same bot runtime
   surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL.

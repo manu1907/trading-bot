@@ -89,6 +89,8 @@ Deployment automation must render the Alertmanager profile from
 Secret Manager values outside source control.
 
 The current GitHub Actions workflow validates that the runtime image builds but
-does not publish to Artifact Registry yet. The publish/deploy workflow must add
-traceable image metadata, Secret Manager bindings, Cloud Run rollout controls,
-deployment smoke tests, and rollback.
+does not publish to Artifact Registry yet. The image build already carries OCI
+source/revision/version/created metadata and uploads Buildx metadata as a CI
+artifact. The publish/deploy workflow must add Artifact Registry publication,
+Secret Manager bindings, Cloud Run rollout controls, deployment smoke tests,
+and rollback.

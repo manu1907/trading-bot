@@ -660,8 +660,10 @@ The root `Dockerfile` is the production runtime image contract for Cloud Run and
 ECS. It packages the prebuilt `bot-app` Spring Boot jar, copies
 source-controlled config to `/app/config`, defaults to the `live` profile, sets
 the Chronicle Queue JVM module-access flags, runs as a non-root user, exposes
-the readiness health endpoint, and is built by GitHub Actions after the Gradle
-quality gate without publishing yet.
+the readiness health endpoint, carries OCI source/revision/version/created
+labels, and is built by GitHub Actions after the Gradle quality gate without
+publishing yet. GitHub Actions uploads Buildx metadata as an artifact so the
+image build can be tied back to a commit before registry publication is added.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

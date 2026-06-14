@@ -126,7 +126,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - A Google Cloud real deployment contract now exists at `ops/google-cloud/real-usdm-futures-deployment.yml`; it uses the same code and neutral contract shape, selects `binance/real/main/usdm_futures`, binds real Binance credentials and real audit/projection/alert secrets with isolated `trading-bot-real-*` Secret Manager names, requires manual approval and demo promotion evidence metadata, declares 365-day state retention and 30-day restore drills, and explicitly starts real remediation exchange execution disabled with no real operation allowlist.
 - A persistence recovery runbook now exists at `ops/runbooks/persistence-recovery.md`; it covers journal/projection/audit state surfaces, backup/restore policy, normal startup recovery order, restore sequencing, post-restore acceptance gates, compaction constraints, restore-drill evidence, and failure handling. The runbook requires reconciliation confidence before order admission, remediation execution, or strategy signal publication resumes after restore.
 - A production runtime `Dockerfile` now exists for Cloud Run and ECS deployment automation. It packages the prebuilt `bot-app` boot jar and source-controlled config, defaults to `SPRING_PROFILES_ACTIVE=live`, sets `BOT_CONFIG_DIR=/app/config`, applies the Chronicle Queue JVM access flags needed by the runtime, runs as a non-root `tradingbot` user, exposes the readiness health endpoint, and is guarded by an ops contract test.
-- GitHub Actions now includes a container-image build job after the Gradle quality gate. It builds `:bot-app:bootJar`, builds the root Dockerfile with Docker Buildx, tags the image with the commit SHA, and deliberately does not push yet. Registry publication, signed/traceable metadata, deployment, smoke, rollback, and approval workflows remain open.
+- GitHub Actions now includes a container-image build job after the Gradle quality gate. It builds `:bot-app:bootJar`, builds the root Dockerfile with Docker Buildx, tags the image with the commit SHA, passes OCI source/revision/version/created metadata into the image, uploads Buildx metadata as a CI artifact, and deliberately does not push yet. Registry publication, deployment, smoke, rollback, and approval workflows remain open.
 
 ### Remediation Command Planning And Execution
 
@@ -214,7 +214,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery from the current plan state: 22 to 43 commits/slices.
+Estimated remaining delivery from the current plan state: 21 to 42 commits/slices.
 
 This estimate must be revised after meaningful capability changes. It counts production-quality slices that include implementation, docs/plan updates, formatting, tests/build, live smoke when relevant, commit, push, and CI verification. It is not a feature-count only estimate.
 
@@ -224,7 +224,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 - Live demo/real validation reports and promotion gates: 4 to 6 slices.
 - Observability, alerts, dashboards, and operator controls: 5 to 8 slices.
 - Google Cloud infrastructure and AWS-compatible deployment contract: 5 to 8 slices.
-- CI/CD build, publish, deploy, smoke, rollback, and approval workflows: 3 to 5 slices.
+- CI/CD build, publish, deploy, smoke, rollback, and approval workflows: 2 to 4 slices.
 - Security, secrets, operational runbooks, and incident procedures: 3 to 5 slices.
 - Demo-live burn-in evidence and real-readiness promotion package: 2 to 2 slices.
 
@@ -311,7 +311,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 
 - Keep GitHub Actions as the source CI gate for formatting, tests, static analysis, dependency checks, secret scanning, and container build checks.
 - Container image build checks now exist in GitHub Actions after the Gradle quality gate. Remaining work is publishing to Artifact Registry after CI passes.
-- Add signed or traceable build metadata so a deployment can be tied back to a commit.
+- Traceable build metadata now exists for the container build through OCI labels and uploaded Buildx metadata artifacts. Remaining work is stronger signing/provenance if required by the deployment target.
 - Add deployment workflows for demo and real with separate approvals, environment variables, secrets, and rollout policies.
 - Add smoke tests after deployment: app health, config load, exchange server time, market-data connectivity, user-data stream connectivity, and no unintended exchange action on startup.
 - Add deployment rollback workflow.

@@ -29,6 +29,8 @@ The AWS contract is deliberately parallel to the Google Cloud contract. Moving
 between clouds must not require changing trading, risk, remediation, or exchange
 code. Only deployment automation and cloud service bindings should differ.
 
-GitHub Actions currently validates the image build without publishing. AWS
-publish/deploy automation must later push the same image contract to ECR and
-deploy it with the same app-facing runtime variables and secret names.
+GitHub Actions currently validates the image build without publishing. The image
+build already carries OCI source/revision/version/created metadata and uploads
+Buildx metadata as a CI artifact. AWS publish/deploy automation must later push
+the same image contract to ECR and deploy it with the same app-facing runtime
+variables and secret names.

@@ -405,8 +405,9 @@ Implemented persistence/recovery surfaces include:
 - A production runtime `Dockerfile` now packages the prebuilt `bot-app` boot jar
   and source-controlled config, defaults to the `live` profile, sets the
   Chronicle Queue JVM access flags, runs as a non-root user, and exposes the
-  readiness health endpoint. GitHub Actions builds this image without pushing it
-  after the Gradle quality gate.
+  readiness health endpoint. The image carries OCI source/revision/version/created
+  labels, and GitHub Actions builds this image without pushing it after the
+  Gradle quality gate while uploading Buildx metadata as a CI artifact.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

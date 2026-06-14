@@ -36,8 +36,10 @@ ECS deployment automation. It packages the prebuilt `bot-app` Spring Boot jar,
 copies source-controlled config to `/app/config`, defaults to the `live`
 profile, sets `BOT_CONFIG_DIR=/app/config`, includes the Chronicle Queue JVM
 module-access flags required by the runtime, runs as a non-root `tradingbot`
-user, and exposes the readiness health endpoint. GitHub Actions currently
-builds the image without pushing it; registry publication and deployment
+user, and exposes the readiness health endpoint. The image carries OCI metadata
+labels for source repository, git revision, ref/version, and build creation
+time. GitHub Actions currently builds the image without pushing it and uploads
+the Buildx metadata as an artifact; registry publication and deployment
 workflows remain separate guarded CI/CD slices.
 
 Current implementations:
