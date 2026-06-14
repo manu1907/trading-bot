@@ -91,6 +91,16 @@ Secret Manager values outside source control.
 The current GitHub Actions workflow validates that the runtime image builds but
 does not publish to Artifact Registry yet. The image build already carries OCI
 source/revision/version/created metadata and uploads Buildx metadata as a CI
-artifact. The publish/deploy workflow must add Artifact Registry publication,
-Secret Manager bindings, Cloud Run rollout controls, deployment smoke tests,
-and rollback.
+artifact.
+
+`publish-google-cloud-image.yml` publishes the image to Artifact Registry when
+manually dispatched. Before pushing, it verifies that the source commit has a
+successful `Security` workflow run. It requires a GitHub environment named
+`demo` or `real`, OIDC Workload Identity secrets
+`GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_ARTIFACT_REGISTRY_SERVICE_ACCOUNT`,
+and environment variables `GCP_PROJECT_ID`,
+`GCP_ARTIFACT_REGISTRY_LOCATION`, and
+`GCP_ARTIFACT_REGISTRY_REPOSITORY`. It tags images with the full commit SHA and
+`{environment}-{sha}`, then uploads publish metadata as a workflow artifact.
+The deployment workflow must still add Secret Manager bindings, Cloud Run
+rollout controls, deployment smoke tests, and rollback.

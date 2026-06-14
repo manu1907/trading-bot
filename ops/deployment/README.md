@@ -42,6 +42,12 @@ time. GitHub Actions currently builds the image without pushing it and uploads
 the Buildx metadata as an artifact; registry publication and deployment
 workflows remain separate guarded CI/CD slices.
 
+`.github/workflows/publish-google-cloud-image.yml` is the guarded Google Cloud
+publication workflow. It is manual only, uses GitHub environment approval for
+`demo` and `real`, authenticates to Google Cloud through OIDC Workload Identity,
+publishes the same Dockerfile to Artifact Registry with commit-SHA tags, and
+uploads publish metadata. It does not deploy Cloud Run yet.
+
 Current implementations:
 
 - `ops/google-cloud/demo-usdm-futures-deployment.yml`

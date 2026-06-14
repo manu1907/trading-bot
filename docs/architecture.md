@@ -664,6 +664,10 @@ the readiness health endpoint, carries OCI source/revision/version/created
 labels, and is built by GitHub Actions after the Gradle quality gate without
 publishing yet. GitHub Actions uploads Buildx metadata as an artifact so the
 image build can be tied back to a commit before registry publication is added.
+The guarded Google Cloud image-publish workflow is manual, environment-gated,
+verifies that the requested commit passed the `Security` workflow, uses OIDC
+Workload Identity, publishes to Artifact Registry with commit-SHA tags, and
+uploads publish metadata; Cloud Run deployment remains a later workflow.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

@@ -408,6 +408,11 @@ Implemented persistence/recovery surfaces include:
   readiness health endpoint. The image carries OCI source/revision/version/created
   labels, and GitHub Actions builds this image without pushing it after the
   Gradle quality gate while uploading Buildx metadata as a CI artifact.
+- A guarded manual Google Cloud image publication workflow now publishes the
+  same Dockerfile to Artifact Registry after verifying the requested commit has
+  passed the `Security` workflow, using GitHub environment gates, OIDC Workload
+  Identity, commit-SHA tags, OCI metadata, and uploaded publish evidence. It
+  does not deploy Cloud Run yet.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

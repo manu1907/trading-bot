@@ -738,6 +738,11 @@ Pause governance metrics:
   build-created labels.
 - GitHub Actions builds that image after the Gradle quality gate and uploads
   Buildx metadata as a CI artifact, but does not publish the image yet.
+- The Google Cloud image-publish workflow is manual and environment-gated. It
+  verifies that the requested commit passed the `Security` workflow, then
+  publishes the same image to Artifact Registry with commit-SHA tags, using OIDC
+  Workload Identity and GitHub environment variables for project, location, and
+  repository. It does not deploy Cloud Run yet.
 - An AWS equivalent contract already exists at
   `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same bot runtime
   surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL.

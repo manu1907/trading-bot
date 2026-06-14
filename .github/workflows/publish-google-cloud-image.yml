@@ -1,0 +1,143 @@
+name: Publish Google Cloud Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target runtime environment for the image tag and GitHub environment gate.
+        required: true
+        type: choice
+        options:
+          - demo
+          - real
+      commit_sha:
+        description: Commit SHA to publish. Defaults to the workflow ref SHA.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+concurrency:
+  group: publish-google-cloud-image-${{ inputs.environment }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish image to Artifact Registry
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Resolve publish target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          requested_sha="${{ inputs.commit_sha }}"
+          if [ -z "$requested_sha" ]; then
+            requested_sha="${GITHUB_SHA}"
+          fi
+          case "${{ inputs.environment }}" in
+            demo|real) ;;
+            *) echo "Unsupported environment: ${{ inputs.environment }}" >&2; exit 1 ;;
+          esac
+          if ! [[ "$requested_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "commit_sha must be a full 40-character lowercase git SHA" >&2
+            exit 1
+          fi
+          echo "sha=$requested_sha" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+          echo "image=${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}/trading-bot" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout requested commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+
+      - name: Verify source CI passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          response="$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${{ steps.target.outputs.sha }}&event=push&per_page=20")"
+          passed_runs="$(printf '%s' "$response" \
+            | jq '[.workflow_runs[] | select(.name == "Security" and .conclusion == "success")] | length')"
+          if [ "$passed_runs" -lt 1 ]; then
+            echo "Security workflow has not passed for ${{ steps.target.outputs.sha }}" >&2
+            exit 1
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - name: Build boot jar
+        run: ./gradlew --no-daemon :bot-app:bootJar
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_ARTIFACT_REGISTRY_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Artifact Registry Docker auth
+        run: gcloud auth configure-docker ${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev --quiet
+
+      - name: Capture image metadata
+        run: |
+          mkdir -p build/container
+          cat > build/container/google-cloud-image-publish-context.json <<JSON
+          {
+            "image": "${{ steps.target.outputs.image }}:${{ steps.target.outputs.sha }}",
+            "environment": "${{ inputs.environment }}",
+            "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}",
+            "revision": "${{ steps.target.outputs.sha }}",
+            "workflow_run": "${GITHUB_RUN_ID}",
+            "workflow_attempt": "${GITHUB_RUN_ATTEMPT}",
+            "artifact_registry_location": "${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION }}",
+            "artifact_registry_repository": "${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}"
+          }
+          JSON
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and publish runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            IMAGE_CREATED=${{ steps.target.outputs.created }}
+            IMAGE_REVISION=${{ steps.target.outputs.sha }}
+            IMAGE_SOURCE=${{ github.server_url }}/${{ github.repository }}
+            IMAGE_VERSION=${{ github.ref_name }}
+          labels: |
+            org.opencontainers.image.created=${{ steps.target.outputs.created }}
+            org.opencontainers.image.revision=${{ steps.target.outputs.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            io.github.manu.trading-bot.environment=${{ inputs.environment }}
+          metadata-file: build/container/google-cloud-buildx-metadata.json
+          tags: |
+            ${{ steps.target.outputs.image }}:${{ steps.target.outputs.sha }}
+            ${{ steps.target.outputs.image }}:${{ inputs.environment }}-${{ steps.target.outputs.sha }}
+
+      - name: Upload publish metadata
+        uses: actions/upload-artifact@v5
+        with:
+          name: trading-bot-google-cloud-image-${{ inputs.environment }}-${{ steps.target.outputs.sha }}
+          path: build/container/*.json
+          if-no-files-found: error
