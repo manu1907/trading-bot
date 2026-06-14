@@ -88,9 +88,9 @@ Deployment automation must render the Alertmanager profile from
 `ops/alertmanager/pause-governance-alertmanager.yml` by substituting these
 Secret Manager values outside source control.
 
-The current GitHub Actions workflow validates that the runtime image builds but
-does not publish to Artifact Registry yet. The image build already carries OCI
-source/revision/version/created metadata and uploads Buildx metadata as a CI
+The ordinary `Security` GitHub Actions workflow validates that the runtime image
+builds without publishing to Artifact Registry. The image build already carries
+OCI source/revision/version/created metadata and uploads Buildx metadata as a CI
 artifact.
 
 `publish-google-cloud-image.yml` publishes the image to Artifact Registry when
@@ -108,5 +108,15 @@ Run when manually dispatched. It verifies the requested commit passed
 `Security`, verifies the Artifact Registry image exists, applies the deployment
 contract runtime variables and Secret Manager bindings, uses the configured
 Cloud Run deploy/runtime service accounts, blocks unauthenticated access, labels
-the revision with the source commit, and uploads deployment metadata. Deployment
-smoke tests and rollback automation remain open.
+the revision with the source commit, and uploads deployment metadata.
+
+`smoke-google-cloud-cloud-run.yml` verifies an already deployed Cloud Run service
+when manually dispatched. It uses the same `demo` and `real` GitHub environment
+gates, verifies that the requested commit passed `Security`, authenticates to
+Google Cloud through OIDC, checks that the latest ready revision is labeled with
+the requested commit SHA and is running the matching commit-tagged image, calls
+the private `/actuator/health/readiness` endpoint with an identity token, and
+uploads smoke evidence. It requires
+`GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT`; that service account must have permission
+to describe the target Cloud Run service/revision and invoke the private service
+through `roles/run.invoker`. Rollback automation remains open.

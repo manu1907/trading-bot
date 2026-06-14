@@ -417,8 +417,12 @@ Implemented persistence/recovery surfaces include:
   previously published commit-tagged image after verifying `Security` success
   and image existence, maps contract runtime variables and Secret Manager
   bindings, blocks unauthenticated access, labels the revision with the source
-  commit, and uploads deployment evidence. Post-deployment smoke and rollback
-  automation remain open.
+  commit, and uploads deployment evidence.
+- A guarded manual Google Cloud Cloud Run smoke workflow now verifies the latest
+  ready private Cloud Run revision after deployment. It checks `Security` success
+  for the requested commit, verifies the revision source label and image tag,
+  calls `/actuator/health/readiness` with a Google identity token, and uploads
+  smoke evidence. Rollback automation remains open.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

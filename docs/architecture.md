@@ -672,8 +672,12 @@ The guarded Cloud Run deployment workflow is also manual and environment-gated:
 it verifies `Security` success, verifies the commit-tagged image exists, applies
 the Google Cloud deployment contract runtime variables and Secret Manager
 bindings, blocks unauthenticated access, labels the revision with the source
-commit, and uploads deployment metadata. Deployment smoke and rollback remain
-separate workflows.
+commit, and uploads deployment metadata. The guarded Cloud Run smoke workflow is
+manual and environment-gated as well: it verifies `Security` success for the
+requested commit, confirms that the latest ready revision is labeled with that
+commit and runs the matching commit-tagged image, invokes the private readiness
+endpoint with a Google identity token, and uploads smoke evidence. Rollback
+automation remains a separate workflow.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

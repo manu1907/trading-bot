@@ -126,9 +126,10 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - A Google Cloud real deployment contract now exists at `ops/google-cloud/real-usdm-futures-deployment.yml`; it uses the same code and neutral contract shape, selects `binance/real/main/usdm_futures`, binds real Binance credentials and real audit/projection/alert secrets with isolated `trading-bot-real-*` Secret Manager names, requires manual approval and demo promotion evidence metadata, declares 365-day state retention and 30-day restore drills, and explicitly starts real remediation exchange execution disabled with no real operation allowlist.
 - A persistence recovery runbook now exists at `ops/runbooks/persistence-recovery.md`; it covers journal/projection/audit state surfaces, backup/restore policy, normal startup recovery order, restore sequencing, post-restore acceptance gates, compaction constraints, restore-drill evidence, and failure handling. The runbook requires reconciliation confidence before order admission, remediation execution, or strategy signal publication resumes after restore.
 - A production runtime `Dockerfile` now exists for Cloud Run and ECS deployment automation. It packages the prebuilt `bot-app` boot jar and source-controlled config, defaults to `SPRING_PROFILES_ACTIVE=live`, sets `BOT_CONFIG_DIR=/app/config`, applies the Chronicle Queue JVM access flags needed by the runtime, runs as a non-root `tradingbot` user, exposes the readiness health endpoint, and is guarded by an ops contract test.
-- GitHub Actions now includes a container-image build job after the Gradle quality gate. It builds `:bot-app:bootJar`, builds the root Dockerfile with Docker Buildx, tags the image with the commit SHA, passes OCI source/revision/version/created metadata into the image, uploads Buildx metadata as a CI artifact, and deliberately does not push yet. Registry publication, deployment, smoke, rollback, and approval workflows remain open.
+- GitHub Actions now includes a container-image build job after the Gradle quality gate. It builds `:bot-app:bootJar`, builds the root Dockerfile with Docker Buildx, tags the image with the commit SHA, passes OCI source/revision/version/created metadata into the image, uploads Buildx metadata as a CI artifact, and deliberately does not push during ordinary source CI. Guarded manual publication, deployment, and post-deployment Cloud Run smoke workflows now cover the Google Cloud path; rollback automation and any deeper exchange-connectivity smoke remain open.
 - A guarded manual Google Cloud image publication workflow now exists at `.github/workflows/publish-google-cloud-image.yml`. It publishes the same Dockerfile to Artifact Registry only after verifying the requested commit passed the `Security` workflow, using GitHub environment gates for `demo` or `real`, OIDC Workload Identity, full commit-SHA validation, commit-SHA and environment-SHA tags, OCI source/revision/version/created metadata, and uploaded publish metadata. It does not deploy Cloud Run yet.
-- A guarded manual Google Cloud Cloud Run deployment workflow now exists at `.github/workflows/deploy-google-cloud-cloud-run.yml`. It deploys a previously published commit-tagged image only after verifying the requested commit passed the `Security` workflow and the Artifact Registry image exists, using GitHub environment gates for `demo` or `real`, OIDC Workload Identity, the checked-in Google Cloud deployment contract runtime variables and Secret Manager bindings, unauthenticated-access blocking, source-commit revision labels, and uploaded deployment metadata. Deployment smoke tests and rollback automation remain open.
+- A guarded manual Google Cloud Cloud Run deployment workflow now exists at `.github/workflows/deploy-google-cloud-cloud-run.yml`. It deploys a previously published commit-tagged image only after verifying the requested commit passed the `Security` workflow and the Artifact Registry image exists, using GitHub environment gates for `demo` or `real`, OIDC Workload Identity, the checked-in Google Cloud deployment contract runtime variables and Secret Manager bindings, unauthenticated-access blocking, source-commit revision labels, and uploaded deployment metadata.
+- A guarded manual Google Cloud Cloud Run smoke workflow now exists at `.github/workflows/smoke-google-cloud-cloud-run.yml`. It verifies an already deployed private Cloud Run service only after checking `Security` success for the requested commit, using the same `demo`/`real` GitHub environment gates and OIDC Workload Identity. It confirms that the latest ready revision is labeled with the requested commit, confirms the revision image uses the matching commit tag, calls `/actuator/health/readiness` with a Google identity token, requires `UP`, and uploads smoke evidence. Rollback automation remains open.
 
 ### Remediation Command Planning And Execution
 
@@ -216,7 +217,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery from the current plan state: 19 to 40 commits/slices.
+Estimated remaining delivery from the current plan state: 18 to 39 commits/slices.
 
 This estimate must be revised after meaningful capability changes. It counts production-quality slices that include implementation, docs/plan updates, formatting, tests/build, live smoke when relevant, commit, push, and CI verification. It is not a feature-count only estimate.
 
@@ -226,7 +227,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 - Live demo/real validation reports and promotion gates: 4 to 6 slices.
 - Observability, alerts, dashboards, and operator controls: 5 to 8 slices.
 - Google Cloud infrastructure and AWS-compatible deployment contract: 5 to 8 slices.
-- CI/CD build, publish, deploy, smoke, rollback, and approval workflows: 0 to 2 slices.
+- CI/CD build, publish, deploy, smoke, rollback, and approval workflows: 0 to 1 slices.
 - Security, secrets, operational runbooks, and incident procedures: 3 to 5 slices.
 - Demo-live burn-in evidence and real-readiness promotion package: 2 to 2 slices.
 
@@ -312,10 +313,10 @@ This estimate must be revised after meaningful capability changes. It counts pro
 ### Roadmap Slice 7: CI/CD Pipeline
 
 - Keep GitHub Actions as the source CI gate for formatting, tests, static analysis, dependency checks, secret scanning, and container build checks.
-- Container image build checks now exist in GitHub Actions after the Gradle quality gate, guarded manual Artifact Registry publication now exists for Google Cloud, and guarded manual Cloud Run deployment now exists for published commit-tagged images. Remaining work is post-deployment smoke tests and rollback automation.
+- Container image build checks now exist in GitHub Actions after the Gradle quality gate, guarded manual Artifact Registry publication now exists for Google Cloud, guarded manual Cloud Run deployment now exists for published commit-tagged images, and guarded manual Cloud Run revision/readiness smoke now exists for private deployed services. Remaining work is rollback automation and any deeper exchange-connectivity smoke required by the promotion gate.
 - Traceable build metadata now exists for the container build through OCI labels and uploaded Buildx metadata artifacts. Remaining work is stronger signing/provenance if required by the deployment target.
 - Deployment workflows for demo and real now share the same guarded Google Cloud workflow with separate GitHub environment gates, environment variables, secrets, and rollout policy inputs.
-- Add smoke tests after deployment: app health, config load, exchange server time, market-data connectivity, user-data stream connectivity, and no unintended exchange action on startup.
+- Expand smoke tests after deployment beyond the current private Cloud Run revision/readiness check when promotion requires it: config-load evidence, exchange server time, market-data connectivity, user-data stream connectivity, and no unintended exchange action on startup.
 - Add deployment rollback workflow.
 - Definition of done: merging to the deployment branch can build, publish, deploy to demo, run smoke tests, and require explicit approval before any real deployment.
 

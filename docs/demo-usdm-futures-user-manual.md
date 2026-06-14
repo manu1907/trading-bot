@@ -747,8 +747,12 @@ Pause governance metrics:
   environment-gated. It verifies the requested commit passed `Security`, checks
   that the commit-tagged image exists in Artifact Registry, maps the checked-in
   deployment contract runtime variables and Secret Manager bindings into Cloud
-  Run, blocks unauthenticated access, and records deployment metadata. It does
-  not yet run deployment smoke tests or rollback automation.
+  Run, blocks unauthenticated access, and records deployment metadata.
+- The Google Cloud Cloud Run smoke workflow is manual and environment-gated. It
+  verifies that the latest ready private Cloud Run revision belongs to the
+  requested commit, runs the matching commit-tagged image, returns `UP` from
+  `/actuator/health/readiness` through an authenticated identity-token request,
+  and records smoke metadata. It does not yet provide rollback automation.
 - An AWS equivalent contract already exists at
   `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same bot runtime
   surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL.

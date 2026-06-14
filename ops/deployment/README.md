@@ -54,8 +54,15 @@ environment gates, verifies the requested commit passed the `Security` workflow,
 verifies the commit-tagged Artifact Registry image exists, maps the
 source-controlled Google Cloud deployment contract runtime variables and Secret
 Manager bindings into Cloud Run, deploys a commit-labeled revision, and uploads
-deployment metadata. Post-deployment smoke tests and rollback automation remain
-separate guarded workflow slices.
+deployment metadata.
+
+`.github/workflows/smoke-google-cloud-cloud-run.yml` is the guarded Cloud Run
+post-deployment smoke workflow. It is manual only, uses the same `demo` and
+`real` GitHub environment gates, verifies `Security` success for the requested
+commit, checks that the latest ready Cloud Run revision is labeled with that
+commit and runs the matching commit-tagged image, invokes the private readiness
+endpoint using a Google identity token, and uploads smoke metadata. Rollback
+automation remains a separate guarded workflow slice.
 
 Current implementations:
 
