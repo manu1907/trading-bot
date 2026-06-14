@@ -19,5 +19,6 @@ dependencies {
     implementation("io.projectreactor:reactor-core")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("tools.jackson.core:jackson-databind")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

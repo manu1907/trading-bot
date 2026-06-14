@@ -401,6 +401,7 @@ Implemented persistence/recovery surfaces include:
 - Recovery test coverage now verifies that active symbol pause governance restored from a file snapshot still blocks new order admission through the order risk gate after restart.
 - Recovery test coverage now verifies that restored managed-order unknown modify state still blocks execution and preserves the generic reconciliation action in the remediation executor report after restart.
 - Recovery test coverage now verifies that restored adopted-order ambiguous modify state still blocks execution and preserves reconciliation action plus rollback blocker metadata in the remediation executor report after restart.
+- Recovery test coverage now verifies that restored LFA strategy state with usable market data still blocks signal publication after restart until target reconciliation has at least one observation.
 - Position projection metadata now retains `leverage`, `margin_type`, and `isolated_margin` so recovered snapshots keep the account-risk data used by remediation policy.
 - Daily realized PnL projection now accumulates non-duplicate, non-stale execution-report attributes (`realizedProfit`, `realizedPnl`, or `realized_pnl`) by provider, environment, account, market, optional symbol, and UTC trading day. File and JDBC snapshots persist account-scope and symbol-scope accounting state for recovery and risk policy.
 - Audit persistence for supported intervention and pause governance flows.

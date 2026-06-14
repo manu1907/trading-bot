@@ -1,5 +1,6 @@
 package io.github.manu.strategy.lfa;
 
+import io.github.manu.config.JsonMapperFactory;
 import io.github.manu.events.TradingEventEnvelope;
 import io.github.manu.events.TradingEventType;
 import io.github.manu.events.v1.StrategySignalEvent;
@@ -13,6 +14,7 @@ import io.github.manu.execution.StrategyInstrumentUniverseResolver;
 import io.github.manu.messaging.DeadLetterTradingEvent;
 import io.github.manu.messaging.PublishedTradingEvent;
 import io.github.manu.messaging.TradingEventBus;
+import io.github.manu.projection.FileTradingStateProjectionStore;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
 import io.github.manu.reconciliation.ReconciliationConfidenceStatus;
@@ -20,8 +22,10 @@ import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationObservation;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -38,6 +42,9 @@ class LfaSignalRunnerTest {
 
     private static final Instant NOW = Instant.parse("2026-06-12T12:00:00Z");
     private final CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+
+    @TempDir
+    private Path temporaryDirectory;
 
     @Test
     void publishes_symbol_specific_strategy_signal_from_projected_market_data() {
@@ -161,6 +168,32 @@ class LfaSignalRunnerTest {
         LfaSignalRunner runner = runner(
                 enabledProperties(),
                 projection,
+                enabledExecutionProperties(),
+                new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC))
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:reconciliation_blocked");
+        assertThat(result.blockers()).containsExactly("lfa_reconciliation:no_observations");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void restored_snapshot_blocks_signal_resume_until_target_reconciliation_is_observed_after_restart() {
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        FileTradingStateProjectionStore store = new FileTradingStateProjectionStore(
+                temporaryDirectory.resolve("projection").resolve("trading-state.json"),
+                JsonMapperFactory.create()
+        );
+        store.save(projection.snapshot());
+        TradingStateProjection restoredProjection = new TradingStateProjection();
+        restoredProjection.restore(store.load().orElseThrow());
+        LfaSignalRunner runner = runner(
+                enabledProperties(),
+                restoredProjection,
                 enabledExecutionProperties(),
                 new ReconciliationConfidenceTracker(Clock.fixed(NOW, ZoneOffset.UTC))
         );
