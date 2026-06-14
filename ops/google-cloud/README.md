@@ -13,6 +13,8 @@ change the app-facing runtime variables or trading behavior.
 Binance USD-M futures demo target:
 
 - Cloud Run service: `trading-bot-demo-main-usdm-futures`.
+- Runtime image: root `Dockerfile`, built from the `bot-app` boot jar and
+  source-controlled config.
 - Active target: `binance / demo / main / usdm_futures`.
 - Runtime config directory: `/app/config`.
 - Operator API enabled with `X-Operator-Token` bound from Secret Manager.
@@ -85,3 +87,8 @@ the Binance USD-M futures real target:
 Deployment automation must render the Alertmanager profile from
 `ops/alertmanager/pause-governance-alertmanager.yml` by substituting these
 Secret Manager values outside source control.
+
+The current GitHub Actions workflow validates that the runtime image builds but
+does not publish to Artifact Registry yet. The publish/deploy workflow must add
+traceable image metadata, Secret Manager bindings, Cloud Run rollout controls,
+deployment smoke tests, and rollback.

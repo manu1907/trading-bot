@@ -16,6 +16,7 @@ across cloud providers:
 - Trading-state projection retention, compaction, backup, and restore-drill
   policy.
 - Journal archive destination, layout, and retention policy.
+- Production runtime container image contract.
 
 Cloud-specific contracts must implement this shape without changing bot code.
 Google Cloud and AWS can use different runtimes, secret managers, registries,
@@ -29,6 +30,15 @@ use file snapshots unless runtime environment variables override them.
 
 The recovery and restore procedure is documented in
 `ops/runbooks/persistence-recovery.md`.
+
+The root `Dockerfile` defines the production runtime image used by Cloud Run and
+ECS deployment automation. It packages the prebuilt `bot-app` Spring Boot jar,
+copies source-controlled config to `/app/config`, defaults to the `live`
+profile, sets `BOT_CONFIG_DIR=/app/config`, includes the Chronicle Queue JVM
+module-access flags required by the runtime, runs as a non-root `tradingbot`
+user, and exposes the readiness health endpoint. GitHub Actions currently
+builds the image without pushing it; registry publication and deployment
+workflows remain separate guarded CI/CD slices.
 
 Current implementations:
 

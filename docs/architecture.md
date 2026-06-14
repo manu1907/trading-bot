@@ -655,6 +655,14 @@ secrets, 365-day state retention, 30-day restore drills, and remediation
 exchange execution disabled until promotion
 evidence, manual approval, and explicit real-operation allowlists are supplied by
 deployment.
+
+The root `Dockerfile` is the production runtime image contract for Cloud Run and
+ECS. It packages the prebuilt `bot-app` Spring Boot jar, copies
+source-controlled config to `/app/config`, defaults to the `live` profile, sets
+the Chronicle Queue JVM module-access flags, runs as a non-root user, exposes
+the readiness health endpoint, and is built by GitHub Actions after the Gradle
+quality gate without publishing yet.
+
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

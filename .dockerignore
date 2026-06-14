@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!bot-app/
+!bot-app/build/
+!bot-app/build/libs/
+!bot-app/build/libs/bot-app.jar
+!config/
+!config/**

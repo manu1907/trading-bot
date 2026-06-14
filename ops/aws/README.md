@@ -11,6 +11,8 @@ demo contract. It keeps the same app-facing runtime surface and maps
 cloud-specific services as follows:
 
 - Runtime: ECS Fargate.
+- Runtime image: root `Dockerfile`, built from the `bot-app` boot jar and
+  source-controlled config.
 - Image registry: ECR, provided through `TRADING_BOT_IMAGE`.
 - Secrets: AWS Secrets Manager, referenced by secret name and `AWSCURRENT`.
 - Audit database: RDS PostgreSQL.
@@ -26,3 +28,7 @@ cloud-specific services as follows:
 The AWS contract is deliberately parallel to the Google Cloud contract. Moving
 between clouds must not require changing trading, risk, remediation, or exchange
 code. Only deployment automation and cloud service bindings should differ.
+
+GitHub Actions currently validates the image build without publishing. AWS
+publish/deploy automation must later push the same image contract to ECR and
+deploy it with the same app-facing runtime variables and secret names.

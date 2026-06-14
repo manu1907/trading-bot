@@ -730,6 +730,13 @@ Pause governance metrics:
 - Deployment contracts use the neutral schema in
   `ops/deployment/deployment-contract.yml`, so another cloud must keep the same
   app-facing runtime variables and secret keys.
+- The root `Dockerfile` is the current production runtime image contract. It
+  packages the `bot-app` boot jar, copies `/app/config`, defaults to
+  `SPRING_PROFILES_ACTIVE=live`, sets `BOT_CONFIG_DIR=/app/config`, applies the
+  Chronicle Queue JVM access flags, runs as a non-root user, and exposes the
+  readiness health endpoint.
+- GitHub Actions builds that image after the Gradle quality gate but does not
+  publish it yet.
 - An AWS equivalent contract already exists at
   `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same bot runtime
   surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL.

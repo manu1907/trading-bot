@@ -402,6 +402,11 @@ Implemented persistence/recovery surfaces include:
   archive policy. Google Cloud demo/real and AWS demo contracts disable file
   projection snapshots in ephemeral runtimes and bind projection JDBC settings
   through secrets.
+- A production runtime `Dockerfile` now packages the prebuilt `bot-app` boot jar
+  and source-controlled config, defaults to the `live` profile, sets the
+  Chronicle Queue JVM access flags, runs as a non-root user, and exposes the
+  readiness health endpoint. GitHub Actions builds this image without pushing it
+  after the Gradle quality gate.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.
