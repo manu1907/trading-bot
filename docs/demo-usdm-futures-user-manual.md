@@ -712,9 +712,19 @@ Pause governance metrics:
   names.
 - For Cloud Run, that contract disables ephemeral JSONL audit persistence and
   selects indexed JDBC pause-governance audit persistence.
+- For Cloud Run/ECS, deployment contracts disable ephemeral file projection
+  snapshots and select indexed JDBC trading-state projection persistence through
+  `TRADING_PROJECTION_JDBC_*` secrets.
 - The demo JDBC audit backend is specified as Cloud SQL PostgreSQL with
   deployment-owned schema migration, 180-day retention, Cloud SQL automated
   backups, at least 7 recovery days, and a 90-day restore-drill interval.
+- The demo projection backend is specified as Cloud SQL PostgreSQL with
+  180-day retention, compaction that preserves the latest snapshot and applied
+  event ids, Cloud SQL automated backups, at least 7 recovery days, and a
+  90-day restore-drill interval.
+- The persistence recovery runbook lives at
+  `ops/runbooks/persistence-recovery.md`; it defines restore sequencing,
+  reconciliation gates, compaction constraints, and restore-drill evidence.
 - Full infrastructure provisioning and CI/CD deployment workflows are still
   planned work.
 - Deployment contracts use the neutral schema in

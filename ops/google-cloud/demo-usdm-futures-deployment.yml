@@ -27,6 +27,10 @@ runtime_env:
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_ENABLED: "true"
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_TABLE_PREFIX: trading_audit_pause_governance_
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA: "false"
+  TRADING_PROJECTION_SNAPSHOT_STORE_ENABLED: "false"
+  TRADING_PROJECTION_JDBC_STORE_ENABLED: "true"
+  TRADING_PROJECTION_JDBC_STORE_TABLE_PREFIX: trading_projection_
+  TRADING_PROJECTION_JDBC_STORE_INITIALIZE_SCHEMA: "false"
 
 secret_env:
   BINANCE_DEMO_API_KEY:
@@ -46,6 +50,15 @@ secret_env:
     version: latest
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD:
     secret: trading-bot-demo-audit-jdbc-password
+    version: latest
+  TRADING_PROJECTION_JDBC_URL:
+    secret: trading-bot-demo-projection-jdbc-url
+    version: latest
+  TRADING_PROJECTION_JDBC_USERNAME:
+    secret: trading-bot-demo-projection-jdbc-username
+    version: latest
+  TRADING_PROJECTION_JDBC_PASSWORD:
+    secret: trading-bot-demo-projection-jdbc-password
     version: latest
 
 alertmanager_secret_substitutions:
@@ -86,3 +99,29 @@ audit_backend:
       mechanism: cloud_sql_automated_backup
       minimum_recovery_days: 7
       restore_test_interval_days: 90
+
+state_backend:
+  projection:
+    selected: jdbc
+    jdbc:
+      database: cloud_sql_postgresql
+      schema_owner: deployment_migration
+      table_prefix: trading_projection_
+      retention_days: 180
+      compaction:
+        enabled: true
+        minimum_interval_days: 7
+        preserve_latest_snapshot: true
+        preserve_applied_event_ids: true
+      backups:
+        enabled: true
+        mechanism: cloud_sql_automated_backup
+        minimum_recovery_days: 7
+        restore_test_interval_days: 90
+  journal_archive:
+    enabled: true
+    mechanism: cloud_storage_object_archive
+    bucket: ${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET}
+    prefix: demo/main/usdm_futures
+    layout: trading_event_archive_layout_v1
+    retention_days: 180

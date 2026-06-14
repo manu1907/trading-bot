@@ -640,16 +640,19 @@ USD-M futures demo lives in `ops/google-cloud/demo-usdm-futures-deployment.yml`;
 it selects Cloud Run, binds the active target through environment variables,
 maps Binance credentials, operator token, audit JDBC credentials, and
 Alertmanager receiver substitutions to Secret Manager names, disables ephemeral
-JSONL audit persistence for Cloud Run, and selects indexed JDBC audit
-persistence with deployment-owned schema migration, 180-day retention, Cloud SQL
-automated backups, and 90-day restore drills. Deployment contracts now use the
+JSONL audit persistence and file projection snapshots for Cloud Run, selects
+indexed JDBC audit and projection persistence with deployment-owned schema
+migration, 180-day retention, Cloud SQL automated backups, and 90-day restore
+drills, and declares journal archive policy. Deployment contracts now use the
 cloud-neutral schema in `ops/deployment/deployment-contract.yml`; an AWS
 equivalent lives in `ops/aws/demo-usdm-futures-deployment.yml` and maps the same
-app-facing runtime variables to ECS Fargate, AWS Secrets Manager, and RDS
-PostgreSQL without changing trading code. A matching Google Cloud real contract
-lives in `ops/google-cloud/real-usdm-futures-deployment.yml`; it selects the
-real Binance USD-M futures target with isolated real credentials and real audit
-secrets, while keeping remediation exchange execution disabled until promotion
+app-facing runtime variables to ECS Fargate, AWS Secrets Manager, RDS
+PostgreSQL, and S3 archive policy without changing trading code. A matching
+Google Cloud real contract lives in
+`ops/google-cloud/real-usdm-futures-deployment.yml`; it selects the real Binance
+USD-M futures target with isolated real credentials and real audit/projection
+secrets, 365-day state retention, 30-day restore drills, and remediation
+exchange execution disabled until promotion
 evidence, manual approval, and explicit real-operation allowlists are supplied by
 deployment.
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
@@ -911,6 +914,12 @@ Archive object names for journal exports are defined by
 The layout is a contract for later upload/archive code; hot-path trading should
 append to the local journal and publish events without waiting on GCS or
 database writes.
+
+Operational retention, compaction, backup, restore, and post-restore
+reconciliation procedures live in `ops/runbooks/persistence-recovery.md`. That
+runbook requires side-effecting runtime components to stay disabled during
+restore/replay and requires reconciliation confidence before order admission,
+remediation execution, or strategy signal publication resumes.
 
 ## Demo And Real
 

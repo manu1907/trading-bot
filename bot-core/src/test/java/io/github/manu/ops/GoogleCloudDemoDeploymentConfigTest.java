@@ -45,7 +45,11 @@ class GoogleCloudDemoDeploymentConfigTest {
                 .containsEntry("TRADING_INTERVENTION_OPERATOR_API_ENABLED", "true")
                 .containsEntry("TRADING_AUDIT_PAUSE_GOVERNANCE_FILE_STORE_ENABLED", "false")
                 .containsEntry("TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_ENABLED", "true")
-                .containsEntry("TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA", "false");
+                .containsEntry("TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA", "false")
+                .containsEntry("TRADING_PROJECTION_SNAPSHOT_STORE_ENABLED", "false")
+                .containsEntry("TRADING_PROJECTION_JDBC_STORE_ENABLED", "true")
+                .containsEntry("TRADING_PROJECTION_JDBC_STORE_TABLE_PREFIX", "trading_projection_")
+                .containsEntry("TRADING_PROJECTION_JDBC_STORE_INITIALIZE_SCHEMA", "false");
 
         Map<String, Object> auditBackend = map(deployment, "audit_backend");
         assertThat(auditBackend).containsEntry("selected", "jdbc");
@@ -61,6 +65,33 @@ class GoogleCloudDemoDeploymentConfigTest {
                 .containsEntry("mechanism", "cloud_sql_automated_backup")
                 .containsEntry("minimum_recovery_days", 7)
                 .containsEntry("restore_test_interval_days", 90);
+
+        Map<String, Object> stateBackend = map(deployment, "state_backend");
+        Map<String, Object> projection = map(stateBackend, "projection");
+        assertThat(projection).containsEntry("selected", "jdbc");
+        Map<String, Object> projectionJdbc = map(projection, "jdbc");
+        assertThat(projectionJdbc)
+                .containsEntry("database", "cloud_sql_postgresql")
+                .containsEntry("schema_owner", "deployment_migration")
+                .containsEntry("table_prefix", "trading_projection_")
+                .containsEntry("retention_days", 180);
+        Map<String, Object> compaction = map(projectionJdbc, "compaction");
+        assertThat(compaction)
+                .containsEntry("enabled", true)
+                .containsEntry("minimum_interval_days", 7)
+                .containsEntry("preserve_latest_snapshot", true)
+                .containsEntry("preserve_applied_event_ids", true);
+        Map<String, Object> projectionBackups = map(projectionJdbc, "backups");
+        assertThat(projectionBackups)
+                .containsEntry("enabled", true)
+                .containsEntry("mechanism", "cloud_sql_automated_backup")
+                .containsEntry("minimum_recovery_days", 7)
+                .containsEntry("restore_test_interval_days", 90);
+        assertThat(map(stateBackend, "journal_archive"))
+                .containsEntry("enabled", true)
+                .containsEntry("mechanism", "cloud_storage_object_archive")
+                .containsEntry("layout", "trading_event_archive_layout_v1")
+                .containsEntry("retention_days", 180);
     }
 
     @Test
@@ -75,7 +106,10 @@ class GoogleCloudDemoDeploymentConfigTest {
                         "TRADING_INTERVENTION_OPERATOR_API_OPERATOR_TOKEN",
                         "TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL",
                         "TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME",
-                        "TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD"
+                        "TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD",
+                        "TRADING_PROJECTION_JDBC_URL",
+                        "TRADING_PROJECTION_JDBC_USERNAME",
+                        "TRADING_PROJECTION_JDBC_PASSWORD"
                 )
         );
         assertSecretEnvContains(

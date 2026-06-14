@@ -16,6 +16,12 @@ cloud-specific services as follows:
 - Audit database: RDS PostgreSQL.
 - Audit backups: RDS automated backups with at least 7 recovery days and a
   restore drill every 90 days.
+- Projection database: RDS PostgreSQL through `TRADING_PROJECTION_JDBC_*`
+  secrets, with file snapshots disabled for ECS.
+- Projection retention: 180 days, compaction enabled while preserving the latest
+  snapshot and applied event ids, RDS automated backups with at least 7 recovery
+  days, and a restore drill every 90 days.
+- Journal archive: S3 using `trading_event_archive_layout_v1`.
 
 The AWS contract is deliberately parallel to the Google Cloud contract. Moving
 between clouds must not require changing trading, risk, remediation, or exchange

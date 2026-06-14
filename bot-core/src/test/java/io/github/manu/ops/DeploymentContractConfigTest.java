@@ -41,6 +41,7 @@ class DeploymentContractConfigTest {
                     "required_alertmanager_secret_substitutions"
             );
             assertAuditBackend(schema, contract);
+            assertStateBackend(schema, contract);
             assertNoInlineSecretValues(schema, contractPath);
         }
     }
@@ -151,6 +152,47 @@ class DeploymentContractConfigTest {
                 .containsKey("restore_test_interval_days");
         assertThat((Integer) backups.get("minimum_recovery_days")).isGreaterThanOrEqualTo(7);
         assertThat((Integer) backups.get("restore_test_interval_days")).isBetween(1, 90);
+    }
+
+    private void assertStateBackend(Map<String, Object> schema, Map<String, Object> contract) {
+        Map<String, Object> schemaStateBackend = map(schema, "state_backend");
+        Map<String, Object> stateBackend = map(contract, "state_backend");
+        Map<String, Object> projection = map(stateBackend, "projection");
+        assertThat(projection).containsEntry("selected", schemaStateBackend.get("required_projection_selected"));
+        Map<String, Object> jdbc = map(projection, "jdbc");
+        strings(schemaStateBackend, "required_projection_jdbc_fields")
+                .forEach(field -> assertThat(jdbc.get(field)).as(field).isNotNull());
+        assertThat(jdbc).containsEntry("table_prefix", "trading_projection_");
+        assertThat((Integer) jdbc.get("retention_days"))
+                .isGreaterThanOrEqualTo((Integer) schemaStateBackend.get("minimum_projection_retention_days"));
+
+        Map<String, Object> compaction = map(jdbc, "compaction");
+        strings(schemaStateBackend, "required_compaction_fields")
+                .forEach(field -> assertThat(compaction.get(field)).as(field).isNotNull());
+        assertThat(compaction)
+                .containsEntry("enabled", true)
+                .containsEntry("preserve_latest_snapshot", true)
+                .containsEntry("preserve_applied_event_ids", true);
+        assertThat((Integer) compaction.get("minimum_interval_days")).isGreaterThanOrEqualTo(1);
+
+        Map<String, Object> backups = map(jdbc, "backups");
+        strings(schemaStateBackend, "required_backup_fields")
+                .forEach(field -> assertThat(backups.get(field)).as(field).isNotNull());
+        assertThat(backups)
+                .containsEntry("enabled", true)
+                .containsKey("minimum_recovery_days")
+                .containsKey("restore_test_interval_days");
+        assertThat((Integer) backups.get("minimum_recovery_days")).isGreaterThanOrEqualTo(7);
+        assertThat((Integer) backups.get("restore_test_interval_days")).isBetween(1, 90);
+
+        Map<String, Object> journalArchive = map(stateBackend, "journal_archive");
+        Map<String, Object> requiredJournalArchive = map(schemaStateBackend, "required_journal_archive");
+        assertThat(journalArchive)
+                .containsEntry("enabled", requiredJournalArchive.get("enabled"))
+                .containsEntry("layout", requiredJournalArchive.get("layout"))
+                .containsKey("bucket")
+                .containsKey("prefix")
+                .containsKey("retention_days");
     }
 
     private Set<String> requiredSecretNames(

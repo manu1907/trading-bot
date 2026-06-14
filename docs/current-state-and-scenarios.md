@@ -397,6 +397,14 @@ Implemented persistence/recovery surfaces include:
 - Trading event journal support.
 - Projection snapshot lifecycle.
 - JDBC projection snapshot store.
+- Cloud deployment contracts now require durable JDBC projection persistence,
+  projection retention, compaction, managed backups, restore drills, and journal
+  archive policy. Google Cloud demo/real and AWS demo contracts disable file
+  projection snapshots in ephemeral runtimes and bind projection JDBC settings
+  through secrets.
+- The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
+  defines restore sequencing, post-restore reconciliation gates, compaction
+  constraints, and evidence requirements.
 - Recovery test coverage now verifies that a file snapshot containing an external-order intervention and matching automated remediation decision can be restored into a new projection, then the scheduled remediation runner executes the restored decision before publishing new decisions and skips republishing a duplicate recommendation decision.
 - Recovery test coverage now verifies that active symbol pause governance restored from a file snapshot still blocks new order admission through the order risk gate after restart.
 - Recovery test coverage now verifies that restored managed-order unknown modify state still blocks execution and preserves the generic reconciliation action in the remediation executor report after restart.

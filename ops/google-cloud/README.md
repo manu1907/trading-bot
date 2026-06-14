@@ -24,6 +24,13 @@ Binance USD-M futures demo target:
 - JDBC audit retention is 180 days.
 - Audit backups use Cloud SQL automated backups with at least 7 recovery days
   and a restore drill every 90 days.
+- Projection persistence uses Cloud SQL PostgreSQL through
+  `TRADING_PROJECTION_JDBC_*` secrets, with file snapshots disabled in Cloud
+  Run.
+- Projection state has 180-day retention, weekly-or-slower compaction that
+  preserves the latest snapshot and applied event ids, Cloud SQL automated
+  backups with at least 7 recovery days, and a 90-day restore drill.
+- Journal archives use Cloud Storage with `trading_event_archive_layout_v1`.
 
 The contract maps secret-bearing values to Google Secret Manager names only. It
 does not contain real Binance credentials, operator tokens, Slack webhooks,
@@ -37,6 +44,9 @@ Required application secrets:
 - `trading-bot-demo-audit-jdbc-url`
 - `trading-bot-demo-audit-jdbc-username`
 - `trading-bot-demo-audit-jdbc-password`
+- `trading-bot-demo-projection-jdbc-url`
+- `trading-bot-demo-projection-jdbc-username`
+- `trading-bot-demo-projection-jdbc-password`
 
 Required Alertmanager substitution secrets:
 
@@ -67,6 +77,10 @@ the Binance USD-M futures real target:
   real secret isolation, and an empty initial real-operation allowlist.
 - The real audit backend uses Cloud SQL PostgreSQL with 365-day retention, at
   least 35 recovery days, and a restore drill every 30 days.
+- The real projection backend uses Cloud SQL PostgreSQL with 365-day retention,
+  at least 35 recovery days, and a restore drill every 30 days.
+- Real journal archives use the same archive layout as demo with a real-specific
+  prefix and 365-day retention.
 
 Deployment automation must render the Alertmanager profile from
 `ops/alertmanager/pause-governance-alertmanager.yml` by substituting these

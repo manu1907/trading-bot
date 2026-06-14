@@ -8,6 +8,7 @@ required_top_level_sections:
   - secret_env
   - alertmanager_secret_substitutions
   - audit_backend
+  - state_backend
 
 optional_top_level_sections:
   - deployment_controls
@@ -37,6 +38,10 @@ required_runtime_env_common:
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_ENABLED: "true"
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_TABLE_PREFIX: trading_audit_pause_governance_
   TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA: "false"
+  TRADING_PROJECTION_SNAPSHOT_STORE_ENABLED: "false"
+  TRADING_PROJECTION_JDBC_STORE_ENABLED: "true"
+  TRADING_PROJECTION_JDBC_STORE_TABLE_PREFIX: trading_projection_
+  TRADING_PROJECTION_JDBC_STORE_INITIALIZE_SCHEMA: "false"
 
 required_runtime_env_by_environment:
   demo:
@@ -53,6 +58,9 @@ required_secret_env_common:
   - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL
   - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME
   - TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD
+  - TRADING_PROJECTION_JDBC_URL
+  - TRADING_PROJECTION_JDBC_USERNAME
+  - TRADING_PROJECTION_JDBC_PASSWORD
 
 required_secret_env_by_environment:
   demo:
@@ -92,6 +100,30 @@ audit_backend:
     - table_prefix
     - retention_days
     - backups
+  required_backup_fields:
+    - enabled
+    - mechanism
+    - minimum_recovery_days
+    - restore_test_interval_days
+
+state_backend:
+  required_projection_selected: jdbc
+  minimum_projection_retention_days: 180
+  required_journal_archive:
+    enabled: true
+    layout: trading_event_archive_layout_v1
+  required_projection_jdbc_fields:
+    - database
+    - schema_owner
+    - table_prefix
+    - retention_days
+    - compaction
+    - backups
+  required_compaction_fields:
+    - enabled
+    - minimum_interval_days
+    - preserve_latest_snapshot
+    - preserve_applied_event_ids
   required_backup_fields:
     - enabled
     - mechanism
