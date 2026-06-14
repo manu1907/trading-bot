@@ -413,6 +413,12 @@ Implemented persistence/recovery surfaces include:
   passed the `Security` workflow, using GitHub environment gates, OIDC Workload
   Identity, commit-SHA tags, OCI metadata, and uploaded publish evidence. It
   does not deploy Cloud Run yet.
+- A guarded manual Google Cloud Cloud Run deployment workflow now deploys a
+  previously published commit-tagged image after verifying `Security` success
+  and image existence, maps contract runtime variables and Secret Manager
+  bindings, blocks unauthenticated access, labels the revision with the source
+  commit, and uploads deployment evidence. Post-deployment smoke and rollback
+  automation remain open.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

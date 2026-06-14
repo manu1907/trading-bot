@@ -668,6 +668,12 @@ The guarded Google Cloud image-publish workflow is manual, environment-gated,
 verifies that the requested commit passed the `Security` workflow, uses OIDC
 Workload Identity, publishes to Artifact Registry with commit-SHA tags, and
 uploads publish metadata; Cloud Run deployment remains a later workflow.
+The guarded Cloud Run deployment workflow is also manual and environment-gated:
+it verifies `Security` success, verifies the commit-tagged image exists, applies
+the Google Cloud deployment contract runtime variables and Secret Manager
+bindings, blocks unauthenticated access, labels the revision with the source
+commit, and uploads deployment metadata. Deployment smoke and rollback remain
+separate workflows.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

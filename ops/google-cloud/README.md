@@ -102,5 +102,11 @@ and environment variables `GCP_PROJECT_ID`,
 `GCP_ARTIFACT_REGISTRY_LOCATION`, and
 `GCP_ARTIFACT_REGISTRY_REPOSITORY`. It tags images with the full commit SHA and
 `{environment}-{sha}`, then uploads publish metadata as a workflow artifact.
-The deployment workflow must still add Secret Manager bindings, Cloud Run
-rollout controls, deployment smoke tests, and rollback.
+
+`deploy-google-cloud-cloud-run.yml` deploys an already published image to Cloud
+Run when manually dispatched. It verifies the requested commit passed
+`Security`, verifies the Artifact Registry image exists, applies the deployment
+contract runtime variables and Secret Manager bindings, uses the configured
+Cloud Run deploy/runtime service accounts, blocks unauthenticated access, labels
+the revision with the source commit, and uploads deployment metadata. Deployment
+smoke tests and rollback automation remain open.

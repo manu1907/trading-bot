@@ -48,6 +48,15 @@ publication workflow. It is manual only, uses GitHub environment approval for
 publishes the same Dockerfile to Artifact Registry with commit-SHA tags, and
 uploads publish metadata. It does not deploy Cloud Run yet.
 
+`.github/workflows/deploy-google-cloud-cloud-run.yml` is the guarded Cloud Run
+deployment workflow. It is manual only, uses the same `demo` and `real` GitHub
+environment gates, verifies the requested commit passed the `Security` workflow,
+verifies the commit-tagged Artifact Registry image exists, maps the
+source-controlled Google Cloud deployment contract runtime variables and Secret
+Manager bindings into Cloud Run, deploys a commit-labeled revision, and uploads
+deployment metadata. Post-deployment smoke tests and rollback automation remain
+separate guarded workflow slices.
+
 Current implementations:
 
 - `ops/google-cloud/demo-usdm-futures-deployment.yml`

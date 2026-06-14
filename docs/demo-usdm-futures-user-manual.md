@@ -743,6 +743,12 @@ Pause governance metrics:
   publishes the same image to Artifact Registry with commit-SHA tags, using OIDC
   Workload Identity and GitHub environment variables for project, location, and
   repository. It does not deploy Cloud Run yet.
+- The Google Cloud Cloud Run deploy workflow is also manual and
+  environment-gated. It verifies the requested commit passed `Security`, checks
+  that the commit-tagged image exists in Artifact Registry, maps the checked-in
+  deployment contract runtime variables and Secret Manager bindings into Cloud
+  Run, blocks unauthenticated access, and records deployment metadata. It does
+  not yet run deployment smoke tests or rollback automation.
 - An AWS equivalent contract already exists at
   `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same bot runtime
   surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL.
