@@ -15,30 +15,44 @@ partial setup.
 
 Required local tools and access:
 
-- `gcloud` installed and authenticated as an account allowed to manage the target
-  project, IAM, APIs, Artifact Registry, Secret Manager, Cloud Storage, and
-  Workload Identity Federation.
+- `gcloud`, `git`, and `openssl` installed.
+- `gcloud` authenticated as an account allowed to manage the target project, IAM,
+  APIs, Artifact Registry, Secret Manager, Cloud Storage, and Workload Identity
+  Federation.
 - A Google Cloud project with billing enabled, or `GCP_CREATE_PROJECT=true` plus
   `GCP_BILLING_ACCOUNT`.
+- Binance demo API credentials exported as `BINANCE_DEMO_API_KEY` and
+  `BINANCE_DEMO_API_SECRET`. The checked-in ignored `api.env` already uses these
+  names.
 
 Minimal invocation:
 
 ```bash
-export GCP_PROJECT_ID=my-trading-bot-project
-export GCP_REGION=europe-west1
-export GCP_ARTIFACT_REGISTRY_LOCATION=europe-west1
-export GCP_ARTIFACT_REGISTRY_REPOSITORY=trading-bot
-export GITHUB_OWNER=manu1907
-export GITHUB_REPO=trading-bot
+set -a
+source api.env
+set +a
 ./ops/google-cloud/bootstrap-deployment-prereqs.sh
 ```
+
+Defaults used when you do not override them:
+
+- `GCP_PROJECT_ID`: current `gcloud` project.
+- `GCP_REGION`: `europe-west1`.
+- `GCP_ARTIFACT_REGISTRY_LOCATION`: same as `GCP_REGION`.
+- `GCP_ARTIFACT_REGISTRY_REPOSITORY`: `trading-bot`.
+- `GITHUB_OWNER` and `GITHUB_REPO`: inferred from the Git remote, falling back to
+  `manu1907/trading-bot`.
+- Operator tokens: generated automatically if no enabled secret version already
+  exists.
 
 The script enables required APIs, creates the Artifact Registry repository,
 creates the journal archive bucket, creates the GitHub Actions and Cloud Run
 service accounts, grants the IAM roles required by the publish/deploy/smoke and
 rollback workflows, configures GitHub OIDC Workload Identity Federation, creates
-the deployment Secret Manager secrets, and adds secret versions only for values
-supplied through environment variables. It never prints secret values.
+the deployment Secret Manager secrets, adds Binance demo secret versions from
+`api.env`, generates operator-token versions when needed, and adds optional
+secret versions only for other values supplied through environment variables. It
+never prints secret values.
 
 After it completes, copy the printed values into the `demo` and `real` GitHub
 environment secrets/variables. Deployment still requires real Secret Manager

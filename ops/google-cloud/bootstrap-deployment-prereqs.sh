@@ -6,14 +6,16 @@ usage() {
 Bootstrap Google Cloud prerequisites for trading-bot GitHub Actions deployment.
 
 Required environment variables:
-  GCP_PROJECT_ID
-  GCP_REGION
-  GCP_ARTIFACT_REGISTRY_LOCATION
-  GCP_ARTIFACT_REGISTRY_REPOSITORY
-  GITHUB_OWNER
-  GITHUB_REPO
+  BINANCE_DEMO_API_KEY
+  BINANCE_DEMO_API_SECRET
 
 Optional environment variables:
+  GCP_PROJECT_ID                                      Default: current gcloud project
+  GCP_REGION                                          Default: europe-west1
+  GCP_ARTIFACT_REGISTRY_LOCATION                      Default: ${GCP_REGION}
+  GCP_ARTIFACT_REGISTRY_REPOSITORY                    Default: trading-bot
+  GITHUB_OWNER                                        Default: inferred from git remote, then manu1907
+  GITHUB_REPO                                         Default: inferred from git remote, then trading-bot
   GCP_CREATE_PROJECT=true|false                         Default: false
   GCP_BILLING_ACCOUNT                                  Required only when creating a project
   GCP_WORKLOAD_IDENTITY_POOL_ID                        Default: github-actions
@@ -26,10 +28,8 @@ Optional environment variables:
   GCP_CLOUD_RUN_MAX_INSTANCES                          Default printed for GitHub vars: 1
   GCP_CLOUD_RUN_TIMEOUT                                Default printed for GitHub vars: 300s
 
-Optional secret value environment variables:
-  DEMO_BINANCE_API_KEY
-  DEMO_BINANCE_API_SECRET
-  DEMO_OPERATOR_TOKEN
+Optional generated/secret value environment variables:
+  DEMO_OPERATOR_TOKEN                                  Default: generated if no secret version exists
   DEMO_AUDIT_JDBC_URL
   DEMO_AUDIT_JDBC_USERNAME
   DEMO_AUDIT_JDBC_PASSWORD
@@ -38,7 +38,7 @@ Optional secret value environment variables:
   DEMO_PROJECTION_JDBC_PASSWORD
   REAL_BINANCE_API_KEY
   REAL_BINANCE_API_SECRET
-  REAL_OPERATOR_TOKEN
+  REAL_OPERATOR_TOKEN                                  Default: generated if no secret version exists
   REAL_AUDIT_JDBC_URL
   REAL_AUDIT_JDBC_USERNAME
   REAL_AUDIT_JDBC_PASSWORD
@@ -63,17 +63,16 @@ Optional secret value environment variables:
   REAL_ALERT_FALLBACK_SLACK_CHANNEL
 
 The script creates Google Cloud resources and IAM bindings idempotently. It does
-not print secret values. If a secret value environment variable is absent, the
-Secret Manager secret is created without adding a version; deployment will still
-require a secret version before Cloud Run can bind :latest.
+not print secret values. If an alert or JDBC secret value environment variable
+is absent, the Secret Manager secret is created without adding a version;
+deployment will still require a secret version before Cloud Run can bind
+:latest. Operator tokens are generated automatically when absent and no enabled
+secret version exists.
 
 Example:
-  export GCP_PROJECT_ID=my-trading-bot-demo
-  export GCP_REGION=europe-west1
-  export GCP_ARTIFACT_REGISTRY_LOCATION=europe-west1
-  export GCP_ARTIFACT_REGISTRY_REPOSITORY=trading-bot
-  export GITHUB_OWNER=manu1907
-  export GITHUB_REPO=trading-bot
+  set -a
+  source api.env
+  set +a
   ./ops/google-cloud/bootstrap-deployment-prereqs.sh
 USAGE
 }
@@ -101,8 +100,45 @@ log() {
   printf '\n==> %s\n' "$1"
 }
 
-run_quiet() {
-  "$@" >/dev/null
+infer_github_slug() {
+  local remote
+  remote="$(git remote get-url origin 2>/dev/null || true)"
+  case "$remote" in
+    https://github.com/*/*.git)
+      remote="${remote#https://github.com/}"
+      remote="${remote%.git}"
+      ;;
+    git@github.com:*/*.git)
+      remote="${remote#git@github.com:}"
+      remote="${remote%.git}"
+      ;;
+    *)
+      remote=""
+      ;;
+  esac
+  if [[ "$remote" == */* ]]; then
+    GITHUB_OWNER="${GITHUB_OWNER:-${remote%%/*}}"
+    GITHUB_REPO="${GITHUB_REPO:-${remote##*/}}"
+  fi
+}
+
+infer_defaults() {
+  local configured_project
+  configured_project="$(gcloud config get-value project 2>/dev/null || true)"
+  if [[ "$configured_project" == "(unset)" ]]; then
+    configured_project=""
+  fi
+  GCP_PROJECT_ID="${GCP_PROJECT_ID:-$configured_project}"
+  GCP_REGION="${GCP_REGION:-europe-west1}"
+  GCP_ARTIFACT_REGISTRY_LOCATION="${GCP_ARTIFACT_REGISTRY_LOCATION:-$GCP_REGION}"
+  GCP_ARTIFACT_REGISTRY_REPOSITORY="${GCP_ARTIFACT_REGISTRY_REPOSITORY:-trading-bot}"
+  infer_github_slug
+  GITHUB_OWNER="${GITHUB_OWNER:-manu1907}"
+  GITHUB_REPO="${GITHUB_REPO:-trading-bot}"
+  GCP_WORKLOAD_IDENTITY_POOL_ID="${GCP_WORKLOAD_IDENTITY_POOL_ID:-github-actions}"
+  GCP_WORKLOAD_IDENTITY_PROVIDER_ID="${GCP_WORKLOAD_IDENTITY_PROVIDER_ID:-github-actions}"
+  GCP_SERVICE_ACCOUNT_PREFIX="${GCP_SERVICE_ACCOUNT_PREFIX:-trading-bot}"
+  TRADING_BOT_JOURNAL_ARCHIVE_BUCKET="${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET:-${GCP_PROJECT_ID}-trading-bot-journal-archive}"
 }
 
 ensure_project() {
@@ -258,6 +294,38 @@ add_secret_version_from_env() {
   ADDED_SECRET_VALUE_ENVS+=("$secret_name <= $env_var")
 }
 
+secret_has_enabled_version() {
+  local secret_name="$1"
+  [[ -n "$(gcloud secrets versions list "$secret_name" \
+    --project="$GCP_PROJECT_ID" \
+    --filter='state:enabled' \
+    --limit=1 \
+    --format='value(name)' 2>/dev/null)" ]]
+}
+
+generate_secret_value() {
+  openssl rand -base64 48 | tr -d '\n'
+}
+
+ensure_secret_with_generated_fallback() {
+  local secret_name="$1"
+  local env_var="$2"
+  ensure_secret "$secret_name"
+  if [[ -n "${!env_var-}" ]]; then
+    add_secret_version_from_env "$secret_name" "$env_var"
+    return
+  fi
+  if secret_has_enabled_version "$secret_name"; then
+    REUSED_SECRET_VALUE_ENVS+=("$secret_name")
+    return
+  fi
+  generate_secret_value | gcloud secrets versions add "$secret_name" \
+    --project="$GCP_PROJECT_ID" \
+    --data-file=- \
+    --quiet >/dev/null
+  GENERATED_SECRET_VALUE_ENVS+=("$secret_name")
+}
+
 ensure_secret_with_optional_version() {
   local secret_name="$1"
   local env_var="$2"
@@ -317,6 +385,16 @@ CONFIG
     printf '  %s\n' "${ADDED_SECRET_VALUE_ENVS[@]}"
   fi
 
+  if ((${#GENERATED_SECRET_VALUE_ENVS[@]} > 0)); then
+    printf '\nSecret versions generated automatically:\n'
+    printf '  %s\n' "${GENERATED_SECRET_VALUE_ENVS[@]}"
+  fi
+
+  if ((${#REUSED_SECRET_VALUE_ENVS[@]} > 0)); then
+    printf '\nExisting enabled secret versions reused:\n'
+    printf '  %s\n' "${REUSED_SECRET_VALUE_ENVS[@]}"
+  fi
+
   if ((${#MISSING_SECRET_VALUE_ENVS[@]} > 0)); then
     printf '\nSecret containers created/verified without versions because these env vars were not set:\n'
     printf '  %s\n' "${MISSING_SECRET_VALUE_ENVS[@]}"
@@ -325,18 +403,15 @@ CONFIG
 
 main() {
   require_command gcloud
+  require_command git
+  require_command openssl
+  infer_defaults
   require_env GCP_PROJECT_ID
-  require_env GCP_REGION
-  require_env GCP_ARTIFACT_REGISTRY_LOCATION
-  require_env GCP_ARTIFACT_REGISTRY_REPOSITORY
-  require_env GITHUB_OWNER
-  require_env GITHUB_REPO
-
-  GCP_WORKLOAD_IDENTITY_POOL_ID="${GCP_WORKLOAD_IDENTITY_POOL_ID:-github-actions}"
-  GCP_WORKLOAD_IDENTITY_PROVIDER_ID="${GCP_WORKLOAD_IDENTITY_PROVIDER_ID:-github-actions}"
-  GCP_SERVICE_ACCOUNT_PREFIX="${GCP_SERVICE_ACCOUNT_PREFIX:-trading-bot}"
-  TRADING_BOT_JOURNAL_ARCHIVE_BUCKET="${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET:-${GCP_PROJECT_ID}-trading-bot-journal-archive}"
+  require_env BINANCE_DEMO_API_KEY
+  require_env BINANCE_DEMO_API_SECRET
   ADDED_SECRET_VALUE_ENVS=()
+  GENERATED_SECRET_VALUE_ENVS=()
+  REUSED_SECRET_VALUE_ENVS=()
   MISSING_SECRET_VALUE_ENVS=()
 
   log "Checking project"
@@ -391,9 +466,9 @@ main() {
   allow_github_to_impersonate "$CLOUD_RUN_ROLLBACK_SA" "$project_number"
 
   log "Creating Secret Manager secrets and adding supplied versions"
-  ensure_secret_with_optional_version trading-bot-demo-binance-api-key DEMO_BINANCE_API_KEY
-  ensure_secret_with_optional_version trading-bot-demo-binance-api-secret DEMO_BINANCE_API_SECRET
-  ensure_secret_with_optional_version trading-bot-demo-operator-token DEMO_OPERATOR_TOKEN
+  ensure_secret_with_optional_version trading-bot-demo-binance-api-key BINANCE_DEMO_API_KEY
+  ensure_secret_with_optional_version trading-bot-demo-binance-api-secret BINANCE_DEMO_API_SECRET
+  ensure_secret_with_generated_fallback trading-bot-demo-operator-token DEMO_OPERATOR_TOKEN
   ensure_secret_with_optional_version trading-bot-demo-audit-jdbc-url DEMO_AUDIT_JDBC_URL
   ensure_secret_with_optional_version trading-bot-demo-audit-jdbc-username DEMO_AUDIT_JDBC_USERNAME
   ensure_secret_with_optional_version trading-bot-demo-audit-jdbc-password DEMO_AUDIT_JDBC_PASSWORD
@@ -402,7 +477,7 @@ main() {
   ensure_secret_with_optional_version trading-bot-demo-projection-jdbc-password DEMO_PROJECTION_JDBC_PASSWORD
   ensure_secret_with_optional_version trading-bot-real-binance-api-key REAL_BINANCE_API_KEY
   ensure_secret_with_optional_version trading-bot-real-binance-api-secret REAL_BINANCE_API_SECRET
-  ensure_secret_with_optional_version trading-bot-real-operator-token REAL_OPERATOR_TOKEN
+  ensure_secret_with_generated_fallback trading-bot-real-operator-token REAL_OPERATOR_TOKEN
   ensure_secret_with_optional_version trading-bot-real-audit-jdbc-url REAL_AUDIT_JDBC_URL
   ensure_secret_with_optional_version trading-bot-real-audit-jdbc-username REAL_AUDIT_JDBC_USERNAME
   ensure_secret_with_optional_version trading-bot-real-audit-jdbc-password REAL_AUDIT_JDBC_PASSWORD

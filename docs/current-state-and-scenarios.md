@@ -431,8 +431,9 @@ Implemented persistence/recovery surfaces include:
 - A Google Cloud bootstrap script now prepares the foundation required by the
   current workflows: required APIs, Artifact Registry, journal archive bucket,
   service accounts, IAM bindings, GitHub OIDC Workload Identity Federation, and
-  Secret Manager containers/versions when values are supplied through
-  environment variables.
+  Secret Manager containers/versions. It defaults non-secret deployment values,
+  reads the Binance demo key/secret from `api.env`, and generates operator-token
+  secret versions when absent.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

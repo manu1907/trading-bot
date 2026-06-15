@@ -686,7 +686,9 @@ uploads rollback evidence. The Google Cloud bootstrap script prepares the
 current workflow foundation by enabling required APIs, creating Artifact
 Registry, the journal archive bucket, service accounts, IAM bindings, GitHub
 OIDC Workload Identity Federation, and Secret Manager containers/versions when
-values are supplied through environment variables.
+values are supplied through environment variables. It also defaults non-secret
+deployment values, reads the Binance demo key and secret from `api.env`, and
+generates operator-token secret versions when absent.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

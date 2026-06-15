@@ -771,9 +771,11 @@ Pause governance metrics:
   Google Cloud foundation for the GitHub workflows. It enables required APIs,
   creates Artifact Registry, the journal archive bucket, service accounts, IAM
   bindings, Workload Identity Federation, and Secret Manager secret containers.
-  If secret values are supplied through environment variables, it adds secret
-  versions without printing them; otherwise, you must add the missing versions
-  before Cloud Run can bind `:latest`.
+  It defaults the current Google Cloud project, Europe region, registry
+  repository, and GitHub repository when not overridden, reads
+  `BINANCE_DEMO_API_KEY` and `BINANCE_DEMO_API_SECRET` from `api.env`, generates
+  operator-token secret versions when needed, and adds other secret versions only
+  when values are supplied through environment variables.
 
 List recent pause governance audit records:
 

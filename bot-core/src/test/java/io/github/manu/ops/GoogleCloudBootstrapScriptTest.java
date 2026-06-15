@@ -19,14 +19,36 @@ class GoogleCloudBootstrapScriptTest {
         assertThat(script)
                 .startsWith("#!/usr/bin/env bash")
                 .contains("set -euo pipefail")
+                .contains("BINANCE_DEMO_API_KEY")
+                .contains("BINANCE_DEMO_API_SECRET")
                 .contains("GCP_PROJECT_ID")
                 .contains("GCP_REGION")
                 .contains("GCP_ARTIFACT_REGISTRY_LOCATION")
                 .contains("GCP_ARTIFACT_REGISTRY_REPOSITORY")
                 .contains("GITHUB_OWNER")
                 .contains("GITHUB_REPO")
-                .contains("deployment will still")
-                .contains("require a secret version before Cloud Run can bind :latest");
+                .contains("Default: current gcloud project")
+                .contains("Default: europe-west1")
+                .contains("Default: inferred from git remote")
+                .contains("source api.env")
+                .contains("Operator tokens are generated automatically");
+    }
+
+    @Test
+    void bootstrap_script_defaults_non_secret_inputs_and_generates_operator_tokens() throws IOException {
+        String script = Files.readString(resolve(SCRIPT));
+
+        assertThat(script)
+                .contains("infer_defaults()")
+                .contains("gcloud config get-value project")
+                .contains("git remote get-url origin")
+                .contains("GCP_REGION=\"${GCP_REGION:-europe-west1}\"")
+                .contains("GCP_ARTIFACT_REGISTRY_REPOSITORY=\"${GCP_ARTIFACT_REGISTRY_REPOSITORY:-trading-bot}\"")
+                .contains("GITHUB_OWNER=\"${GITHUB_OWNER:-manu1907}\"")
+                .contains("GITHUB_REPO=\"${GITHUB_REPO:-trading-bot}\"")
+                .contains("openssl rand -base64 48")
+                .contains("ensure_secret_with_generated_fallback trading-bot-demo-operator-token DEMO_OPERATOR_TOKEN")
+                .contains("ensure_secret_with_generated_fallback trading-bot-real-operator-token REAL_OPERATOR_TOKEN");
     }
 
     @Test
@@ -93,6 +115,8 @@ class GoogleCloudBootstrapScriptTest {
         assertThat(script)
                 .contains("trading-bot-demo-binance-api-key")
                 .contains("trading-bot-demo-binance-api-secret")
+                .contains("ensure_secret_with_optional_version trading-bot-demo-binance-api-key BINANCE_DEMO_API_KEY")
+                .contains("ensure_secret_with_optional_version trading-bot-demo-binance-api-secret BINANCE_DEMO_API_SECRET")
                 .contains("trading-bot-demo-operator-token")
                 .contains("trading-bot-demo-audit-jdbc-url")
                 .contains("trading-bot-demo-projection-jdbc-password")
