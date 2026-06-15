@@ -428,6 +428,11 @@ Implemented persistence/recovery surfaces include:
   passed `Security`, the target revision belongs to the selected service, the
   revision labels and image match the expected commit/environment, 100 percent
   traffic is shifted to that revision, and private readiness returns `UP`.
+- A Google Cloud bootstrap script now prepares the foundation required by the
+  current workflows: required APIs, Artifact Registry, journal archive bucket,
+  service accounts, IAM bindings, GitHub OIDC Workload Identity Federation, and
+  Secret Manager containers/versions when values are supplied through
+  environment variables.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

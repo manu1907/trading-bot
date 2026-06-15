@@ -682,7 +682,11 @@ explicit target revision and rollback commit SHA, verifies `Security` success fo
 that commit, proves that the target revision belongs to the selected service and
 matches the expected app/environment/commit labels plus commit-tagged image,
 routes all traffic to that existing revision, verifies private readiness, and
-uploads rollback evidence.
+uploads rollback evidence. The Google Cloud bootstrap script prepares the
+current workflow foundation by enabling required APIs, creating Artifact
+Registry, the journal archive bucket, service accounts, IAM bindings, GitHub
+OIDC Workload Identity Federation, and Secret Manager containers/versions when
+values are supplied through environment variables.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

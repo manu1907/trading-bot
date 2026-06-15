@@ -7,6 +7,46 @@ The contract implements the neutral schema in
 `ops/deployment/deployment-contract.yml`. Google Cloud-specific choices must not
 change the app-facing runtime variables or trading behavior.
 
+## Bootstrap Script
+
+`bootstrap-deployment-prereqs.sh` prepares the Google Cloud foundation expected
+by the current GitHub Actions workflows. It is idempotent and can be rerun after
+partial setup.
+
+Required local tools and access:
+
+- `gcloud` installed and authenticated as an account allowed to manage the target
+  project, IAM, APIs, Artifact Registry, Secret Manager, Cloud Storage, and
+  Workload Identity Federation.
+- A Google Cloud project with billing enabled, or `GCP_CREATE_PROJECT=true` plus
+  `GCP_BILLING_ACCOUNT`.
+
+Minimal invocation:
+
+```bash
+export GCP_PROJECT_ID=my-trading-bot-project
+export GCP_REGION=europe-west1
+export GCP_ARTIFACT_REGISTRY_LOCATION=europe-west1
+export GCP_ARTIFACT_REGISTRY_REPOSITORY=trading-bot
+export GITHUB_OWNER=manu1907
+export GITHUB_REPO=trading-bot
+./ops/google-cloud/bootstrap-deployment-prereqs.sh
+```
+
+The script enables required APIs, creates the Artifact Registry repository,
+creates the journal archive bucket, creates the GitHub Actions and Cloud Run
+service accounts, grants the IAM roles required by the publish/deploy/smoke and
+rollback workflows, configures GitHub OIDC Workload Identity Federation, creates
+the deployment Secret Manager secrets, and adds secret versions only for values
+supplied through environment variables. It never prints secret values.
+
+After it completes, copy the printed values into the `demo` and `real` GitHub
+environment secrets/variables. Deployment still requires real Secret Manager
+versions for all `:latest` secrets. The script intentionally does not create the
+managed PostgreSQL backend yet; that remains an infrastructure slice because the
+Cloud SQL connection mode and deployment flags must be finalized before the JDBC
+secret values are generated.
+
 ## Demo USD-M Futures
 
 `demo-usdm-futures-deployment.yml` is the first deployment contract for the

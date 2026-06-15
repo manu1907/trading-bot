@@ -767,6 +767,13 @@ Pause governance metrics:
   contract shape but switches to `BOT_ENVIRONMENT=real`, real Binance credential
   bindings, real audit/alert secrets, mandatory approval metadata, and explicit
   real-startup guardrails that keep remediation exchange execution disabled.
+- `ops/google-cloud/bootstrap-deployment-prereqs.sh` can prepare the current
+  Google Cloud foundation for the GitHub workflows. It enables required APIs,
+  creates Artifact Registry, the journal archive bucket, service accounts, IAM
+  bindings, Workload Identity Federation, and Secret Manager secret containers.
+  If secret values are supplied through environment variables, it adds secret
+  versions without printing them; otherwise, you must add the missing versions
+  before Cloud Run can bind `:latest`.
 
 List recent pause governance audit records:
 
