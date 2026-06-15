@@ -752,7 +752,13 @@ Pause governance metrics:
   verifies that the latest ready private Cloud Run revision belongs to the
   requested commit, runs the matching commit-tagged image, returns `UP` from
   `/actuator/health/readiness` through an authenticated identity-token request,
-  and records smoke metadata. It does not yet provide rollback automation.
+  and records smoke metadata.
+- The Google Cloud Cloud Run rollback workflow is manual and environment-gated.
+  It requires the target revision and expected rollback commit SHA, verifies that
+  the rollback commit passed `Security`, checks that the existing revision
+  belongs to the selected service and matches the expected app, environment,
+  commit label, and image tag, shifts 100 percent traffic to that revision,
+  verifies private readiness, and records rollback metadata.
 - An AWS equivalent contract already exists at
   `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same bot runtime
   surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL.

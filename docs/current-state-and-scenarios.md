@@ -422,7 +422,12 @@ Implemented persistence/recovery surfaces include:
   ready private Cloud Run revision after deployment. It checks `Security` success
   for the requested commit, verifies the revision source label and image tag,
   calls `/actuator/health/readiness` with a Google identity token, and uploads
-  smoke evidence. Rollback automation remains open.
+  smoke evidence.
+- A guarded manual Google Cloud Cloud Run rollback workflow now routes traffic
+  back to an existing revision after verifying the requested rollback commit
+  passed `Security`, the target revision belongs to the selected service, the
+  revision labels and image match the expected commit/environment, 100 percent
+  traffic is shifted to that revision, and private readiness returns `UP`.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

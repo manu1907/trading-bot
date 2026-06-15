@@ -1,0 +1,196 @@
+name: Rollback Google Cloud Cloud Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target runtime environment and GitHub environment gate.
+        required: true
+        type: choice
+        options:
+          - demo
+          - real
+      rollback_commit_sha:
+        description: Full commit SHA expected on the rollback revision label and image tag.
+        required: true
+        type: string
+      target_revision:
+        description: Existing Cloud Run revision that should receive 100 percent traffic.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+concurrency:
+  group: rollback-google-cloud-cloud-run-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Roll back Cloud Run service
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Resolve rollback target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          rollback_sha="${{ inputs.rollback_commit_sha }}"
+          target_revision="${{ inputs.target_revision }}"
+          case "${{ inputs.environment }}" in
+            demo)
+              service_name="trading-bot-demo-main-usdm-futures"
+              contract_path="ops/google-cloud/demo-usdm-futures-deployment.yml"
+              ;;
+            real)
+              service_name="trading-bot-real-main-usdm-futures"
+              contract_path="ops/google-cloud/real-usdm-futures-deployment.yml"
+              ;;
+            *) echo "Unsupported environment: ${{ inputs.environment }}" >&2; exit 1 ;;
+          esac
+          if ! [[ "$rollback_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "rollback_commit_sha must be a full 40-character lowercase git SHA" >&2
+            exit 1
+          fi
+          if ! [[ "$target_revision" =~ ^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$ ]]; then
+            echo "target_revision must be a valid Cloud Run revision name" >&2
+            exit 1
+          fi
+          image="${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}/trading-bot:${rollback_sha}"
+          echo "sha=$rollback_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "service_name=$service_name" >> "$GITHUB_OUTPUT"
+          echo "target_revision=$target_revision" >> "$GITHUB_OUTPUT"
+          echo "contract_path=$contract_path" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout rollback source commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+
+      - name: Verify rollback source CI passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          response="$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${{ steps.target.outputs.sha }}&event=push&per_page=20")"
+          passed_runs="$(printf '%s' "$response" \
+            | jq '[.workflow_runs[] | select(.name == "Security" and .conclusion == "success")] | length')"
+          if [ "$passed_runs" -lt 1 ]; then
+            echo "Security workflow has not passed for ${{ steps.target.outputs.sha }}" >&2
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Verify rollback revision
+        id: verify
+        run: |
+          set -euo pipefail
+          mkdir -p build/rollback
+          service="${{ steps.target.outputs.service_name }}"
+          revision="${{ steps.target.outputs.target_revision }}"
+          gcloud run services describe "$service" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format=json > build/rollback/service-before.json
+          gcloud run revisions describe "$revision" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format=json > build/rollback/target-revision.json
+          revision_service="$(jq -r '.metadata.labels["serving.knative.dev/service"] // ""' build/rollback/target-revision.json)"
+          revision_app="$(jq -r '.metadata.labels.app // ""' build/rollback/target-revision.json)"
+          revision_environment="$(jq -r '.metadata.labels.environment // ""' build/rollback/target-revision.json)"
+          revision_sha="$(jq -r '.metadata.labels["commit-sha"] // ""' build/rollback/target-revision.json)"
+          revision_image="$(jq -r '.spec.containers[0].image // ""' build/rollback/target-revision.json)"
+          if [ "$revision_service" != "$service" ]; then
+            echo "Rollback revision $revision belongs to service $revision_service, expected $service" >&2
+            exit 1
+          fi
+          if [ "$revision_app" != "trading-bot" ]; then
+            echo "Rollback revision $revision is not labeled app=trading-bot" >&2
+            exit 1
+          fi
+          if [ "$revision_environment" != "${{ inputs.environment }}" ]; then
+            echo "Rollback revision $revision is labeled environment=$revision_environment, expected ${{ inputs.environment }}" >&2
+            exit 1
+          fi
+          if [ "$revision_sha" != "${{ steps.target.outputs.sha }}" ]; then
+            echo "Rollback revision $revision is labeled $revision_sha, expected ${{ steps.target.outputs.sha }}" >&2
+            exit 1
+          fi
+          case "$revision_image" in
+            *":${{ steps.target.outputs.sha }}") ;;
+            *) echo "Rollback revision image is $revision_image, expected tag ${{ steps.target.outputs.sha }}" >&2; exit 1 ;;
+          esac
+          echo "revision_image=$revision_image" >> "$GITHUB_OUTPUT"
+
+      - name: Route traffic to rollback revision
+        id: rollback
+        run: |
+          set -euo pipefail
+          service="${{ steps.target.outputs.service_name }}"
+          revision="${{ steps.target.outputs.target_revision }}"
+          gcloud run services update-traffic "$service" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --to-revisions "$revision=100" \
+            --quiet
+          gcloud run services describe "$service" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format=json > build/rollback/service-after.json
+          traffic_percent="$(jq -r --arg revision "$revision" '[.status.traffic[]? | select(.revisionName == $revision) | .percent] | add // 0' build/rollback/service-after.json)"
+          if [ "$traffic_percent" != "100" ]; then
+            echo "Rollback revision $revision has $traffic_percent percent traffic, expected 100" >&2
+            exit 1
+          fi
+          url="$(jq -r '.status.url // ""' build/rollback/service-after.json)"
+          identity_jwt="$(gcloud auth print-identity-token --audiences="$url")"
+          curl -fsS \
+            -H "Authorization: Bearer ${identity_jwt}" \
+            "${url}/actuator/health/readiness" \
+            -o build/rollback/readiness.json
+          if ! grep -q '"status"[[:space:]]*:[[:space:]]*"UP"' build/rollback/readiness.json; then
+            echo "Rollback readiness endpoint is not UP" >&2
+            cat build/rollback/readiness.json >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          cat > build/rollback/google-cloud-run-rollback.json <<JSON
+          {
+            "service": "$service",
+            "environment": "${{ inputs.environment }}",
+            "rollback_source_revision": "${{ steps.target.outputs.sha }}",
+            "target_revision": "$revision",
+            "target_image": "${{ steps.verify.outputs.revision_image }}",
+            "expected_image": "${{ steps.target.outputs.image }}",
+            "contract": "${{ steps.target.outputs.contract_path }}",
+            "traffic_percent": 100,
+            "readiness_endpoint": "${url}/actuator/health/readiness",
+            "readiness_status": "UP",
+            "workflow_run": "${GITHUB_RUN_ID}",
+            "workflow_attempt": "${GITHUB_RUN_ATTEMPT}"
+          }
+          JSON
+
+      - name: Upload rollback metadata
+        uses: actions/upload-artifact@v5
+        with:
+          name: trading-bot-google-cloud-run-rollback-${{ inputs.environment }}-${{ steps.target.outputs.sha }}
+          path: build/rollback/*.json
+          if-no-files-found: error

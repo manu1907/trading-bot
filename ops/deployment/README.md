@@ -62,7 +62,15 @@ post-deployment smoke workflow. It is manual only, uses the same `demo` and
 commit, checks that the latest ready Cloud Run revision is labeled with that
 commit and runs the matching commit-tagged image, invokes the private readiness
 endpoint using a Google identity token, and uploads smoke metadata. Rollback
-automation remains a separate guarded workflow slice.
+automation is handled by a separate guarded workflow.
+
+`.github/workflows/rollback-google-cloud-cloud-run.yml` is the guarded Cloud Run
+rollback workflow. It is manual only, uses the same `demo` and `real` GitHub
+environment gates, requires an explicit target revision and rollback commit SHA,
+verifies `Security` success for that commit, proves that the target revision
+belongs to the selected service and matches the expected commit label/image,
+routes 100 percent traffic to the revision, verifies private readiness, and
+uploads rollback metadata.
 
 Current implementations:
 

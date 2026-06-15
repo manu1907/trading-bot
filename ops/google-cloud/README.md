@@ -119,4 +119,16 @@ the private `/actuator/health/readiness` endpoint with an identity token, and
 uploads smoke evidence. It requires
 `GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT`; that service account must have permission
 to describe the target Cloud Run service/revision and invoke the private service
-through `roles/run.invoker`. Rollback automation remains open.
+through `roles/run.invoker`.
+
+`rollback-google-cloud-cloud-run.yml` rolls Cloud Run traffic back to an
+existing revision when manually dispatched. It uses the same `demo` and `real`
+GitHub environment gates, requires the operator to provide both the target
+revision name and the expected rollback commit SHA, verifies that the rollback
+commit passed `Security`, verifies that the target revision belongs to the
+selected service and carries the expected app/environment/commit labels and
+commit-tagged image, shifts 100 percent traffic to that revision, calls the
+private readiness endpoint with an identity token, and uploads rollback evidence.
+It requires `GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT`; that service account must
+be able to describe services/revisions, update Cloud Run service traffic, and
+invoke the private service through `roles/run.invoker`.
