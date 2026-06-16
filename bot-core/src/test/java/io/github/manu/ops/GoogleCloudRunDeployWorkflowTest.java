@@ -40,6 +40,7 @@ class GoogleCloudRunDeployWorkflowTest {
                 .contains("gcloud run deploy \"${{ steps.target.outputs.service_name }}\"")
                 .contains("--no-allow-unauthenticated")
                 .contains("--execution-environment gen2")
+                .contains("--add-cloudsql-instances \"${{ steps.target.outputs.cloud_sql_instance }}\"")
                 .contains("--revision-suffix \"$revision_suffix\"")
                 .contains("--labels \"app=trading-bot,environment=${{ inputs.environment }},commit-sha=${{ steps.target.outputs.sha }}\"")
                 .contains("trading-bot-google-cloud-run-${{ inputs.environment }}-${{ steps.target.outputs.sha }}");
@@ -51,11 +52,13 @@ class GoogleCloudRunDeployWorkflowTest {
 
         assertThat(workflow)
                 .contains("trading-bot-demo-main-usdm-futures")
+                .contains("cloud_sql_instance=\"${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_CLOUD_SQL_INSTANCE }}\"")
                 .contains("ops/google-cloud/demo-usdm-futures-deployment.yml")
                 .contains("BINANCE_DEMO_API_KEY=trading-bot-demo-binance-api-key:latest")
                 .contains("TRADING_PROJECTION_JDBC_PASSWORD=trading-bot-demo-projection-jdbc-password:latest")
                 .contains("BOT_ENVIRONMENT=demo")
                 .contains("trading-bot-real-main-usdm-futures")
+                .contains("\"cloud_sql_instance\": \"${{ steps.target.outputs.cloud_sql_instance }}\"")
                 .contains("ops/google-cloud/real-usdm-futures-deployment.yml")
                 .contains("BINANCE_REAL_API_KEY=trading-bot-real-binance-api-key:latest")
                 .contains("TRADING_PROJECTION_JDBC_PASSWORD=trading-bot-real-projection-jdbc-password:latest")

@@ -42,6 +42,19 @@ Defaults used when you do not override them:
 - `GCP_ARTIFACT_REGISTRY_REPOSITORY`: `trading-bot`.
 - `GITHUB_OWNER` and `GITHUB_REPO`: inferred from the Git remote, falling back to
   `manu1907/trading-bot`.
+- `GCP_CLOUD_SQL_INSTANCE`: `trading-bot-postgres`.
+- `GCP_CLOUD_SQL_DATABASE_VERSION`: `POSTGRES_16`.
+- `GCP_CLOUD_SQL_TIER`: `db-custom-1-3840`.
+- `GCP_CLOUD_SQL_STORAGE_GB`: `20`.
+- `GCP_CLOUD_SQL_AVAILABILITY_TYPE`: `ZONAL`.
+- `DEMO_CLOUD_SQL_DATABASE` and `REAL_CLOUD_SQL_DATABASE`:
+  `trading_bot_demo` and `trading_bot_real`.
+- Audit database users: `DEMO_AUDIT_CLOUD_SQL_USERNAME` and
+  `REAL_AUDIT_CLOUD_SQL_USERNAME`, defaulting to `trading_bot_demo_audit` and
+  `trading_bot_real_audit`.
+- Projection database users: `DEMO_PROJECTION_CLOUD_SQL_USERNAME` and
+  `REAL_PROJECTION_CLOUD_SQL_USERNAME`, defaulting to
+  `trading_bot_demo_projection` and `trading_bot_real_projection`.
 - Operator tokens: generated automatically if no enabled secret version already
   exists.
 
@@ -49,17 +62,19 @@ The script enables required APIs, creates the Artifact Registry repository,
 creates the journal archive bucket, creates the GitHub Actions and Cloud Run
 service accounts, grants the IAM roles required by the publish/deploy/smoke and
 rollback workflows, configures GitHub OIDC Workload Identity Federation, creates
-the deployment Secret Manager secrets, adds Binance demo secret versions from
-`api.env`, generates operator-token versions when needed, and adds optional
-secret versions only for other values supplied through environment variables. It
-never prints secret values.
+or verifies the Cloud SQL PostgreSQL instance, creates demo and real databases
+and users, creates the deployment Secret Manager secrets, adds Binance demo
+secret versions from `api.env`, generates operator-token and Cloud SQL password
+versions when needed, generates Cloud SQL JDBC URL/username/password secrets
+when no overrides exist, and adds optional secret versions only for other values
+supplied through environment variables. It never prints secret values.
 
 After it completes, copy the printed values into the `demo` and `real` GitHub
-environment secrets/variables. Deployment still requires real Secret Manager
-versions for all `:latest` secrets. The script intentionally does not create the
-managed PostgreSQL backend yet; that remains an infrastructure slice because the
-Cloud SQL connection mode and deployment flags must be finalized before the JDBC
-secret values are generated.
+environment secrets/variables. Real Binance credentials and alert receiver
+values remain intentionally unset unless you provide their environment variables.
+The Cloud SQL resources are billable Google Cloud resources; override the Cloud
+SQL tier, storage, availability, and instance names before running the script if
+you want a different cost or separation model.
 
 ## Demo USD-M Futures
 

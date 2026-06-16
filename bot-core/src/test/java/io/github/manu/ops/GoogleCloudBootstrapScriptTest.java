@@ -25,6 +25,7 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("GCP_REGION")
                 .contains("GCP_ARTIFACT_REGISTRY_LOCATION")
                 .contains("GCP_ARTIFACT_REGISTRY_REPOSITORY")
+                .contains("GCP_CLOUD_SQL_INSTANCE")
                 .contains("GITHUB_OWNER")
                 .contains("GITHUB_REPO")
                 .contains("Default: current gcloud project")
@@ -44,6 +45,14 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("git remote get-url origin")
                 .contains("GCP_REGION=\"${GCP_REGION:-europe-west1}\"")
                 .contains("GCP_ARTIFACT_REGISTRY_REPOSITORY=\"${GCP_ARTIFACT_REGISTRY_REPOSITORY:-trading-bot}\"")
+                .contains("GCP_CLOUD_SQL_INSTANCE=\"${GCP_CLOUD_SQL_INSTANCE:-trading-bot-postgres}\"")
+                .contains("GCP_CLOUD_SQL_DATABASE_VERSION=\"${GCP_CLOUD_SQL_DATABASE_VERSION:-POSTGRES_16}\"")
+                .contains("DEMO_CLOUD_SQL_DATABASE=\"${DEMO_CLOUD_SQL_DATABASE:-trading_bot_demo}\"")
+                .contains("DEMO_AUDIT_CLOUD_SQL_USERNAME=\"${DEMO_AUDIT_CLOUD_SQL_USERNAME:-trading_bot_demo_audit}\"")
+                .contains("DEMO_PROJECTION_CLOUD_SQL_USERNAME=\"${DEMO_PROJECTION_CLOUD_SQL_USERNAME:-trading_bot_demo_projection}\"")
+                .contains("REAL_CLOUD_SQL_DATABASE=\"${REAL_CLOUD_SQL_DATABASE:-trading_bot_real}\"")
+                .contains("REAL_AUDIT_CLOUD_SQL_USERNAME=\"${REAL_AUDIT_CLOUD_SQL_USERNAME:-trading_bot_real_audit}\"")
+                .contains("REAL_PROJECTION_CLOUD_SQL_USERNAME=\"${REAL_PROJECTION_CLOUD_SQL_USERNAME:-trading_bot_real_projection}\"")
                 .contains("GITHUB_OWNER=\"${GITHUB_OWNER:-manu1907}\"")
                 .contains("GITHUB_REPO=\"${GITHUB_REPO:-trading-bot}\"")
                 .contains("openssl rand -base64 48")
@@ -129,6 +138,29 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("trading-bot-demo-alert-fallback-slack-channel")
                 .contains("trading-bot-real-alert-operator-slack-webhook")
                 .contains("trading-bot-real-alert-fallback-slack-channel");
+    }
+
+    @Test
+    void bootstrap_script_provisions_cloud_sql_and_generates_jdbc_secrets() throws IOException {
+        String script = Files.readString(resolve(SCRIPT));
+
+        assertThat(script)
+                .contains("ensure_cloud_sql_instance()")
+                .contains("gcloud sql instances create")
+                .contains("--database-version=$GCP_CLOUD_SQL_DATABASE_VERSION")
+                .contains("--deletion-protection")
+                .contains("ensure_cloud_sql_database \"$DEMO_CLOUD_SQL_DATABASE\"")
+                .contains("ensure_cloud_sql_database \"$REAL_CLOUD_SQL_DATABASE\"")
+                .contains("ensure_cloud_sql_user_password \"$DEMO_AUDIT_CLOUD_SQL_USERNAME\"")
+                .contains("ensure_cloud_sql_user_password \"$DEMO_PROJECTION_CLOUD_SQL_USERNAME\"")
+                .contains("ensure_cloud_sql_user_password \"$REAL_AUDIT_CLOUD_SQL_USERNAME\"")
+                .contains("ensure_cloud_sql_user_password \"$REAL_PROJECTION_CLOUD_SQL_USERNAME\"")
+                .contains("cloud_sql_postgres_jdbc_url()")
+                .contains("com.google.cloud.sql.postgres.SocketFactory")
+                .contains("ensure_secret_with_literal_fallback trading-bot-demo-audit-jdbc-url")
+                .contains("trading-bot-demo-projection-jdbc-password DEMO_PROJECTION_JDBC_PASSWORD")
+                .contains("trading-bot-real-projection-jdbc-password REAL_PROJECTION_JDBC_PASSWORD")
+                .contains("Cloud SQL/PostgreSQL created or verified");
     }
 
     @Test

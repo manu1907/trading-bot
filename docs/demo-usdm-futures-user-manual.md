@@ -722,11 +722,16 @@ Pause governance metrics:
   180-day retention, compaction that preserves the latest snapshot and applied
   event ids, Cloud SQL automated backups, at least 7 recovery days, and a
   90-day restore-drill interval.
+- The Google Cloud bootstrap script now creates or verifies the Cloud SQL
+  PostgreSQL instance, creates demo and real databases, creates separate audit
+  and projection database users, generates missing database passwords, and writes
+  the matching JDBC URL/username/password Secret Manager versions unless you
+  provide explicit overrides.
 - The persistence recovery runbook lives at
   `ops/runbooks/persistence-recovery.md`; it defines restore sequencing,
   reconciliation gates, compaction constraints, and restore-drill evidence.
-- Full infrastructure provisioning and CI/CD deployment workflows are still
-  planned work.
+- The guarded Google Cloud CI/CD path now covers image publication, Cloud Run
+  deployment with Cloud SQL attachment, private readiness smoke, and rollback.
 - Deployment contracts use the neutral schema in
   `ops/deployment/deployment-contract.yml`, so another cloud must keep the same
   app-facing runtime variables and secret keys.

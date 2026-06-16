@@ -430,10 +430,12 @@ Implemented persistence/recovery surfaces include:
   traffic is shifted to that revision, and private readiness returns `UP`.
 - A Google Cloud bootstrap script now prepares the foundation required by the
   current workflows: required APIs, Artifact Registry, journal archive bucket,
-  service accounts, IAM bindings, GitHub OIDC Workload Identity Federation, and
-  Secret Manager containers/versions. It defaults non-secret deployment values,
-  reads the Binance demo key/secret from `api.env`, and generates operator-token
-  secret versions when absent.
+  Cloud SQL PostgreSQL, demo/real database users, service accounts, IAM
+  bindings, GitHub OIDC Workload Identity Federation, and Secret Manager
+  containers/versions. It defaults non-secret deployment values, reads the
+  Binance demo key/secret from `api.env`, generates operator-token and Cloud SQL
+  password secret versions when absent, and generates Cloud SQL JDBC
+  URL/username/password secret versions when no runtime override is supplied.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

@@ -42,12 +42,14 @@ jobs:
           case "${{ inputs.environment }}" in
             demo)
               service_name="trading-bot-demo-main-usdm-futures"
+              cloud_sql_instance="${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_CLOUD_SQL_INSTANCE }}"
               contract_path="ops/google-cloud/demo-usdm-futures-deployment.yml"
               secret_env="BINANCE_DEMO_API_KEY=trading-bot-demo-binance-api-key:latest,BINANCE_DEMO_API_SECRET=trading-bot-demo-binance-api-secret:latest,TRADING_INTERVENTION_OPERATOR_API_OPERATOR_TOKEN=trading-bot-demo-operator-token:latest,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL=trading-bot-demo-audit-jdbc-url:latest,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME=trading-bot-demo-audit-jdbc-username:latest,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD=trading-bot-demo-audit-jdbc-password:latest,TRADING_PROJECTION_JDBC_URL=trading-bot-demo-projection-jdbc-url:latest,TRADING_PROJECTION_JDBC_USERNAME=trading-bot-demo-projection-jdbc-username:latest,TRADING_PROJECTION_JDBC_PASSWORD=trading-bot-demo-projection-jdbc-password:latest"
               runtime_env="SPRING_PROFILES_ACTIVE=live,BOT_CONFIG_DIR=/app/config,BOT_PROVIDER=binance,BOT_ENVIRONMENT=demo,BOT_ACCOUNT=main,BOT_MARKET=usdm_futures,TRADING_INTERVENTION_OPERATOR_API_ENABLED=true,TRADING_AUDIT_PAUSE_GOVERNANCE_FILE_STORE_ENABLED=false,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_ENABLED=true,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_TABLE_PREFIX=trading_audit_pause_governance_,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA=false,TRADING_PROJECTION_SNAPSHOT_STORE_ENABLED=false,TRADING_PROJECTION_JDBC_STORE_ENABLED=true,TRADING_PROJECTION_JDBC_STORE_TABLE_PREFIX=trading_projection_,TRADING_PROJECTION_JDBC_STORE_INITIALIZE_SCHEMA=false"
               ;;
             real)
               service_name="trading-bot-real-main-usdm-futures"
+              cloud_sql_instance="${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_CLOUD_SQL_INSTANCE }}"
               contract_path="ops/google-cloud/real-usdm-futures-deployment.yml"
               secret_env="BINANCE_REAL_API_KEY=trading-bot-real-binance-api-key:latest,BINANCE_REAL_API_SECRET=trading-bot-real-binance-api-secret:latest,TRADING_INTERVENTION_OPERATOR_API_OPERATOR_TOKEN=trading-bot-real-operator-token:latest,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL=trading-bot-real-audit-jdbc-url:latest,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME=trading-bot-real-audit-jdbc-username:latest,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD=trading-bot-real-audit-jdbc-password:latest,TRADING_PROJECTION_JDBC_URL=trading-bot-real-projection-jdbc-url:latest,TRADING_PROJECTION_JDBC_USERNAME=trading-bot-real-projection-jdbc-username:latest,TRADING_PROJECTION_JDBC_PASSWORD=trading-bot-real-projection-jdbc-password:latest"
               runtime_env="SPRING_PROFILES_ACTIVE=live,BOT_CONFIG_DIR=/app/config,BOT_PROVIDER=binance,BOT_ENVIRONMENT=real,BOT_ACCOUNT=main,BOT_MARKET=usdm_futures,TRADING_INTERVENTION_OPERATOR_API_ENABLED=true,TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_ENABLED=false,TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_EXCHANGE_EXECUTION_ENABLED=false,TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_REPORT_ONLY=true,TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_ALLOW_REAL_ENVIRONMENT=false,TRADING_AUDIT_PAUSE_GOVERNANCE_FILE_STORE_ENABLED=false,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_ENABLED=true,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_TABLE_PREFIX=trading_audit_pause_governance_,TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA=false,TRADING_PROJECTION_SNAPSHOT_STORE_ENABLED=false,TRADING_PROJECTION_JDBC_STORE_ENABLED=true,TRADING_PROJECTION_JDBC_STORE_TABLE_PREFIX=trading_projection_,TRADING_PROJECTION_JDBC_STORE_INITIALIZE_SCHEMA=false"
@@ -64,6 +66,7 @@ jobs:
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
           echo "image=$image" >> "$GITHUB_OUTPUT"
           echo "service_name=$service_name" >> "$GITHUB_OUTPUT"
+          echo "cloud_sql_instance=$cloud_sql_instance" >> "$GITHUB_OUTPUT"
           echo "contract_path=$contract_path" >> "$GITHUB_OUTPUT"
           echo "runtime_env=$runtime_env" >> "$GITHUB_OUTPUT"
           echo "secret_env=$secret_env" >> "$GITHUB_OUTPUT"
@@ -121,6 +124,7 @@ jobs:
             --min-instances "${{ vars.GCP_CLOUD_RUN_MIN_INSTANCES }}" \
             --max-instances "${{ vars.GCP_CLOUD_RUN_MAX_INSTANCES }}" \
             --timeout "${{ vars.GCP_CLOUD_RUN_TIMEOUT }}" \
+            --add-cloudsql-instances "${{ steps.target.outputs.cloud_sql_instance }}" \
             --revision-suffix "$revision_suffix" \
             --labels "app=trading-bot,environment=${{ inputs.environment }},commit-sha=${{ steps.target.outputs.sha }}" \
             --set-env-vars "${{ steps.target.outputs.runtime_env }}" \
@@ -136,6 +140,7 @@ jobs:
             "service": "${{ steps.target.outputs.service_name }}",
             "environment": "${{ inputs.environment }}",
             "image": "${{ steps.target.outputs.image }}",
+            "cloud_sql_instance": "${{ steps.target.outputs.cloud_sql_instance }}",
             "revision_suffix": "$revision_suffix",
             "source_revision": "${{ steps.target.outputs.sha }}",
             "contract": "${{ steps.target.outputs.contract_path }}",

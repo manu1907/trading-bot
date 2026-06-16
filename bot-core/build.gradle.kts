@@ -51,6 +51,7 @@ dependencies {
     implementation("org.apache.kafka:kafka-clients")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("com.google.cloud.sql:postgres-socket-factory:1.28.4")
     avroTools("org.apache.avro:avro-tools:${rootProject.ext["avro.version"]}") {
         exclude(group = "org.apache.avro", module = "trevni-avro")
         exclude(group = "org.apache.avro", module = "trevni-core")

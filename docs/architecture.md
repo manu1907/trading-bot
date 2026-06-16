@@ -667,28 +667,31 @@ image build can be tied back to a commit before registry publication is added.
 The guarded Google Cloud image-publish workflow is manual, environment-gated,
 verifies that the requested commit passed the `Security` workflow, uses OIDC
 Workload Identity, publishes to Artifact Registry with commit-SHA tags, and
-uploads publish metadata; Cloud Run deployment remains a later workflow.
+uploads publish metadata.
 The guarded Cloud Run deployment workflow is also manual and environment-gated:
 it verifies `Security` success, verifies the commit-tagged image exists, applies
 the Google Cloud deployment contract runtime variables and Secret Manager
-bindings, blocks unauthenticated access, labels the revision with the source
-commit, and uploads deployment metadata. The guarded Cloud Run smoke workflow is
-manual and environment-gated as well: it verifies `Security` success for the
-requested commit, confirms that the latest ready revision is labeled with that
-commit and runs the matching commit-tagged image, invokes the private readiness
-endpoint with a Google identity token, and uploads smoke evidence. The guarded
-Cloud Run rollback workflow is also manual and environment-gated: it requires an
-explicit target revision and rollback commit SHA, verifies `Security` success for
-that commit, proves that the target revision belongs to the selected service and
-matches the expected app/environment/commit labels plus commit-tagged image,
-routes all traffic to that existing revision, verifies private readiness, and
-uploads rollback evidence. The Google Cloud bootstrap script prepares the
-current workflow foundation by enabling required APIs, creating Artifact
-Registry, the journal archive bucket, service accounts, IAM bindings, GitHub
-OIDC Workload Identity Federation, and Secret Manager containers/versions when
-values are supplied through environment variables. It also defaults non-secret
-deployment values, reads the Binance demo key and secret from `api.env`, and
-generates operator-token secret versions when absent.
+bindings, attaches the configured Cloud SQL instance, blocks unauthenticated
+access, labels the revision with the source commit, and uploads deployment
+metadata. The guarded Cloud Run smoke workflow is manual and environment-gated
+as well: it verifies `Security` success for the requested commit, confirms that
+the latest ready revision is labeled with that commit and runs the matching
+commit-tagged image, invokes the private readiness endpoint with a Google
+identity token, and uploads smoke evidence. The guarded Cloud Run rollback
+workflow is also manual and environment-gated: it requires an explicit target
+revision and rollback commit SHA, verifies `Security` success for that commit,
+proves that the target revision belongs to the selected service and matches the
+expected app/environment/commit labels plus commit-tagged image, routes all
+traffic to that existing revision, verifies private readiness, and uploads
+rollback evidence. The Google Cloud bootstrap script prepares the current
+workflow foundation by enabling required APIs, creating Artifact Registry, the
+journal archive bucket, Cloud SQL PostgreSQL, demo/real databases, separate
+audit/projection database users, service accounts, IAM bindings, GitHub OIDC
+Workload Identity Federation, and Secret Manager containers/versions. It also
+defaults non-secret deployment values, reads the Binance demo key and secret
+from `api.env`, generates operator-token and Cloud SQL password secret versions
+when absent, and generates Cloud SQL JDBC URL/username/password secret versions
+when no runtime override is supplied.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

@@ -27,6 +27,19 @@ Optional environment variables:
   GCP_CLOUD_RUN_MIN_INSTANCES                          Default printed for GitHub vars: 0
   GCP_CLOUD_RUN_MAX_INSTANCES                          Default printed for GitHub vars: 1
   GCP_CLOUD_RUN_TIMEOUT                                Default printed for GitHub vars: 300s
+  GCP_CLOUD_SQL_INSTANCE                               Default: trading-bot-postgres
+  GCP_CLOUD_SQL_DATABASE_VERSION                       Default: POSTGRES_16
+  GCP_CLOUD_SQL_TIER                                   Default: db-custom-1-3840
+  GCP_CLOUD_SQL_STORAGE_GB                             Default: 20
+  GCP_CLOUD_SQL_AVAILABILITY_TYPE                      Default: ZONAL
+  GCP_CLOUD_SQL_BACKUP_START_TIME                      Default: 03:00
+  GCP_CLOUD_SQL_DELETION_PROTECTION=true|false         Default: true
+  DEMO_CLOUD_SQL_DATABASE                              Default: trading_bot_demo
+  DEMO_AUDIT_CLOUD_SQL_USERNAME                        Default: trading_bot_demo_audit
+  DEMO_PROJECTION_CLOUD_SQL_USERNAME                   Default: trading_bot_demo_projection
+  REAL_CLOUD_SQL_DATABASE                              Default: trading_bot_real
+  REAL_AUDIT_CLOUD_SQL_USERNAME                        Default: trading_bot_real_audit
+  REAL_PROJECTION_CLOUD_SQL_USERNAME                   Default: trading_bot_real_projection
 
 Optional generated/secret value environment variables:
   DEMO_OPERATOR_TOKEN                                  Default: generated if no secret version exists
@@ -139,6 +152,19 @@ infer_defaults() {
   GCP_WORKLOAD_IDENTITY_PROVIDER_ID="${GCP_WORKLOAD_IDENTITY_PROVIDER_ID:-github-actions}"
   GCP_SERVICE_ACCOUNT_PREFIX="${GCP_SERVICE_ACCOUNT_PREFIX:-trading-bot}"
   TRADING_BOT_JOURNAL_ARCHIVE_BUCKET="${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET:-${GCP_PROJECT_ID}-trading-bot-journal-archive}"
+  GCP_CLOUD_SQL_INSTANCE="${GCP_CLOUD_SQL_INSTANCE:-trading-bot-postgres}"
+  GCP_CLOUD_SQL_DATABASE_VERSION="${GCP_CLOUD_SQL_DATABASE_VERSION:-POSTGRES_16}"
+  GCP_CLOUD_SQL_TIER="${GCP_CLOUD_SQL_TIER:-db-custom-1-3840}"
+  GCP_CLOUD_SQL_STORAGE_GB="${GCP_CLOUD_SQL_STORAGE_GB:-20}"
+  GCP_CLOUD_SQL_AVAILABILITY_TYPE="${GCP_CLOUD_SQL_AVAILABILITY_TYPE:-ZONAL}"
+  GCP_CLOUD_SQL_BACKUP_START_TIME="${GCP_CLOUD_SQL_BACKUP_START_TIME:-03:00}"
+  GCP_CLOUD_SQL_DELETION_PROTECTION="${GCP_CLOUD_SQL_DELETION_PROTECTION:-true}"
+  DEMO_CLOUD_SQL_DATABASE="${DEMO_CLOUD_SQL_DATABASE:-trading_bot_demo}"
+  DEMO_AUDIT_CLOUD_SQL_USERNAME="${DEMO_AUDIT_CLOUD_SQL_USERNAME:-trading_bot_demo_audit}"
+  DEMO_PROJECTION_CLOUD_SQL_USERNAME="${DEMO_PROJECTION_CLOUD_SQL_USERNAME:-trading_bot_demo_projection}"
+  REAL_CLOUD_SQL_DATABASE="${REAL_CLOUD_SQL_DATABASE:-trading_bot_real}"
+  REAL_AUDIT_CLOUD_SQL_USERNAME="${REAL_AUDIT_CLOUD_SQL_USERNAME:-trading_bot_real_audit}"
+  REAL_PROJECTION_CLOUD_SQL_USERNAME="${REAL_PROJECTION_CLOUD_SQL_USERNAME:-trading_bot_real_projection}"
 }
 
 ensure_project() {
@@ -333,6 +359,172 @@ ensure_secret_with_optional_version() {
   add_secret_version_from_env "$secret_name" "$env_var"
 }
 
+add_secret_version_from_value() {
+  local secret_name="$1"
+  local value="$2"
+  local source_label="$3"
+  printf '%s' "$value" | gcloud secrets versions add "$secret_name" \
+    --project="$GCP_PROJECT_ID" \
+    --data-file=- \
+    --quiet >/dev/null
+  ADDED_SECRET_VALUE_ENVS+=("$secret_name <= $source_label")
+}
+
+secret_latest_value() {
+  local secret_name="$1"
+  gcloud secrets versions access latest \
+    --secret "$secret_name" \
+    --project="$GCP_PROJECT_ID" 2>/dev/null || true
+}
+
+ensure_secret_with_literal_fallback() {
+  local secret_name="$1"
+  local env_var="$2"
+  local fallback_value="$3"
+  local fallback_label="$4"
+  ensure_secret "$secret_name"
+  if [[ -n "${!env_var-}" ]]; then
+    add_secret_version_from_env "$secret_name" "$env_var"
+    return
+  fi
+  if secret_has_enabled_version "$secret_name"; then
+    REUSED_SECRET_VALUE_ENVS+=("$secret_name")
+    return
+  fi
+  add_secret_version_from_value "$secret_name" "$fallback_value" "$fallback_label"
+}
+
+ensure_cloud_sql_instance() {
+  if gcloud sql instances describe "$GCP_CLOUD_SQL_INSTANCE" \
+      --project="$GCP_PROJECT_ID" >/dev/null 2>&1; then
+    return
+  fi
+  local create_args=(
+    "$GCP_CLOUD_SQL_INSTANCE"
+    "--project=$GCP_PROJECT_ID"
+    "--database-version=$GCP_CLOUD_SQL_DATABASE_VERSION"
+    "--region=$GCP_REGION"
+    "--tier=$GCP_CLOUD_SQL_TIER"
+    "--storage-type=SSD"
+    "--storage-size=${GCP_CLOUD_SQL_STORAGE_GB}GB"
+    "--availability-type=$GCP_CLOUD_SQL_AVAILABILITY_TYPE"
+    "--backup-start-time=$GCP_CLOUD_SQL_BACKUP_START_TIME"
+    "--quiet"
+  )
+  if [[ "$GCP_CLOUD_SQL_DELETION_PROTECTION" == "true" ]]; then
+    create_args+=("--deletion-protection")
+  fi
+  gcloud sql instances create "${create_args[@]}"
+}
+
+ensure_cloud_sql_database() {
+  local database="$1"
+  if gcloud sql databases describe "$database" \
+      --instance="$GCP_CLOUD_SQL_INSTANCE" \
+      --project="$GCP_PROJECT_ID" >/dev/null 2>&1; then
+    return
+  fi
+  gcloud sql databases create "$database" \
+    --instance="$GCP_CLOUD_SQL_INSTANCE" \
+    --project="$GCP_PROJECT_ID" \
+    --quiet >/dev/null
+}
+
+cloud_sql_user_exists() {
+  local username="$1"
+  gcloud sql users list \
+    --instance="$GCP_CLOUD_SQL_INSTANCE" \
+    --project="$GCP_PROJECT_ID" \
+    --format='value(name)' 2>/dev/null | grep -Fx -- "$username" >/dev/null
+}
+
+ensure_cloud_sql_user_password() {
+  local username="$1"
+  local password_secret="$2"
+  local password_env_var="$3"
+  local sql_user_pass
+  ensure_secret "$password_secret"
+  if [[ -n "${!password_env_var-}" ]]; then
+    sql_user_pass="${!password_env_var}"
+    add_secret_version_from_env "$password_secret" "$password_env_var"
+  elif secret_has_enabled_version "$password_secret"; then
+    sql_user_pass="$(secret_latest_value "$password_secret")"
+    REUSED_SECRET_VALUE_ENVS+=("$password_secret")
+  else
+    sql_user_pass="$(generate_secret_value)"
+    add_secret_version_from_value "$password_secret" "$sql_user_pass" "generated Cloud SQL password"
+  fi
+
+  if cloud_sql_user_exists "$username"; then
+    gcloud sql users set-password "$username" \
+      --instance="$GCP_CLOUD_SQL_INSTANCE" \
+      --project="$GCP_PROJECT_ID" \
+      --password "$sql_user_pass" \
+      --quiet >/dev/null
+  else
+    gcloud sql users create "$username" \
+      --instance="$GCP_CLOUD_SQL_INSTANCE" \
+      --project="$GCP_PROJECT_ID" \
+      --password "$sql_user_pass" \
+      --quiet >/dev/null
+  fi
+}
+
+cloud_sql_postgres_jdbc_url() {
+  local database="$1"
+  local connection_name="${GCP_PROJECT_ID}:${GCP_REGION}:${GCP_CLOUD_SQL_INSTANCE}"
+  local jdbc_scheme="jdbc:postgresql:"
+  printf '%s///%s?cloudSqlInstance=%s&socketFactory=com.google.cloud.sql.postgres.SocketFactory&sslmode=disable' \
+    "$jdbc_scheme" \
+    "$database" \
+    "$connection_name"
+}
+
+ensure_cloud_sql_runtime() {
+  ensure_cloud_sql_instance
+  ensure_cloud_sql_database "$DEMO_CLOUD_SQL_DATABASE"
+  ensure_cloud_sql_database "$REAL_CLOUD_SQL_DATABASE"
+
+  ensure_cloud_sql_user_password "$DEMO_AUDIT_CLOUD_SQL_USERNAME" trading-bot-demo-audit-jdbc-password DEMO_AUDIT_JDBC_PASSWORD
+  ensure_cloud_sql_user_password "$DEMO_PROJECTION_CLOUD_SQL_USERNAME" trading-bot-demo-projection-jdbc-password DEMO_PROJECTION_JDBC_PASSWORD
+  ensure_cloud_sql_user_password "$REAL_AUDIT_CLOUD_SQL_USERNAME" trading-bot-real-audit-jdbc-password REAL_AUDIT_JDBC_PASSWORD
+  ensure_cloud_sql_user_password "$REAL_PROJECTION_CLOUD_SQL_USERNAME" trading-bot-real-projection-jdbc-password REAL_PROJECTION_JDBC_PASSWORD
+
+  ensure_secret_with_literal_fallback trading-bot-demo-audit-jdbc-url \
+    DEMO_AUDIT_JDBC_URL \
+    "$(cloud_sql_postgres_jdbc_url "$DEMO_CLOUD_SQL_DATABASE")" \
+    "generated Cloud SQL JDBC URL"
+  ensure_secret_with_literal_fallback trading-bot-demo-audit-jdbc-username \
+    DEMO_AUDIT_JDBC_USERNAME \
+    "$DEMO_AUDIT_CLOUD_SQL_USERNAME" \
+    "generated Cloud SQL username"
+  ensure_secret_with_literal_fallback trading-bot-demo-projection-jdbc-url \
+    DEMO_PROJECTION_JDBC_URL \
+    "$(cloud_sql_postgres_jdbc_url "$DEMO_CLOUD_SQL_DATABASE")" \
+    "generated Cloud SQL JDBC URL"
+  ensure_secret_with_literal_fallback trading-bot-demo-projection-jdbc-username \
+    DEMO_PROJECTION_JDBC_USERNAME \
+    "$DEMO_PROJECTION_CLOUD_SQL_USERNAME" \
+    "generated Cloud SQL username"
+
+  ensure_secret_with_literal_fallback trading-bot-real-audit-jdbc-url \
+    REAL_AUDIT_JDBC_URL \
+    "$(cloud_sql_postgres_jdbc_url "$REAL_CLOUD_SQL_DATABASE")" \
+    "generated Cloud SQL JDBC URL"
+  ensure_secret_with_literal_fallback trading-bot-real-audit-jdbc-username \
+    REAL_AUDIT_JDBC_USERNAME \
+    "$REAL_AUDIT_CLOUD_SQL_USERNAME" \
+    "generated Cloud SQL username"
+  ensure_secret_with_literal_fallback trading-bot-real-projection-jdbc-url \
+    REAL_PROJECTION_JDBC_URL \
+    "$(cloud_sql_postgres_jdbc_url "$REAL_CLOUD_SQL_DATABASE")" \
+    "generated Cloud SQL JDBC URL"
+  ensure_secret_with_literal_fallback trading-bot-real-projection-jdbc-username \
+    REAL_PROJECTION_JDBC_USERNAME \
+    "$REAL_PROJECTION_CLOUD_SQL_USERNAME" \
+    "generated Cloud SQL username"
+}
+
 print_github_configuration() {
   local project_number="$1"
   local provider="projects/${project_number}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_PROVIDER_ID}"
@@ -359,25 +551,17 @@ Set these GitHub environment variables for both demo and real environments:
   GCP_CLOUD_RUN_MIN_INSTANCES=${GCP_CLOUD_RUN_MIN_INSTANCES:-0}
   GCP_CLOUD_RUN_MAX_INSTANCES=${GCP_CLOUD_RUN_MAX_INSTANCES:-1}
   GCP_CLOUD_RUN_TIMEOUT=${GCP_CLOUD_RUN_TIMEOUT:-300s}
+  GCP_CLOUD_SQL_INSTANCE=${GCP_CLOUD_SQL_INSTANCE}
 
 Journal archive bucket created or verified:
   gs://${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET}
 
-Cloud SQL/PostgreSQL is not created by this bootstrap script yet. Create the
-managed PostgreSQL backend and add versions for these JDBC secrets before using
-Cloud Run deployment:
-  trading-bot-demo-audit-jdbc-url
-  trading-bot-demo-audit-jdbc-username
-  trading-bot-demo-audit-jdbc-password
-  trading-bot-demo-projection-jdbc-url
-  trading-bot-demo-projection-jdbc-username
-  trading-bot-demo-projection-jdbc-password
-  trading-bot-real-audit-jdbc-url
-  trading-bot-real-audit-jdbc-username
-  trading-bot-real-audit-jdbc-password
-  trading-bot-real-projection-jdbc-url
-  trading-bot-real-projection-jdbc-username
-  trading-bot-real-projection-jdbc-password
+Cloud SQL/PostgreSQL created or verified:
+  ${GCP_PROJECT_ID}:${GCP_REGION}:${GCP_CLOUD_SQL_INSTANCE}
+  demo database: ${DEMO_CLOUD_SQL_DATABASE}
+  demo users: ${DEMO_AUDIT_CLOUD_SQL_USERNAME}, ${DEMO_PROJECTION_CLOUD_SQL_USERNAME}
+  real database: ${REAL_CLOUD_SQL_DATABASE}
+  real users: ${REAL_AUDIT_CLOUD_SQL_USERNAME}, ${REAL_PROJECTION_CLOUD_SQL_USERNAME}
 CONFIG
 
   if ((${#ADDED_SECRET_VALUE_ENVS[@]} > 0)); then
@@ -469,21 +653,14 @@ main() {
   ensure_secret_with_optional_version trading-bot-demo-binance-api-key BINANCE_DEMO_API_KEY
   ensure_secret_with_optional_version trading-bot-demo-binance-api-secret BINANCE_DEMO_API_SECRET
   ensure_secret_with_generated_fallback trading-bot-demo-operator-token DEMO_OPERATOR_TOKEN
-  ensure_secret_with_optional_version trading-bot-demo-audit-jdbc-url DEMO_AUDIT_JDBC_URL
-  ensure_secret_with_optional_version trading-bot-demo-audit-jdbc-username DEMO_AUDIT_JDBC_USERNAME
-  ensure_secret_with_optional_version trading-bot-demo-audit-jdbc-password DEMO_AUDIT_JDBC_PASSWORD
-  ensure_secret_with_optional_version trading-bot-demo-projection-jdbc-url DEMO_PROJECTION_JDBC_URL
-  ensure_secret_with_optional_version trading-bot-demo-projection-jdbc-username DEMO_PROJECTION_JDBC_USERNAME
-  ensure_secret_with_optional_version trading-bot-demo-projection-jdbc-password DEMO_PROJECTION_JDBC_PASSWORD
   ensure_secret_with_optional_version trading-bot-real-binance-api-key REAL_BINANCE_API_KEY
   ensure_secret_with_optional_version trading-bot-real-binance-api-secret REAL_BINANCE_API_SECRET
   ensure_secret_with_generated_fallback trading-bot-real-operator-token REAL_OPERATOR_TOKEN
-  ensure_secret_with_optional_version trading-bot-real-audit-jdbc-url REAL_AUDIT_JDBC_URL
-  ensure_secret_with_optional_version trading-bot-real-audit-jdbc-username REAL_AUDIT_JDBC_USERNAME
-  ensure_secret_with_optional_version trading-bot-real-audit-jdbc-password REAL_AUDIT_JDBC_PASSWORD
-  ensure_secret_with_optional_version trading-bot-real-projection-jdbc-url REAL_PROJECTION_JDBC_URL
-  ensure_secret_with_optional_version trading-bot-real-projection-jdbc-username REAL_PROJECTION_JDBC_USERNAME
-  ensure_secret_with_optional_version trading-bot-real-projection-jdbc-password REAL_PROJECTION_JDBC_PASSWORD
+
+  log "Creating Cloud SQL PostgreSQL runtime and JDBC secrets"
+  ensure_cloud_sql_runtime
+
+  log "Creating alert Secret Manager secrets and adding supplied versions"
   ensure_secret_with_optional_version trading-bot-demo-alert-operator-pagerduty-routing-key DEMO_ALERT_OPERATOR_PAGERDUTY_ROUTING_KEY
   ensure_secret_with_optional_version trading-bot-demo-alert-platform-pagerduty-routing-key DEMO_ALERT_PLATFORM_PAGERDUTY_ROUTING_KEY
   ensure_secret_with_optional_version trading-bot-demo-alert-operator-slack-webhook DEMO_ALERT_OPERATOR_SLACK_WEBHOOK
