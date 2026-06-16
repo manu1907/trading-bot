@@ -727,6 +727,10 @@ Pause governance metrics:
   and projection database users, generates missing database passwords, and writes
   the matching JDBC URL/username/password Secret Manager versions unless you
   provide explicit overrides.
+- When `GITHUB_CONFIGURE_ENVIRONMENTS=true` is set and GitHub CLI is
+  authenticated, the same bootstrap script creates or updates the `demo` and
+  `real` GitHub environments with the required Google Cloud OIDC/service-account
+  secrets and deployment variables.
 - The persistence recovery runbook lives at
   `ops/runbooks/persistence-recovery.md`; it defines restore sequencing,
   reconciliation gates, compaction constraints, and restore-drill evidence.

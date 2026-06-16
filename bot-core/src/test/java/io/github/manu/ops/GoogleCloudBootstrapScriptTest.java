@@ -28,11 +28,12 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("GCP_CLOUD_SQL_INSTANCE")
                 .contains("GITHUB_OWNER")
                 .contains("GITHUB_REPO")
+                .contains("GITHUB_CONFIGURE_ENVIRONMENTS=true|false")
                 .contains("Default: current gcloud project")
                 .contains("Default: europe-west1")
                 .contains("Default: inferred from git remote")
                 .contains("source api.env")
-                .contains("Operator tokens are generated automatically");
+                .contains("Operator tokens and Cloud SQL JDBC values are generated automatically");
     }
 
     @Test
@@ -55,6 +56,7 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("REAL_PROJECTION_CLOUD_SQL_USERNAME=\"${REAL_PROJECTION_CLOUD_SQL_USERNAME:-trading_bot_real_projection}\"")
                 .contains("GITHUB_OWNER=\"${GITHUB_OWNER:-manu1907}\"")
                 .contains("GITHUB_REPO=\"${GITHUB_REPO:-trading-bot}\"")
+                .contains("GITHUB_CONFIGURE_ENVIRONMENTS=\"${GITHUB_CONFIGURE_ENVIRONMENTS:-false}\"")
                 .contains("openssl rand -base64 48")
                 .contains("ensure_secret_with_generated_fallback trading-bot-demo-operator-token DEMO_OPERATOR_TOKEN")
                 .contains("ensure_secret_with_generated_fallback trading-bot-real-operator-token REAL_OPERATOR_TOKEN");
@@ -161,6 +163,26 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("trading-bot-demo-projection-jdbc-password DEMO_PROJECTION_JDBC_PASSWORD")
                 .contains("trading-bot-real-projection-jdbc-password REAL_PROJECTION_JDBC_PASSWORD")
                 .contains("Cloud SQL/PostgreSQL created or verified");
+    }
+
+    @Test
+    void bootstrap_script_can_optionally_configure_github_environments() throws IOException {
+        String script = Files.readString(resolve(SCRIPT));
+
+        assertThat(script)
+                .contains("configure_github_environments()")
+                .contains("require_command gh")
+                .contains("configure_github_environment demo")
+                .contains("configure_github_environment real")
+                .contains("gh api")
+                .contains("repos/$(github_repo_slug)/environments/${environment}")
+                .contains("gh secret set \"$secret_name\"")
+                .contains("gh variable set \"$variable_name\"")
+                .contains("GCP_WORKLOAD_IDENTITY_PROVIDER")
+                .contains("GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT")
+                .contains("GCP_CLOUD_SQL_INSTANCE")
+                .contains("if [[ \"$GITHUB_CONFIGURE_ENVIRONMENTS\" == \"true\" ]]")
+                .contains("GitHub environments configured:");
     }
 
     @Test

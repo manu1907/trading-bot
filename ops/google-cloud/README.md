@@ -16,9 +16,14 @@ partial setup.
 Required local tools and access:
 
 - `gcloud`, `git`, and `openssl` installed.
+- `gh` installed and authenticated only if
+  `GITHUB_CONFIGURE_ENVIRONMENTS=true` is used.
 - `gcloud` authenticated as an account allowed to manage the target project, IAM,
   APIs, Artifact Registry, Secret Manager, Cloud Storage, and Workload Identity
   Federation.
+- If GitHub automation is enabled, `gh` must be authenticated as a GitHub user
+  or token allowed to create/update repository environments, environment
+  secrets, and environment variables.
 - A Google Cloud project with billing enabled, or `GCP_CREATE_PROJECT=true` plus
   `GCP_BILLING_ACCOUNT`.
 - Binance demo API credentials exported as `BINANCE_DEMO_API_KEY` and
@@ -42,6 +47,7 @@ Defaults used when you do not override them:
 - `GCP_ARTIFACT_REGISTRY_REPOSITORY`: `trading-bot`.
 - `GITHUB_OWNER` and `GITHUB_REPO`: inferred from the Git remote, falling back to
   `manu1907/trading-bot`.
+- `GITHUB_CONFIGURE_ENVIRONMENTS`: `false`.
 - `GCP_CLOUD_SQL_INSTANCE`: `trading-bot-postgres`.
 - `GCP_CLOUD_SQL_DATABASE_VERSION`: `POSTGRES_16`.
 - `GCP_CLOUD_SQL_TIER`: `db-custom-1-3840`.
@@ -69,12 +75,31 @@ versions when needed, generates Cloud SQL JDBC URL/username/password secrets
 when no overrides exist, and adds optional secret versions only for other values
 supplied through environment variables. It never prints secret values.
 
+If `GITHUB_CONFIGURE_ENVIRONMENTS=true`, the script also uses GitHub CLI to
+create or update the `demo` and `real` GitHub environments, writes the required
+Google Cloud OIDC/service-account values as environment secrets, and writes the
+deployment region, Artifact Registry, Cloud Run sizing, timeout, and Cloud SQL
+instance values as environment variables. This removes the copy/paste step for
+the GitHub values printed by the bootstrap output. It does not create Binance,
+Alertmanager, or database secrets in GitHub; those values live in Google Secret
+Manager and are bound by name during Cloud Run deployment.
+
 After it completes, copy the printed values into the `demo` and `real` GitHub
-environment secrets/variables. Real Binance credentials and alert receiver
-values remain intentionally unset unless you provide their environment variables.
-The Cloud SQL resources are billable Google Cloud resources; override the Cloud
-SQL tier, storage, availability, and instance names before running the script if
-you want a different cost or separation model.
+environment secrets/variables if you did not enable GitHub automation. Real
+Binance credentials and alert receiver values remain intentionally unset unless
+you provide their environment variables. The Cloud SQL resources are billable
+Google Cloud resources; override the Cloud SQL tier, storage, availability, and
+instance names before running the script if you want a different cost or
+separation model.
+
+Invocation with GitHub environment automation:
+
+```bash
+set -a
+source api.env
+set +a
+GITHUB_CONFIGURE_ENVIRONMENTS=true ./ops/google-cloud/bootstrap-deployment-prereqs.sh
+```
 
 ## Demo USD-M Futures
 

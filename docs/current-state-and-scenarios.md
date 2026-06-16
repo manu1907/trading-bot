@@ -435,7 +435,10 @@ Implemented persistence/recovery surfaces include:
   containers/versions. It defaults non-secret deployment values, reads the
   Binance demo key/secret from `api.env`, generates operator-token and Cloud SQL
   password secret versions when absent, and generates Cloud SQL JDBC
-  URL/username/password secret versions when no runtime override is supplied.
+  URL/username/password secret versions when no runtime override is supplied. If
+  `GITHUB_CONFIGURE_ENVIRONMENTS=true`, it also uses GitHub CLI to create or
+  update the `demo` and `real` GitHub environments with the required OIDC
+  service-account secrets and deployment variables.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.

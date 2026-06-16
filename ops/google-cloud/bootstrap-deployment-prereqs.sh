@@ -16,6 +16,7 @@ Optional environment variables:
   GCP_ARTIFACT_REGISTRY_REPOSITORY                    Default: trading-bot
   GITHUB_OWNER                                        Default: inferred from git remote, then manu1907
   GITHUB_REPO                                         Default: inferred from git remote, then trading-bot
+  GITHUB_CONFIGURE_ENVIRONMENTS=true|false            Default: false
   GCP_CREATE_PROJECT=true|false                         Default: false
   GCP_BILLING_ACCOUNT                                  Required only when creating a project
   GCP_WORKLOAD_IDENTITY_POOL_ID                        Default: github-actions
@@ -76,17 +77,20 @@ Optional generated/secret value environment variables:
   REAL_ALERT_FALLBACK_SLACK_CHANNEL
 
 The script creates Google Cloud resources and IAM bindings idempotently. It does
-not print secret values. If an alert or JDBC secret value environment variable
-is absent, the Secret Manager secret is created without adding a version;
+not print secret values. If an alert secret value environment variable is
+absent, the Secret Manager secret is created without adding a version;
 deployment will still require a secret version before Cloud Run can bind
-:latest. Operator tokens are generated automatically when absent and no enabled
-secret version exists.
+:latest. Operator tokens and Cloud SQL JDBC values are generated automatically
+when absent and no enabled secret version exists.
 
 Example:
   set -a
   source api.env
   set +a
   ./ops/google-cloud/bootstrap-deployment-prereqs.sh
+
+Optional GitHub environment configuration:
+  GITHUB_CONFIGURE_ENVIRONMENTS=true ./ops/google-cloud/bootstrap-deployment-prereqs.sh
 USAGE
 }
 
@@ -148,6 +152,7 @@ infer_defaults() {
   infer_github_slug
   GITHUB_OWNER="${GITHUB_OWNER:-manu1907}"
   GITHUB_REPO="${GITHUB_REPO:-trading-bot}"
+  GITHUB_CONFIGURE_ENVIRONMENTS="${GITHUB_CONFIGURE_ENVIRONMENTS:-false}"
   GCP_WORKLOAD_IDENTITY_POOL_ID="${GCP_WORKLOAD_IDENTITY_POOL_ID:-github-actions}"
   GCP_WORKLOAD_IDENTITY_PROVIDER_ID="${GCP_WORKLOAD_IDENTITY_PROVIDER_ID:-github-actions}"
   GCP_SERVICE_ACCOUNT_PREFIX="${GCP_SERVICE_ACCOUNT_PREFIX:-trading-bot}"
@@ -525,6 +530,69 @@ ensure_cloud_sql_runtime() {
     "generated Cloud SQL username"
 }
 
+github_repo_slug() {
+  printf '%s/%s' "$GITHUB_OWNER" "$GITHUB_REPO"
+}
+
+ensure_github_environment() {
+  local environment="$1"
+  gh api \
+    --method PUT \
+    "repos/$(github_repo_slug)/environments/${environment}" >/dev/null
+}
+
+set_github_environment_secret() {
+  local environment="$1"
+  local secret_name="$2"
+  local secret_value="$3"
+  printf '%s' "$secret_value" | gh secret set "$secret_name" \
+    --repo "$(github_repo_slug)" \
+    --env "$environment" >/dev/null
+}
+
+set_github_environment_variable() {
+  local environment="$1"
+  local variable_name="$2"
+  local variable_value="$3"
+  gh variable set "$variable_name" \
+    --repo "$(github_repo_slug)" \
+    --env "$environment" \
+    --body "$variable_value" >/dev/null
+}
+
+configure_github_environment() {
+  local environment="$1"
+  local provider="$2"
+  ensure_github_environment "$environment"
+
+  set_github_environment_secret "$environment" GCP_WORKLOAD_IDENTITY_PROVIDER "$provider"
+  set_github_environment_secret "$environment" GCP_ARTIFACT_REGISTRY_SERVICE_ACCOUNT "$ARTIFACT_REGISTRY_SA"
+  set_github_environment_secret "$environment" GCP_CLOUD_RUN_DEPLOY_SERVICE_ACCOUNT "$CLOUD_RUN_DEPLOY_SA"
+  set_github_environment_secret "$environment" GCP_CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT "$CLOUD_RUN_RUNTIME_SA"
+  set_github_environment_secret "$environment" GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT "$CLOUD_RUN_SMOKE_SA"
+  set_github_environment_secret "$environment" GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT "$CLOUD_RUN_ROLLBACK_SA"
+
+  set_github_environment_variable "$environment" GCP_PROJECT_ID "$GCP_PROJECT_ID"
+  set_github_environment_variable "$environment" GCP_REGION "$GCP_REGION"
+  set_github_environment_variable "$environment" GCP_ARTIFACT_REGISTRY_LOCATION "$GCP_ARTIFACT_REGISTRY_LOCATION"
+  set_github_environment_variable "$environment" GCP_ARTIFACT_REGISTRY_REPOSITORY "$GCP_ARTIFACT_REGISTRY_REPOSITORY"
+  set_github_environment_variable "$environment" GCP_CLOUD_RUN_CPU "${GCP_CLOUD_RUN_CPU:-1}"
+  set_github_environment_variable "$environment" GCP_CLOUD_RUN_MEMORY "${GCP_CLOUD_RUN_MEMORY:-1Gi}"
+  set_github_environment_variable "$environment" GCP_CLOUD_RUN_MIN_INSTANCES "${GCP_CLOUD_RUN_MIN_INSTANCES:-0}"
+  set_github_environment_variable "$environment" GCP_CLOUD_RUN_MAX_INSTANCES "${GCP_CLOUD_RUN_MAX_INSTANCES:-1}"
+  set_github_environment_variable "$environment" GCP_CLOUD_RUN_TIMEOUT "${GCP_CLOUD_RUN_TIMEOUT:-300s}"
+  set_github_environment_variable "$environment" GCP_CLOUD_SQL_INSTANCE "$GCP_CLOUD_SQL_INSTANCE"
+}
+
+configure_github_environments() {
+  local project_number="$1"
+  local provider="projects/${project_number}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_PROVIDER_ID}"
+  require_command gh
+  configure_github_environment demo "$provider"
+  configure_github_environment real "$provider"
+  GITHUB_ENVIRONMENTS_CONFIGURED=true
+}
+
 print_github_configuration() {
   local project_number="$1"
   local provider="projects/${project_number}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_PROVIDER_ID}"
@@ -552,6 +620,10 @@ Set these GitHub environment variables for both demo and real environments:
   GCP_CLOUD_RUN_MAX_INSTANCES=${GCP_CLOUD_RUN_MAX_INSTANCES:-1}
   GCP_CLOUD_RUN_TIMEOUT=${GCP_CLOUD_RUN_TIMEOUT:-300s}
   GCP_CLOUD_SQL_INSTANCE=${GCP_CLOUD_SQL_INSTANCE}
+
+Optional automation:
+  Set GITHUB_CONFIGURE_ENVIRONMENTS=true and authenticate gh to create/update
+  the demo and real GitHub environments, secrets, and variables automatically.
 
 Journal archive bucket created or verified:
   gs://${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET}
@@ -583,6 +655,12 @@ CONFIG
     printf '\nSecret containers created/verified without versions because these env vars were not set:\n'
     printf '  %s\n' "${MISSING_SECRET_VALUE_ENVS[@]}"
   fi
+
+  if [[ "${GITHUB_ENVIRONMENTS_CONFIGURED:-false}" == "true" ]]; then
+    printf '\nGitHub environments configured:\n'
+    printf '  demo\n'
+    printf '  real\n'
+  fi
 }
 
 main() {
@@ -597,6 +675,7 @@ main() {
   GENERATED_SECRET_VALUE_ENVS=()
   REUSED_SECRET_VALUE_ENVS=()
   MISSING_SECRET_VALUE_ENVS=()
+  GITHUB_ENVIRONMENTS_CONFIGURED=false
 
   log "Checking project"
   ensure_project
@@ -677,6 +756,11 @@ main() {
   ensure_secret_with_optional_version trading-bot-real-alert-platform-slack-channel REAL_ALERT_PLATFORM_SLACK_CHANNEL
   ensure_secret_with_optional_version trading-bot-real-alert-fallback-slack-webhook REAL_ALERT_FALLBACK_SLACK_WEBHOOK
   ensure_secret_with_optional_version trading-bot-real-alert-fallback-slack-channel REAL_ALERT_FALLBACK_SLACK_CHANNEL
+
+  if [[ "$GITHUB_CONFIGURE_ENVIRONMENTS" == "true" ]]; then
+    log "Configuring GitHub deployment environments"
+    configure_github_environments "$project_number"
+  fi
 
   print_github_configuration "$project_number"
 }
