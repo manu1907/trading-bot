@@ -393,7 +393,12 @@ Implemented remediation executor observability includes:
 - A Google Cloud operations runbook now covers bootstrap, GitHub environment
   setup, image publication, Cloud Run deployment, private smoke, Alertmanager
   rendering, rollback, emergency stop, controlled drain, incident evidence, and
-  real-promotion gates for the shared demo/real codebase.
+  real-promotion gates for the shared demo/real codebase. A scenario-specific
+  incident response runbook now covers exchange outages, stale user-data and
+  market-data streams, reconciliation degradation, external orders/positions,
+  unknown order outcomes, failed deployments, persistence failures, alerting
+  outages, credential rotation/compromise, cost spikes, real-environment rules,
+  and incident evidence bundles.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
 - A remediation executor operator runbook exists at `ops/runbooks/remediation-executor.md`, covering
   disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,

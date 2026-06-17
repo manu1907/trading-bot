@@ -120,6 +120,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - An importable Grafana pause governance dashboard now exists in `ops/grafana/pause-governance-dashboard.json`.
 - An importable Grafana remediation executor dashboard now exists in `ops/grafana/remediation-executor-dashboard.json`.
 - A remediation executor operator runbook now exists in `ops/runbooks/remediation-executor.md`, covering disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure, ambiguous/unknown reconciliation, and hedge-mode remediation outcomes.
+- A live-profile incident response runbook now exists in `ops/runbooks/incident-response.md`, covering shared demo/real incident triage, severity classification, exchange outages, stale user-data streams, stale market-data streams, reconciliation degradation, external orders/positions, unknown order results, ambiguous modify outcomes, failed deployments, bad runtime config, persistence/journal/Cloud SQL failures, alerting outages, credential rotation/compromise, Google Cloud cost spikes, real-environment incident rules, evidence bundles, and incident review. It preserves the same-codebase demo/real rule, forbids a second bot instance for the same target, requires reconciliation/projection/risk/policy gates before resumption, and treats external orders/positions as automatically evaluated policy targets instead of manual-review-only events.
 - A Google Cloud demo deployment contract now exists at `ops/google-cloud/demo-usdm-futures-deployment.yml`; it selects Cloud Run for `binance/demo/main/usdm_futures`, binds the active target through runtime environment variables, maps Binance credentials, operator token, audit/projection JDBC credentials, and Alertmanager receiver substitutions to Secret Manager names, disables ephemeral JSONL audit persistence and file projection snapshots for Cloud Run, selects indexed JDBC audit/projection persistence with deployment-owned schema migration, 180-day retention, Cloud SQL automated backups, at least 7 recovery days, 90-day restore drills, and Cloud Storage journal archive policy.
 - A cloud-neutral deployment contract schema now exists at `ops/deployment/deployment-contract.yml`; Google Cloud demo/real and AWS demo deployment contracts conform to the same app-facing runtime env vars, secret keys, Alertmanager substitutions, JDBC audit/projection persistence guarantees, projection compaction guarantees, and journal archive policy shape.
 - An AWS demo deployment contract now exists at `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same Binance USD-M futures demo runtime surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL without changing bot code.
@@ -198,8 +199,8 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Manual/external one-way positions can be evaluated and automatically closed or reduced through bounded reduce-only market orders when demo executor policy allowlists the operation; manual/external hedge-mode positions can be evaluated and automatically closed or reduced through bounded position-side market orders when a runtime explicitly enables hedge-mode execution.
 - The production operations package is not complete yet: remaining work includes
   real alert receiver values, broader metrics/health checks, strategy/account
-  dashboards, specialized incident procedures, cost/budget alerts, and
-  reproducible infrastructure-as-code beyond the bootstrap script.
+  dashboards, cost/budget alerts, live incident drill evidence, and reproducible
+  infrastructure-as-code beyond the bootstrap script.
 - Backtesting and historical simulation are intentionally deferred to v2; they are not v1 delivery blockers.
 - The LFA dynamic universe discovery, portfolio selection, full money management, aggregate risk budgeting, and position-management loop are not complete enough to treat it as a production autonomous strategy. A first conservative projected top-of-book imbalance analyzer, config-gated live signal runner, validated lifecycle gate with explicit non-entry blockers, operator-token-protected lifecycle inspection/transition endpoints with durable `STRATEGY_LIFECYCLE` event projection, projected-data warm-up gate, first projected account-margin market-quality allocation layer, aggregate strategy-run notional cap, runner-level reconciliation confidence gating, and first account/symbol budget gates exist, but the checked-in demo runtime keeps the runner disabled until full position management and broader money-management controls are implemented.
 
@@ -222,7 +223,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery from the current plan state: 12 to 32 commits/slices.
+Estimated remaining delivery from the current plan state: 11 to 31 commits/slices.
 
 This estimate must be revised after meaningful capability changes. It counts production-quality slices that include implementation, docs/plan updates, formatting, tests/build, live smoke when relevant, commit, push, and CI verification. It is not a feature-count only estimate.
 
@@ -233,7 +234,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 - Observability, alerts, dashboards, and operator controls: 4 to 7 slices.
 - Google Cloud infrastructure and AWS-compatible deployment contract: 3 to 6 slices.
 - CI/CD build, publish, deploy, smoke, rollback, and approval workflows: 0 slices.
-- Security, secrets, operational runbooks, and incident procedures: 2 to 4 slices.
+- Security, secrets, operational runbooks, and incident procedures: 1 to 3 slices.
 - Demo-live burn-in evidence and real-readiness promotion package: 2 to 2 slices.
 
 ### Roadmap Slice 1: Complete Automated Remediation Governance
@@ -263,6 +264,13 @@ This estimate must be revised after meaningful capability changes. It counts pro
   setup, image publication, Cloud Run deployment, private readiness smoke,
   Alertmanager rendering, rollback, emergency stop, controlled drain, incident
   evidence, and real-promotion gates for the shared demo/real codebase.
+- A scenario-specific incident response runbook now covers shared demo/real
+  incident triage, exchange outages, stale user-data streams, stale market-data
+  streams, reconciliation degradation, external orders/positions, unknown order
+  results, ambiguous modify outcomes, failed deployments, bad runtime config,
+  persistence/journal/Cloud SQL failures, alerting outages, credential
+  rotation/compromise, Google Cloud cost spikes, real-environment incident
+  rules, evidence bundles, and incident review.
 - Prometheus-compatible remediation executor alert rules, an importable Grafana dashboard, and an operator runbook exist for disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure, ambiguous/unknown reconciliation, and hedge-mode remediation outcomes.
 - Cloud-neutral deployment contract validation exists for runtime env vars, secret bindings, Alertmanager substitutions, and JDBC audit backend policy.
 - Google Cloud and AWS demo secret binding names now exist for Alertmanager receiver substitutions and the selected JDBC audit backend.
@@ -359,7 +367,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 
 ### Roadmap Slice 10: Production Operations Maturity
 
-- Add runbooks for deployment, rollback, emergency stop, exchange outage, reconciliation degradation, external intervention, unknown order, credential rotation, secret compromise, and incident review.
+- Runbooks now exist for Google Cloud deployment/rollback/emergency stop/controlled drain/real promotion, remediation executor operations, persistence recovery, and scenario-specific incident response covering exchange outage, stale streams, reconciliation degradation, external intervention, unknown order, credential rotation, secret compromise, cost spike, and incident review. Remaining production-operations maturity is live drill evidence, cloud-managed alert policies, and continuous operational review.
 - Add periodic credential rotation and least-privilege IAM review.
 - Add cost monitoring and budget alerts for Google Cloud.
 - Add release notes and audit trail for every promoted deployment.
@@ -369,7 +377,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 ## Next Work In Dependency Order
 
 1. Expand any remaining persistence and recovery tests discovered while integrating deployment automation. Pending order-command blocking, unknown order-result blocking, gateway-failure target order identity/action retention, partial-fill order retention, external intervention blocking, resolved remediation decision blocking, executable remediation command duplicate identity blocking, managed-order unknown modify reconciliation metadata, adopted-order ambiguous reconciliation/rollback metadata, strategy signal-runner no-observation reconciliation blocking, and reconciliation-gated runner resume after restore already have file-snapshot coverage; deployment contracts and the persistence-recovery runbook now cover retention, compaction, backups, restore drills, and post-restore gates.
-2. Complete cloud infrastructure and operations work: remaining alert receiver secret values, observability, dashboards, any remaining specialized incident procedures, any production-grade database separation/HA tuning beyond the current defaults, and any cloud-provider infrastructure-as-code needed to reproduce the demo/real environments. Basic Google Cloud foundation bootstrap, Cloud SQL/JDBC provisioning, optional GitHub environment configuration, Alertmanager rendering from Google Secret Manager, image publish, Cloud Run deploy, Cloud Run smoke, Cloud Run rollback workflows, and a Google Cloud operations runbook now exist.
+2. Complete cloud infrastructure and operations work: remaining alert receiver secret values, observability, dashboards, live incident drill evidence, any production-grade database separation/HA tuning beyond the current defaults, and any cloud-provider infrastructure-as-code needed to reproduce the demo/real environments. Basic Google Cloud foundation bootstrap, Cloud SQL/JDBC provisioning, optional GitHub environment configuration, Alertmanager rendering from Google Secret Manager, image publish, Cloud Run deploy, Cloud Run smoke, Cloud Run rollback workflows, a Google Cloud operations runbook, and a scenario-specific incident response runbook now exist.
 3. Complete the strategy runtime needed for serious autonomous trading: signal lifecycle, position lifecycle, dynamic high-liquidity instrument universe, aggregate risk budgets, live validation, and promotion criteria to real trading. Strategy signal admission now covers projection safety, reconciliation confidence, static instrument-universe include/exclude/promotion-ready/max-order-notional/min-daily-quote-volume policy, exchange-polled trading-status/quote/contract/order-type eligibility, projected market-data freshness/top-of-book/spread/depth/quote-volume admission, implicit-signal symbol rotation by projected market-data rank, configured per-order quantity/notional limits, and projected max-open-order limits. LFA now has a conservative projected top-of-book imbalance analyzer, config-gated signal runner, validated lifecycle gate with explicit non-entry blockers, operator-token-protected lifecycle inspection/transition endpoints with durable event projection and transition policy, projected market-data/top-of-book warm-up gate, signal-planner universe candidate filtering, projected market-quality candidate ranking/capping, first projected account-margin market-quality target-notional allocation, aggregate strategy-run notional cap, runner-level reconciliation confidence gating, and first account/symbol budget gates including open-order, current unrealized-loss, and account-margin-health caps that can block publication before symbol-specific entry signals reach the planner. The remaining strategy work is dynamic exchange instrument discovery, live liquidity ranking, calibrated account/symbol/strategy budgets, exposure caps, drawdown/loss budgets, broader money-management allocation, full position lifecycle, drain automation/runbook execution, promotion-ready emergency-stop drill evidence, and demo promotion evidence before enabling autonomous signal publication by default.
 4. Keep executable adopted-order replace/rollback disabled unless a separate safe cancel/replace or rollback design is accepted and implemented with provider preflight, recovery, and live evidence.
 5. Keep the user manual and current-state documentation aligned after each capability change.

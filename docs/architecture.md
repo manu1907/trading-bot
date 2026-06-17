@@ -701,7 +701,11 @@ the same bootstrap path uses GitHub CLI to create or update the `demo` and
 secrets and deployment variables, keeping the application runtime contract
 unchanged. The Google Cloud operations runbook defines the operator sequence and
 evidence for bootstrap, publish, deploy, smoke, alert rendering, rollback,
-emergency stop, controlled drain, incident handling, and real promotion.
+emergency stop, controlled drain, incident handling, and real promotion. The
+scenario-specific incident response runbook defines response paths for exchange
+outages, stale streams, reconciliation degradation, external intervention,
+unknown outcomes, failed deployments, persistence failures, alerting outages,
+credential events, cost spikes, and real-environment incidents.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

@@ -20,9 +20,11 @@ This runbook covers:
 - Incident evidence.
 - Real-promotion constraints.
 
-It does not replace the remediation executor runbook or the persistence recovery
-runbook. Use those runbooks for remediation-specific ambiguous outcomes and
-backup/restore events.
+It does not replace the remediation executor runbook, the persistence recovery
+runbook, or the scenario-specific incident response runbook. Use those runbooks
+for remediation-specific ambiguous outcomes, backup/restore events, exchange
+outages, stale streams, external interventions, credential events, alerting
+outages, and cost incidents.
 
 ## Required Inputs
 

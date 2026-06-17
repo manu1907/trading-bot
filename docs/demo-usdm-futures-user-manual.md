@@ -743,7 +743,12 @@ Pause governance metrics:
 - Google Cloud operational procedures live in
   `ops/runbooks/google-cloud-operations.md`; use it for bootstrap, publish,
   deploy, smoke, rollback, emergency stop, controlled drain, incident evidence,
-  and real-promotion gates.
+  and real-promotion gates. Scenario-specific incident response procedures live
+  in `ops/runbooks/incident-response.md`; use it for exchange outages, stale
+  streams, reconciliation degradation, external orders/positions, unknown order
+  outcomes, failed deployments, persistence failures, alerting outages,
+  credential rotation or compromise, cost spikes, and real-environment incident
+  rules.
 - Deployment contracts use the neutral schema in
   `ops/deployment/deployment-contract.yml`, so another cloud must keep the same
   app-facing runtime variables and secret keys.

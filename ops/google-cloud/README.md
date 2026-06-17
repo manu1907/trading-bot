@@ -9,7 +9,9 @@ change the app-facing runtime variables or trading behavior.
 
 Operational procedures for bootstrap, image publication, Cloud Run deployment,
 private smoke, alert rendering, rollback, emergency stop, incident evidence, and
-real promotion live in `ops/runbooks/google-cloud-operations.md`.
+real promotion live in `ops/runbooks/google-cloud-operations.md`. Scenario-specific
+exchange, stream, reconciliation, external intervention, credential, persistence,
+alerting, and cost incident procedures live in `ops/runbooks/incident-response.md`.
 
 ## Bootstrap Script
 
