@@ -635,7 +635,11 @@ and platform notification channels lives in
 `ops/alertmanager/pause-governance-alertmanager.yml`; and an importable Grafana
 dashboard lives in `ops/grafana/pause-governance-dashboard.json`. Real webhook
 URLs and PagerDuty routing keys must be injected through deployment secrets, not
-source-controlled config. The first Google Cloud deployment contract for Binance
+source-controlled config. A Google Cloud Alertmanager renderer turns the
+placeholder-only routing profile into a demo or real rendered config from Secret
+Manager, validates the required placeholder set, fails closed on missing secret
+versions or unresolved placeholders, and writes restricted-permission output
+without printing secret values. The first Google Cloud deployment contract for Binance
 USD-M futures demo lives in `ops/google-cloud/demo-usdm-futures-deployment.yml`;
 it selects Cloud Run, binds the active target through environment variables,
 maps Binance credentials, operator token, audit JDBC credentials, and

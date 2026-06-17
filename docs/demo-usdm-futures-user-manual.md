@@ -705,6 +705,10 @@ Pause governance metrics:
   `routing_hint` to operator/platform PagerDuty and Slack receivers.
 - Real webhook URLs, Slack channels, and PagerDuty routing keys must be injected
   through deployment secrets.
+- For Google Cloud, render the demo Alertmanager config from Secret Manager with
+  `ops/alertmanager/render-google-cloud-alertmanager.sh demo --project "$GCP_PROJECT_ID" --output build/alertmanager/demo-alertmanager.yml`.
+  The renderer validates placeholders, fails if a required alert secret is
+  missing, refuses unresolved placeholders, and does not print secret values.
 - The first Google Cloud demo deployment contract lives in
   `ops/google-cloud/demo-usdm-futures-deployment.yml`.
 - That contract maps Binance credentials, operator token, audit JDBC

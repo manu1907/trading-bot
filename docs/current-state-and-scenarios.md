@@ -385,6 +385,11 @@ Implemented remediation executor observability includes:
 - Remediation ids, client order ids, exchange order ids, and symbols are intentionally excluded from metric tags to keep Prometheus cardinality bounded.
 - Prometheus-compatible alert rules exist at `ops/prometheus/remediation-executor-alerts.yml` for disabled policy evaluations, blocked plans, pipeline submission failures, submitted commands, repeated no-action outcomes, and execute-mode evaluations that remain preview-only.
 - The shared Alertmanager profile routes remediation executor alerts through the same `service`, `routing_hint`, and `severity` labels used by pause governance alerts.
+- A Google Cloud Alertmanager renderer now renders the placeholder-only
+  Alertmanager profile from Secret Manager for `demo` or `real`, validates the
+  supported placeholder set, fails if a required alert secret is missing, refuses
+  unresolved placeholders, and writes rendered files with restricted permissions
+  without printing secret values.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
 - A remediation executor operator runbook exists at `ops/runbooks/remediation-executor.md`, covering
   disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,

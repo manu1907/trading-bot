@@ -15,6 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class AlertmanagerRoutingConfigTest {
 
+    private static final String RENDERER = "ops/alertmanager/render-google-cloud-alertmanager.sh";
+
     @Test
     void pause_governance_alertmanager_routes_all_prometheus_routing_hints() throws IOException {
         Map<String, Object> alertmanager = yaml("ops/alertmanager/pause-governance-alertmanager.yml");
@@ -37,6 +39,45 @@ class AlertmanagerRoutingConfigTest {
 
         Set<String> prometheusHints = prometheusRoutingHints(prometheusRules);
         assertThat(prometheusHints).containsExactlyInAnyOrder("operator", "platform");
+    }
+
+    @Test
+    void google_cloud_renderer_maps_all_required_substitutions_without_printing_secrets() throws IOException {
+        String script = Files.readString(resolve(RENDERER));
+
+        assertThat(script)
+                .startsWith("#!/usr/bin/env bash")
+                .contains("set -euo pipefail")
+                .contains("demo | real")
+                .contains("--validate-placeholders-only")
+                .contains("secret_latest_value()")
+                .contains("gcloud secrets versions access latest")
+                .contains("trading-bot-%s-alert-operator-pagerduty-routing-key")
+                .contains("trading-bot-%s-alert-platform-pagerduty-routing-key")
+                .contains("trading-bot-%s-alert-operator-slack-webhook")
+                .contains("trading-bot-%s-alert-operator-slack-channel")
+                .contains("trading-bot-%s-alert-platform-slack-webhook")
+                .contains("trading-bot-%s-alert-platform-slack-channel")
+                .contains("trading-bot-%s-alert-fallback-slack-webhook")
+                .contains("trading-bot-%s-alert-fallback-slack-channel")
+                .contains("chmod 0600 \"$output\"")
+                .doesNotContain("hooks.slack.com")
+                .doesNotContain("routing_key:");
+    }
+
+    @Test
+    void alertmanager_template_uses_exactly_supported_secret_placeholders() throws IOException {
+        String template = Files.readString(resolve("ops/alertmanager/pause-governance-alertmanager.yml"));
+
+        assertThat(template)
+                .contains("${ALERTMANAGER_TRADING_BOT_OPERATOR_PAGERDUTY_ROUTING_KEY}")
+                .contains("${ALERTMANAGER_TRADING_BOT_PLATFORM_PAGERDUTY_ROUTING_KEY}")
+                .contains("${ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_WEBHOOK}")
+                .contains("${ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_CHANNEL}")
+                .contains("${ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_WEBHOOK}")
+                .contains("${ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_CHANNEL}")
+                .contains("${ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_WEBHOOK}")
+                .contains("${ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_CHANNEL}");
     }
 
     @SuppressWarnings("unchecked")

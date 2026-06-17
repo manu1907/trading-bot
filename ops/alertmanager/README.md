@@ -31,6 +31,33 @@ Required deployment secrets or environment substitutions:
 Do not commit real webhook URLs or PagerDuty routing keys. Inject them through the
 selected deployment secret system.
 
+## Google Cloud Rendering
+
+`render-google-cloud-alertmanager.sh` renders the source-controlled placeholder
+template from Google Secret Manager for either `demo` or `real`. It fails closed
+if the template placeholders do not exactly match the supported substitution set,
+if any required Secret Manager value is missing, or if any `${ALERTMANAGER_*}`
+placeholder remains after rendering. Rendered files are written with `0600`
+permissions and secret values are not printed.
+
+Examples:
+
+```bash
+ops/alertmanager/render-google-cloud-alertmanager.sh demo \
+  --project "$GCP_PROJECT_ID" \
+  --output build/alertmanager/demo-alertmanager.yml
+
+ops/alertmanager/render-google-cloud-alertmanager.sh real \
+  --project "$GCP_PROJECT_ID" \
+  --output build/alertmanager/real-alertmanager.yml
+```
+
+Template-only validation, without Google Cloud access:
+
+```bash
+ops/alertmanager/render-google-cloud-alertmanager.sh demo --validate-placeholders-only
+```
+
 The Google Cloud demo deployment contract in
 `ops/google-cloud/demo-usdm-futures-deployment.yml` maps these substitutions to
 Google Secret Manager secret names for the Binance USD-M futures demo target.

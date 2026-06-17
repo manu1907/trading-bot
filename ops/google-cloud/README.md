@@ -155,6 +155,14 @@ Required Alertmanager substitution secrets:
 - `trading-bot-demo-alert-fallback-slack-webhook`
 - `trading-bot-demo-alert-fallback-slack-channel`
 
+Render the Google Cloud demo Alertmanager config from Secret Manager with:
+
+```bash
+ops/alertmanager/render-google-cloud-alertmanager.sh demo \
+  --project "$GCP_PROJECT_ID" \
+  --output build/alertmanager/demo-alertmanager.yml
+```
+
 ## Real USD-M Futures
 
 `real-usdm-futures-deployment.yml` is the matching Google Cloud contract for
@@ -177,6 +185,14 @@ the Binance USD-M futures real target:
   at least 35 recovery days, and a restore drill every 30 days.
 - Real journal archives use the same archive layout as demo with a real-specific
   prefix and 365-day retention.
+
+Render the Google Cloud real Alertmanager config from Secret Manager with:
+
+```bash
+ops/alertmanager/render-google-cloud-alertmanager.sh real \
+  --project "$GCP_PROJECT_ID" \
+  --output build/alertmanager/real-alertmanager.yml
+```
 
 Deployment automation must render the Alertmanager profile from
 `ops/alertmanager/pause-governance-alertmanager.yml` by substituting these
