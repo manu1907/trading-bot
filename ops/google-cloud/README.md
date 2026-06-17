@@ -27,6 +27,8 @@ Required local tools and access:
 - `gcloud` authenticated as an account allowed to manage the target project, IAM,
   APIs, Artifact Registry, Secret Manager, Cloud Storage, and Workload Identity
   Federation.
+- If budget alerts are enabled, access to the target Cloud Billing account to
+  list and create billing budgets.
 - If GitHub automation is enabled, `gh` must be authenticated as a GitHub user
   or token allowed to create/update repository environments, environment
   secrets, and environment variables.
@@ -59,6 +61,14 @@ Defaults used when you do not override them:
 - `GCP_CLOUD_SQL_TIER`: `db-custom-1-3840`.
 - `GCP_CLOUD_SQL_STORAGE_GB`: `20`.
 - `GCP_CLOUD_SQL_AVAILABILITY_TYPE`: `ZONAL`.
+- `GCP_BUDGET_ALERTS_ENABLED`: `false`.
+- `GCP_BUDGET_DISPLAY_NAME`: `trading-bot-${GCP_PROJECT_ID}-monthly`.
+- `GCP_BUDGET_AMOUNT`: `250USD`.
+- `GCP_BUDGET_CALENDAR_PERIOD`: `month`.
+- `GCP_BUDGET_THRESHOLD_RULES`:
+  `percent=0.50;percent=0.80;percent=1.00;percent=1.00,basis=forecasted-spend`.
+- `GCP_BUDGET_FILTER_PROJECTS`: `projects/${GCP_PROJECT_ID}`.
+- `GCP_BUDGET_DISABLE_DEFAULT_IAM_RECIPIENTS`: `false`.
 - `DEMO_CLOUD_SQL_DATABASE` and `REAL_CLOUD_SQL_DATABASE`:
   `trading_bot_demo` and `trading_bot_real`.
 - Audit database users: `DEMO_AUDIT_CLOUD_SQL_USERNAME` and
@@ -78,8 +88,9 @@ or verifies the Cloud SQL PostgreSQL instance, creates demo and real databases
 and users, creates the deployment Secret Manager secrets, adds Binance demo
 secret versions from `api.env`, generates operator-token and Cloud SQL password
 versions when needed, generates Cloud SQL JDBC URL/username/password secrets
-when no overrides exist, and adds optional secret versions only for other values
-supplied through environment variables. It never prints secret values.
+when no overrides exist, optionally creates a project-scoped monthly billing
+budget alert, and adds optional secret versions only for other values supplied
+through environment variables. It never prints secret values.
 
 If `GITHUB_CONFIGURE_ENVIRONMENTS=true`, the script also uses GitHub CLI to
 create or update the `demo` and `real` GitHub environments, writes the required
@@ -106,6 +117,26 @@ source api.env
 set +a
 GITHUB_CONFIGURE_ENVIRONMENTS=true ./ops/google-cloud/bootstrap-deployment-prereqs.sh
 ```
+
+Optional budget alert provisioning:
+
+```bash
+set -a
+source api.env
+set +a
+GCP_BILLING_ACCOUNT=000000-000000-000000 \
+GCP_BUDGET_ALERTS_ENABLED=true \
+./ops/google-cloud/bootstrap-deployment-prereqs.sh
+```
+
+The budget alert is idempotent by display name. By default it is scoped to the
+Google Cloud project, uses a monthly `250USD` amount, keeps default Billing IAM
+recipients enabled, and alerts at current-spend 50 percent, 80 percent, and 100
+percent plus forecasted-spend 100 percent. Optional
+`GCP_BUDGET_PUBSUB_TOPIC` and
+`GCP_BUDGET_MONITORING_NOTIFICATION_CHANNELS` can add Pub/Sub or Cloud
+Monitoring notification targets. Budget alerts are cost observability; they do
+not stop the bot or replace trading risk controls.
 
 ## Demo USD-M Futures
 

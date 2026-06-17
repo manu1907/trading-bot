@@ -695,8 +695,11 @@ Workload Identity Federation, and Secret Manager containers/versions. It also
 defaults non-secret deployment values, reads the Binance demo key and secret
 from `api.env`, generates operator-token and Cloud SQL password secret versions
 when absent, and generates Cloud SQL JDBC URL/username/password secret versions
-when no runtime override is supplied. When `GITHUB_CONFIGURE_ENVIRONMENTS=true`,
-the same bootstrap path uses GitHub CLI to create or update the `demo` and
+when no runtime override is supplied. It can optionally create an idempotent
+project-scoped monthly Google Cloud budget alert when budget alerts are enabled
+and a billing account is supplied, with default current-spend and forecasted
+thresholds. When `GITHUB_CONFIGURE_ENVIRONMENTS=true`, the same bootstrap path
+uses GitHub CLI to create or update the `demo` and
 `real` GitHub environments with the required Google Cloud OIDC/service-account
 secrets and deployment variables, keeping the application runtime contract
 unchanged. The Google Cloud operations runbook defines the operator sequence and

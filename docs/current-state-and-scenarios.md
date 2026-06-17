@@ -449,7 +449,11 @@ Implemented persistence/recovery surfaces include:
   containers/versions. It defaults non-secret deployment values, reads the
   Binance demo key/secret from `api.env`, generates operator-token and Cloud SQL
   password secret versions when absent, and generates Cloud SQL JDBC
-  URL/username/password secret versions when no runtime override is supplied. If
+  URL/username/password secret versions when no runtime override is supplied.
+  It can optionally create an idempotent project-scoped monthly Google Cloud
+  budget alert when `GCP_BUDGET_ALERTS_ENABLED=true` and `GCP_BILLING_ACCOUNT`
+  are supplied; the default budget alert is `250USD` with 50 percent, 80
+  percent, 100 percent, and forecasted 100 percent thresholds. If
   `GITHUB_CONFIGURE_ENVIRONMENTS=true`, it also uses GitHub CLI to create or
   update the `demo` and `real` GitHub environments with the required OIDC
   service-account secrets and deployment variables.

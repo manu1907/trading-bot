@@ -18,7 +18,7 @@ Optional environment variables:
   GITHUB_REPO                                         Default: inferred from git remote, then trading-bot
   GITHUB_CONFIGURE_ENVIRONMENTS=true|false            Default: false
   GCP_CREATE_PROJECT=true|false                         Default: false
-  GCP_BILLING_ACCOUNT                                  Required only when creating a project
+  GCP_BILLING_ACCOUNT                                  Required when creating a project or budget alerts
   GCP_WORKLOAD_IDENTITY_POOL_ID                        Default: github-actions
   GCP_WORKLOAD_IDENTITY_PROVIDER_ID                    Default: github-actions
   GCP_SERVICE_ACCOUNT_PREFIX                           Default: trading-bot
@@ -35,6 +35,15 @@ Optional environment variables:
   GCP_CLOUD_SQL_AVAILABILITY_TYPE                      Default: ZONAL
   GCP_CLOUD_SQL_BACKUP_START_TIME                      Default: 03:00
   GCP_CLOUD_SQL_DELETION_PROTECTION=true|false         Default: true
+  GCP_BUDGET_ALERTS_ENABLED=true|false                  Default: false
+  GCP_BUDGET_DISPLAY_NAME                              Default: trading-bot-${GCP_PROJECT_ID}-monthly
+  GCP_BUDGET_AMOUNT                                    Default: 250USD
+  GCP_BUDGET_CALENDAR_PERIOD                           Default: month
+  GCP_BUDGET_THRESHOLD_RULES                           Default: percent=0.50;percent=0.80;percent=1.00;percent=1.00,basis=forecasted-spend
+  GCP_BUDGET_FILTER_PROJECTS                           Default: projects/${GCP_PROJECT_ID}
+  GCP_BUDGET_PUBSUB_TOPIC                              Optional: projects/${GCP_PROJECT_ID}/topics/{topic}
+  GCP_BUDGET_MONITORING_NOTIFICATION_CHANNELS          Optional comma list of projects/{project}/notificationChannels/{channel}
+  GCP_BUDGET_DISABLE_DEFAULT_IAM_RECIPIENTS=true|false Default: false
   DEMO_CLOUD_SQL_DATABASE                              Default: trading_bot_demo
   DEMO_AUDIT_CLOUD_SQL_USERNAME                        Default: trading_bot_demo_audit
   DEMO_PROJECTION_CLOUD_SQL_USERNAME                   Default: trading_bot_demo_projection
@@ -164,6 +173,13 @@ infer_defaults() {
   GCP_CLOUD_SQL_AVAILABILITY_TYPE="${GCP_CLOUD_SQL_AVAILABILITY_TYPE:-ZONAL}"
   GCP_CLOUD_SQL_BACKUP_START_TIME="${GCP_CLOUD_SQL_BACKUP_START_TIME:-03:00}"
   GCP_CLOUD_SQL_DELETION_PROTECTION="${GCP_CLOUD_SQL_DELETION_PROTECTION:-true}"
+  GCP_BUDGET_ALERTS_ENABLED="${GCP_BUDGET_ALERTS_ENABLED:-false}"
+  GCP_BUDGET_DISPLAY_NAME="${GCP_BUDGET_DISPLAY_NAME:-trading-bot-${GCP_PROJECT_ID}-monthly}"
+  GCP_BUDGET_AMOUNT="${GCP_BUDGET_AMOUNT:-250USD}"
+  GCP_BUDGET_CALENDAR_PERIOD="${GCP_BUDGET_CALENDAR_PERIOD:-month}"
+  GCP_BUDGET_THRESHOLD_RULES="${GCP_BUDGET_THRESHOLD_RULES:-percent=0.50;percent=0.80;percent=1.00;percent=1.00,basis=forecasted-spend}"
+  GCP_BUDGET_FILTER_PROJECTS="${GCP_BUDGET_FILTER_PROJECTS:-projects/${GCP_PROJECT_ID}}"
+  GCP_BUDGET_DISABLE_DEFAULT_IAM_RECIPIENTS="${GCP_BUDGET_DISABLE_DEFAULT_IAM_RECIPIENTS:-false}"
   DEMO_CLOUD_SQL_DATABASE="${DEMO_CLOUD_SQL_DATABASE:-trading_bot_demo}"
   DEMO_AUDIT_CLOUD_SQL_USERNAME="${DEMO_AUDIT_CLOUD_SQL_USERNAME:-trading_bot_demo_audit}"
   DEMO_PROJECTION_CLOUD_SQL_USERNAME="${DEMO_PROJECTION_CLOUD_SQL_USERNAME:-trading_bot_demo_projection}"
@@ -530,6 +546,52 @@ ensure_cloud_sql_runtime() {
     "generated Cloud SQL username"
 }
 
+budget_exists() {
+  gcloud billing budgets list \
+    --billing-account="$GCP_BILLING_ACCOUNT" \
+    --format='value(displayName)' 2>/dev/null | grep -Fx -- "$GCP_BUDGET_DISPLAY_NAME" >/dev/null
+}
+
+ensure_budget_alert() {
+  if [[ "$GCP_BUDGET_ALERTS_ENABLED" != "true" ]]; then
+    BUDGET_ALERTS_STATE="disabled"
+    return
+  fi
+  require_env GCP_BILLING_ACCOUNT
+  if budget_exists; then
+    BUDGET_ALERTS_STATE="existing"
+    return
+  fi
+
+  local create_args=(
+    "--billing-account=$GCP_BILLING_ACCOUNT"
+    "--display-name=$GCP_BUDGET_DISPLAY_NAME"
+    "--budget-amount=$GCP_BUDGET_AMOUNT"
+    "--calendar-period=$GCP_BUDGET_CALENDAR_PERIOD"
+    "--filter-projects=$GCP_BUDGET_FILTER_PROJECTS"
+  )
+  local threshold_rule
+  local old_ifs="$IFS"
+  IFS=';'
+  for threshold_rule in $GCP_BUDGET_THRESHOLD_RULES; do
+    if [[ -n "$threshold_rule" ]]; then
+      create_args+=("--threshold-rule=$threshold_rule")
+    fi
+  done
+  IFS="$old_ifs"
+  if [[ -n "${GCP_BUDGET_PUBSUB_TOPIC:-}" ]]; then
+    create_args+=("--notifications-rule-pubsub-topic=$GCP_BUDGET_PUBSUB_TOPIC")
+  fi
+  if [[ -n "${GCP_BUDGET_MONITORING_NOTIFICATION_CHANNELS:-}" ]]; then
+    create_args+=("--notifications-rule-monitoring-notification-channels=$GCP_BUDGET_MONITORING_NOTIFICATION_CHANNELS")
+  fi
+  if [[ "$GCP_BUDGET_DISABLE_DEFAULT_IAM_RECIPIENTS" == "true" ]]; then
+    create_args+=("--disable-default-iam-recipients")
+  fi
+  gcloud billing budgets create "${create_args[@]}" --quiet >/dev/null
+  BUDGET_ALERTS_STATE="created"
+}
+
 github_repo_slug() {
   printf '%s/%s' "$GITHUB_OWNER" "$GITHUB_REPO"
 }
@@ -634,6 +696,12 @@ Cloud SQL/PostgreSQL created or verified:
   demo users: ${DEMO_AUDIT_CLOUD_SQL_USERNAME}, ${DEMO_PROJECTION_CLOUD_SQL_USERNAME}
   real database: ${REAL_CLOUD_SQL_DATABASE}
   real users: ${REAL_AUDIT_CLOUD_SQL_USERNAME}, ${REAL_PROJECTION_CLOUD_SQL_USERNAME}
+
+Google Cloud budget alerts:
+  state: ${BUDGET_ALERTS_STATE}
+  display name: ${GCP_BUDGET_DISPLAY_NAME}
+  amount: ${GCP_BUDGET_AMOUNT}
+  thresholds: ${GCP_BUDGET_THRESHOLD_RULES}
 CONFIG
 
   if ((${#ADDED_SECRET_VALUE_ENVS[@]} > 0)); then
@@ -676,6 +744,7 @@ main() {
   REUSED_SECRET_VALUE_ENVS=()
   MISSING_SECRET_VALUE_ENVS=()
   GITHUB_ENVIRONMENTS_CONFIGURED=false
+  BUDGET_ALERTS_STATE=disabled
 
   log "Checking project"
   ensure_project
@@ -693,6 +762,9 @@ main() {
   ensure_api secretmanager.googleapis.com
   ensure_api storage.googleapis.com
   ensure_api sqladmin.googleapis.com
+  if [[ "$GCP_BUDGET_ALERTS_ENABLED" == "true" ]]; then
+    ensure_api billingbudgets.googleapis.com
+  fi
 
   log "Creating Artifact Registry repository"
   ensure_artifact_registry_repository
@@ -756,6 +828,9 @@ main() {
   ensure_secret_with_optional_version trading-bot-real-alert-platform-slack-channel REAL_ALERT_PLATFORM_SLACK_CHANNEL
   ensure_secret_with_optional_version trading-bot-real-alert-fallback-slack-webhook REAL_ALERT_FALLBACK_SLACK_WEBHOOK
   ensure_secret_with_optional_version trading-bot-real-alert-fallback-slack-channel REAL_ALERT_FALLBACK_SLACK_CHANNEL
+
+  log "Creating optional Google Cloud budget alerts"
+  ensure_budget_alert
 
   if [[ "$GITHUB_CONFIGURE_ENVIRONMENTS" == "true" ]]; then
     log "Configuring GitHub deployment environments"

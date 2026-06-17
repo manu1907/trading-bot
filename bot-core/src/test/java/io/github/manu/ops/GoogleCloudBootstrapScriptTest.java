@@ -26,6 +26,8 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("GCP_ARTIFACT_REGISTRY_LOCATION")
                 .contains("GCP_ARTIFACT_REGISTRY_REPOSITORY")
                 .contains("GCP_CLOUD_SQL_INSTANCE")
+                .contains("GCP_BUDGET_ALERTS_ENABLED=true|false")
+                .contains("GCP_BUDGET_AMOUNT")
                 .contains("GITHUB_OWNER")
                 .contains("GITHUB_REPO")
                 .contains("GITHUB_CONFIGURE_ENVIRONMENTS=true|false")
@@ -48,6 +50,11 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("GCP_ARTIFACT_REGISTRY_REPOSITORY=\"${GCP_ARTIFACT_REGISTRY_REPOSITORY:-trading-bot}\"")
                 .contains("GCP_CLOUD_SQL_INSTANCE=\"${GCP_CLOUD_SQL_INSTANCE:-trading-bot-postgres}\"")
                 .contains("GCP_CLOUD_SQL_DATABASE_VERSION=\"${GCP_CLOUD_SQL_DATABASE_VERSION:-POSTGRES_16}\"")
+                .contains("GCP_BUDGET_ALERTS_ENABLED=\"${GCP_BUDGET_ALERTS_ENABLED:-false}\"")
+                .contains("GCP_BUDGET_DISPLAY_NAME=\"${GCP_BUDGET_DISPLAY_NAME:-trading-bot-${GCP_PROJECT_ID}-monthly}\"")
+                .contains("GCP_BUDGET_AMOUNT=\"${GCP_BUDGET_AMOUNT:-250USD}\"")
+                .contains("GCP_BUDGET_CALENDAR_PERIOD=\"${GCP_BUDGET_CALENDAR_PERIOD:-month}\"")
+                .contains("GCP_BUDGET_FILTER_PROJECTS=\"${GCP_BUDGET_FILTER_PROJECTS:-projects/${GCP_PROJECT_ID}}\"")
                 .contains("DEMO_CLOUD_SQL_DATABASE=\"${DEMO_CLOUD_SQL_DATABASE:-trading_bot_demo}\"")
                 .contains("DEMO_AUDIT_CLOUD_SQL_USERNAME=\"${DEMO_AUDIT_CLOUD_SQL_USERNAME:-trading_bot_demo_audit}\"")
                 .contains("DEMO_PROJECTION_CLOUD_SQL_USERNAME=\"${DEMO_PROJECTION_CLOUD_SQL_USERNAME:-trading_bot_demo_projection}\"")
@@ -76,6 +83,34 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("ensure_api secretmanager.googleapis.com")
                 .contains("ensure_api storage.googleapis.com")
                 .contains("ensure_api sqladmin.googleapis.com");
+    }
+
+    @Test
+    void bootstrap_script_can_optionally_create_project_scoped_budget_alerts() throws IOException {
+        String script = Files.readString(resolve(SCRIPT));
+
+        assertThat(script)
+                .contains("GCP_BUDGET_ALERTS_ENABLED=true|false")
+                .contains("Default: percent=0.50;percent=0.80;percent=1.00;percent=1.00,basis=forecasted-spend")
+                .contains("budget_exists()")
+                .contains("gcloud billing budgets list")
+                .contains("--format='value(displayName)'")
+                .contains("ensure_budget_alert()")
+                .contains("require_env GCP_BILLING_ACCOUNT")
+                .contains("gcloud billing budgets create")
+                .contains("--billing-account=$GCP_BILLING_ACCOUNT")
+                .contains("--display-name=$GCP_BUDGET_DISPLAY_NAME")
+                .contains("--budget-amount=$GCP_BUDGET_AMOUNT")
+                .contains("--calendar-period=$GCP_BUDGET_CALENDAR_PERIOD")
+                .contains("--filter-projects=$GCP_BUDGET_FILTER_PROJECTS")
+                .contains("--threshold-rule=$threshold_rule")
+                .contains("--notifications-rule-pubsub-topic=$GCP_BUDGET_PUBSUB_TOPIC")
+                .contains("--notifications-rule-monitoring-notification-channels=$GCP_BUDGET_MONITORING_NOTIFICATION_CHANNELS")
+                .contains("--disable-default-iam-recipients")
+                .contains("ensure_api billingbudgets.googleapis.com")
+                .contains("if [[ \"$GCP_BUDGET_ALERTS_ENABLED\" == \"true\" ]]")
+                .contains("BUDGET_ALERTS_STATE=\"existing\"")
+                .contains("BUDGET_ALERTS_STATE=\"created\"");
     }
 
     @Test
