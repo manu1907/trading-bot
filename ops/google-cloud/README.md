@@ -7,6 +7,10 @@ The contract implements the neutral schema in
 `ops/deployment/deployment-contract.yml`. Google Cloud-specific choices must not
 change the app-facing runtime variables or trading behavior.
 
+Operational procedures for bootstrap, image publication, Cloud Run deployment,
+private smoke, alert rendering, rollback, emergency stop, incident evidence, and
+real promotion live in `ops/runbooks/google-cloud-operations.md`.
+
 ## Bootstrap Script
 
 `bootstrap-deployment-prereqs.sh` prepares the Google Cloud foundation expected

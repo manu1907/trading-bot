@@ -699,7 +699,9 @@ when no runtime override is supplied. When `GITHUB_CONFIGURE_ENVIRONMENTS=true`,
 the same bootstrap path uses GitHub CLI to create or update the `demo` and
 `real` GitHub environments with the required Google Cloud OIDC/service-account
 secrets and deployment variables, keeping the application runtime contract
-unchanged.
+unchanged. The Google Cloud operations runbook defines the operator sequence and
+evidence for bootstrap, publish, deploy, smoke, alert rendering, rollback,
+emergency stop, controlled drain, incident handling, and real promotion.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

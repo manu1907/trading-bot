@@ -390,6 +390,10 @@ Implemented remediation executor observability includes:
   supported placeholder set, fails if a required alert secret is missing, refuses
   unresolved placeholders, and writes rendered files with restricted permissions
   without printing secret values.
+- A Google Cloud operations runbook now covers bootstrap, GitHub environment
+  setup, image publication, Cloud Run deployment, private smoke, Alertmanager
+  rendering, rollback, emergency stop, controlled drain, incident evidence, and
+  real-promotion gates for the shared demo/real codebase.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
 - A remediation executor operator runbook exists at `ops/runbooks/remediation-executor.md`, covering
   disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,

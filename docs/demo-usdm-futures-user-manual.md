@@ -740,6 +740,10 @@ Pause governance metrics:
   reconciliation gates, compaction constraints, and restore-drill evidence.
 - The guarded Google Cloud CI/CD path now covers image publication, Cloud Run
   deployment with Cloud SQL attachment, private readiness smoke, and rollback.
+- Google Cloud operational procedures live in
+  `ops/runbooks/google-cloud-operations.md`; use it for bootstrap, publish,
+  deploy, smoke, rollback, emergency stop, controlled drain, incident evidence,
+  and real-promotion gates.
 - Deployment contracts use the neutral schema in
   `ops/deployment/deployment-contract.yml`, so another cloud must keep the same
   app-facing runtime variables and secret keys.
