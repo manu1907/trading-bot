@@ -559,6 +559,15 @@ account-scope and symbol-scope `DailyRealizedPnlState` keyed by provider,
 environment, account, market, optional symbol, and UTC trading day. This state
 is accounting/recovery input for realized-loss policy enforcement; it does not
 by itself authorize or block exchange actions.
+The same operator-token gate also protects the read-only runtime status
+endpoint at `GET /internal/runtime/status`. That endpoint is provider-agnostic
+core code: it reads the active or explicitly requested runtime target, the
+projection, and reconciliation confidence, then returns readiness, explicit
+blockers, market-data freshness counts, open exposure counts, active pauses,
+external interventions, unknown order states, unresolved commands, and optional
+strategy lifecycle state. It is an observability/control-plane surface only; the
+order execution pipeline, risk gate, idempotency, journal, reconciliation, and
+provider gateway remain the trading authority.
 Position fill-to-delta causality still needs durable execution-state wiring
 before live automation can be called complete. The remediation advisor now
 keeps position remediation conservative: a flat external position recommends

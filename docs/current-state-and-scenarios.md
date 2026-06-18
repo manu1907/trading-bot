@@ -364,6 +364,7 @@ The bot supports pause governance as an auditable risk control:
 
 The internal operator API can expose and manipulate remediation state:
 
+- Inspect the current or explicitly requested runtime target status.
 - List projected order interventions.
 - List projected position interventions.
 - List remediation recommendations.
@@ -373,6 +374,17 @@ The internal operator API can expose and manipulate remediation state:
 - Execute eligible remediation batches when policy allows.
 - Acknowledge order or position interventions.
 - List and release pause governance state.
+
+`GET /internal/runtime/status` is a read-only operator endpoint protected by
+the same `X-Operator-Token` gate. It defaults to the active runtime target from
+the effective config and can also inspect an explicit
+provider/environment/account/market query. The response includes runtime
+identity, reconciliation confidence, open order and position counts, external
+intervention counts, unknown order status count, unresolved command count,
+active pause count, projected market-data freshness counts, optional strategy
+lifecycle state, and explicit readiness blockers. It does not bypass the order
+risk gate or authorize trading; it is an operator surface for understanding
+whether the live target is `READY`, needs `ATTENTION`, or is `BLOCKED`.
 
 ## Remediation Executor Observability
 

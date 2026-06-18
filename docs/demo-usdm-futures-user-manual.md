@@ -537,6 +537,39 @@ All requests require the token header:
 X-Operator-Token: <operator-token>
 ```
 
+Inspect the live runtime status for the active configured target:
+
+```bash
+curl -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/runtime/status'
+```
+
+Inspect a specific target and require at least three fresh projected
+market-data symbols within 30 seconds:
+
+```bash
+curl -H 'X-Operator-Token: <operator-token>' \
+  'http://localhost:8080/internal/runtime/status?provider=binance&environment=demo&account=main&market=usdm_futures&maxMarketDataAgeMillis=30000&minFreshMarketDataSymbols=3&strategyId=lfa-top-book-imbalance'
+```
+
+The status response includes:
+
+- `readiness`: `READY`, `ATTENTION`, or `BLOCKED`.
+- Runtime target identity from the active config.
+- Reconciliation confidence status and observation counts.
+- Projected open orders, open positions, external interventions, unknown
+  orders, unresolved commands, active pauses, and market-data freshness counts.
+- Optional projected strategy lifecycle state when `strategyId` is supplied.
+- Explicit blocker strings such as `reconciliation:no_observations`,
+  `reconciliation:degraded`, `orders:unknown_status`,
+  `orders:unresolved_command`, `interventions:external_orders`,
+  `interventions:external_positions`, `governance:active_pause`,
+  `market_data:no_symbols`, or `market_data:fresh_symbols_below_minimum`.
+
+This endpoint is read-only. It does not approve trades or bypass any existing
+admission path. The execution pipeline, risk gate, idempotency, journal,
+projection, reconciliation, and provider gateway remain authoritative.
+
 List external order interventions:
 
 ```bash
