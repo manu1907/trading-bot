@@ -38,6 +38,11 @@ outages, and cost incidents.
   PagerDuty routing keys, Slack webhooks, and Slack channels.
 - Operator identity and timestamp for any deploy, rollback, incident, or
   promotion action.
+- An evidence file produced from `ops/evidence/live-release-evidence-template.yml`
+  for every publish/deploy/smoke/rollback/promotion action.
+- For real promotion, a completed
+  `ops/evidence/demo-burn-in-evidence-template.yml` showing that demo exercised
+  the same intended real behavior.
 
 ## Bootstrap
 
@@ -109,6 +114,8 @@ Expected evidence:
 - Environment-specific image tag updated for the selected environment.
 - Uploaded publish metadata artifact.
 - OCI source/revision/version labels tied to the commit.
+- Updated live release evidence bundle with the publish workflow run id and
+  image digest.
 
 Do not publish an unverified commit. The workflow checks `Security` success, but
 operators should still record the source SHA and workflow run id.
@@ -132,6 +139,9 @@ Expected deployment behavior:
 - Unauthenticated access is blocked.
 - Revision labels include app, environment, and source commit SHA.
 - Deployment metadata is uploaded as an artifact.
+- Updated live release evidence bundle with Cloud Run service, revision, runtime
+  contract path, config diff artifact, and secret binding proof without secret
+  values.
 
 After deploy, do not enable new automation solely because Cloud Run is ready.
 Strategy and remediation exchange execution remain governed by runtime config,
@@ -152,6 +162,8 @@ Expected smoke behavior:
 - Revision image uses the matching commit tag.
 - Private `/actuator/health/readiness` returns `UP` through an identity token.
 - Smoke evidence is uploaded as an artifact.
+- Updated live release evidence bundle with readiness result and Cloud Run smoke
+  workflow artifact.
 
 Additional live validation before promotion:
 
@@ -288,6 +300,10 @@ Required real-promotion evidence:
 - Demo deployed and smoked from the same code path.
 - Demo burn-in proves the intended real strategy/remediation/symbol-universe
   behavior, not a reduced toy behavior.
+- Completed `ops/evidence/live-release-evidence-template.yml` for the relevant
+  demo releases.
+- Completed `ops/evidence/demo-burn-in-evidence-template.yml` with required
+  continuous-operation metrics and incident drills.
 - Real credentials are isolated in real Secret Manager secrets.
 - Real alert routing is rendered and verified.
 - Rollback workflow has been tested for the target.

@@ -1,0 +1,114 @@
+schema_version: 1
+evidence_type: live_release
+
+release:
+  environment: demo_or_real
+  provider: binance
+  account: main
+  market: usdm_futures
+  release_id: TODO
+  operator: TODO
+  started_at_utc: TODO
+  completed_at_utc: TODO
+  decision: keep_disabled_or_deploy_or_promote_or_rollback
+
+code_identity:
+  git_commit_sha: TODO_FULL_40_CHAR_SHA
+  git_branch: main
+  security_workflow_run_id: TODO
+  security_workflow_conclusion: success_required
+  repository_url: https://github.com/manu1907/trading-bot
+
+image_and_deployment:
+  artifact_registry_image: TODO
+  image_digest: TODO
+  publish_workflow_run_id: TODO
+  deploy_workflow_run_id: TODO
+  cloud_run_service: trading-bot-demo-main-usdm-futures_or_trading-bot-real-main-usdm-futures
+  cloud_run_revision: TODO
+  cloud_run_region: TODO
+  revision_commit_label: TODO_FULL_40_CHAR_SHA
+  traffic_percent: 100
+
+configuration:
+  runtime_profile: live
+  runtime_target: binance/demo_or_real/main/usdm_futures
+  deployment_contract_path: ops/google-cloud/demo-usdm-futures-deployment.yml_or_ops/google-cloud/real-usdm-futures-deployment.yml
+  catalog_commit_sha: TODO_FULL_40_CHAR_SHA
+  runtime_config_diff_artifact: TODO
+  same_codebase_as_demo_and_real: true
+  intended_real_behavior_pretested_in_demo: true_or_false
+  demo_behavior_reduced_vs_real: false_required_for_real_promotion
+
+secret_bindings:
+  binance_credentials_secret_names_verified: true_or_false
+  operator_token_secret_name_verified: true_or_false
+  audit_jdbc_secret_names_verified: true_or_false
+  projection_jdbc_secret_names_verified: true_or_false
+  alert_receiver_secret_names_verified: true_or_false
+  no_secret_values_in_evidence: true_required
+
+pre_deploy_gates:
+  security_workflow_passed: true_required
+  artifact_registry_image_exists: true_required
+  deployment_environment_gate_used: true_required
+  real_deployment_approval_used_when_environment_real: true_required_for_real
+  real_exchange_execution_disabled_unless_promotion_evidence_passed: true_required_for_real
+
+smoke_and_live_validation:
+  cloud_run_private_readiness_smoke_run_id: TODO
+  readiness_status: UP_required
+  binance_server_time_smoke: pass_required
+  binance_order_endpoint_smoke: pass_required
+  binance_user_data_stream_smoke: pass_required
+  binance_market_data_websocket_smoke: pass_required
+  config_load_evidence: TODO
+  no_unintended_exchange_action_on_startup: true_required
+
+trading_state:
+  projected_open_orders_count: TODO
+  projected_open_positions_count: TODO
+  reconciliation_confidence: healthy_required_before_execution
+  unknown_order_results_count: 0_required_for_promotion
+  pending_modify_outcomes_count: 0_required_for_promotion
+  active_pause_governance_count: TODO
+  strategy_lifecycle_state: STOPPED_or_PAUSED_or_ACTIVE_or_DRAINING_or_EMERGENCY_STOP
+  remediation_executor_report: TODO
+
+risk_and_policy:
+  executor_enabled: TODO
+  exchange_execution_enabled: TODO
+  report_only: TODO
+  allowed_operations: []
+  real_environment_allowed: false_required_until_promotion
+  account_risk_caps_reviewed: true_or_false
+  symbol_risk_caps_reviewed: true_or_false
+  loss_drawdown_caps_reviewed: true_or_false
+
+observability:
+  alertmanager_rendered_checksum: TODO
+  alert_delivery_test_evidence: TODO
+  google_cloud_monitoring_policies_verified: true_or_false
+  budget_alert_verified: true_or_false
+  grafana_dashboard_import_evidence: TODO
+  incident_response_runbook_available: true_required
+
+rollback_and_emergency:
+  rollback_workflow_run_id_or_drill_id: TODO
+  rollback_target_revision_verified: true_or_false
+  emergency_stop_drill_id: TODO
+  controlled_drain_drill_id: TODO
+  no_second_bot_instance_verified: true_required
+
+incidents_and_exceptions:
+  unresolved_critical_incidents: 0_required_for_promotion
+  unresolved_high_risk_exceptions: 0_required_for_promotion
+  known_limitations: []
+  follow_up_work_items: []
+
+promotion_decision:
+  promote_to_next_stage: false_default
+  next_stage: none_or_shadow_or_bounded_demo_live_or_extended_demo_burn_in_or_real_disabled_or_real_execution_enabled
+  decision_reason: TODO
+  real_execution_policy_change_requested: false_default
+  evidence_bundle_location: TODO

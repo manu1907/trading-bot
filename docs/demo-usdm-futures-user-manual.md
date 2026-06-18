@@ -759,6 +759,11 @@ Pause governance metrics:
   outcomes, failed deployments, persistence failures, alerting outages,
   credential rotation or compromise, cost spikes, and real-environment incident
   rules.
+- Operational evidence templates live in `ops/evidence`. Use
+  `live-release-evidence-template.yml` for every live demo or real release and
+  `demo-burn-in-evidence-template.yml` before any real execution policy is
+  enabled. Evidence must prove the same intended real behavior was exercised in
+  demo and must not contain secret values.
 - Deployment contracts use the neutral schema in
   `ops/deployment/deployment-contract.yml`, so another cloud must keep the same
   app-facing runtime variables and secret keys.

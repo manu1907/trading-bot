@@ -1,0 +1,116 @@
+schema_version: 1
+evidence_type: demo_burn_in
+
+burn_in:
+  provider: binance
+  environment: demo
+  account: main
+  market: usdm_futures
+  burn_in_id: TODO
+  started_at_utc: TODO
+  ended_at_utc: TODO
+  duration_hours: TODO
+  operator: TODO
+
+behavior_equivalence:
+  same_codebase_as_real: true_required
+  same_strategy_behavior_intended_for_real: true_required
+  same_remediation_behavior_intended_for_real: true_required
+  same_symbol_universe_policy_intended_for_real: true_required
+  only_allowed_differences: credentials_endpoints_provider_availability_approvals_and_calibrated_risk_values
+  reduced_demo_behavior: false_required_for_real_promotion
+
+runtime_stages:
+  strategy_disabled_observation:
+    completed: true_or_false
+    evidence: TODO
+  strategy_shadow_mode:
+    completed: true_or_false
+    evidence: TODO
+  bounded_demo_live_trading:
+    completed: true_or_false
+    evidence: TODO
+  extended_demo_burn_in:
+    completed: true_or_false
+    evidence: TODO
+
+market_universe:
+  dynamic_exchange_metadata_refresh_verified: true_or_false
+  high_liquidity_candidate_universe_covered: true_or_false
+  symbols_analyzed: []
+  symbols_traded_or_remediated: []
+  excluded_symbols_and_reasons: []
+  btc_only_run: false_required_for_real_promotion_unless_real_is_btc_only
+
+continuous_operation_metrics:
+  uptime_percent: TODO
+  cloud_run_revisions_used: []
+  restart_count: TODO
+  readiness_failures_count: TODO
+  market_data_staleness_incidents: TODO
+  user_data_staleness_incidents: TODO
+  reconciliation_degraded_incidents: TODO
+  unknown_order_results_count: 0_required_for_promotion
+  duplicate_command_prevention_events: TODO
+  external_interventions_detected: TODO
+  remediation_decisions_total: TODO
+  remediation_submissions_total: TODO
+  remediation_blockers_total: TODO
+  pause_governance_activations_total: TODO
+
+trading_metrics:
+  orders_submitted_total: TODO
+  orders_rejected_by_risk_total: TODO
+  fills_total: TODO
+  average_order_latency_ms: TODO
+  max_order_latency_ms: TODO
+  realized_pnl: TODO
+  unrealized_pnl: TODO
+  max_drawdown: TODO
+  max_margin_utilization: TODO
+  max_open_order_notional: TODO
+  max_position_notional: TODO
+
+required_drills:
+  restart_during_open_order:
+    completed: true_or_false
+    evidence: TODO
+  network_outage_or_exchange_timeout:
+    completed: true_or_false
+    evidence: TODO
+  stale_user_data_stream:
+    completed: true_or_false
+    evidence: TODO
+  stale_market_data_stream:
+    completed: true_or_false
+    evidence: TODO
+  external_manual_order_or_position:
+    completed: true_or_false
+    evidence: TODO
+  bad_config_or_failed_deployment:
+    completed: true_or_false
+    evidence: TODO
+  emergency_stop:
+    completed: true_or_false
+    evidence: TODO
+  rollback:
+    completed: true_or_false
+    evidence: TODO
+
+observability_and_alerting:
+  alertmanager_routing_verified: true_or_false
+  email_slack_pagerduty_receivers_verified: true_or_false
+  google_cloud_monitoring_policies_verified: true_or_false
+  budget_alert_verified: true_or_false
+  dashboards_available: true_or_false
+  incident_response_runbook_used_when_needed: true_or_false
+
+promotion_readiness:
+  unresolved_critical_incidents: 0_required
+  unresolved_high_risk_exceptions: 0_required
+  real_config_diff_reviewed: true_or_false
+  real_secret_isolation_verified: true_or_false
+  real_exchange_execution_remains_disabled_until_approval: true_required
+  promote_to_real_execution: false_default
+  decision_reason: TODO
+  evidence_bundle_location: TODO

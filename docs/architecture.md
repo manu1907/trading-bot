@@ -719,6 +719,13 @@ real. They are not trading logic; they monitor platform risk around Cloud Run
 Monitoring notification channel resource names without committing receiver
 secrets.
 
+Operational evidence templates under `ops/evidence` define the release and
+demo-burn-in records required for promotion decisions. They bind together commit
+identity, CI, image, Cloud Run revision, smoke results, secret-binding proof,
+runtime config diff, trading-state projection, reconciliation confidence,
+observability, rollback/emergency drills, incident state, market-universe
+coverage, and the final promotion decision without storing secret values.
+
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and
