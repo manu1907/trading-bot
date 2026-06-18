@@ -702,6 +702,8 @@ Pause governance metrics:
   `ops/grafana/pause-governance-dashboard.json`.
 - An importable Grafana dashboard for remediation executor outcomes lives in
   `ops/grafana/remediation-executor-dashboard.json`.
+- An importable Grafana dashboard for LFA signal-runner outcomes lives in
+  `ops/grafana/strategy-lfa-dashboard.json`.
 - The remediation executor operator runbook lives in
   `ops/runbooks/remediation-executor.md`; it covers disabled, blocked,
   preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,

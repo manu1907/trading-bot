@@ -37,3 +37,23 @@ It expects a Prometheus datasource and displays:
 
 The dashboard intentionally avoids remediation ids, order ids, and symbols so it
 stays compatible with the low-cardinality metric contract.
+
+## Strategy LFA Dashboard
+
+`strategy-lfa-dashboard.json` is an importable Grafana dashboard for the LFA
+signal-runner control surface.
+
+It expects a Prometheus datasource and displays:
+
+- LFA signal-runner outcomes by status.
+- Published signal-runner outcomes.
+- Blocked signal-runner outcomes.
+- Blocked outcomes by reason and primary blocker.
+- Lifecycle and reconciliation blockers.
+- Budget and allocation blockers.
+- Published outcomes by runtime target.
+- Disabled evaluations.
+
+The dashboard intentionally uses aggregate, low-cardinality queries. It does not
+tag or group by signal ids, order ids, or symbols. Pair it with the Prometheus
+rules in `ops/prometheus/strategy-lfa-alerts.yml`.

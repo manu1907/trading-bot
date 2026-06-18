@@ -900,7 +900,9 @@ runtime target, enabled state, status, reason, and primary blocker; symbols and
 signal ids are intentionally not metric tags. Prometheus-compatible rules in
 `ops/prometheus/strategy-lfa-alerts.yml` alert on disabled,
 lifecycle-blocked, reconciliation-blocked, budget-blocked, allocation-blocked,
-and published-signal outcomes.
+and published-signal outcomes. An importable Grafana dashboard for the same
+low-cardinality LFA runner metric lives in
+`ops/grafana/strategy-lfa-dashboard.json`.
 
 ## Redpanda Messaging
 

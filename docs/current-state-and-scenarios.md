@@ -415,6 +415,7 @@ Implemented remediation executor observability includes:
   values. The generated bundle still requires live outcomes to be completed
   before promotion.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
+- An importable Grafana LFA strategy runner dashboard exists at `ops/grafana/strategy-lfa-dashboard.json`.
 - A remediation executor operator runbook exists at `ops/runbooks/remediation-executor.md`, covering
   disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,
   ambiguous/unknown reconciliation, and hedge-mode remediation outcomes.

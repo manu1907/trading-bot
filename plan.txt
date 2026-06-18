@@ -119,6 +119,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - Alertmanager routing for pause governance alerts now exists in `ops/alertmanager/pause-governance-alertmanager.yml`, mapping `routing_hint` and `severity` labels to operator/platform PagerDuty, Slack, and SMTP email receivers with source-controlled placeholders for deployment-injected secrets. Email addresses and SMTP credentials are not committed; Google Cloud bootstrap can create the matching Secret Manager containers and can use `DEMO_ALERT_EMAIL_TO` or `REAL_ALERT_EMAIL_TO` as a common operator/platform/fallback email target.
 - An importable Grafana pause governance dashboard now exists in `ops/grafana/pause-governance-dashboard.json`.
 - An importable Grafana remediation executor dashboard now exists in `ops/grafana/remediation-executor-dashboard.json`.
+- An importable Grafana LFA strategy runner dashboard now exists in `ops/grafana/strategy-lfa-dashboard.json`.
 - A remediation executor operator runbook now exists in `ops/runbooks/remediation-executor.md`, covering disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure, ambiguous/unknown reconciliation, and hedge-mode remediation outcomes.
 - A live-profile incident response runbook now exists in `ops/runbooks/incident-response.md`, covering shared demo/real incident triage, severity classification, exchange outages, stale user-data streams, stale market-data streams, reconciliation degradation, external orders/positions, unknown order results, ambiguous modify outcomes, failed deployments, bad runtime config, persistence/journal/Cloud SQL failures, alerting outages, credential rotation/compromise, Google Cloud cost spikes, real-environment incident rules, evidence bundles, and incident review. It preserves the same-codebase demo/real rule, forbids a second bot instance for the same target, requires reconciliation/projection/risk/policy gates before resumption, and treats external orders/positions as automatically evaluated policy targets instead of manual-review-only events.
 - Operational evidence templates now exist in `ops/evidence`: `live-release-evidence-template.yml` for traceable release/deployment/smoke/rollback/promotion evidence and `demo-burn-in-evidence-template.yml` for the continuous demo evidence required before real execution can be enabled. A live release evidence collector now exists at `ops/evidence/collect-live-release-evidence.sh`; it creates sanitized demo or real evidence bundles from the current commit, deployment contract, config checksums, secret binding names, workflow run ids, Cloud Run metadata, rendered Alertmanager checksums, smoke outputs, and operator/API snapshots without calling cloud providers or reading/printing secret values. The templates and collector require same-codebase demo/real behavior, full commit/CI/image/deployment identity, secret-binding proof without values, runtime config diff/checksums, live smoke, trading-state/reconciliation state, risk policy state, observability, rollback/emergency-stop drills, market-universe coverage, incident status, and explicit promotion decision fields.
@@ -225,7 +226,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery from the current plan state: 6 to 26 commits/slices.
+Estimated remaining delivery from the current plan state: 5 to 25 commits/slices.
 
 This estimate must be revised after meaningful capability changes. It counts production-quality slices that include implementation, docs/plan updates, formatting, tests/build, live smoke when relevant, commit, push, and CI verification. It is not a feature-count only estimate.
 
@@ -233,7 +234,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 - Strategy runtime and trading lifecycle: 1 to 5 slices.
 - Persistence, recovery, replay, retention, backup, and restore hardening: 0 to 3 slices.
 - Live demo/real validation reports and promotion gates: 2 to 4 slices.
-- Observability, alerts, dashboards, and operator controls: 2 to 5 slices.
+- Observability, alerts, dashboards, and operator controls: 1 to 4 slices.
 - Google Cloud infrastructure and AWS-compatible deployment contract: 1 to 4 slices.
 - CI/CD build, publish, deploy, smoke, rollback, and approval workflows: 0 slices.
 - Security, secrets, operational runbooks, and incident procedures: 1 to 3 slices.
@@ -273,7 +274,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
   persistence/journal/Cloud SQL failures, alerting outages, credential
   rotation/compromise, Google Cloud cost spikes, real-environment incident
   rules, evidence bundles, and incident review.
-- Prometheus-compatible remediation executor alert rules, an importable Grafana dashboard, and an operator runbook exist for disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure, ambiguous/unknown reconciliation, and hedge-mode remediation outcomes. LFA signal-runner outcome metrics and Prometheus-compatible alerts now exist for disabled, lifecycle-blocked, reconciliation-blocked, budget-blocked, allocation-blocked, and published-signal outcomes.
+- Prometheus-compatible remediation executor alert rules, an importable Grafana dashboard, and an operator runbook exist for disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure, ambiguous/unknown reconciliation, and hedge-mode remediation outcomes. LFA signal-runner outcome metrics, Prometheus-compatible alerts, and an importable Grafana dashboard now exist for disabled, lifecycle-blocked, reconciliation-blocked, budget-blocked, allocation-blocked, and published-signal outcomes.
 - Cloud-neutral deployment contract validation exists for runtime env vars, secret bindings, Alertmanager substitutions, and JDBC audit backend policy.
 - Google Cloud and AWS demo secret binding names now exist for Alertmanager receiver substitutions and the selected JDBC audit backend.
 - Google Cloud real secret binding names now exist for isolated real Binance credentials, operator token, Alertmanager receiver substitutions, and the selected JDBC audit backend.
@@ -329,7 +330,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 - Add health checks for exchange connectivity, user-data stream freshness, market-data freshness, reconciliation confidence, journal writes, and event consumer lag.
 - Add alerting for emergency stop, degraded reconciliation, unknown order state, unexpected external intervention, high loss, excessive order rate, stale streams, failed deployments, and secret/config errors.
 - Add operator endpoints for read-only status, pause/resume, emergency stop, controlled drain, and safe config inspection.
-- Add dashboards for strategy state, account state, exposure, order lifecycle, remediation lifecycle, and deployment health.
+- Add dashboards for strategy state, account state, exposure, order lifecycle, remediation lifecycle, and deployment health. Pause governance, remediation executor outcomes, and LFA signal-runner outcomes now have first dashboards; remaining dashboard work is account/exposure/order/reconciliation/deployment health coverage.
 - Definition of done: the bot can be operated without reading logs as the primary control surface.
 
 ### Roadmap Slice 6: Cloud Infrastructure
