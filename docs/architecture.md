@@ -724,7 +724,11 @@ demo-burn-in records required for promotion decisions. They bind together commit
 identity, CI, image, Cloud Run revision, smoke results, secret-binding proof,
 runtime config diff, trading-state projection, reconciliation confidence,
 observability, rollback/emergency drills, incident state, market-universe
-coverage, and the final promotion decision without storing secret values.
+coverage, and the final promotion decision without storing secret values. The
+live release collector in the same directory materializes a sanitized demo or
+real evidence bundle from committed contracts, config checksums, workflow ids,
+Cloud Run metadata, and scrubbed observation files; it does not fetch or print
+secret values.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

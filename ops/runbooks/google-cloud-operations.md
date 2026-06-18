@@ -38,8 +38,10 @@ outages, and cost incidents.
   PagerDuty routing keys, Slack webhooks, and Slack channels.
 - Operator identity and timestamp for any deploy, rollback, incident, or
   promotion action.
-- An evidence file produced from `ops/evidence/live-release-evidence-template.yml`
-  for every publish/deploy/smoke/rollback/promotion action.
+- A live release evidence bundle produced with
+  `ops/evidence/collect-live-release-evidence.sh` for every
+  publish/deploy/smoke/rollback/promotion action, then completed with the actual
+  live outcomes.
 - For real promotion, a completed
   `ops/evidence/demo-burn-in-evidence-template.yml` showing that demo exercised
   the same intended real behavior.
@@ -119,6 +121,23 @@ Expected evidence:
 
 Do not publish an unverified commit. The workflow checks `Security` success, but
 operators should still record the source SHA and workflow run id.
+
+Create or update the release evidence bundle after publish:
+
+```bash
+ops/evidence/collect-live-release-evidence.sh demo \
+  --release-id demo-YYYYMMDD-N \
+  --operator github-actions \
+  --decision deploy \
+  --security-workflow-run-id SECURITY_RUN_ID \
+  --publish-workflow-run-id PUBLISH_RUN_ID \
+  --artifact-image ARTIFACT_REGISTRY_IMAGE \
+  --image-digest IMAGE_DIGEST
+```
+
+Use `real` instead of `demo` only for the real runtime contract. The script
+records contract/config checksums and secret binding names without reading
+secret values.
 
 ## Deploy Cloud Run
 

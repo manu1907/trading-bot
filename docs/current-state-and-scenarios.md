@@ -401,11 +401,13 @@ Implemented remediation executor observability includes:
   unknown order outcomes, failed deployments, persistence failures, alerting
   outages, credential rotation/compromise, cost spikes, real-environment rules,
   and incident evidence bundles.
-- Operational evidence templates now exist in `ops/evidence` for live releases
-  and demo burn-in. They require traceable commit, CI, image, deployment,
-  smoke, secret-binding, runtime config, trading-state, risk-policy,
-  observability, rollback, emergency-stop, incident, market-universe, and
-  promotion-decision evidence without committing secret values.
+- Operational evidence templates and a live release collector now exist in
+  `ops/evidence` for live releases and demo burn-in. The collector creates a
+  sanitized demo or real bundle from the current commit, deployment contract,
+  config checksums, secret binding names, workflow run ids, Cloud Run metadata,
+  smoke outputs, and operator/API snapshots without reading or printing secret
+  values. The generated bundle still requires live outcomes to be completed
+  before promotion.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
 - A remediation executor operator runbook exists at `ops/runbooks/remediation-executor.md`, covering
   disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,

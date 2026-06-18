@@ -759,8 +759,11 @@ Pause governance metrics:
   outcomes, failed deployments, persistence failures, alerting outages,
   credential rotation or compromise, cost spikes, and real-environment incident
   rules.
-- Operational evidence templates live in `ops/evidence`. Use
-  `live-release-evidence-template.yml` for every live demo or real release and
+- Operational evidence templates and the live release collector live in
+  `ops/evidence`. Use `collect-live-release-evidence.sh demo` to create the
+  initial sanitized bundle for each demo release, then complete the remaining
+  live fields with deployment, smoke, trading-state, risk-policy, alerting,
+  rollback, and emergency-stop outcomes. Use
   `demo-burn-in-evidence-template.yml` before any real execution policy is
   enabled. Evidence must prove the same intended real behavior was exercised in
   demo and must not contain secret values.
