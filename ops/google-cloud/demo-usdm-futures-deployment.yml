@@ -68,6 +68,27 @@ alertmanager_secret_substitutions:
   ALERTMANAGER_TRADING_BOT_PLATFORM_PAGERDUTY_ROUTING_KEY:
     secret: trading-bot-demo-alert-platform-pagerduty-routing-key
     version: latest
+  ALERTMANAGER_TRADING_BOT_SMTP_SMARTHOST:
+    secret: trading-bot-demo-alert-smtp-smarthost
+    version: latest
+  ALERTMANAGER_TRADING_BOT_SMTP_FROM:
+    secret: trading-bot-demo-alert-smtp-from
+    version: latest
+  ALERTMANAGER_TRADING_BOT_SMTP_AUTH_USERNAME:
+    secret: trading-bot-demo-alert-smtp-auth-username
+    version: latest
+  ALERTMANAGER_TRADING_BOT_SMTP_AUTH_PASSWORD:
+    secret: trading-bot-demo-alert-smtp-auth-password
+    version: latest
+  ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO:
+    secret: trading-bot-demo-alert-operator-email-to
+    version: latest
+  ALERTMANAGER_TRADING_BOT_PLATFORM_EMAIL_TO:
+    secret: trading-bot-demo-alert-platform-email-to
+    version: latest
+  ALERTMANAGER_TRADING_BOT_FALLBACK_EMAIL_TO:
+    secret: trading-bot-demo-alert-fallback-email-to
+    version: latest
   ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_WEBHOOK:
     secret: trading-bot-demo-alert-operator-slack-webhook
     version: latest

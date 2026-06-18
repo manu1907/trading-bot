@@ -11,16 +11,23 @@ This directory contains Alertmanager routing profiles for trading-bot alerts.
 
 Routes:
 
-- `routing_hint=platform`, `severity=critical`: platform PagerDuty plus platform Slack.
-- `routing_hint=operator`, `severity=critical`: operator PagerDuty plus operator Slack.
-- `routing_hint=operator`, `severity=warning`: operator Slack.
-- `routing_hint=operator`, `severity=info`: operator Slack.
-- unmatched trading-bot alerts: fallback Slack.
+- `routing_hint=platform`, `severity=critical`: platform PagerDuty plus platform Slack and platform email.
+- `routing_hint=operator`, `severity=critical`: operator PagerDuty plus operator Slack and operator email.
+- `routing_hint=operator`, `severity=warning`: operator Slack and operator email.
+- `routing_hint=operator`, `severity=info`: operator Slack and operator email.
+- unmatched trading-bot alerts: fallback Slack and fallback email.
 
 Required deployment secrets or environment substitutions:
 
 - `ALERTMANAGER_TRADING_BOT_OPERATOR_PAGERDUTY_ROUTING_KEY`
 - `ALERTMANAGER_TRADING_BOT_PLATFORM_PAGERDUTY_ROUTING_KEY`
+- `ALERTMANAGER_TRADING_BOT_SMTP_SMARTHOST`
+- `ALERTMANAGER_TRADING_BOT_SMTP_FROM`
+- `ALERTMANAGER_TRADING_BOT_SMTP_AUTH_USERNAME`
+- `ALERTMANAGER_TRADING_BOT_SMTP_AUTH_PASSWORD`
+- `ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO`
+- `ALERTMANAGER_TRADING_BOT_PLATFORM_EMAIL_TO`
+- `ALERTMANAGER_TRADING_BOT_FALLBACK_EMAIL_TO`
 - `ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_WEBHOOK`
 - `ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_CHANNEL`
 - `ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_WEBHOOK`
@@ -28,8 +35,9 @@ Required deployment secrets or environment substitutions:
 - `ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_WEBHOOK`
 - `ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_CHANNEL`
 
-Do not commit real webhook URLs or PagerDuty routing keys. Inject them through the
-selected deployment secret system.
+Do not commit real webhook URLs, PagerDuty routing keys, SMTP credentials, or
+personal email addresses. Inject them through the selected deployment secret
+system.
 
 ## Google Cloud Rendering
 

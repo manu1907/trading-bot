@@ -185,6 +185,13 @@ Required Alertmanager substitution secrets:
 
 - `trading-bot-demo-alert-operator-pagerduty-routing-key`
 - `trading-bot-demo-alert-platform-pagerduty-routing-key`
+- `trading-bot-demo-alert-smtp-smarthost`
+- `trading-bot-demo-alert-smtp-from`
+- `trading-bot-demo-alert-smtp-auth-username`
+- `trading-bot-demo-alert-smtp-auth-password`
+- `trading-bot-demo-alert-operator-email-to`
+- `trading-bot-demo-alert-platform-email-to`
+- `trading-bot-demo-alert-fallback-email-to`
 - `trading-bot-demo-alert-operator-slack-webhook`
 - `trading-bot-demo-alert-operator-slack-channel`
 - `trading-bot-demo-alert-platform-slack-webhook`
@@ -199,6 +206,13 @@ ops/alertmanager/render-google-cloud-alertmanager.sh demo \
   --project "$GCP_PROJECT_ID" \
   --output build/alertmanager/demo-alertmanager.yml
 ```
+
+For one-person demo operation, `DEMO_ALERT_EMAIL_TO` can be set once during
+bootstrap to populate the operator, platform, and fallback email receiver
+secrets with the same address. SMTP still requires
+`DEMO_ALERT_SMTP_SMARTHOST`, `DEMO_ALERT_SMTP_FROM`,
+`DEMO_ALERT_SMTP_AUTH_USERNAME`, and `DEMO_ALERT_SMTP_AUTH_PASSWORD`; for Gmail,
+use an app password rather than the normal account password.
 
 ## Real USD-M Futures
 

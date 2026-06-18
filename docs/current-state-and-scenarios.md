@@ -389,7 +389,9 @@ Implemented remediation executor observability includes:
   Alertmanager profile from Secret Manager for `demo` or `real`, validates the
   supported placeholder set, fails if a required alert secret is missing, refuses
   unresolved placeholders, and writes rendered files with restricted permissions
-  without printing secret values.
+  without printing secret values. The Alertmanager profile now supports
+  PagerDuty, Slack, and SMTP email receivers; email targets and SMTP credentials
+  are deployment secrets and are not committed.
 - A Google Cloud operations runbook now covers bootstrap, GitHub environment
   setup, image publication, Cloud Run deployment, private smoke, Alertmanager
   rendering, rollback, emergency stop, controlled drain, incident evidence, and

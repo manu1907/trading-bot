@@ -54,6 +54,13 @@ class AlertmanagerRoutingConfigTest {
                 .contains("gcloud secrets versions access latest")
                 .contains("trading-bot-%s-alert-operator-pagerduty-routing-key")
                 .contains("trading-bot-%s-alert-platform-pagerduty-routing-key")
+                .contains("trading-bot-%s-alert-smtp-smarthost")
+                .contains("trading-bot-%s-alert-smtp-from")
+                .contains("trading-bot-%s-alert-smtp-auth-username")
+                .contains("trading-bot-%s-alert-smtp-auth-password")
+                .contains("trading-bot-%s-alert-operator-email-to")
+                .contains("trading-bot-%s-alert-platform-email-to")
+                .contains("trading-bot-%s-alert-fallback-email-to")
                 .contains("trading-bot-%s-alert-operator-slack-webhook")
                 .contains("trading-bot-%s-alert-operator-slack-channel")
                 .contains("trading-bot-%s-alert-platform-slack-webhook")
@@ -72,12 +79,36 @@ class AlertmanagerRoutingConfigTest {
         assertThat(template)
                 .contains("${ALERTMANAGER_TRADING_BOT_OPERATOR_PAGERDUTY_ROUTING_KEY}")
                 .contains("${ALERTMANAGER_TRADING_BOT_PLATFORM_PAGERDUTY_ROUTING_KEY}")
+                .contains("${ALERTMANAGER_TRADING_BOT_SMTP_SMARTHOST}")
+                .contains("${ALERTMANAGER_TRADING_BOT_SMTP_FROM}")
+                .contains("${ALERTMANAGER_TRADING_BOT_SMTP_AUTH_USERNAME}")
+                .contains("${ALERTMANAGER_TRADING_BOT_SMTP_AUTH_PASSWORD}")
+                .contains("${ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO}")
+                .contains("${ALERTMANAGER_TRADING_BOT_PLATFORM_EMAIL_TO}")
+                .contains("${ALERTMANAGER_TRADING_BOT_FALLBACK_EMAIL_TO}")
                 .contains("${ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_WEBHOOK}")
                 .contains("${ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_CHANNEL}")
                 .contains("${ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_WEBHOOK}")
                 .contains("${ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_CHANNEL}")
                 .contains("${ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_WEBHOOK}")
                 .contains("${ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_CHANNEL}");
+    }
+
+    @Test
+    void alertmanager_template_sends_email_for_each_receiver_without_inline_addresses() throws IOException {
+        String template = Files.readString(resolve("ops/alertmanager/pause-governance-alertmanager.yml"));
+
+        assertThat(template)
+                .contains("smtp_smarthost: ${ALERTMANAGER_TRADING_BOT_SMTP_SMARTHOST}")
+                .contains("smtp_from: ${ALERTMANAGER_TRADING_BOT_SMTP_FROM}")
+                .contains("smtp_auth_username: ${ALERTMANAGER_TRADING_BOT_SMTP_AUTH_USERNAME}")
+                .contains("smtp_auth_password: ${ALERTMANAGER_TRADING_BOT_SMTP_AUTH_PASSWORD}")
+                .contains("email_configs:")
+                .contains("to: ${ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO}")
+                .contains("to: ${ALERTMANAGER_TRADING_BOT_PLATFORM_EMAIL_TO}")
+                .contains("to: ${ALERTMANAGER_TRADING_BOT_FALLBACK_EMAIL_TO}")
+                .doesNotContain("@gmail.com")
+                .doesNotContain("smtp.gmail.com");
     }
 
     @SuppressWarnings("unchecked")

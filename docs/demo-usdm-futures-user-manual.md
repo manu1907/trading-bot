@@ -702,9 +702,11 @@ Pause governance metrics:
   preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,
   ambiguous/unknown reconciliation, and hedge-mode remediation outcomes.
 - The Alertmanager profile maps alert labels such as `severity` and
-  `routing_hint` to operator/platform PagerDuty and Slack receivers.
-- Real webhook URLs, Slack channels, and PagerDuty routing keys must be injected
-  through deployment secrets.
+  `routing_hint` to operator/platform PagerDuty, Slack, and email receivers.
+- Real webhook URLs, Slack channels, PagerDuty routing keys, SMTP credentials,
+  and email addresses must be injected through deployment secrets. For a
+  single-operator demo setup, set `DEMO_ALERT_EMAIL_TO` during bootstrap to use
+  the same email address for operator, platform, and fallback receivers.
 - For Google Cloud, render the demo Alertmanager config from Secret Manager with
   `ops/alertmanager/render-google-cloud-alertmanager.sh demo --project "$GCP_PROJECT_ID" --output build/alertmanager/demo-alertmanager.yml`.
   The renderer validates placeholders, fails if a required alert secret is

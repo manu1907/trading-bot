@@ -173,8 +173,20 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("trading-bot-real-projection-jdbc-password")
                 .contains("trading-bot-demo-alert-operator-slack-webhook")
                 .contains("trading-bot-demo-alert-fallback-slack-channel")
+                .contains("trading-bot-demo-alert-smtp-smarthost")
+                .contains("trading-bot-demo-alert-smtp-auth-password")
+                .contains("trading-bot-demo-alert-operator-email-to")
+                .contains("trading-bot-demo-alert-platform-email-to")
+                .contains("trading-bot-demo-alert-fallback-email-to")
+                .contains("DEMO_ALERT_EMAIL_TO")
                 .contains("trading-bot-real-alert-operator-slack-webhook")
-                .contains("trading-bot-real-alert-fallback-slack-channel");
+                .contains("trading-bot-real-alert-fallback-slack-channel")
+                .contains("trading-bot-real-alert-smtp-smarthost")
+                .contains("trading-bot-real-alert-smtp-auth-password")
+                .contains("trading-bot-real-alert-operator-email-to")
+                .contains("trading-bot-real-alert-platform-email-to")
+                .contains("trading-bot-real-alert-fallback-email-to")
+                .contains("REAL_ALERT_EMAIL_TO");
     }
 
     @Test

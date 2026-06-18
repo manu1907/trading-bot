@@ -68,6 +68,27 @@ alertmanager_secret_substitutions:
   ALERTMANAGER_TRADING_BOT_PLATFORM_PAGERDUTY_ROUTING_KEY:
     secret: trading-bot/demo/alerts/platform-pagerduty-routing-key
     version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_SMTP_SMARTHOST:
+    secret: trading-bot/demo/alerts/smtp-smarthost
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_SMTP_FROM:
+    secret: trading-bot/demo/alerts/smtp-from
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_SMTP_AUTH_USERNAME:
+    secret: trading-bot/demo/alerts/smtp-auth-username
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_SMTP_AUTH_PASSWORD:
+    secret: trading-bot/demo/alerts/smtp-auth-password
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO:
+    secret: trading-bot/demo/alerts/operator-email-to
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_PLATFORM_EMAIL_TO:
+    secret: trading-bot/demo/alerts/platform-email-to
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_FALLBACK_EMAIL_TO:
+    secret: trading-bot/demo/alerts/fallback-email-to
+    version: AWSCURRENT
   ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_WEBHOOK:
     secret: trading-bot/demo/alerts/operator-slack-webhook
     version: AWSCURRENT

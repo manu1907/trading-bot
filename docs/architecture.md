@@ -634,8 +634,9 @@ for the pause governance metrics live in
 and platform notification channels lives in
 `ops/alertmanager/pause-governance-alertmanager.yml`; and an importable Grafana
 dashboard lives in `ops/grafana/pause-governance-dashboard.json`. Real webhook
-URLs and PagerDuty routing keys must be injected through deployment secrets, not
-source-controlled config. A Google Cloud Alertmanager renderer turns the
+URLs, PagerDuty routing keys, SMTP credentials, and email addresses must be
+injected through deployment secrets, not source-controlled config. A Google
+Cloud Alertmanager renderer turns the
 placeholder-only routing profile into a demo or real rendered config from Secret
 Manager, validates the required placeholder set, fails closed on missing secret
 versions or unresolved placeholders, and writes restricted-permission output

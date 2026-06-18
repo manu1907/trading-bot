@@ -70,6 +70,14 @@ Optional generated/secret value environment variables:
   REAL_PROJECTION_JDBC_PASSWORD
   DEMO_ALERT_OPERATOR_PAGERDUTY_ROUTING_KEY
   DEMO_ALERT_PLATFORM_PAGERDUTY_ROUTING_KEY
+  DEMO_ALERT_SMTP_SMARTHOST
+  DEMO_ALERT_SMTP_FROM
+  DEMO_ALERT_SMTP_AUTH_USERNAME
+  DEMO_ALERT_SMTP_AUTH_PASSWORD
+  DEMO_ALERT_EMAIL_TO                                  Optional common default for demo operator/platform/fallback email
+  DEMO_ALERT_OPERATOR_EMAIL_TO                         Default: ${DEMO_ALERT_EMAIL_TO}
+  DEMO_ALERT_PLATFORM_EMAIL_TO                         Default: ${DEMO_ALERT_EMAIL_TO}
+  DEMO_ALERT_FALLBACK_EMAIL_TO                         Default: ${DEMO_ALERT_EMAIL_TO}
   DEMO_ALERT_OPERATOR_SLACK_WEBHOOK
   DEMO_ALERT_OPERATOR_SLACK_CHANNEL
   DEMO_ALERT_PLATFORM_SLACK_WEBHOOK
@@ -78,6 +86,14 @@ Optional generated/secret value environment variables:
   DEMO_ALERT_FALLBACK_SLACK_CHANNEL
   REAL_ALERT_OPERATOR_PAGERDUTY_ROUTING_KEY
   REAL_ALERT_PLATFORM_PAGERDUTY_ROUTING_KEY
+  REAL_ALERT_SMTP_SMARTHOST
+  REAL_ALERT_SMTP_FROM
+  REAL_ALERT_SMTP_AUTH_USERNAME
+  REAL_ALERT_SMTP_AUTH_PASSWORD
+  REAL_ALERT_EMAIL_TO                                  Optional common default for real operator/platform/fallback email
+  REAL_ALERT_OPERATOR_EMAIL_TO                         Default: ${REAL_ALERT_EMAIL_TO}
+  REAL_ALERT_PLATFORM_EMAIL_TO                         Default: ${REAL_ALERT_EMAIL_TO}
+  REAL_ALERT_FALLBACK_EMAIL_TO                         Default: ${REAL_ALERT_EMAIL_TO}
   REAL_ALERT_OPERATOR_SLACK_WEBHOOK
   REAL_ALERT_OPERATOR_SLACK_CHANNEL
   REAL_ALERT_PLATFORM_SLACK_WEBHOOK
@@ -186,6 +202,12 @@ infer_defaults() {
   REAL_CLOUD_SQL_DATABASE="${REAL_CLOUD_SQL_DATABASE:-trading_bot_real}"
   REAL_AUDIT_CLOUD_SQL_USERNAME="${REAL_AUDIT_CLOUD_SQL_USERNAME:-trading_bot_real_audit}"
   REAL_PROJECTION_CLOUD_SQL_USERNAME="${REAL_PROJECTION_CLOUD_SQL_USERNAME:-trading_bot_real_projection}"
+  DEMO_ALERT_OPERATOR_EMAIL_TO="${DEMO_ALERT_OPERATOR_EMAIL_TO:-${DEMO_ALERT_EMAIL_TO:-}}"
+  DEMO_ALERT_PLATFORM_EMAIL_TO="${DEMO_ALERT_PLATFORM_EMAIL_TO:-${DEMO_ALERT_EMAIL_TO:-}}"
+  DEMO_ALERT_FALLBACK_EMAIL_TO="${DEMO_ALERT_FALLBACK_EMAIL_TO:-${DEMO_ALERT_EMAIL_TO:-}}"
+  REAL_ALERT_OPERATOR_EMAIL_TO="${REAL_ALERT_OPERATOR_EMAIL_TO:-${REAL_ALERT_EMAIL_TO:-}}"
+  REAL_ALERT_PLATFORM_EMAIL_TO="${REAL_ALERT_PLATFORM_EMAIL_TO:-${REAL_ALERT_EMAIL_TO:-}}"
+  REAL_ALERT_FALLBACK_EMAIL_TO="${REAL_ALERT_FALLBACK_EMAIL_TO:-${REAL_ALERT_EMAIL_TO:-}}"
 }
 
 ensure_project() {
@@ -814,6 +836,13 @@ main() {
   log "Creating alert Secret Manager secrets and adding supplied versions"
   ensure_secret_with_optional_version trading-bot-demo-alert-operator-pagerduty-routing-key DEMO_ALERT_OPERATOR_PAGERDUTY_ROUTING_KEY
   ensure_secret_with_optional_version trading-bot-demo-alert-platform-pagerduty-routing-key DEMO_ALERT_PLATFORM_PAGERDUTY_ROUTING_KEY
+  ensure_secret_with_optional_version trading-bot-demo-alert-smtp-smarthost DEMO_ALERT_SMTP_SMARTHOST
+  ensure_secret_with_optional_version trading-bot-demo-alert-smtp-from DEMO_ALERT_SMTP_FROM
+  ensure_secret_with_optional_version trading-bot-demo-alert-smtp-auth-username DEMO_ALERT_SMTP_AUTH_USERNAME
+  ensure_secret_with_optional_version trading-bot-demo-alert-smtp-auth-password DEMO_ALERT_SMTP_AUTH_PASSWORD
+  ensure_secret_with_optional_version trading-bot-demo-alert-operator-email-to DEMO_ALERT_OPERATOR_EMAIL_TO
+  ensure_secret_with_optional_version trading-bot-demo-alert-platform-email-to DEMO_ALERT_PLATFORM_EMAIL_TO
+  ensure_secret_with_optional_version trading-bot-demo-alert-fallback-email-to DEMO_ALERT_FALLBACK_EMAIL_TO
   ensure_secret_with_optional_version trading-bot-demo-alert-operator-slack-webhook DEMO_ALERT_OPERATOR_SLACK_WEBHOOK
   ensure_secret_with_optional_version trading-bot-demo-alert-operator-slack-channel DEMO_ALERT_OPERATOR_SLACK_CHANNEL
   ensure_secret_with_optional_version trading-bot-demo-alert-platform-slack-webhook DEMO_ALERT_PLATFORM_SLACK_WEBHOOK
@@ -822,6 +851,13 @@ main() {
   ensure_secret_with_optional_version trading-bot-demo-alert-fallback-slack-channel DEMO_ALERT_FALLBACK_SLACK_CHANNEL
   ensure_secret_with_optional_version trading-bot-real-alert-operator-pagerduty-routing-key REAL_ALERT_OPERATOR_PAGERDUTY_ROUTING_KEY
   ensure_secret_with_optional_version trading-bot-real-alert-platform-pagerduty-routing-key REAL_ALERT_PLATFORM_PAGERDUTY_ROUTING_KEY
+  ensure_secret_with_optional_version trading-bot-real-alert-smtp-smarthost REAL_ALERT_SMTP_SMARTHOST
+  ensure_secret_with_optional_version trading-bot-real-alert-smtp-from REAL_ALERT_SMTP_FROM
+  ensure_secret_with_optional_version trading-bot-real-alert-smtp-auth-username REAL_ALERT_SMTP_AUTH_USERNAME
+  ensure_secret_with_optional_version trading-bot-real-alert-smtp-auth-password REAL_ALERT_SMTP_AUTH_PASSWORD
+  ensure_secret_with_optional_version trading-bot-real-alert-operator-email-to REAL_ALERT_OPERATOR_EMAIL_TO
+  ensure_secret_with_optional_version trading-bot-real-alert-platform-email-to REAL_ALERT_PLATFORM_EMAIL_TO
+  ensure_secret_with_optional_version trading-bot-real-alert-fallback-email-to REAL_ALERT_FALLBACK_EMAIL_TO
   ensure_secret_with_optional_version trading-bot-real-alert-operator-slack-webhook REAL_ALERT_OPERATOR_SLACK_WEBHOOK
   ensure_secret_with_optional_version trading-bot-real-alert-operator-slack-channel REAL_ALERT_OPERATOR_SLACK_CHANNEL
   ensure_secret_with_optional_version trading-bot-real-alert-platform-slack-webhook REAL_ALERT_PLATFORM_SLACK_WEBHOOK

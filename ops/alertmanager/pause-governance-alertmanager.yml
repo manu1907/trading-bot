@@ -1,5 +1,10 @@
 global:
   resolve_timeout: 5m
+  smtp_smarthost: ${ALERTMANAGER_TRADING_BOT_SMTP_SMARTHOST}
+  smtp_from: ${ALERTMANAGER_TRADING_BOT_SMTP_FROM}
+  smtp_auth_username: ${ALERTMANAGER_TRADING_BOT_SMTP_AUTH_USERNAME}
+  smtp_auth_password: ${ALERTMANAGER_TRADING_BOT_SMTP_AUTH_PASSWORD}
+  smtp_require_tls: true
 
 route:
   receiver: trading-bot-fallback
@@ -52,6 +57,12 @@ receivers:
           {{ .Annotations.description }}
           Labels: {{ .Labels }}
           {{ end }}
+    email_configs:
+      - to: ${ALERTMANAGER_TRADING_BOT_FALLBACK_EMAIL_TO}
+        send_resolved: true
+        headers:
+          subject: '[trading-bot][fallback] {{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
 
   - name: trading-bot-platform-critical
     pagerduty_configs:
@@ -69,6 +80,12 @@ receivers:
         channel: ${ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_CHANNEL}
         send_resolved: true
         title: '[critical][platform] {{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+    email_configs:
+      - to: ${ALERTMANAGER_TRADING_BOT_PLATFORM_EMAIL_TO}
+        send_resolved: true
+        headers:
+          subject: '[critical][platform] {{ .CommonLabels.alertname }}'
         text: '{{ .CommonAnnotations.description }}'
 
   - name: trading-bot-operator-critical
@@ -88,6 +105,12 @@ receivers:
         send_resolved: true
         title: '[critical][operator] {{ .CommonLabels.alertname }}'
         text: '{{ .CommonAnnotations.description }}'
+    email_configs:
+      - to: ${ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO}
+        send_resolved: true
+        headers:
+          subject: '[critical][operator] {{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
 
   - name: trading-bot-operator-warning
     slack_configs:
@@ -96,6 +119,12 @@ receivers:
         send_resolved: true
         title: '[warning][operator] {{ .CommonLabels.alertname }}'
         text: '{{ .CommonAnnotations.description }}'
+    email_configs:
+      - to: ${ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO}
+        send_resolved: true
+        headers:
+          subject: '[warning][operator] {{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
 
   - name: trading-bot-operator-info
     slack_configs:
@@ -103,4 +132,10 @@ receivers:
         channel: ${ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_CHANNEL}
         send_resolved: true
         title: '[info][operator] {{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+    email_configs:
+      - to: ${ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO}
+        send_resolved: true
+        headers:
+          subject: '[info][operator] {{ .CommonLabels.alertname }}'
         text: '{{ .CommonAnnotations.description }}'
