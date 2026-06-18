@@ -17,6 +17,7 @@ dependencies {
     implementation("org.springframework:spring-context")
     implementation("org.springframework:spring-web")
     implementation("io.projectreactor:reactor-core")
+    implementation("io.micrometer:micrometer-core")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("tools.jackson.core:jackson-databind")

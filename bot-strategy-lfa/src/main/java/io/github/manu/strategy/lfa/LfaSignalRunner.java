@@ -54,6 +54,7 @@ public final class LfaSignalRunner {
     private final ExecutionProperties executionProperties;
     private final StrategyInstrumentUniverseResolver instrumentUniverseResolver;
     private final ReconciliationConfidenceTracker reconciliationConfidenceTracker;
+    private final LfaSignalRunnerMetrics metrics;
     private final Clock clock;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicReference<LfaLifecycleState> lifecycleState;
@@ -74,6 +75,7 @@ public final class LfaSignalRunner {
                 executionProperties,
                 null,
                 null,
+                new LfaSignalRunnerMetrics(),
                 Clock.systemUTC()
         );
     }
@@ -94,6 +96,7 @@ public final class LfaSignalRunner {
                 executionProperties,
                 instrumentUniverseResolver,
                 null,
+                new LfaSignalRunnerMetrics(),
                 Clock.systemUTC()
         );
     }
@@ -115,6 +118,7 @@ public final class LfaSignalRunner {
                 executionProperties,
                 instrumentUniverseResolver,
                 reconciliationConfidenceTracker,
+                new LfaSignalRunnerMetrics(),
                 Clock.systemUTC()
         );
     }
@@ -129,6 +133,30 @@ public final class LfaSignalRunner {
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             Clock clock
     ) {
+        this(
+                analyzer,
+                properties,
+                projection,
+                eventBus,
+                executionProperties,
+                instrumentUniverseResolver,
+                reconciliationConfidenceTracker,
+                new LfaSignalRunnerMetrics(),
+                clock
+        );
+    }
+
+    LfaSignalRunner(
+            LfaMarketSignalAnalyzer analyzer,
+            LfaStrategyProperties.SignalRunner properties,
+            TradingStateProjection projection,
+            TradingEventBus eventBus,
+            ExecutionProperties executionProperties,
+            StrategyInstrumentUniverseResolver instrumentUniverseResolver,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            LfaSignalRunnerMetrics metrics,
+            Clock clock
+    ) {
         this.analyzer = Objects.requireNonNull(analyzer, "analyzer");
         this.properties = Objects.requireNonNull(properties, "properties");
         this.projection = Objects.requireNonNull(projection, "projection");
@@ -136,6 +164,7 @@ public final class LfaSignalRunner {
         this.executionProperties = Objects.requireNonNull(executionProperties, "executionProperties");
         this.instrumentUniverseResolver = instrumentUniverseResolver;
         this.reconciliationConfidenceTracker = reconciliationConfidenceTracker;
+        this.metrics = Objects.requireNonNull(metrics, "metrics");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.lifecycleState = new AtomicReference<>(LfaLifecycleState.parse(properties.lifecycleState(), "lifecycleState"));
         this.lifecycleMetadata = new AtomicReference<>(new LfaLifecycleMetadata(null, null, null, Instant.EPOCH));
@@ -155,14 +184,14 @@ public final class LfaSignalRunner {
 
     public LfaSignalRunResult runOnce() {
         if (!properties.enabled()) {
-            return LfaSignalRunResult.disabled("lfa_signal_runner:disabled");
+            return record(LfaSignalRunResult.disabled("lfa_signal_runner:disabled"));
         }
         if (!running.compareAndSet(false, true)) {
-            return LfaSignalRunResult.skipped("lfa_signal_runner:already_running");
+            return record(LfaSignalRunResult.skipped("lfa_signal_runner:already_running"));
         }
         try {
             if (properties.requireSignalPlannerEnabled() && !executionProperties.signalPlanner().enabled()) {
-                return LfaSignalRunResult.blocked("lfa_signal_runner:signal_planner_disabled", target());
+                return record(LfaSignalRunResult.blocked("lfa_signal_runner:signal_planner_disabled", target()));
             }
             LfaRunnerTarget target = target();
             LfaSignalRequest request = properties.request(
@@ -176,7 +205,7 @@ public final class LfaSignalRunner {
             refreshLifecycleFromProjection(snapshot);
             GateDecision lifecycle = lifecycleGate();
             if (lifecycle.blocked()) {
-                return new LfaSignalRunResult(
+                return record(new LfaSignalRunResult(
                         true,
                         "lfa_signal_runner:lifecycle_blocked",
                         target,
@@ -184,11 +213,11 @@ public final class LfaSignalRunner {
                         0,
                         List.of(),
                         lifecycle.reasons()
-                );
+                ));
             }
             GateDecision warmup = warmupGate(snapshot, target, now);
             if (warmup.blocked()) {
-                return new LfaSignalRunResult(
+                return record(new LfaSignalRunResult(
                         true,
                         "lfa_signal_runner:warmup_incomplete",
                         target,
@@ -196,11 +225,11 @@ public final class LfaSignalRunner {
                         0,
                         List.of(),
                         warmup.reasons()
-                );
+                ));
             }
             BudgetDecision accountBudget = accountBudget(snapshot, target, now);
             if (accountBudget.blocked()) {
-                return new LfaSignalRunResult(
+                return record(new LfaSignalRunResult(
                         true,
                         "lfa_signal_runner:budget_blocked",
                         target,
@@ -208,11 +237,11 @@ public final class LfaSignalRunner {
                         0,
                         List.of(),
                         accountBudget.reasons()
-                );
+                ));
             }
             GateDecision reconciliation = reconciliationGate(target);
             if (reconciliation.blocked()) {
-                return new LfaSignalRunResult(
+                return record(new LfaSignalRunResult(
                         true,
                         "lfa_signal_runner:reconciliation_blocked",
                         target,
@@ -220,7 +249,7 @@ public final class LfaSignalRunner {
                         0,
                         List.of(),
                         reconciliation.reasons()
-                );
+                ));
             }
             Map<String, BigDecimal> providerCapabilityScores = providerCapabilityScores(target);
             List<TradingStateProjection.MarketDataState> candidates =
@@ -233,11 +262,19 @@ public final class LfaSignalRunner {
                     .limit(properties.maxSignalsPerRun())
                     .toList();
             if (signals.isEmpty()) {
-                return new LfaSignalRunResult(true, "lfa_signal_runner:no_signal", target, 0, 0, List.of(), List.of());
+                return record(new LfaSignalRunResult(
+                        true,
+                        "lfa_signal_runner:no_signal",
+                        target,
+                        0,
+                        0,
+                        List.of(),
+                        List.of()
+                ));
             }
             AllocationDecision allocation = allocateSignals(snapshot, target, signals);
             if (allocation.blocked()) {
-                return new LfaSignalRunResult(
+                return record(new LfaSignalRunResult(
                         true,
                         "lfa_signal_runner:allocation_blocked",
                         target,
@@ -245,7 +282,7 @@ public final class LfaSignalRunner {
                         0,
                         signals.stream().map(signal -> signal.getSignalId().toString()).toList(),
                         allocation.reasons()
-                );
+                ));
             }
             signals = allocation.signals();
             List<StrategySignalEvent> publishableSignals = new ArrayList<>();
@@ -261,7 +298,7 @@ public final class LfaSignalRunner {
             if (!blockedReasons.isEmpty()) {
                 if (!publishableSignals.isEmpty()) {
                     List<PublishedTradingEvent> published = publish(publishableSignals).join();
-                    return new LfaSignalRunResult(
+                    return record(new LfaSignalRunResult(
                             true,
                             "lfa_signal_runner:published_with_budget_blocks",
                             target,
@@ -269,9 +306,9 @@ public final class LfaSignalRunner {
                             published.size(),
                             publishableSignals.stream().map(signal -> signal.getSignalId().toString()).toList(),
                             blockedReasons.stream().toList()
-                    );
+                    ));
                 }
-                return new LfaSignalRunResult(
+                return record(new LfaSignalRunResult(
                         true,
                         "lfa_signal_runner:budget_blocked",
                         target,
@@ -279,10 +316,10 @@ public final class LfaSignalRunner {
                         0,
                         signals.stream().map(signal -> signal.getSignalId().toString()).toList(),
                         blockedReasons.stream().toList()
-                );
+                ));
             }
             List<PublishedTradingEvent> published = publish(signals).join();
-            return new LfaSignalRunResult(
+            return record(new LfaSignalRunResult(
                     true,
                     "lfa_signal_runner:published",
                     target,
@@ -290,10 +327,15 @@ public final class LfaSignalRunner {
                     published.size(),
                     signals.stream().map(signal -> signal.getSignalId().toString()).toList(),
                     List.of()
-            );
+            ));
         } finally {
             running.set(false);
         }
+    }
+
+    private LfaSignalRunResult record(LfaSignalRunResult result) {
+        metrics.signalRun(result);
+        return result;
     }
 
     public LfaLifecycleStatus lifecycleStatus() {

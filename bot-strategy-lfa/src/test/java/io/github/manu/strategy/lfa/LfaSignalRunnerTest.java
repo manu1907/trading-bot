@@ -23,6 +23,7 @@ import io.github.manu.reconciliation.ReconciliationObservation;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import java.math.BigDecimal;
 import java.nio.file.Path;
@@ -68,6 +69,37 @@ class LfaSignalRunnerTest {
             StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
             assertThat(signal.getSymbol()).isEqualTo("BTCUSDT");
         });
+    }
+
+    @Test
+    void records_published_signal_runner_outcome_metrics() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledProperties(),
+                projection,
+                enabledExecutionProperties(),
+                null,
+                reconciliationTracker(ReconciliationConfidenceStatus.CONFIDENT),
+                new LfaSignalRunnerMetrics(meterRegistry)
+        );
+
+        runner.runOnce();
+
+        assertThat(meterRegistry.get(LfaSignalRunnerMetrics.RUN_EVENTS)
+                        .tag("provider", "binance")
+                        .tag("environment", "demo")
+                        .tag("account", "main")
+                        .tag("market", "usdm_futures")
+                        .tag("enabled", "true")
+                        .tag("status", "PUBLISHED")
+                        .tag("reason", "lfa_signal_runner:published")
+                        .tag("primary_blocker", "none")
+                        .counter()
+                        .count())
+                .isEqualTo(1.0);
     }
 
     @Test
@@ -660,6 +692,65 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void records_disabled_signal_runner_outcome_metrics() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        LfaSignalRunner runner = runner(
+                disabledProperties(),
+                new TradingStateProjection(),
+                enabledExecutionProperties(),
+                null,
+                reconciliationTracker(ReconciliationConfidenceStatus.CONFIDENT),
+                new LfaSignalRunnerMetrics(meterRegistry)
+        );
+
+        runner.runOnce();
+
+        assertThat(meterRegistry.get(LfaSignalRunnerMetrics.RUN_EVENTS)
+                        .tag("provider", "unknown")
+                        .tag("environment", "unknown")
+                        .tag("account", "unknown")
+                        .tag("market", "unknown")
+                        .tag("enabled", "false")
+                        .tag("status", "DISABLED")
+                        .tag("reason", "lfa_signal_runner:disabled")
+                        .tag("primary_blocker", "none")
+                        .counter()
+                        .count())
+                .isEqualTo(1.0);
+    }
+
+    @Test
+    void records_blocked_signal_runner_outcome_metrics_with_primary_blocker() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        TradingStateProjection projection = projectionWith(
+                marketData("BTCUSDT", "50000.00", "0.020", "50000.50", "0.010")
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithLifecycle("PAUSED", 1, 1),
+                projection,
+                enabledExecutionProperties(),
+                null,
+                reconciliationTracker(ReconciliationConfidenceStatus.CONFIDENT),
+                new LfaSignalRunnerMetrics(meterRegistry)
+        );
+
+        runner.runOnce();
+
+        assertThat(meterRegistry.get(LfaSignalRunnerMetrics.RUN_EVENTS)
+                        .tag("provider", "binance")
+                        .tag("environment", "demo")
+                        .tag("account", "main")
+                        .tag("market", "usdm_futures")
+                        .tag("enabled", "true")
+                        .tag("status", "BLOCKED")
+                        .tag("reason", "lfa_signal_runner:lifecycle_blocked")
+                        .tag("primary_blocker", "lfa_lifecycle:paused")
+                        .counter()
+                        .count())
+                .isEqualTo(1.0);
+    }
+
+    @Test
     void blocks_before_analysis_when_account_open_position_budget_is_full() {
         TradingStateProjection projection = projectionWith(
                 List.of(
@@ -984,6 +1075,24 @@ class LfaSignalRunnerTest {
             StrategyInstrumentUniverseResolver instrumentUniverseResolver,
             ReconciliationConfidenceTracker reconciliationConfidenceTracker
     ) {
+        return runner(
+                properties,
+                projection,
+                executionProperties,
+                instrumentUniverseResolver,
+                reconciliationConfidenceTracker,
+                new LfaSignalRunnerMetrics()
+        );
+    }
+
+    private LfaSignalRunner runner(
+            LfaStrategyProperties.SignalRunner properties,
+            TradingStateProjection projection,
+            ExecutionProperties executionProperties,
+            StrategyInstrumentUniverseResolver instrumentUniverseResolver,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            LfaSignalRunnerMetrics metrics
+    ) {
         return new LfaSignalRunner(
                 new LfaMarketSignalAnalyzer(),
                 properties,
@@ -992,6 +1101,7 @@ class LfaSignalRunnerTest {
                 executionProperties,
                 instrumentUniverseResolver,
                 reconciliationConfidenceTracker,
+                metrics,
                 Clock.fixed(NOW, ZoneOffset.UTC)
         );
     }

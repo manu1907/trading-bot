@@ -893,6 +893,15 @@ Grafana dashboard lives in `ops/grafana/remediation-executor-dashboard.json`;
 and the operator response runbook lives in
 `ops/runbooks/remediation-executor.md`.
 
+The LFA strategy runner emits
+`trading.strategy.lfa.signal_runner.run.events` counters for disabled,
+skipped, blocked, no-signal, and published outcomes. Labels are bounded to the
+runtime target, enabled state, status, reason, and primary blocker; symbols and
+signal ids are intentionally not metric tags. Prometheus-compatible rules in
+`ops/prometheus/strategy-lfa-alerts.yml` alert on disabled,
+lifecycle-blocked, reconciliation-blocked, budget-blocked, allocation-blocked,
+and published-signal outcomes.
+
 ## Redpanda Messaging
 
 Local Redpanda is defined in `docker-compose.redpanda.yaml`. It exposes the

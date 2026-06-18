@@ -1,0 +1,88 @@
+groups:
+  - name: strategy-lfa
+    rules:
+      - alert: LfaSignalRunnerDisabled
+        expr: increase(trading_strategy_lfa_signal_runner_run_events_total{status="DISABLED"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: LFA signal runner is disabled
+          description: >-
+            The LFA signal runner evaluated while disabled. This is expected
+            during conservative startup, but it means no autonomous strategy
+            signals can be emitted until runtime policy enables the runner.
+
+      - alert: LfaSignalRunnerLifecycleBlocked
+        expr: increase(trading_strategy_lfa_signal_runner_run_events_total{status="BLOCKED",reason="lfa_signal_runner:lifecycle_blocked"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: LFA signal runner blocked by lifecycle state
+          description: >-
+            The strategy runner was blocked by STARTING, PAUSED, DRAINING,
+            STOPPED, EMERGENCY_STOP, or lifecycle policy. Inspect the lifecycle
+            operator endpoint before attempting any transition.
+
+      - alert: LfaSignalRunnerReconciliationBlocked
+        expr: increase(trading_strategy_lfa_signal_runner_run_events_total{status="BLOCKED",reason="lfa_signal_runner:reconciliation_blocked"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: LFA signal runner blocked by reconciliation confidence
+          description: >-
+            The strategy runner refused to analyze or publish because the target
+            reconciliation state had no observations or was degraded. Do not
+            enable strategy publication until projection and exchange state are
+            reconciled.
+
+      - alert: LfaSignalRunnerBudgetBlocked
+        expr: sum by (provider, environment, account, market, primary_blocker) (increase(trading_strategy_lfa_signal_runner_run_events_total{status="BLOCKED",reason="lfa_signal_runner:budget_blocked"}[5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: LFA signal runner blocked by strategy budget
+          description: >-
+            The strategy runner blocked publication because account, symbol,
+            exposure, loss, drawdown, margin, or metadata budgets failed.
+            Inspect the primary_blocker label before changing any risk limit.
+
+      - alert: LfaSignalRunnerAllocationBlocked
+        expr: sum by (provider, environment, account, market, primary_blocker) (increase(trading_strategy_lfa_signal_runner_run_events_total{status="BLOCKED",reason="lfa_signal_runner:allocation_blocked"}[5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: LFA signal runner blocked by allocation policy
+          description: >-
+            The strategy runner found candidate signals but could not allocate
+            safe target notional. Check account margin-balance projection,
+            target notional bounds, and max strategy-run notional.
+
+      - alert: LfaSignalRunnerPublishedSignals
+        expr: increase(trading_strategy_lfa_signal_runner_run_events_total{status="PUBLISHED"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: LFA signal runner published strategy signals
+          description: >-
+            The LFA strategy runner published one or more strategy signals.
+            Confirm downstream signal-planner, risk-gate, execution pipeline,
+            order-result, projection, and reconciliation evidence before
+            increasing automation or risk limits.

@@ -691,6 +691,11 @@ Pause governance metrics:
   `ops/prometheus/pause-governance-alerts.yml`.
 - Prometheus-compatible alert rules for remediation executor outcomes live in
   `ops/prometheus/remediation-executor-alerts.yml`.
+- Prometheus-compatible alert rules for LFA signal-runner outcomes live in
+  `ops/prometheus/strategy-lfa-alerts.yml`. The runner emits
+  `trading.strategy.lfa.signal_runner.run.events` counters when it is disabled,
+  blocked by lifecycle/reconciliation/budget/allocation policy, or publishes
+  strategy signals.
 - Alertmanager routing for those pause governance alerts lives in
   `ops/alertmanager/pause-governance-alertmanager.yml`.
 - An importable Grafana dashboard for pause governance lives in

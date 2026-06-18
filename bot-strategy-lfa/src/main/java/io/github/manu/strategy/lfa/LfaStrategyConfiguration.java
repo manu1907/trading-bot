@@ -5,6 +5,8 @@ import io.github.manu.execution.StrategyInstrumentUniverseResolver;
 import io.github.manu.messaging.TradingEventBus;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -19,6 +21,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class LfaStrategyConfiguration {
 
     @Bean
+    LfaSignalRunnerMetrics lfaSignalRunnerMetrics(ObjectProvider<MeterRegistry> meterRegistry) {
+        return new LfaSignalRunnerMetrics(meterRegistry.getIfAvailable(() -> Metrics.globalRegistry));
+    }
+
+    @Bean
     @ConditionalOnBean({TradingEventBus.class, TradingStateProjection.class})
     @ConditionalOnProperty(prefix = "trading.strategy.lfa.signal-runner", name = "enabled", havingValue = "true")
     LfaSignalRunner lfaSignalRunner(
@@ -28,16 +35,19 @@ public class LfaStrategyConfiguration {
             TradingEventBus eventBus,
             ExecutionProperties executionProperties,
             ObjectProvider<StrategyInstrumentUniverseResolver> instrumentUniverseResolver,
-            ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTracker
+            ObjectProvider<ReconciliationConfidenceTracker> reconciliationConfidenceTracker,
+            LfaSignalRunnerMetrics metrics
     ) {
         return new LfaSignalRunner(
                 analyzer,
-                properties,
+                properties.signalRunner(),
                 projection,
                 eventBus,
                 executionProperties,
                 instrumentUniverseResolver.getIfAvailable(),
-                reconciliationConfidenceTracker.getIfAvailable()
+                reconciliationConfidenceTracker.getIfAvailable(),
+                metrics,
+                java.time.Clock.systemUTC()
         );
     }
 }

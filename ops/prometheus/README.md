@@ -45,3 +45,23 @@ The Alertmanager profile routes these alerts through the same `service`,
 `routing_hint`, and `severity` labels used by pause governance alerts. The
 operational response is documented in
 `ops/runbooks/remediation-executor.md`.
+
+## Strategy LFA Alerts
+
+`strategy-lfa-alerts.yml` defines alert rules for:
+
+- Disabled LFA signal-runner evaluations.
+- Lifecycle-blocked runner evaluations.
+- Reconciliation-blocked runner evaluations.
+- Budget-blocked runner evaluations.
+- Allocation-blocked runner evaluations.
+- Published strategy signals.
+
+The rules use the bounded labels exported by
+`trading.strategy.lfa.signal_runner.run.events`. Micrometer exposes that counter
+as `trading_strategy_lfa_signal_runner_run_events_total`.
+
+These alerts are intentionally operational. They do not claim profitability.
+They tell the operator whether the live strategy runner is disabled, blocked by
+policy/risk/reconciliation, or publishing signals through the normal
+provider-agnostic event path.
