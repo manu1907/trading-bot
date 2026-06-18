@@ -1,0 +1,38 @@
+{
+  "displayName": "[trading-bot][${TARGET_ENVIRONMENT}] Cloud SQL CPU high",
+  "enabled": true,
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Cloud SQL CPU utilization above 80 percent",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloudsql_database\" AND resource.labels.database_id = \"${GCP_PROJECT_ID}:${CLOUD_SQL_INSTANCE}\" AND metric.type = \"cloudsql.googleapis.com/database/cpu/utilization\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.8,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        },
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MEAN",
+            "crossSeriesReducer": "REDUCE_MEAN",
+            "groupByFields": [
+              "resource.label.database_id"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Cloud SQL CPU utilization stayed above 80 percent for five minutes. Inspect projection/audit query load, connection counts, Cloud Run instance count, schema/index health, and whether the database tier or separation model is still appropriate."
+  },
+  "userLabels": {
+    "app": "trading_bot",
+    "environment": "${TARGET_ENVIRONMENT}",
+    "managed_by": "trading_bot_repo"
+  }
+}

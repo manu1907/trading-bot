@@ -746,6 +746,10 @@ Pause governance metrics:
   reconciliation gates, compaction constraints, and restore-drill evidence.
 - The guarded Google Cloud CI/CD path now covers image publication, Cloud Run
   deployment with Cloud SQL attachment, private readiness smoke, and rollback.
+- Google Cloud managed alert policy templates live in
+  `ops/google-cloud/monitoring/alert-policies`; provision them with
+  `ops/google-cloud/provision-monitoring-alert-policies.sh demo`. They currently
+  cover Cloud Run 5xx responses and Cloud SQL CPU/disk utilization.
 - Google Cloud operational procedures live in
   `ops/runbooks/google-cloud-operations.md`; use it for bootstrap, publish,
   deploy, smoke, rollback, emergency stop, controlled drain, incident evidence,

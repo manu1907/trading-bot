@@ -711,6 +711,14 @@ outages, stale streams, reconciliation degradation, external intervention,
 unknown outcomes, failed deployments, persistence failures, alerting outages,
 credential events, cost spikes, and real-environment incidents.
 
+Google Cloud managed platform alert policy templates live under
+`ops/google-cloud/monitoring/alert-policies` and are rendered by
+`ops/google-cloud/provision-monitoring-alert-policies.sh` for either demo or
+real. They are not trading logic; they monitor platform risk around Cloud Run
+5xx responses and Cloud SQL CPU/disk utilization, and they accept Cloud
+Monitoring notification channel resource names without committing receiver
+secrets.
+
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that
 the projected order or position still carries the matching intervention, and

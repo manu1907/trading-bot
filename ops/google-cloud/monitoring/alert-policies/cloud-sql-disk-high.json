@@ -1,0 +1,38 @@
+{
+  "displayName": "[trading-bot][${TARGET_ENVIRONMENT}] Cloud SQL disk utilization high",
+  "enabled": true,
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Cloud SQL disk utilization above 85 percent",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloudsql_database\" AND resource.labels.database_id = \"${GCP_PROJECT_ID}:${CLOUD_SQL_INSTANCE}\" AND metric.type = \"cloudsql.googleapis.com/database/disk/utilization\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.85,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        },
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MEAN",
+            "crossSeriesReducer": "REDUCE_MEAN",
+            "groupByFields": [
+              "resource.label.database_id"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Cloud SQL disk utilization stayed above 85 percent for five minutes. Check projection retention, audit retention, compaction, journal archival, backup growth, and storage autoscaling before the database becomes a trading-state availability risk."
+  },
+  "userLabels": {
+    "app": "trading_bot",
+    "environment": "${TARGET_ENVIRONMENT}",
+    "managed_by": "trading_bot_repo"
+  }
+}

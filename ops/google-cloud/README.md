@@ -293,3 +293,37 @@ private readiness endpoint with an identity token, and uploads rollback evidence
 It requires `GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT`; that service account must
 be able to describe services/revisions, update Cloud Run service traffic, and
 invoke the private service through `roles/run.invoker`.
+
+## Cloud Monitoring Alert Policies
+
+`provision-monitoring-alert-policies.sh` renders and creates Google Cloud
+Monitoring alert policies from the templates in
+`ops/google-cloud/monitoring/alert-policies`. It is parameterized by
+environment and uses the same policy templates for demo and real.
+
+Current managed platform policies:
+
+- Cloud Run 5xx responses for the selected trading-bot service.
+- Cloud SQL CPU utilization above 80 percent for five minutes.
+- Cloud SQL disk utilization above 85 percent for five minutes.
+
+Validate templates without Google Cloud access:
+
+```bash
+ops/google-cloud/provision-monitoring-alert-policies.sh demo --validate-only
+```
+
+Provision demo policies with optional Cloud Monitoring notification channels:
+
+```bash
+ops/google-cloud/provision-monitoring-alert-policies.sh demo \
+  --project "$GCP_PROJECT_ID" \
+  --region "$GCP_REGION" \
+  --cloud-sql-instance "$GCP_CLOUD_SQL_INSTANCE" \
+  --notification-channels "$GCP_MONITORING_NOTIFICATION_CHANNELS"
+```
+
+The script is idempotent by policy `displayName`; reruns skip policies that
+already exist. The notification channel input must be Cloud Monitoring
+notification channel resource names, not email addresses, webhook URLs, or
+secrets.

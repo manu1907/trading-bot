@@ -1,0 +1,38 @@
+{
+  "displayName": "[trading-bot][${TARGET_ENVIRONMENT}] Cloud Run 5xx requests",
+  "enabled": true,
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Cloud Run 5xx request count is positive",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloud_run_revision\" AND resource.labels.project_id = \"${GCP_PROJECT_ID}\" AND resource.labels.location = \"${GCP_REGION}\" AND resource.labels.service_name = \"${CLOUD_RUN_SERVICE}\" AND metric.type = \"run.googleapis.com/request_count\" AND metric.labels.response_code_class = \"5xx\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        },
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": [
+              "resource.label.service_name"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Cloud Run returned at least one 5xx response for the trading-bot service over five minutes. Check the Cloud Run revision, readiness smoke, application logs, projection/reconciliation health, and deployment commit before enabling or resuming automation."
+  },
+  "userLabels": {
+    "app": "trading_bot",
+    "environment": "${TARGET_ENVIRONMENT}",
+    "managed_by": "trading_bot_repo"
+  }
+}

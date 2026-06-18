@@ -459,6 +459,13 @@ Implemented persistence/recovery surfaces include:
   `GITHUB_CONFIGURE_ENVIRONMENTS=true`, it also uses GitHub CLI to create or
   update the `demo` and `real` GitHub environments with the required OIDC
   service-account secrets and deployment variables.
+- A Google Cloud Monitoring policy provisioning script now renders shared
+  demo/real alert policy templates and creates missing Cloud Monitoring policies
+  by display name. The first managed policies cover Cloud Run 5xx responses,
+  Cloud SQL CPU above 80 percent, and Cloud SQL disk utilization above 85
+  percent. Notification channels are passed as Cloud Monitoring resource names,
+  not inline receiver secrets.
+  service-account secrets and deployment variables.
 - The persistence recovery runbook at `ops/runbooks/persistence-recovery.md`
   defines restore sequencing, post-restore reconciliation gates, compaction
   constraints, and evidence requirements.
