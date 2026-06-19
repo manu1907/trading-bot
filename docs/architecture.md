@@ -239,9 +239,15 @@ streams through the endpoint planner and WebSocket supervisor, so rollover and
 reconnect behavior remains shared with the private-stream runtime.
 `market_data.runtime_enabled` is the catalog-backed switch for attaching this
 runtime to `BinanceExchangeModule`. The default is false with explicit
-`connection_mode`, `route`, and `streams` parameters. If it is enabled, the
-module requires configured streams and a `TradingEventBus` before connecting so
-market-data events cannot be consumed and then lost.
+`connection_mode`, `route`, and `streams` parameters. It can also derive
+provider stream names from refreshed Binance exchange metadata using configured
+symbol templates and provider-level status, quote-asset, contract-type, and
+max-symbol filters. The provider module owns only this transport subscription
+coverage; core and strategy code still decide admission and trading intent from
+provider-agnostic metadata/projection contracts. If the runtime is enabled, the
+module requires either configured streams or valid derived stream templates plus
+a `TradingEventBus` before connecting so market-data events cannot be consumed
+and then lost.
 The Binance REST snapshot event mapper converts open-order, futures
 account/balance, futures position-risk, cross-margin account, and
 isolated-margin account snapshots into core Avro reconciliation envelopes. It

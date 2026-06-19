@@ -403,16 +403,23 @@ Example runtime override shape:
 ### Enable Public Market-Data Stream Runtime
 
 The market-data stream runtime is disabled by default. When enabled, it opens
-configured public streams and maps Binance market-data payloads into core market
-data event envelopes.
+configured public streams and can also derive additional public streams from
+Binance exchange metadata. It maps Binance market-data payloads into core
+market-data event envelopes.
 
 Runtime behavior:
 
 - Requires `market_data.runtime_enabled=true`.
-- Requires at least one configured stream.
+- Requires at least one configured stream unless
+  `market_data.derive_streams_from_exchange_metadata=true` and derived stream
+  templates are configured.
 - Requires a `TradingEventBus`; market data is not consumed if it cannot be
   published.
 - Supports raw or combined stream endpoint planning from config.
+- When metadata derivation is enabled, refreshes Binance exchange metadata,
+  filters symbols by provider-level status, quote asset, contract type, and max
+  symbol cap, renders stream templates such as `{symbol_lower}@bookTicker`, and
+  deduplicates those streams with configured `streams`.
 - Shares WebSocket rollover and reconnect behavior with the private stream
   runtime.
 - Maps trade, aggregate trade, book ticker, depth snapshot, depth delta, mark
@@ -1377,10 +1384,20 @@ The active market-data config includes:
 - `streams`: for Binance USD-M demo/real, the catalog baseline includes
   `bookTicker`, `aggTrade`, and `kline_1d` streams for the configured
   high-liquidity universe
+- `derive_streams_from_exchange_metadata`: `false` by default; checked-in demo
+  runtime sets `true`
+- `derived_stream_templates`: checked-in demo runtime uses
+  `{symbol_lower}@bookTicker`, `{symbol_lower}@aggTrade`, and
+  `{symbol_lower}@kline_1d`
+- `derived_allowed_quote_assets`: checked-in demo runtime uses `USDT`
+- `derived_allowed_contract_types`: checked-in demo runtime uses `PERPETUAL`
+- `derived_required_status`: checked-in demo runtime uses `TRADING`
+- `derived_max_symbols`: checked-in demo runtime uses `250`
 
 Do not duplicate the baseline stream list in the runtime file. Override
 `streams` only when intentionally replacing catalog stream coverage for a
-specific target.
+specific target. Prefer metadata derivation when expanding exchange-polled
+coverage for the same demo/real behavior.
 
 Common Binance futures stream names include examples such as:
 

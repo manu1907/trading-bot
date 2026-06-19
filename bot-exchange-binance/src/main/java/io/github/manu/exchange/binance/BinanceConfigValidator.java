@@ -570,8 +570,13 @@ final class BinanceConfigValidator {
         if (marketData.streams() == null) {
             return;
         }
-        if (Boolean.TRUE.equals(marketData.runtimeEnabled())) {
+        boolean derivesStreams = Boolean.TRUE.equals(marketData.deriveStreamsFromExchangeMetadata());
+        if (Boolean.TRUE.equals(marketData.runtimeEnabled()) && !derivesStreams) {
             requireNonEmpty(path + ".streams", marketData.streams(), errors);
+        }
+        if (derivesStreams) {
+            requireNonEmpty(path + ".derived_stream_templates", marketData.derivedStreamTemplates(), errors);
+            requireOptionalPositive(path + ".derived_max_symbols", marketData.derivedMaxSymbols(), errors);
         }
         if (websocket != null && websocket.maxStreamsPerConnection() != null
                 && marketData.streams().size() > websocket.maxStreamsPerConnection()) {
@@ -580,6 +585,24 @@ final class BinanceConfigValidator {
         int index = 0;
         for (String stream : marketData.streams()) {
             requireText(path + ".streams[" + index + "]", stream, errors);
+            index++;
+        }
+        index = 0;
+        for (String template : marketData.derivedStreamTemplates()) {
+            requireText(path + ".derived_stream_templates[" + index + "]", template, errors);
+            if (template != null && !hasSymbolPlaceholder(template)) {
+                errors.add(path + ".derived_stream_templates[" + index + "] must include a symbol placeholder");
+            }
+            index++;
+        }
+        index = 0;
+        for (String quoteAsset : marketData.derivedAllowedQuoteAssets()) {
+            requireText(path + ".derived_allowed_quote_assets[" + index + "]", quoteAsset, errors);
+            index++;
+        }
+        index = 0;
+        for (String contractType : marketData.derivedAllowedContractTypes()) {
+            requireText(path + ".derived_allowed_contract_types[" + index + "]", contractType, errors);
             index++;
         }
     }
@@ -763,6 +786,10 @@ final class BinanceConfigValidator {
         if (values == null || values.isEmpty()) {
             errors.add(path + " must not be empty");
         }
+    }
+
+    private static boolean hasSymbolPlaceholder(String value) {
+        return value.contains("{symbol}") || value.contains("{symbol_lower}") || value.contains("{symbolLower}");
     }
 
     private static void requireNotNull(String path, Object value, List<String> errors) {

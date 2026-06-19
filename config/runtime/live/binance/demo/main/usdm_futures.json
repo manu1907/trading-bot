@@ -190,7 +190,21 @@
                       "runtime_enabled": true
                     },
                     "market_data": {
-                      "runtime_enabled": true
+                      "runtime_enabled": true,
+                      "derive_streams_from_exchange_metadata": true,
+                      "derived_stream_templates": [
+                        "{symbol_lower}@bookTicker",
+                        "{symbol_lower}@aggTrade",
+                        "{symbol_lower}@kline_1d"
+                      ],
+                      "derived_allowed_quote_assets": [
+                        "USDT"
+                      ],
+                      "derived_allowed_contract_types": [
+                        "PERPETUAL"
+                      ],
+                      "derived_required_status": "TRADING",
+                      "derived_max_symbols": 250
                     },
                     "reconciliation": {
                       "runtime_enabled": true,

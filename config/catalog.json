@@ -614,7 +614,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -800,7 +806,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -1006,7 +1018,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -1254,7 +1272,13 @@
                         "dotusdt@bookTicker",
                         "dotusdt@aggTrade",
                         "dotusdt@kline_1d"
-                      ]
+                      ],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -1483,7 +1507,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -1700,7 +1730,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -1889,7 +1925,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -2075,7 +2117,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -2281,7 +2329,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -2529,7 +2583,13 @@
                         "dotusdt@bookTicker",
                         "dotusdt@aggTrade",
                         "dotusdt@kline_1d"
-                      ]
+                      ],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -2758,7 +2818,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,
@@ -2975,7 +3041,13 @@
                       "runtime_enabled": false,
                       "connection_mode": "combined",
                       "route": "default",
-                      "streams": []
+                      "streams": [],
+                      "derive_streams_from_exchange_metadata": false,
+                      "derived_stream_templates": [],
+                      "derived_allowed_quote_assets": [],
+                      "derived_allowed_contract_types": [],
+                      "derived_required_status": null,
+                      "derived_max_symbols": null
                     },
                     "reconciliation": {
                       "runtime_enabled": false,

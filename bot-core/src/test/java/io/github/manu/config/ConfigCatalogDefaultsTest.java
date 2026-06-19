@@ -100,6 +100,14 @@ class ConfigCatalogDefaultsTest {
                 .get(0)
                 .path("min_top_of_book_quote_notional")
                 .asString()).isEqualTo("250");
+        String demoUsdmMarketData =
+                "exchange.providers.binance.environments.demo.accounts.main.markets.usdm_futures.market_data";
+        assertBoolean(catalog, demoUsdmMarketData + ".derive_streams_from_exchange_metadata", false);
+        assertThat(requiredNode(catalog, demoUsdmMarketData + ".derived_stream_templates")).isEmpty();
+        assertThat(requiredNode(catalog, demoUsdmMarketData + ".derived_allowed_quote_assets")).isEmpty();
+        assertThat(requiredNode(catalog, demoUsdmMarketData + ".derived_allowed_contract_types")).isEmpty();
+        assertNull(catalog, demoUsdmMarketData + ".derived_required_status");
+        assertNull(catalog, demoUsdmMarketData + ".derived_max_symbols");
 
         assertBoolean(catalog, "trading.intervention.remediation_orchestrator.enabled", false);
         assertBoolean(catalog,

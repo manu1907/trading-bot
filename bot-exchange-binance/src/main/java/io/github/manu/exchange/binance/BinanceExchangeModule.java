@@ -37,10 +37,13 @@ import java.time.Instant;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -491,6 +494,7 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         if (marketData == null || !Boolean.TRUE.equals(marketData.runtimeEnabled())) {
             return;
         }
+        marketData = effectiveMarketDataStream(binance, marketData);
         TradingEventBus eventBus = eventBusProvider == null ? null : eventBusProvider.getIfAvailable();
         if (eventBus == null) {
             throw new IllegalStateException("Binance market_data.runtime_enabled requires a TradingEventBus");
@@ -530,6 +534,105 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
             throw e;
         }
         log.info("Started Binance market-data stream runtime for target {}", config.target());
+    }
+
+    private BinanceProperties.MarketDataStream effectiveMarketDataStream(
+            BinanceProperties binance,
+            BinanceProperties.MarketDataStream marketData
+    ) {
+        if (!Boolean.TRUE.equals(marketData.deriveStreamsFromExchangeMetadata())) {
+            return marketData;
+        }
+        List<String> streams = derivedMarketDataStreams(binance, marketData);
+        return new BinanceProperties.MarketDataStream(
+                marketData.runtimeEnabled(),
+                marketData.connectionMode(),
+                marketData.route(),
+                streams,
+                marketData.deriveStreamsFromExchangeMetadata(),
+                marketData.derivedStreamTemplates(),
+                marketData.derivedAllowedQuoteAssets(),
+                marketData.derivedAllowedContractTypes(),
+                marketData.derivedRequiredStatus(),
+                marketData.derivedMaxSymbols()
+        );
+    }
+
+    private List<String> derivedMarketDataStreams(
+            BinanceProperties binance,
+            BinanceProperties.MarketDataStream marketData
+    ) {
+        BinanceExchangeMetadata metadata = marketDataExchangeMetadata(binance);
+        Set<String> streams = new LinkedHashSet<>(marketData.streams());
+        List<BinanceExchangeMetadata.SymbolInfo> symbols = metadata.symbols().stream()
+                .filter(symbol -> matchesDerivedMarketDataPolicy(symbol, marketData))
+                .sorted((left, right) -> value(left.symbol()).compareTo(value(right.symbol())))
+                .toList();
+        if (marketData.derivedMaxSymbols() != null) {
+            symbols = symbols.stream()
+                    .limit(marketData.derivedMaxSymbols())
+                    .toList();
+        }
+        for (BinanceExchangeMetadata.SymbolInfo symbol : symbols) {
+            for (String template : marketData.derivedStreamTemplates()) {
+                streams.add(renderMarketDataStreamTemplate(template, symbol.symbol()));
+            }
+        }
+        if (streams.isEmpty()) {
+            throw new IllegalStateException("Binance market_data derived stream plan is empty");
+        }
+        Integer maxStreamsPerConnection = binance.websocket().maxStreamsPerConnection();
+        if (maxStreamsPerConnection != null && streams.size() > maxStreamsPerConnection) {
+            throw new IllegalStateException(
+                    "Binance market_data derived stream plan exceeds websocket.max_streams_per_connection");
+        }
+        return List.copyOf(streams);
+    }
+
+    private BinanceExchangeMetadata marketDataExchangeMetadata(BinanceProperties binance) {
+        BinanceExchangeMetadataService service = metadataServiceProvider == null
+                ? null
+                : metadataServiceProvider.getIfAvailable();
+        if (service == null) {
+            throw new IllegalStateException("exchangeInfo metadata service is required for Binance market-data derivation");
+        }
+        return service.refresh(config)
+                .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl()))
+                .or(() -> service.current()
+                        .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl())))
+                .orElseThrow(() -> new IllegalStateException(
+                        "exchangeInfo metadata is required for Binance market-data derivation"));
+    }
+
+    private boolean matchesDerivedMarketDataPolicy(
+            BinanceExchangeMetadata.SymbolInfo symbol,
+            BinanceProperties.MarketDataStream marketData
+    ) {
+        if (!matchesOptionalText(marketData.derivedRequiredStatus(), symbol.status())) {
+            return false;
+        }
+        if (!containsIgnoreCaseOrEmpty(marketData.derivedAllowedQuoteAssets(), symbol.quoteAsset())) {
+            return false;
+        }
+        return containsIgnoreCaseOrEmpty(marketData.derivedAllowedContractTypes(), symbol.contractType());
+    }
+
+    private String renderMarketDataStreamTemplate(String template, String symbol) {
+        String uppercaseSymbol = value(symbol).toUpperCase(Locale.ROOT);
+        String lowercaseSymbol = uppercaseSymbol.toLowerCase(Locale.ROOT);
+        return value(template)
+                .replace("{symbol}", uppercaseSymbol)
+                .replace("{symbol_lower}", lowercaseSymbol)
+                .replace("{symbolLower}", lowercaseSymbol);
+    }
+
+    private boolean matchesOptionalText(String expected, String actual) {
+        return expected == null || expected.isBlank() || same(expected, actual);
+    }
+
+    private boolean containsIgnoreCaseOrEmpty(List<String> allowedValues, String actual) {
+        return allowedValues == null || allowedValues.isEmpty()
+                || allowedValues.stream().anyMatch(allowed -> same(allowed, actual));
     }
 
     private void startReconciliationRuntimeIfEnabled(BinanceProperties binance) {

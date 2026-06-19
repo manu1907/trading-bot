@@ -53,7 +53,11 @@ The catalog also owns the matching USD-M futures market-data stream defaults
 (`bookTicker`, `aggTrade`, and `kline_1d` for each baseline symbol) and
 reconciliation open-order symbol defaults for demo and real. The runtime file
 enables those services and can override operational cadence or risk limits, but
-it should not duplicate the baseline universe or operational coverage lists.
+it should not duplicate the baseline universe or operational coverage lists. The
+checked-in demo runtime also enables Binance metadata-derived market-data stream
+coverage for `TRADING` `USDT` `PERPETUAL` instruments, rendering
+`bookTicker`, `aggTrade`, and `kline_1d` stream templates for up to 250
+exchange-polled symbols while deduplicating them with the catalog baseline.
 
 The checked-in demo runtime currently enables that catalog baseline and sets:
 

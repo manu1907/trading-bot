@@ -53,6 +53,8 @@ class ConfigLoaderIntegrationTest {
         assertThat(runtimeMarket.path("market_data").has("streams"))
                 .as("runtime override must inherit USD-M stream coverage from catalog")
                 .isFalse();
+        assertThat(runtimeMarket.path("market_data").path("derive_streams_from_exchange_metadata").asBoolean())
+                .isTrue();
         assertThat(runtimeMarket.path("reconciliation").has("open_order_symbols"))
                 .as("runtime override must inherit USD-M reconciliation symbols from catalog")
                 .isFalse();
@@ -107,6 +109,25 @@ class ConfigLoaderIntegrationTest {
                         "dotusdt@aggTrade",
                         "dotusdt@kline_1d"
                 );
+        assertThat(activeMarket.path("market_data").path("derive_streams_from_exchange_metadata").asBoolean())
+                .isTrue();
+        assertThat(activeMarket.path("market_data").path("derived_stream_templates"))
+                .extracting(JsonNode::asString)
+                .containsExactly(
+                        "{symbol_lower}@bookTicker",
+                        "{symbol_lower}@aggTrade",
+                        "{symbol_lower}@kline_1d"
+                );
+        assertThat(activeMarket.path("market_data").path("derived_allowed_quote_assets"))
+                .extracting(JsonNode::asString)
+                .containsExactly("USDT");
+        assertThat(activeMarket.path("market_data").path("derived_allowed_contract_types"))
+                .extracting(JsonNode::asString)
+                .containsExactly("PERPETUAL");
+        assertThat(activeMarket.path("market_data").path("derived_required_status").asString())
+                .isEqualTo("TRADING");
+        assertThat(activeMarket.path("market_data").path("derived_max_symbols").asInt())
+                .isEqualTo(250);
         assertThat(activeMarket.path("reconciliation").path("runtime_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("open_orders_enabled").asBoolean()).isTrue();
         assertThat(activeMarket.path("reconciliation").path("open_order_symbols"))

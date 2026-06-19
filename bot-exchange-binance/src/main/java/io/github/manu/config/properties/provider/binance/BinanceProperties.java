@@ -761,10 +761,30 @@ public record BinanceProperties(
             Boolean runtimeEnabled,
             String connectionMode,
             String route,
-            @NotNull List<String> streams
+            @NotNull List<String> streams,
+            Boolean deriveStreamsFromExchangeMetadata,
+            @NotNull List<String> derivedStreamTemplates,
+            @NotNull List<String> derivedAllowedQuoteAssets,
+            @NotNull List<String> derivedAllowedContractTypes,
+            String derivedRequiredStatus,
+            Integer derivedMaxSymbols
     ) {
         public MarketDataStream {
             streams = streams == null ? List.of() : List.copyOf(streams);
+            derivedStreamTemplates = derivedStreamTemplates == null ? List.of() : List.copyOf(derivedStreamTemplates);
+            derivedAllowedQuoteAssets = derivedAllowedQuoteAssets == null ? List.of() : List.copyOf(derivedAllowedQuoteAssets);
+            derivedAllowedContractTypes = derivedAllowedContractTypes == null
+                    ? List.of()
+                    : List.copyOf(derivedAllowedContractTypes);
+        }
+
+        public MarketDataStream(
+                Boolean runtimeEnabled,
+                String connectionMode,
+                String route,
+                List<String> streams
+        ) {
+            this(runtimeEnabled, connectionMode, route, streams, false, List.of(), List.of(), List.of(), null, null);
         }
 
         static MarketDataStream disabled() {

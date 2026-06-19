@@ -117,6 +117,21 @@ class BinanceExchangeModuleTest {
     }
 
     @Test
+    void rejects_derived_market_data_template_without_symbol_placeholder() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market -> {
+            ObjectNode marketData = market.withObject("market_data");
+            marketData.put("runtime_enabled", true);
+            marketData.set("streams", jsonMapper.createArrayNode());
+            marketData.put("derive_streams_from_exchange_metadata", true);
+            marketData.set("derived_stream_templates", jsonMapper.valueToTree(List.of("btcusdt@aggTrade")));
+        });
+
+        assertThatThrownBy(() -> module.validateConfig(config))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("derived_stream_templates[0] must include a symbol placeholder");
+    }
+
+    @Test
     void rejects_enabled_reconciliation_runtime_without_snapshot_sources() throws IOException {
         ResolvedExchangeConfig config = checkedInResolvedConfig(market ->
                 market.withObject("reconciliation").put("runtime_enabled", true));
@@ -271,6 +286,47 @@ class BinanceExchangeModuleTest {
             assertThat(plan.streams()).containsExactly("btcusdt@aggTrade");
         });
         assertThat(webSocketTransport.closeCount).isEqualTo(1);
+    }
+
+    @Test
+    void starts_market_data_runtime_with_streams_derived_from_exchange_metadata() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market -> {
+            ObjectNode marketData = market.withObject("market_data");
+            marketData.put("runtime_enabled", true);
+            marketData.set("streams", jsonMapper.valueToTree(List.of("btcusdt@aggTrade")));
+            marketData.put("derive_streams_from_exchange_metadata", true);
+            marketData.set("derived_stream_templates", jsonMapper.valueToTree(List.of(
+                    "{symbol_lower}@bookTicker",
+                    "{symbol_lower}@aggTrade",
+                    "{symbolLower}@kline_1d"
+            )));
+            marketData.set("derived_allowed_quote_assets", jsonMapper.valueToTree(List.of("USDT")));
+            marketData.set("derived_allowed_contract_types", jsonMapper.valueToTree(List.of("PERPETUAL")));
+            marketData.put("derived_required_status", "TRADING");
+            marketData.put("derived_max_symbols", 10);
+        });
+        FakeWebSocketTransport webSocketTransport = new FakeWebSocketTransport();
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(exchangeMetadataService()),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                null,
+                webSocketTransport
+        );
+
+        runtimeModule.configure(config);
+        runtimeModule.connect().join();
+        runtimeModule.disconnect().join();
+
+        assertThat(webSocketTransport.plans).singleElement().satisfies(plan ->
+                assertThat(plan.streams()).containsExactly(
+                        "btcusdt@aggTrade",
+                        "btcusdt@bookTicker",
+                        "btcusdt@kline_1d"
+                ));
     }
 
     @Test
@@ -1040,6 +1096,8 @@ class BinanceExchangeModuleTest {
                       "symbols": [
                         {
                           "symbol": "BTCUSDT",
+                          "pair": "BTCUSDT",
+                          "contractType": "PERPETUAL",
                           "status": "TRADING",
                           "baseAsset": "BTC",
                           "quoteAsset": "USDT",
