@@ -259,6 +259,7 @@ public final class LfaSignalRunner {
             List<StrategySignalEvent> signals = analyzer.analyze(request, candidates, now).stream()
                     .map(signal -> withProviderCapability(signal, providerCapabilityScores))
                     .map(signal -> withReconciliationAvailability(signal, reconciliationAvailabilityScores))
+                    .map(signal -> withRiskMoneyManagementFitScore(snapshot, target, signal, now))
                     .map(this::withExpectedEdgeScore)
                     .sorted(Comparator
                             .comparing(
@@ -1328,9 +1329,202 @@ public final class LfaSignalRunner {
         BigDecimal reconciliationAvailabilityScore = attributeDecimal(signal, "lfa_reconciliation_availability_score")
                 .orElse(BigDecimal.ONE)
                 .max(BigDecimal.ZERO);
+        BigDecimal riskMoneyManagementFitScore = attributeDecimal(signal, "lfa_risk_money_management_fit_score")
+                .orElse(BigDecimal.ONE)
+                .max(BigDecimal.ZERO);
         return positiveWeight(marketQualityWeight(signal)
                 .multiply(providerCapabilityScore)
-                .multiply(reconciliationAvailabilityScore));
+                .multiply(reconciliationAvailabilityScore)
+                .multiply(riskMoneyManagementFitScore));
+    }
+
+    private StrategySignalEvent withRiskMoneyManagementFitScore(
+            TradingStateSnapshot snapshot,
+            LfaRunnerTarget target,
+            StrategySignalEvent signal,
+            Instant now
+    ) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        if (signal.getAttributes() != null) {
+            attributes.putAll(signal.getAttributes());
+        }
+        attributes.put(
+                "lfa_risk_money_management_fit_score",
+                decimalText(riskMoneyManagementFitScore(snapshot, target, signal, now))
+        );
+        return StrategySignalEvent.newBuilder(signal)
+                .setAttributes(attributes)
+                .build();
+    }
+
+    private BigDecimal riskMoneyManagementFitScore(
+            TradingStateSnapshot snapshot,
+            LfaRunnerTarget target,
+            StrategySignalEvent signal,
+            Instant now
+    ) {
+        String symbol = signal.getSymbol().toString();
+        Optional<BigDecimal> proposedNotional = signalNotional(signal);
+        CurrentOrders orders = currentOrders(snapshot, target, symbol);
+        CurrentExposure exposure = currentExposure(snapshot, target, symbol);
+        UnrealizedLoss unrealizedLoss = unrealizedLoss(snapshot, target, symbol);
+        DailyLoss dailyLoss = dailyLoss(snapshot, target, symbol, now);
+        BigDecimal score = BigDecimal.ONE;
+        score = score.multiply(countCapacityScore(properties.maxAccountOpenOrders(), orders.accountOpenOrders()));
+        score = score.multiply(countCapacityScore(properties.maxSymbolOpenOrders(), orders.symbolOpenOrders()));
+        score = score.multiply(countCapacityScore(properties.maxAccountOpenPositions(), exposure.accountOpenPositions()));
+        score = score.multiply(countCapacityScore(properties.maxSymbolOpenPositions(), exposure.symbolOpenPositions()));
+        score = score.multiply(notionalCapacityScore(
+                properties.maxAccountOpenOrderNotional(),
+                orders.accountOpenOrderNotional(),
+                proposedNotional,
+                orders.accountNotionalValid()
+        ));
+        score = score.multiply(notionalCapacityScore(
+                properties.maxSymbolOpenOrderNotional(),
+                orders.symbolOpenOrderNotional(),
+                proposedNotional,
+                orders.symbolNotionalValid()
+        ));
+        score = score.multiply(notionalCapacityScore(
+                properties.maxAccountPositionNotional(),
+                exposure.accountPositionNotional(),
+                proposedNotional,
+                exposure.valid()
+        ));
+        score = score.multiply(notionalCapacityScore(
+                properties.maxSymbolPositionNotional(),
+                exposure.symbolPositionNotional(),
+                proposedNotional,
+                exposure.valid()
+        ));
+        score = score.multiply(lossCapacityScore(
+                properties.maxAccountUnrealizedLoss(),
+                Optional.of(unrealizedLoss.accountLoss()),
+                unrealizedLoss.valid()
+        ));
+        score = score.multiply(lossCapacityScore(
+                properties.maxSymbolUnrealizedLoss(),
+                Optional.of(unrealizedLoss.symbolLoss()),
+                unrealizedLoss.valid()
+        ));
+        score = score.multiply(lossCapacityScore(
+                properties.maxAccountDailyRealizedLoss(),
+                dailyLoss.accountLoss(),
+                true
+        ));
+        score = score.multiply(lossCapacityScore(
+                properties.maxSymbolDailyRealizedLoss(),
+                dailyLoss.symbolLoss(),
+                true
+        ));
+        score = score.multiply(accountMarginHealthFitScore(snapshot, target));
+        return boundedFitScore(score);
+    }
+
+    private BigDecimal countCapacityScore(Integer maximum, int current) {
+        if (maximum == null) {
+            return BigDecimal.ONE;
+        }
+        if (maximum <= 0 || current >= maximum) {
+            return BigDecimal.ZERO;
+        }
+        return BigDecimal.valueOf(maximum - current)
+                .divide(BigDecimal.valueOf(maximum), 8, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal notionalCapacityScore(
+            BigDecimal maximum,
+            BigDecimal current,
+            Optional<BigDecimal> proposed,
+            boolean valid
+    ) {
+        if (maximum == null) {
+            return BigDecimal.ONE;
+        }
+        if (!valid || proposed.isEmpty() || maximum.compareTo(BigDecimal.ZERO) <= 0) {
+            return properties.rejectMissingAccountRiskMetadata() ? BigDecimal.ZERO : BigDecimal.ONE;
+        }
+        BigDecimal projected = current.add(proposed.get());
+        if (projected.compareTo(maximum) >= 0) {
+            return BigDecimal.ZERO;
+        }
+        return maximum.subtract(projected).divide(maximum, 8, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal lossCapacityScore(BigDecimal maximum, Optional<BigDecimal> currentLoss, boolean valid) {
+        if (maximum == null) {
+            return BigDecimal.ONE;
+        }
+        if (!valid || currentLoss.isEmpty() || maximum.compareTo(BigDecimal.ZERO) <= 0) {
+            return properties.rejectMissingAccountRiskMetadata() ? BigDecimal.ZERO : BigDecimal.ONE;
+        }
+        BigDecimal loss = currentLoss.get();
+        if (loss.compareTo(maximum) >= 0) {
+            return BigDecimal.ZERO;
+        }
+        return maximum.subtract(loss).divide(maximum, 8, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal accountMarginHealthFitScore(TradingStateSnapshot snapshot, LfaRunnerTarget target) {
+        if (properties.minAccountMarginBalance() == null
+                && properties.maxAccountMarginDrawdownFraction() == null
+                && properties.maxAccountMarginUtilization() == null) {
+            return BigDecimal.ONE;
+        }
+        TradingStateProjection.RiskState accountRisk = accountRisk(snapshot, target).orElse(null);
+        if (accountRisk == null) {
+            return properties.rejectMissingAccountRiskMetadata() ? BigDecimal.ZERO : BigDecimal.ONE;
+        }
+        BigDecimal marginBalance = decimal(accountRisk.marginBalance());
+        if (marginBalance == null || marginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            return properties.rejectMissingAccountRiskMetadata() ? BigDecimal.ZERO : BigDecimal.ONE;
+        }
+        BigDecimal score = BigDecimal.ONE;
+        if (properties.minAccountMarginBalance() != null) {
+            if (marginBalance.compareTo(properties.minAccountMarginBalance()) <= 0) {
+                return BigDecimal.ZERO;
+            }
+            score = score.multiply(marginBalance.subtract(properties.minAccountMarginBalance())
+                    .divide(marginBalance, 8, RoundingMode.HALF_UP));
+        }
+        if (properties.maxAccountMarginDrawdownFraction() != null) {
+            BigDecimal maxMarginBalance = decimal(accountRisk.maxMarginBalance());
+            if (maxMarginBalance == null || maxMarginBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                return properties.rejectMissingAccountRiskMetadata() ? BigDecimal.ZERO : score;
+            }
+            BigDecimal drawdown = marginBalance.compareTo(maxMarginBalance) >= 0
+                    ? BigDecimal.ZERO
+                    : maxMarginBalance.subtract(marginBalance).divide(maxMarginBalance, 8, RoundingMode.HALF_UP);
+            if (drawdown.compareTo(properties.maxAccountMarginDrawdownFraction()) >= 0) {
+                return BigDecimal.ZERO;
+            }
+            score = score.multiply(properties.maxAccountMarginDrawdownFraction().subtract(drawdown)
+                    .divide(properties.maxAccountMarginDrawdownFraction(), 8, RoundingMode.HALF_UP));
+        }
+        if (properties.maxAccountMarginUtilization() != null) {
+            BigDecimal maintenanceMargin = decimal(accountRisk.maintenanceMargin());
+            if (maintenanceMargin == null || maintenanceMargin.compareTo(BigDecimal.ZERO) < 0) {
+                return properties.rejectMissingAccountRiskMetadata() ? BigDecimal.ZERO : score;
+            }
+            BigDecimal utilization = maintenanceMargin.divide(marginBalance, 8, RoundingMode.HALF_UP);
+            if (utilization.compareTo(properties.maxAccountMarginUtilization()) >= 0) {
+                return BigDecimal.ZERO;
+            }
+            score = score.multiply(properties.maxAccountMarginUtilization().subtract(utilization)
+                    .divide(properties.maxAccountMarginUtilization(), 8, RoundingMode.HALF_UP));
+        }
+        return boundedFitScore(score);
+    }
+
+    private BigDecimal boundedFitScore(BigDecimal score) {
+        if (score == null || score.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (score.compareTo(BigDecimal.ONE) > 0) {
+            return BigDecimal.ONE;
+        }
+        return score.setScale(8, RoundingMode.HALF_UP).stripTrailingZeros();
     }
 
     private BigDecimal positiveWeight(BigDecimal value) {

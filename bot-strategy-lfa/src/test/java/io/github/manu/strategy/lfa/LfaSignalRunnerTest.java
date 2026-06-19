@@ -311,6 +311,47 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void ranks_analyzed_signals_by_risk_money_management_fit_before_publication_cap() {
+        TradingStateProjection projection = projectionWith(
+                List.of(position("ETHUSDT", "BOTH", "0.300", "3000")),
+                List.of(),
+                marketData(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.020",
+                        "50000.50",
+                        "0.010",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                ),
+                marketData(
+                        "ETHUSDT",
+                        "3000.00",
+                        "0.600",
+                        "3000.03",
+                        "0.300",
+                        Map.of("quoteVolume", "900000000", "numberOfTrades", "900000", "takerBuyQuoteVolume", "700000000")
+                )
+        );
+        LfaSignalRunner runner = runner(
+                enabledPropertiesWithBudgets(3, 2, null, "903.5", null, null, null, null),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(result.publishedSignals()).isEqualTo(1);
+        assertThat(eventBus.envelopes()).singleElement().satisfies(envelope -> {
+            assertThat(envelope.key().getSymbol()).isEqualTo("BTCUSDT");
+            StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
+            assertThat(signal.getAttributes())
+                    .containsEntry("lfa_risk_money_management_fit_score", "0.62977274")
+                    .containsKey("lfa_expected_edge_score");
+        });
+    }
+
+    @Test
     void analyzes_only_signal_planner_universe_symbols_when_universe_is_enabled() {
         TradingStateProjection projection = projectionWith(
                 marketData("BTCUSDT", "50000.00", "0.200", "50000.50", "0.010"),
