@@ -63,6 +63,13 @@ provider-specific execution plans. For multiple strategies, core must normalize
 signals, allocate risk, resolve conflicts, net exposure where configured, and
 reject commands that exceed the active runtime limits.
 
+The strategy signal planner's instrument-universe gate is also core-owned. It
+can refresh provider exchange metadata before planning, admit exchange-polled
+symbols that pass runtime quote-asset, contract-type, market-data, spread,
+top-of-book depth, and projected daily quote-volume gates, and reject candidates
+that violate active runtime limits. The provider supplies capabilities and
+execution; it does not decide strategy profitability or own the trading universe.
+
 ## Runtime Target
 
 A live runtime target is identified by:

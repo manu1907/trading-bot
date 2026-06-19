@@ -135,6 +135,7 @@ public record ExecutionProperties(
                 Long maxMarketDataAgeMillis,
                 String maxSpreadBps,
                 String minTopOfBookQuoteNotional,
+                String minDailyQuoteVolume,
                 List<SymbolPolicy> symbolPolicies
         ) {
 
@@ -164,6 +165,7 @@ public record ExecutionProperties(
                 }
                 validatePositiveDecimal("instrument universe maxSpreadBps", maxSpreadBps);
                 validatePositiveDecimal("instrument universe minTopOfBookQuoteNotional", minTopOfBookQuoteNotional);
+                validatePositiveDecimal("instrument universe minDailyQuoteVolume", minDailyQuoteVolume);
                 symbolPolicies = symbolPolicies == null ? List.of() : List.copyOf(symbolPolicies);
             }
 
@@ -206,6 +208,7 @@ public record ExecutionProperties(
                         maxMarketDataAgeMillis,
                         maxSpreadBps,
                         null,
+                        null,
                         symbolPolicies
                 );
             }
@@ -238,6 +241,7 @@ public record ExecutionProperties(
                         60000L,
                         null,
                         null,
+                        null,
                         symbolPolicies
                 );
             }
@@ -260,6 +264,7 @@ public record ExecutionProperties(
                         false,
                         false,
                         60000L,
+                        null,
                         null,
                         null,
                         List.of()

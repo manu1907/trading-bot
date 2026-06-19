@@ -73,7 +73,7 @@ final class StrategyInstrumentMarketDataRanker {
                 return Optional.empty();
             }
         }
-        BigDecimal minDailyQuoteVolume = minDailyQuoteVolume(policy);
+        BigDecimal minDailyQuoteVolume = minDailyQuoteVolume(universe, policy);
         BigDecimal quoteVolume = quoteVolume(marketData).orElse(null);
         if (minDailyQuoteVolume != null) {
             if (quoteVolume == null || quoteVolume.compareTo(minDailyQuoteVolume) < 0) {
@@ -139,8 +139,14 @@ final class StrategyInstrumentMarketDataRanker {
         return decimal(configured);
     }
 
-    private BigDecimal minDailyQuoteVolume(ExecutionProperties.SignalPlanner.SymbolPolicy policy) {
-        return policy == null ? null : decimal(policy.minDailyQuoteVolume());
+    private BigDecimal minDailyQuoteVolume(
+            ExecutionProperties.SignalPlanner.InstrumentUniverse universe,
+            ExecutionProperties.SignalPlanner.SymbolPolicy policy
+    ) {
+        String configured = policy == null || policy.minDailyQuoteVolume() == null
+                ? universe.minDailyQuoteVolume()
+                : policy.minDailyQuoteVolume();
+        return decimal(configured);
     }
 
     private BigDecimal decimal(String value) {

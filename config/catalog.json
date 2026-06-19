@@ -195,9 +195,7 @@
             "TRXUSDT",
             "DOTUSDT"
           ],
-          "excluded_symbols": [
-
-          ],
+          "excluded_symbols": [],
           "refresh_exchange_metadata_before_planning": false,
           "require_exchange_metadata": false,
           "require_included_symbol": false,
@@ -205,12 +203,8 @@
           "require_promotion_ready": false,
           "required_status": "TRADING",
           "required_order_type": null,
-          "allowed_quote_assets": [
-
-          ],
-          "allowed_contract_types": [
-
-          ],
+          "allowed_quote_assets": [],
+          "allowed_contract_types": [],
           "max_eligible_symbols": null,
           "require_market_data": false,
           "require_top_of_book": false,
@@ -335,7 +329,8 @@
               "min_top_of_book_quote_notional": "250",
               "max_order_notional": "50"
             }
-          ]
+          ],
+          "min_daily_quote_volume": null
         }
       },
       "idempotency": {
@@ -376,9 +371,7 @@
           "max_open_orders": null,
           "reject_unbounded_notional": true,
           "action": "REJECT_NEW_COMMANDS",
-          "target_limits": [
-
-          ]
+          "target_limits": []
         },
         "target_order": {
           "enabled": true,
@@ -454,9 +447,7 @@
         "reject_operator_review_plans": true,
         "reject_insufficient_data_plans": true,
         "max_plans_per_run": 25,
-        "allowed_operations": [
-
-        ],
+        "allowed_operations": [],
         "position_order_policy": {
           "one_way_reduce_only_enabled": false,
           "provider": "binance",
@@ -467,9 +458,7 @@
           "require_close_position_false": true,
           "hedge_mode_execution_enabled": false,
           "hedge_position_order_enabled": false,
-          "allowed_symbols": [
-
-          ],
+          "allowed_symbols": [],
           "max_position_quantity": null,
           "chunk_close_when_max_quantity_exceeded": false,
           "max_position_notional": null,
@@ -495,9 +484,7 @@
           "market": "usdm_futures",
           "allow_bot_created_orders": true,
           "allow_adopted_orders": false,
-          "allowed_symbols": [
-
-          ],
+          "allowed_symbols": [],
           "allowed_order_types": [
             "LIMIT"
           ],
@@ -534,9 +521,7 @@
           "require_open_order_status": true,
           "require_exchange_order_id": false,
           "reject_pending_or_unknown_modify": true,
-          "allowed_symbols": [
-
-          ],
+          "allowed_symbols": [],
           "allowed_statuses": [
             "ACCEPTED",
             "PARTIALLY_FILLED"
@@ -726,18 +711,10 @@
                       "reference_price_max_age_millis": 60000,
                       "reference_price_cache_ttl_millis": 250,
                       "test_order_path": "/api/v3/order/test",
-                      "supported_price_match_order_types": [
-
-                      ],
-                      "supported_working_type_order_types": [
-
-                      ],
-                      "supported_working_types": [
-
-                      ],
-                      "supported_price_protect_order_types": [
-
-                      ],
+                      "supported_price_match_order_types": [],
+                      "supported_working_type_order_types": [],
+                      "supported_working_types": [],
+                      "supported_price_protect_order_types": [],
                       "supported_pegged_order_types": [
                         "LIMIT",
                         "LIMIT_MAKER",
@@ -751,12 +728,8 @@
                       "supported_peg_offset_types": [
                         "PRICE_LEVEL"
                       ],
-                      "supported_margin_side_effect_types": [
-
-                      ],
-                      "auto_repay_at_cancel_side_effect_types": [
-
-                      ],
+                      "supported_margin_side_effect_types": [],
+                      "auto_repay_at_cancel_side_effect_types": [],
                       "max_peg_offset_value": 100,
                       "supports_margin_side_effect_controls": false
                     }
@@ -947,27 +920,13 @@
                       "reference_price_timestamp_field": "closeTime",
                       "reference_price_max_age_millis": 60000,
                       "reference_price_cache_ttl_millis": 250,
-                      "supported_price_match_order_types": [
-
-                      ],
-                      "supported_working_type_order_types": [
-
-                      ],
-                      "supported_working_types": [
-
-                      ],
-                      "supported_price_protect_order_types": [
-
-                      ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
+                      "supported_price_match_order_types": [],
+                      "supported_working_type_order_types": [],
+                      "supported_working_types": [],
+                      "supported_price_protect_order_types": [],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
                       "supported_margin_side_effect_types": [
                         "NO_SIDE_EFFECT",
                         "MARGIN_BUY",
@@ -1167,27 +1126,13 @@
                       "reference_price_timestamp_field": "closeTime",
                       "reference_price_max_age_millis": 60000,
                       "reference_price_cache_ttl_millis": 250,
-                      "supported_price_match_order_types": [
-
-                      ],
-                      "supported_working_type_order_types": [
-
-                      ],
-                      "supported_working_types": [
-
-                      ],
-                      "supported_price_protect_order_types": [
-
-                      ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
+                      "supported_price_match_order_types": [],
+                      "supported_working_type_order_types": [],
+                      "supported_working_types": [],
+                      "supported_price_protect_order_types": [],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
                       "supported_margin_side_effect_types": [
                         "NO_SIDE_EFFECT",
                         "MARGIN_BUY",
@@ -1465,21 +1410,11 @@
                         "TAKE_PROFIT",
                         "TAKE_PROFIT_MARKET"
                       ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
-                      "supported_margin_side_effect_types": [
-
-                      ],
-                      "auto_repay_at_cancel_side_effect_types": [
-
-                      ],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
+                      "supported_margin_side_effect_types": [],
+                      "auto_repay_at_cancel_side_effect_types": [],
                       "supports_margin_side_effect_controls": false
                     }
                   },
@@ -1689,21 +1624,11 @@
                         "TAKE_PROFIT",
                         "TAKE_PROFIT_MARKET"
                       ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
-                      "supported_margin_side_effect_types": [
-
-                      ],
-                      "auto_repay_at_cancel_side_effect_types": [
-
-                      ],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
+                      "supported_margin_side_effect_types": [],
+                      "auto_repay_at_cancel_side_effect_types": [],
                       "supports_margin_side_effect_controls": false
                     }
                   },
@@ -1869,33 +1794,15 @@
                       "reference_price_timestamp_field": null,
                       "reference_price_max_age_millis": null,
                       "reference_price_cache_ttl_millis": null,
-                      "supported_price_match_order_types": [
-
-                      ],
-                      "supported_working_type_order_types": [
-
-                      ],
-                      "supported_working_types": [
-
-                      ],
-                      "supported_price_protect_order_types": [
-
-                      ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
-                      "supported_margin_side_effect_types": [
-
-                      ],
-                      "auto_repay_at_cancel_side_effect_types": [
-
-                      ],
+                      "supported_price_match_order_types": [],
+                      "supported_working_type_order_types": [],
+                      "supported_working_types": [],
+                      "supported_price_protect_order_types": [],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
+                      "supported_margin_side_effect_types": [],
+                      "auto_repay_at_cancel_side_effect_types": [],
                       "supports_margin_side_effect_controls": false
                     }
                   }
@@ -2079,18 +1986,10 @@
                       "reference_price_max_age_millis": 60000,
                       "reference_price_cache_ttl_millis": 250,
                       "test_order_path": "/api/v3/order/test",
-                      "supported_price_match_order_types": [
-
-                      ],
-                      "supported_working_type_order_types": [
-
-                      ],
-                      "supported_working_types": [
-
-                      ],
-                      "supported_price_protect_order_types": [
-
-                      ],
+                      "supported_price_match_order_types": [],
+                      "supported_working_type_order_types": [],
+                      "supported_working_types": [],
+                      "supported_price_protect_order_types": [],
                       "supported_pegged_order_types": [
                         "LIMIT",
                         "LIMIT_MAKER",
@@ -2104,12 +2003,8 @@
                       "supported_peg_offset_types": [
                         "PRICE_LEVEL"
                       ],
-                      "supported_margin_side_effect_types": [
-
-                      ],
-                      "auto_repay_at_cancel_side_effect_types": [
-
-                      ],
+                      "supported_margin_side_effect_types": [],
+                      "auto_repay_at_cancel_side_effect_types": [],
                       "max_peg_offset_value": 100,
                       "supports_margin_side_effect_controls": false
                     }
@@ -2300,27 +2195,13 @@
                       "reference_price_timestamp_field": "closeTime",
                       "reference_price_max_age_millis": 60000,
                       "reference_price_cache_ttl_millis": 250,
-                      "supported_price_match_order_types": [
-
-                      ],
-                      "supported_working_type_order_types": [
-
-                      ],
-                      "supported_working_types": [
-
-                      ],
-                      "supported_price_protect_order_types": [
-
-                      ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
+                      "supported_price_match_order_types": [],
+                      "supported_working_type_order_types": [],
+                      "supported_working_types": [],
+                      "supported_price_protect_order_types": [],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
                       "supported_margin_side_effect_types": [
                         "NO_SIDE_EFFECT",
                         "MARGIN_BUY",
@@ -2520,27 +2401,13 @@
                       "reference_price_timestamp_field": "closeTime",
                       "reference_price_max_age_millis": 60000,
                       "reference_price_cache_ttl_millis": 250,
-                      "supported_price_match_order_types": [
-
-                      ],
-                      "supported_working_type_order_types": [
-
-                      ],
-                      "supported_working_types": [
-
-                      ],
-                      "supported_price_protect_order_types": [
-
-                      ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
+                      "supported_price_match_order_types": [],
+                      "supported_working_type_order_types": [],
+                      "supported_working_types": [],
+                      "supported_price_protect_order_types": [],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
                       "supported_margin_side_effect_types": [
                         "NO_SIDE_EFFECT",
                         "MARGIN_BUY",
@@ -2818,21 +2685,11 @@
                         "TAKE_PROFIT",
                         "TAKE_PROFIT_MARKET"
                       ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
-                      "supported_margin_side_effect_types": [
-
-                      ],
-                      "auto_repay_at_cancel_side_effect_types": [
-
-                      ],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
+                      "supported_margin_side_effect_types": [],
+                      "auto_repay_at_cancel_side_effect_types": [],
                       "supports_margin_side_effect_controls": false
                     }
                   },
@@ -3042,21 +2899,11 @@
                         "TAKE_PROFIT",
                         "TAKE_PROFIT_MARKET"
                       ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
-                      "supported_margin_side_effect_types": [
-
-                      ],
-                      "auto_repay_at_cancel_side_effect_types": [
-
-                      ],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
+                      "supported_margin_side_effect_types": [],
+                      "auto_repay_at_cancel_side_effect_types": [],
                       "supports_margin_side_effect_controls": false
                     }
                   },
@@ -3222,33 +3069,15 @@
                       "reference_price_timestamp_field": null,
                       "reference_price_max_age_millis": null,
                       "reference_price_cache_ttl_millis": null,
-                      "supported_price_match_order_types": [
-
-                      ],
-                      "supported_working_type_order_types": [
-
-                      ],
-                      "supported_working_types": [
-
-                      ],
-                      "supported_price_protect_order_types": [
-
-                      ],
-                      "supported_pegged_order_types": [
-
-                      ],
-                      "supported_peg_price_types": [
-
-                      ],
-                      "supported_peg_offset_types": [
-
-                      ],
-                      "supported_margin_side_effect_types": [
-
-                      ],
-                      "auto_repay_at_cancel_side_effect_types": [
-
-                      ],
+                      "supported_price_match_order_types": [],
+                      "supported_working_type_order_types": [],
+                      "supported_working_types": [],
+                      "supported_price_protect_order_types": [],
+                      "supported_pegged_order_types": [],
+                      "supported_peg_price_types": [],
+                      "supported_peg_offset_types": [],
+                      "supported_margin_side_effect_types": [],
+                      "auto_repay_at_cancel_side_effect_types": [],
                       "supports_margin_side_effect_controls": false
                     }
                   }

@@ -85,6 +85,53 @@ class StrategyInstrumentUniverseResolverTest {
     }
 
     @Test
+    void can_discover_exchange_polled_symbols_without_static_include_allowlist() {
+        StrategyInstrumentUniverseResolver resolver = new StrategyInstrumentUniverseResolver(
+                new ExchangeMetadataService(List.of(new StaticFetcher(new Metadata(List.of(
+                        instrument("BTCUSDT", "TRADING", "USDT", "PERPETUAL", List.of("LIMIT")),
+                        instrument("HIGHLIQUSDT", "TRADING", "USDT", "PERPETUAL", List.of("LIMIT")),
+                        instrument("LOWLIQUSDT", "TRADING", "USDT", "PERPETUAL", List.of("LIMIT")),
+                        instrument("BUSDPAIR", "TRADING", "BUSD", "PERPETUAL", List.of("LIMIT"))
+                ))))),
+                (ConfigManager) null
+        );
+        ExecutionProperties.SignalPlanner.InstrumentUniverse universe =
+                new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        List.of("BTCUSDT"),
+                        List.of("LOWLIQUSDT"),
+                        false,
+                        true,
+                        false,
+                        true,
+                        false,
+                        "TRADING",
+                        null,
+                        List.of("USDT"),
+                        List.of("PERPETUAL"),
+                        null,
+                        false,
+                        false,
+                        30000L,
+                        null,
+                        null,
+                        null,
+                        List.of()
+                );
+
+        List<String> eligible = resolver.eligibleSymbols(
+                universe,
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                OrderCommandType.LIMIT
+        );
+
+        assertThat(eligible).containsExactly("BTCUSDT", "HIGHLIQUSDT");
+    }
+
+    @Test
     void returns_no_symbols_when_metadata_is_required_but_unavailable() {
         StrategyInstrumentUniverseResolver resolver = new StrategyInstrumentUniverseResolver(
                 new ExchangeMetadataService(List.of(new EmptyFetcher())),
@@ -149,6 +196,7 @@ class StrategyInstrumentUniverseResolverTest {
                         false,
                         false,
                         30000L,
+                        null,
                         null,
                         null,
                         List.of(new ExecutionProperties.SignalPlanner.SymbolPolicy(

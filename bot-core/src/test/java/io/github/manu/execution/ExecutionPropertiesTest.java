@@ -55,6 +55,7 @@ class ExecutionPropertiesTest {
         assertThat(properties.signalPlanner().instrumentUniverse().requireTopOfBook()).isFalse();
         assertThat(properties.signalPlanner().instrumentUniverse().maxMarketDataAgeMillis()).isEqualTo(60000L);
         assertThat(properties.signalPlanner().instrumentUniverse().maxSpreadBps()).isNull();
+        assertThat(properties.signalPlanner().instrumentUniverse().minDailyQuoteVolume()).isNull();
         assertThat(properties.signalPlanner().instrumentUniverse().symbolPolicies()).isEmpty();
     }
 
@@ -259,6 +260,34 @@ class ExecutionPropertiesTest {
     }
 
     @Test
+    void rejects_non_positive_instrument_universe_min_daily_quote_volume() {
+        assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                        true,
+                        java.util.List.of("BTCUSDT"),
+                        java.util.List.of(),
+                        false,
+                        false,
+                        true,
+                        true,
+                        false,
+                        "TRADING",
+                        null,
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        null,
+                        true,
+                        true,
+                        60000L,
+                        "5",
+                        "250",
+                        "0",
+                        java.util.List.of()
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("instrument universe minDailyQuoteVolume must be positive when configured");
+    }
+
+    @Test
     void rejects_non_positive_instrument_universe_market_data_limits() {
         assertThatThrownBy(() -> new ExecutionProperties.SignalPlanner.InstrumentUniverse(
                         true,
@@ -278,6 +307,8 @@ class ExecutionPropertiesTest {
                         true,
                         0L,
                         "5",
+                        null,
+                        null,
                         java.util.List.of()
                 ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -301,6 +332,7 @@ class ExecutionPropertiesTest {
                         true,
                         1000L,
                         "0",
+                        null,
                         null,
                         java.util.List.of()
                 ))
@@ -326,6 +358,7 @@ class ExecutionPropertiesTest {
                         1000L,
                         "5",
                         "0",
+                        null,
                         java.util.List.of()
                 ))
                 .isInstanceOf(IllegalArgumentException.class)

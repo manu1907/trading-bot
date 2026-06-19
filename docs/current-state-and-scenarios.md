@@ -59,24 +59,31 @@ The checked-in demo runtime currently enables that catalog baseline and sets:
 
 - `refresh_exchange_metadata_before_planning=true`
 - `require_exchange_metadata=true`
-- `require_included_symbol=true`
+- inherits catalog `require_included_symbol=false`
 - `allowed_quote_assets=["USDT"]`
 - `allowed_contract_types=["PERPETUAL"]`
-- `max_eligible_symbols=13`
+- inherits catalog `max_eligible_symbols=null`
 - `require_market_data=true`
 - `require_top_of_book=true`
 - `max_market_data_age_millis=30000`
 - `max_spread_bps="5"`
 - `min_top_of_book_quote_notional="250"`
+- `min_daily_quote_volume="100000000"`
 - `max_order_notional="50"` per initial symbol policy
 
-The resolver returns the eligible, exchange-confirmed subset of the configured
-candidate list. When a strategy signal does not explicitly name a symbol, the
-planner can rotate across admissible universe candidates and select the highest
-ranked symbol using projected market-data freshness, top-of-book spread, and
+The resolver returns the eligible, exchange-confirmed subset of active provider
+metadata after applying quote-asset, contract-type, market-data, spread, depth,
+and projected daily quote-volume gates. The catalog list remains the
+source-controlled first-start baseline for streams, reconciliation coverage, and
+symbol policies, but the effective demo config does not require a strategy
+candidate to appear in that static include list. When a strategy signal does not
+explicitly name a symbol, the planner can rotate across admissible universe
+candidates and select the highest ranked symbol using projected market-data
+freshness, daily quote volume, daily trade count, taker-buy quote volume,
+provider capability score, reconciliation availability, top-of-book spread, and
 top-of-book quote depth. Explicit signal symbols remain authoritative and are
 still rejected if any universe, projection, reconciliation, pause, or order-limit
-gate fails. This is not yet expected-profit, risk-adjusted-return, or
+gate fails. This is not yet expected-profit, risk-adjusted-return, or complete
 money-management ranking; that belongs to the remaining strategy market-analysis
 lifecycle work.
 

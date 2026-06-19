@@ -95,19 +95,18 @@
           "enabled": true,
           "refresh_exchange_metadata_before_planning": true,
           "require_exchange_metadata": true,
-          "require_included_symbol": true,
           "allowed_quote_assets": [
             "USDT"
           ],
           "allowed_contract_types": [
             "PERPETUAL"
           ],
-          "max_eligible_symbols": 13,
           "require_market_data": true,
           "require_top_of_book": true,
           "max_market_data_age_millis": 30000,
           "max_spread_bps": "5",
-          "min_top_of_book_quote_notional": "250"
+          "min_top_of_book_quote_notional": "250",
+          "min_daily_quote_volume": "100000000"
         }
       }
     },

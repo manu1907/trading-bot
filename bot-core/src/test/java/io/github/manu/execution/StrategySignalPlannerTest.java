@@ -630,6 +630,48 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_order_command_when_universe_daily_quote_volume_is_too_low() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(marketDataState(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.01",
+                        "50000.50",
+                        "0.01",
+                        NOW,
+                        Map.of("quoteVolume", "99999999")
+                )),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringDailyQuoteVolume("100000000"))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isEmpty();
+    }
+
+    @Test
+    void plans_order_command_when_universe_daily_quote_volume_is_high_enough() {
+        StrategySignalPlanner planner = planner(
+                projectionWithMarketData(marketDataState(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.01",
+                        "50000.50",
+                        "0.01",
+                        NOW,
+                        Map.of("quoteVolume", "250000000")
+                )),
+                null,
+                propertiesWithInstrumentUniverse(instrumentUniverseRequiringDailyQuoteVolume("100000000"))
+        );
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal(StrategySignalType.ENTER_LONG));
+
+        assertThat(planned).isPresent();
+    }
+
+    @Test
     void selects_highest_ranked_universe_symbol_when_signal_symbol_is_not_explicit() {
         StrategySignalPlanner planner = planner(
                 projectionWithMarketData(
@@ -1110,6 +1152,34 @@ class StrategySignalPlannerTest {
                 maxMarketDataAgeMillis,
                 maxSpreadBps,
                 minTopOfBookQuoteNotional,
+                null,
+                List.of()
+        );
+    }
+
+    private ExecutionProperties.SignalPlanner.InstrumentUniverse instrumentUniverseRequiringDailyQuoteVolume(
+            String minDailyQuoteVolume
+    ) {
+        return new ExecutionProperties.SignalPlanner.InstrumentUniverse(
+                true,
+                List.of("BTCUSDT"),
+                List.of(),
+                false,
+                false,
+                true,
+                true,
+                false,
+                "TRADING",
+                null,
+                List.of(),
+                List.of(),
+                null,
+                true,
+                true,
+                1000L,
+                "5",
+                "250",
+                minDailyQuoteVolume,
                 List.of()
         );
     }

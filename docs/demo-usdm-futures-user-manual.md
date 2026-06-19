@@ -1613,6 +1613,7 @@ Current planner defaults include:
 - `instrument_universe.max_market_data_age_millis`: `60000`
 - `instrument_universe.max_spread_bps`: `null`
 - `instrument_universe.min_top_of_book_quote_notional`: `null`
+- `instrument_universe.min_daily_quote_volume`: `null`
 - `instrument_universe.symbol_policies`: catalog baseline policies for the same
   USD-M futures candidate list, each enabled and promotion-ready with
   `min_daily_quote_volume=100000000`, `max_spread_bps=5`,
@@ -1626,9 +1627,10 @@ excluded, missing from a required include list, disabled by a matching symbol
 policy, or not marked `promotion_ready=true` while promotion readiness is
 required. If a matching symbol policy has `max_order_notional`, unbounded or
 oversized strategy orders are suppressed before publication. When
-`min_daily_quote_volume` is configured on a matching symbol policy, the planner
-requires projected market-data attribute `quoteVolume` to be present and greater
-than or equal to that floor; the catalog `kline_1d` streams provide that
+`instrument_universe.min_daily_quote_volume` is configured, every admissible
+candidate must have projected market-data attribute `quoteVolume` greater than
+or equal to that floor. A matching symbol policy can override the universe floor
+for that symbol. The catalog `kline_1d` streams provide the `quoteVolume`
 attribute, and projection preserves it across later top-of-book/trade updates.
 When the quote-volume floor cannot be proven, the command is suppressed instead
 of guessing liquidity. When
@@ -1954,11 +1956,15 @@ The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `LINKUSDT`, `AVAXUSDT`, `BCHUSDT`, `LTCUSDT`, `TRXUSDT`, and `DOTUSDT`.
 The checked-in demo runtime opts into that catalog baseline and sets
 `refresh_exchange_metadata_before_planning=true`,
-`require_exchange_metadata=true`, `require_included_symbol=true`,
-`allowed_quote_assets=["USDT"]`, `allowed_contract_types=["PERPETUAL"]`, and
-`max_eligible_symbols=13`. It also sets `require_market_data=true`,
+`require_exchange_metadata=true`, `allowed_quote_assets=["USDT"]`,
+`allowed_contract_types=["PERPETUAL"]`, `require_market_data=true`,
 `require_top_of_book=true`, `max_market_data_age_millis=30000`, and
-`max_spread_bps="5"`, and `min_top_of_book_quote_notional="250"`.
+`max_spread_bps="5"`, `min_top_of_book_quote_notional="250"`, and
+`min_daily_quote_volume="100000000"`. It inherits catalog
+`require_included_symbol=false` and `max_eligible_symbols=null`. The catalog
+baseline still provides first-start stream coverage, reconciliation symbols, and
+symbol policies, but effective strategy admission in this runtime is
+exchange-polled rather than static-list bound.
 
 ## Risk Gate Options
 

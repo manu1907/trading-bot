@@ -1695,6 +1695,7 @@ class LfaSignalRunnerTest {
                 30_000L,
                 "5",
                 "250",
+                null,
                 List.of()
         );
     }

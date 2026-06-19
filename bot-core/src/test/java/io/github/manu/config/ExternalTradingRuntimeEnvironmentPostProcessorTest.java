@@ -90,7 +90,7 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.require-included-symbol",
                 Boolean.class
-        )).isTrue();
+        )).isFalse();
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.allowed-quote-assets[0]"
         )).isEqualTo("USDT");
@@ -100,10 +100,13 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.max-eligible-symbols",
                 Integer.class
-        )).isEqualTo(13);
+        )).isNull();
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.min-top-of-book-quote-notional"
         )).isEqualTo("250");
+        assertThat(environment.getProperty(
+                "trading.execution.signal-planner.instrument-universe.min-daily-quote-volume"
+        )).isEqualTo("100000000");
         assertThat(environment.getProperty(
                 "trading.execution.signal-planner.instrument-universe.symbol-policies[1].symbol"
         )).isEqualTo("ETHUSDT");
