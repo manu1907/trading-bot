@@ -58,6 +58,10 @@ checked-in demo runtime also enables Binance metadata-derived market-data stream
 coverage for `TRADING` `USDT` `PERPETUAL` instruments, rendering
 `bookTicker`, `aggTrade`, and `kline_1d` stream templates for up to 250
 exchange-polled symbols while deduplicating them with the catalog baseline.
+During scheduled exchange-metadata refresh, core invokes a provider-agnostic
+metadata-dependent runtime hook; Binance reuses refreshed metadata to re-render
+the derived stream plan and reconnects the market-data websocket only when the
+effective stream set, route, or connection mode changes.
 
 The checked-in demo runtime currently enables that catalog baseline and sets:
 

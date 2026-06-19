@@ -15,6 +15,10 @@ public interface ExchangeModule {
         return CompletableFuture.completedFuture(null);
     }
 
+    default CompletableFuture<Void> refreshMetadataDependentRuntime(ResolvedExchangeConfig config) {
+        return CompletableFuture.completedFuture(null);
+    }
+
     CompletableFuture<Void> connect();
 
     CompletableFuture<Void> disconnect();

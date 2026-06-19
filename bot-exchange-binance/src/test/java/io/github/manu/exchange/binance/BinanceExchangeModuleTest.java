@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -327,6 +328,46 @@ class BinanceExchangeModuleTest {
                         "btcusdt@bookTicker",
                         "btcusdt@kline_1d"
                 ));
+    }
+
+    @Test
+    void rebalances_metadata_derived_market_data_runtime_after_metadata_refresh() throws IOException {
+        ResolvedExchangeConfig config = checkedInResolvedConfig(market -> {
+            ObjectNode marketData = market.withObject("market_data");
+            marketData.put("runtime_enabled", true);
+            marketData.set("streams", jsonMapper.valueToTree(List.of("btcusdt@aggTrade")));
+            marketData.put("derive_streams_from_exchange_metadata", true);
+            marketData.set("derived_stream_templates", jsonMapper.valueToTree(List.of("{symbol_lower}@bookTicker")));
+            marketData.set("derived_allowed_quote_assets", jsonMapper.valueToTree(List.of("USDT")));
+            marketData.set("derived_allowed_contract_types", jsonMapper.valueToTree(List.of("PERPETUAL")));
+            marketData.put("derived_required_status", "TRADING");
+            marketData.put("derived_max_symbols", 10);
+        });
+        MutableMetadataService metadataService = new MutableMetadataService(metadata("BTCUSDT"));
+        FakeWebSocketTransport webSocketTransport = new FakeWebSocketTransport();
+        BinanceExchangeModule runtimeModule = new BinanceExchangeModule(
+                provider(new CapturingTradingEventBus()),
+                null,
+                null,
+                null,
+                provider(metadataService),
+                Clock.fixed(Instant.parse("2026-05-22T20:00:00Z"), ZoneOffset.UTC),
+                null,
+                webSocketTransport
+        );
+
+        runtimeModule.configure(config);
+        runtimeModule.connect().join();
+        metadataService.set(metadata("BTCUSDT", "ETHUSDT"));
+        runtimeModule.refreshMetadataDependentRuntime(config).join();
+        runtimeModule.disconnect().join();
+
+        assertThat(webSocketTransport.plans).hasSize(2);
+        assertThat(webSocketTransport.plans.getFirst().streams())
+                .containsExactly("btcusdt@aggTrade", "btcusdt@bookTicker");
+        assertThat(webSocketTransport.plans.get(1).streams())
+                .containsExactly("btcusdt@aggTrade", "btcusdt@bookTicker", "ethusdt@bookTicker");
+        assertThat(webSocketTransport.closeCount).isEqualTo(2);
     }
 
     @Test
@@ -1008,6 +1049,44 @@ class BinanceExchangeModuleTest {
         ));
     }
 
+    private BinanceExchangeMetadata metadata(String... symbols) {
+        return new BinanceExchangeMetadata(
+                Instant.parse("2026-05-22T20:00:00Z"),
+                "https://demo-fapi.binance.com",
+                "UTC",
+                List.of(),
+                List.of(),
+                List.of(symbols).stream().map(this::symbol).toList()
+        );
+    }
+
+    private BinanceExchangeMetadata.SymbolInfo symbol(String symbol) {
+        String baseAsset = symbol.endsWith("USDT") ? symbol.substring(0, symbol.length() - 4) : symbol;
+        return new BinanceExchangeMetadata.SymbolInfo(
+                symbol,
+                symbol,
+                "PERPETUAL",
+                null,
+                null,
+                "TRADING",
+                baseAsset,
+                "USDT",
+                "USDT",
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                null,
+                null,
+                null,
+                List.of("LIMIT", "MARKET"),
+                List.of("GTC"),
+                List.of()
+        );
+    }
+
     private BigDecimal decimal(String value) {
         return new BigDecimal(value);
     }
@@ -1135,6 +1214,29 @@ class BinanceExchangeModuleTest {
                 String apiKeyHeader
         ) {
             throw new UnsupportedOperationException("signed requests are not used by exchangeInfo metadata tests");
+        }
+    }
+
+    private static final class MutableMetadataService extends BinanceExchangeMetadataService {
+
+        private final AtomicReference<BinanceExchangeMetadata> metadata;
+
+        private MutableMetadataService(BinanceExchangeMetadata metadata) {
+            this.metadata = new AtomicReference<>(metadata);
+        }
+
+        private void set(BinanceExchangeMetadata metadata) {
+            this.metadata.set(metadata);
+        }
+
+        @Override
+        public Optional<BinanceExchangeMetadata> current() {
+            return Optional.of(metadata.get());
+        }
+
+        @Override
+        public Optional<BinanceExchangeMetadata> refresh(ResolvedExchangeConfig config) {
+            return current();
         }
     }
 

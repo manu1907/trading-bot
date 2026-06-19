@@ -430,6 +430,17 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         return CompletableFuture.completedFuture(null);
     }
 
+    @Override
+    public CompletableFuture<Void> refreshMetadataDependentRuntime(ResolvedExchangeConfig config) {
+        if (!connected) {
+            return CompletableFuture.completedFuture(null);
+        }
+        BinanceProperties binance = requireBinance(config);
+        this.config = config;
+        refreshMarketDataRuntimeIfMetadataDerived(binance);
+        return CompletableFuture.completedFuture(null);
+    }
+
     private void startUserDataRuntimeIfEnabled(BinanceProperties binance) {
         BinanceProperties.UserDataStream userData = binance.userDataStream();
         if (userData == null || !Boolean.TRUE.equals(userData.runtimeEnabled())) {
@@ -540,10 +551,18 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
             BinanceProperties binance,
             BinanceProperties.MarketDataStream marketData
     ) {
+        return effectiveMarketDataStream(binance, marketData, true);
+    }
+
+    private BinanceProperties.MarketDataStream effectiveMarketDataStream(
+            BinanceProperties binance,
+            BinanceProperties.MarketDataStream marketData,
+            boolean refreshMetadata
+    ) {
         if (!Boolean.TRUE.equals(marketData.deriveStreamsFromExchangeMetadata())) {
             return marketData;
         }
-        List<String> streams = derivedMarketDataStreams(binance, marketData);
+        List<String> streams = derivedMarketDataStreams(binance, marketData, refreshMetadata);
         return new BinanceProperties.MarketDataStream(
                 marketData.runtimeEnabled(),
                 marketData.connectionMode(),
@@ -560,9 +579,10 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
 
     private List<String> derivedMarketDataStreams(
             BinanceProperties binance,
-            BinanceProperties.MarketDataStream marketData
+            BinanceProperties.MarketDataStream marketData,
+            boolean refreshMetadata
     ) {
-        BinanceExchangeMetadata metadata = marketDataExchangeMetadata(binance);
+        BinanceExchangeMetadata metadata = marketDataExchangeMetadata(binance, refreshMetadata);
         Set<String> streams = new LinkedHashSet<>(marketData.streams());
         List<BinanceExchangeMetadata.SymbolInfo> symbols = metadata.symbols().stream()
                 .filter(symbol -> matchesDerivedMarketDataPolicy(symbol, marketData))
@@ -589,15 +609,32 @@ public class BinanceExchangeModule implements ExchangeModule, OrderExecutionGate
         return List.copyOf(streams);
     }
 
-    private BinanceExchangeMetadata marketDataExchangeMetadata(BinanceProperties binance) {
+    private void refreshMarketDataRuntimeIfMetadataDerived(BinanceProperties binance) {
+        BinanceProperties.MarketDataStream marketData = binance.marketData();
+        if (marketDataRuntime == null
+                || marketData == null
+                || !Boolean.TRUE.equals(marketData.runtimeEnabled())
+                || !Boolean.TRUE.equals(marketData.deriveStreamsFromExchangeMetadata())) {
+            return;
+        }
+        BinanceProperties.MarketDataStream effectiveMarketData =
+                effectiveMarketDataStream(binance, marketData, false);
+        if (marketDataRuntime.rebalance(effectiveMarketData)) {
+            log.info("Rebalanced Binance market-data stream runtime for target {}", config.target());
+        }
+    }
+
+    private BinanceExchangeMetadata marketDataExchangeMetadata(BinanceProperties binance, boolean refreshMetadata) {
         BinanceExchangeMetadataService service = metadataServiceProvider == null
                 ? null
                 : metadataServiceProvider.getIfAvailable();
         if (service == null) {
             throw new IllegalStateException("exchangeInfo metadata service is required for Binance market-data derivation");
         }
-        return service.refresh(config)
-                .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl()))
+        Optional<BinanceExchangeMetadata> metadata = refreshMetadata
+                ? service.refresh(config)
+                : service.current();
+        return metadata.filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl()))
                 .or(() -> service.current()
                         .filter(metadataSnapshot -> same(binance.rest().baseUrl(), metadataSnapshot.restBaseUrl())))
                 .orElseThrow(() -> new IllegalStateException(

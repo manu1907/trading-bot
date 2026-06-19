@@ -69,6 +69,21 @@ public class ExchangeManager {
         exchangeMetadataService.refresh(config);
     }
 
+    public void refreshMetadataDependentRuntime(ResolvedExchangeConfig config) {
+        if (activeModule == null) {
+            return;
+        }
+        ExchangeProperties props = config.target();
+        if (!props.provider().equals(activeExchangeName)) {
+            throw new IllegalStateException(
+                    "Runtime target change requires restart: expected provider %s but received %s"
+                            .formatted(activeExchangeName, props.provider())
+            );
+        }
+        activeModule.refreshMetadataDependentRuntime(config).join();
+        log.info("Refreshed metadata-dependent runtime for exchange: {}", activeExchangeName);
+    }
+
     public ExchangeModule getActiveModule() {
         return activeModule;
     }

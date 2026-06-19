@@ -34,12 +34,14 @@ class ExchangeMetadataRefreshServiceTest {
     @Test
     void refreshes_active_provider_metadata_from_current_runtime_config() throws Exception {
         RecordingFetcher fetcher = new RecordingFetcher();
+        List<ResolvedExchangeConfig> refreshedRuntimeConfigs = new ArrayList<>();
         ConfigManager configManager = new ConfigManager();
         configManager.setConfig(loadCheckedInLiveConfig());
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         ExchangeMetadataRefreshService service = new ExchangeMetadataRefreshService(
                 configManager,
                 new ExchangeMetadataService(List.of(fetcher)),
+                refreshedRuntimeConfigs::add,
                 Duration.ofSeconds(1),
                 executor
         );
@@ -50,6 +52,11 @@ class ExchangeMetadataRefreshServiceTest {
         }
 
         assertThat(fetcher.refreshedConfigs).singleElement().satisfies(config -> {
+            assertThat(config.provider()).isEqualTo("binance");
+            assertThat(config.target().environment()).isEqualTo("demo");
+            assertThat(config.target().market()).isEqualTo("usdm_futures");
+        });
+        assertThat(refreshedRuntimeConfigs).singleElement().satisfies(config -> {
             assertThat(config.provider()).isEqualTo("binance");
             assertThat(config.target().environment()).isEqualTo("demo");
             assertThat(config.target().market()).isEqualTo("usdm_futures");

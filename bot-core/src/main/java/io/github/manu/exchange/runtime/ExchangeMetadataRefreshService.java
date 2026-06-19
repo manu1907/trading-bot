@@ -18,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 @Service
 @Profile("live")
@@ -28,16 +29,19 @@ public final class ExchangeMetadataRefreshService {
 
     private final ConfigManager configManager;
     private final ExchangeMetadataService exchangeMetadataService;
+    private final Consumer<ResolvedExchangeConfig> metadataDependentRuntimeRefresher;
     private final Duration refreshInterval;
     private final ScheduledExecutorService executor;
     private ScheduledFuture<?> scheduledTask;
 
     @Autowired
     public ExchangeMetadataRefreshService(ConfigManager configManager,
-                                          ExchangeMetadataService exchangeMetadataService) {
+                                          ExchangeMetadataService exchangeMetadataService,
+                                          ExchangeManager exchangeManager) {
         this(
                 configManager,
                 exchangeMetadataService,
+                exchangeManager::refreshMetadataDependentRuntime,
                 DEFAULT_REFRESH_INTERVAL,
                 Executors.newSingleThreadScheduledExecutor(task -> {
                     Thread thread = new Thread(task, "exchange-metadata-refresh");
@@ -51,8 +55,21 @@ public final class ExchangeMetadataRefreshService {
                                    ExchangeMetadataService exchangeMetadataService,
                                    Duration refreshInterval,
                                    ScheduledExecutorService executor) {
+        this(configManager, exchangeMetadataService, ignored -> {
+        }, refreshInterval, executor);
+    }
+
+    ExchangeMetadataRefreshService(ConfigManager configManager,
+                                   ExchangeMetadataService exchangeMetadataService,
+                                   Consumer<ResolvedExchangeConfig> metadataDependentRuntimeRefresher,
+                                   Duration refreshInterval,
+                                   ScheduledExecutorService executor) {
         this.configManager = Objects.requireNonNull(configManager, "configManager is required");
         this.exchangeMetadataService = Objects.requireNonNull(exchangeMetadataService, "exchangeMetadataService is required");
+        this.metadataDependentRuntimeRefresher = Objects.requireNonNull(
+                metadataDependentRuntimeRefresher,
+                "metadataDependentRuntimeRefresher is required"
+        );
         this.refreshInterval = Objects.requireNonNull(refreshInterval, "refreshInterval is required");
         this.executor = Objects.requireNonNull(executor, "executor is required");
         if (refreshInterval.isZero() || refreshInterval.isNegative()) {
@@ -85,7 +102,9 @@ public final class ExchangeMetadataRefreshService {
         if (config == null) {
             return;
         }
-        exchangeMetadataService.refresh(ResolvedExchangeConfig.from(config));
+        ResolvedExchangeConfig resolvedConfig = ResolvedExchangeConfig.from(config);
+        exchangeMetadataService.refresh(resolvedConfig);
+        metadataDependentRuntimeRefresher.accept(resolvedConfig);
     }
 
     private void refreshActiveMetadataSafely() {

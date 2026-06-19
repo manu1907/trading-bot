@@ -76,6 +76,42 @@ class BinanceMarketDataStreamRuntimeTest {
     }
 
     @Test
+    void rebalance_reconnects_when_market_stream_plan_changes() {
+        FakeWebSocketTransport webSocketTransport = new FakeWebSocketTransport();
+        BinanceMarketDataStreamRuntime runtime = runtime(webSocketTransport, marketData(), new CapturingTradingEventBus());
+
+        runtime.start();
+        boolean rebalanced = runtime.rebalance(new BinanceProperties.MarketDataStream(
+                true,
+                "combined",
+                "default",
+                List.of("ethusdt@aggTrade")
+        ));
+
+        assertThat(rebalanced).isTrue();
+        assertThat(webSocketTransport.closeCount).isEqualTo(1);
+        assertThat(webSocketTransport.plans).hasSize(2);
+        assertThat(runtime.activeConnection()).get()
+                .extracting(connection -> connection.plan().streams())
+                .isEqualTo(List.of("ethusdt@aggTrade"));
+    }
+
+    @Test
+    void rebalance_keeps_active_connection_when_market_stream_plan_is_unchanged() {
+        FakeWebSocketTransport webSocketTransport = new FakeWebSocketTransport();
+        BinanceMarketDataStreamRuntime runtime = runtime(webSocketTransport, marketData(), new CapturingTradingEventBus());
+
+        runtime.start();
+        BinanceWebSocketConnection first = runtime.activeConnection().orElseThrow();
+        boolean rebalanced = runtime.rebalance(marketData());
+
+        assertThat(rebalanced).isFalse();
+        assertThat(runtime.activeConnection()).contains(first);
+        assertThat(webSocketTransport.closeCount).isZero();
+        assertThat(webSocketTransport.plans).hasSize(1);
+    }
+
+    @Test
     void close_shuts_active_supervisor() {
         FakeWebSocketTransport webSocketTransport = new FakeWebSocketTransport();
         RecordingListener listener = new RecordingListener();

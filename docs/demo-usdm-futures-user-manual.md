@@ -1394,6 +1394,11 @@ The active market-data config includes:
 - `derived_required_status`: checked-in demo runtime uses `TRADING`
 - `derived_max_symbols`: checked-in demo runtime uses `250`
 
+When metadata-derived streams are enabled, scheduled exchange-metadata refresh
+also refreshes the active provider runtime. Binance compares the current public
+market-data websocket plan with the newly rendered metadata-derived plan and
+reconnects only if the stream set, route, or connection mode changed.
+
 Do not duplicate the baseline stream list in the runtime file. Override
 `streams` only when intentionally replacing catalog stream coverage for a
 specific target. Prefer metadata derivation when expanding exchange-polled
@@ -2574,6 +2579,8 @@ Expected result:
 
 - The bot opens configured public streams.
 - Market data is normalized and published.
+- If metadata-derived streams are enabled, later metadata refreshes can rebalance
+  the public websocket subscription without changing demo/real code.
 
 ### Scenario: Run REST Reconciliation
 

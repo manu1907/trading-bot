@@ -12,7 +12,6 @@ import java.util.Optional;
 
 final class BinanceMarketDataStreamRuntime implements AutoCloseable {
 
-    private final BinanceProperties.MarketDataStream marketData;
     private final BinanceWebSocketClient webSocketClient;
     private final BinanceWebSocketEndpointPlanner endpointPlanner;
     private final BinanceWebSocketReconnectScheduler scheduler;
@@ -24,6 +23,7 @@ final class BinanceMarketDataStreamRuntime implements AutoCloseable {
     private final BinanceWebSocketListener delegate;
     private final Object lock = new Object();
 
+    private BinanceProperties.MarketDataStream marketData;
     private BinanceWebSocketSupervisor supervisor;
     private boolean stopped = true;
 
@@ -58,6 +58,23 @@ final class BinanceMarketDataStreamRuntime implements AutoCloseable {
             }
             stopped = false;
             openSupervisor();
+        }
+    }
+
+    boolean rebalance(BinanceProperties.MarketDataStream newMarketData) {
+        Objects.requireNonNull(newMarketData, "newMarketData");
+        synchronized (lock) {
+            if (sameConnectionPlan(marketData, newMarketData)) {
+                marketData = newMarketData;
+                return false;
+            }
+            marketData = newMarketData;
+            if (stopped) {
+                return false;
+            }
+            closeSupervisor();
+            openSupervisor();
+            return true;
         }
     }
 
@@ -123,6 +140,15 @@ final class BinanceMarketDataStreamRuntime implements AutoCloseable {
             supervisor.close();
             supervisor = null;
         }
+    }
+
+    private boolean sameConnectionPlan(
+            BinanceProperties.MarketDataStream current,
+            BinanceProperties.MarketDataStream candidate
+    ) {
+        return Objects.equals(current.connectionMode(), candidate.connectionMode())
+                && Objects.equals(current.route(), candidate.route())
+                && Objects.equals(current.streams(), candidate.streams());
     }
 
     private Duration requireNonNegative(Duration value, String name) {
