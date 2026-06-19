@@ -51,6 +51,13 @@ with direction, confidence, horizon, urgency, risk budget, and execution
 preferences. They do not choose Binance endpoints, order-list shapes, listen-key
 flows, or product-specific flags.
 
+Strategy modules may rank their own provider-agnostic candidate signals using
+strategy-visible facts such as confidence, projected liquidity, spread, depth,
+freshness, provider capability annotations, and reconciliation availability. The
+LFA runner does this with `lfa_expected_edge_score` before applying its publish
+cap. That score must remain free of Binance implementation imports; provider
+modules expose capabilities and market/account facts through core contracts.
+
 Provider modules explain what the exchange allows and execute concrete
 provider commands. Binance owns its documented market types, filters, fees,
 rate limits, order fields, user-data semantics, and request validation, but it

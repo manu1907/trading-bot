@@ -272,6 +272,45 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void ranks_analyzed_signals_by_expected_edge_before_publication() {
+        TradingStateProjection projection = projectionWith(
+                marketData(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.100",
+                        "50000.50",
+                        "0.010",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                ),
+                marketData(
+                        "ETHUSDT",
+                        "3000.00",
+                        "0.600",
+                        "3000.03",
+                        "0.300",
+                        Map.of("quoteVolume", "900000000", "numberOfTrades", "900000", "takerBuyQuoteVolume", "700000000")
+                )
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithAllocation(null, null, null, 2),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(result.publishedSignals()).isEqualTo(2);
+        StrategySignalEvent first = (StrategySignalEvent) eventBus.envelopes().get(0).value();
+        StrategySignalEvent second = (StrategySignalEvent) eventBus.envelopes().get(1).value();
+        assertThat(first.getSymbol()).isEqualTo("ETHUSDT");
+        assertThat(second.getSymbol()).isEqualTo("BTCUSDT");
+        assertThat(second.getConfidence()).isGreaterThan(first.getConfidence());
+        assertThat(new BigDecimal(first.getAttributes().get("lfa_expected_edge_score").toString()))
+                .isGreaterThan(new BigDecimal(second.getAttributes().get("lfa_expected_edge_score").toString()));
+    }
+
+    @Test
     void analyzes_only_signal_planner_universe_symbols_when_universe_is_enabled() {
         TradingStateProjection projection = projectionWith(
                 marketData("BTCUSDT", "50000.00", "0.200", "50000.50", "0.010"),

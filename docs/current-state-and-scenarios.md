@@ -89,7 +89,8 @@ top-of-book quote depth. Explicit signal symbols remain authoritative and are
 still rejected if any universe, projection, reconciliation, pause, or order-limit
 gate fails. This is not yet expected-profit, risk-adjusted-return, or complete
 money-management ranking; that belongs to the remaining strategy market-analysis
-lifecycle work.
+lifecycle work. The LFA runner now adds a first expected-edge score for emitted
+signals, but that is not yet a complete portfolio or position lifecycle.
 
 ## LFA Strategy Signal Analysis
 
@@ -127,9 +128,14 @@ instrument universe, ranks candidate market data by projected spread,
 projected daily `quoteVolume`, projected daily trade count, projected daily
 taker-buy quote volume, provider capability score, reconciliation availability, top-of-book quote
 depth, freshness, and symbol, optionally caps candidate market data before
-analysis, runs the analyzer, caps publication with `max_signals_per_run`, records
-`lfa_provider_capability_score` on signals when exchange metadata is available, and
-`lfa_reconciliation_availability_score` when symbol-level reconciliation observations exist, can allocate a total run target notional from
+analysis, runs the analyzer, records `lfa_provider_capability_score` on signals
+when exchange metadata is available, records
+`lfa_reconciliation_availability_score` when symbol-level reconciliation
+observations exist, computes `lfa_expected_edge_score` from analyzer confidence,
+imbalance, spread, depth, projected liquidity/trade statistics, freshness,
+provider capability, and reconciliation availability, sorts analyzed signals by
+that score before applying `max_signals_per_run`, can allocate a total run
+target notional from
 the latest projected account margin balance, and splits it across candidate publish slots
 by configured `allocation_weighting_mode` (`EQUAL`, `CONFIDENCE`, or
 `MARKET_QUALITY`) when configured. The optional `max_strategy_run_notional` cap
@@ -208,9 +214,10 @@ scheduled signal runs.
 
 This is now strategy-side signal generation plus a controlled live publication
 hook with a first projected account-margin allocation layer that can weight
-capital toward stronger liquid signals. It is not yet the full portfolio,
-position-management, expected-edge, risk-adjusted-return, or money-management
-selector needed for production autonomous trading.
+capital toward stronger liquid signals and a first auditable expected-edge
+signal ordering layer. It is not yet the full portfolio, position-management,
+expected-profit, risk-adjusted-return, or money-management selector needed for
+production autonomous trading.
 
 ## Runtime Policy Boundary
 

@@ -1826,20 +1826,27 @@ Signal attributes include:
 - `lfa_bid_quote_notional`
 - `lfa_ask_quote_notional`
 - `lfa_imbalance_ratio`
+- `lfa_daily_quote_volume` when projected daily quote volume is available
+- `lfa_daily_number_of_trades` when projected daily trade count is available
+- `lfa_daily_taker_buy_quote_volume` when projected daily taker-buy quote
+  volume is available
 
 When enabled, the runner reads the current projection snapshot, requires the
 current lifecycle state to be allowed, requires projected market-data and
 top-of-book warm-up thresholds to be met, applies account budget gates, filters
 candidate symbols through the core signal-planner instrument universe when
 `use_signal_planner_instrument_universe=true`, ranks candidate market data by
-projected spread, daily quote volume, daily trade count, daily taker-buy quote volume, provider capability score, reconciliation availability, top-of-book quote depth, freshness, and symbol, applies
-`max_candidate_market_data_symbols` when configured, passes only those candidate
-market-data states to the analyzer, optionally replaces fixed signal sizing
-with target notional allocated from the latest projected account margin balance,
-applies symbol budget gates to candidate signals, publishes at most
-`max_signals_per_run` ranked signals as symbol-keyed `STRATEGY_SIGNAL` events,
-and then the existing signal planner and risk gates decide whether any order
-command can be built and admitted. A lifecycle block returns
+projected spread, daily quote volume, daily trade count, daily taker-buy quote
+volume, provider capability score, reconciliation availability, top-of-book
+quote depth, freshness, and symbol, applies `max_candidate_market_data_symbols`
+when configured, passes only those candidate market-data states to the analyzer,
+annotates emitted signals with `lfa_expected_edge_score`, sorts analyzed signals
+by that score before applying `max_signals_per_run`, optionally replaces fixed
+signal sizing with target notional allocated from the latest projected account
+margin balance, applies symbol budget gates to candidate signals, publishes at
+most `max_signals_per_run` ranked signals as symbol-keyed `STRATEGY_SIGNAL`
+events, and then the existing signal planner and risk gates decide whether any
+order command can be built and admitted. A lifecycle block returns
 `lfa_signal_runner:lifecycle_blocked`, a warm-up block returns
 `lfa_signal_runner:warmup_incomplete`, an allocation block returns
 `lfa_signal_runner:allocation_blocked`, and a budget block returns
@@ -1869,6 +1876,13 @@ Before analysis, candidate market data is also ranked by provider capability sco
 When the reconciliation tracker has confident observations whose entity key
 references the candidate symbol, emitted signals include
 `lfa_reconciliation_availability_score` for auditability.
+After analysis, each emitted signal receives `lfa_expected_edge_score`. The
+score is the runner's current auditable ranking measure for the publish cap and
+combines analyzer confidence, imbalance, spread, effective quote depth, projected
+daily quote volume, projected daily trade count, projected daily taker-buy quote
+volume, freshness, provider capability score, and reconciliation availability.
+It is a first signal ordering layer, not the complete v1 portfolio manager,
+position lifecycle, take-profit/stop-loss, or live promotion evidence layer.
 With the catalog default
 `reject_missing_allocation_balance=true`, missing account margin balance blocks
 publication instead of falling back to stale or ambiguous sizing.
@@ -1889,6 +1903,7 @@ Allocation attributes include:
 - `lfa_allocation_weighting_mode`
 - `lfa_allocation_weight`
 - `lfa_allocation_weight_sum`
+- `lfa_expected_edge_score`
 - `lfa_daily_quote_volume` when projected daily quote volume is available
 - `lfa_daily_number_of_trades` when projected daily trade count is available
 - `lfa_daily_taker_buy_quote_volume` when projected daily taker-buy quote

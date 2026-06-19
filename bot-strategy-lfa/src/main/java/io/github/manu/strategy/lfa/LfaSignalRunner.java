@@ -259,6 +259,17 @@ public final class LfaSignalRunner {
             List<StrategySignalEvent> signals = analyzer.analyze(request, candidates, now).stream()
                     .map(signal -> withProviderCapability(signal, providerCapabilityScores))
                     .map(signal -> withReconciliationAvailability(signal, reconciliationAvailabilityScores))
+                    .map(this::withExpectedEdgeScore)
+                    .sorted(Comparator
+                            .comparing(
+                                    (StrategySignalEvent signal) -> attributeDecimal(
+                                            signal,
+                                            "lfa_expected_edge_score"
+                                    ).orElse(BigDecimal.ZERO),
+                                    Comparator.reverseOrder()
+                            )
+                            .thenComparing((StrategySignalEvent signal) -> -signal.getConfidence())
+                            .thenComparing(signal -> signal.getSymbol().toString()))
                     .limit(properties.maxSignalsPerRun())
                     .toList();
             if (signals.isEmpty()) {
@@ -1297,6 +1308,29 @@ public final class LfaSignalRunner {
                 .multiply(tradeCountScore)
                 .multiply(takerBuyQuoteVolumeScore)
                 .multiply(freshnessScore));
+    }
+
+    private StrategySignalEvent withExpectedEdgeScore(StrategySignalEvent signal) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        if (signal.getAttributes() != null) {
+            attributes.putAll(signal.getAttributes());
+        }
+        attributes.put("lfa_expected_edge_score", decimalText(expectedEdgeScore(signal)));
+        return StrategySignalEvent.newBuilder(signal)
+                .setAttributes(attributes)
+                .build();
+    }
+
+    private BigDecimal expectedEdgeScore(StrategySignalEvent signal) {
+        BigDecimal providerCapabilityScore = attributeDecimal(signal, "lfa_provider_capability_score")
+                .orElse(BigDecimal.ONE)
+                .max(BigDecimal.ZERO);
+        BigDecimal reconciliationAvailabilityScore = attributeDecimal(signal, "lfa_reconciliation_availability_score")
+                .orElse(BigDecimal.ONE)
+                .max(BigDecimal.ZERO);
+        return positiveWeight(marketQualityWeight(signal)
+                .multiply(providerCapabilityScore)
+                .multiply(reconciliationAvailabilityScore));
     }
 
     private BigDecimal positiveWeight(BigDecimal value) {
