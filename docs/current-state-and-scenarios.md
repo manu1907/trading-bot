@@ -385,6 +385,10 @@ active pause count, projected market-data freshness counts, optional strategy
 lifecycle state, and explicit readiness blockers. It does not bypass the order
 risk gate or authorize trading; it is an operator surface for understanding
 whether the live target is `READY`, needs `ATTENTION`, or is `BLOCKED`.
+The same readiness surface now also has low-cardinality Micrometer gauges,
+Prometheus-compatible alert rules in
+`ops/prometheus/runtime-readiness-alerts.yml`, and an importable Grafana
+dashboard at `ops/grafana/runtime-readiness-dashboard.json`.
 
 ## Remediation Executor Observability
 
@@ -403,6 +407,12 @@ Implemented remediation executor observability includes:
   alert rules exist at `ops/prometheus/strategy-lfa-alerts.yml` for disabled,
   lifecycle-blocked, reconciliation-blocked, budget-blocked,
   allocation-blocked, and published-signal runner outcomes.
+- Runtime readiness now emits low-cardinality gauges for readiness state,
+  reconciliation state, readiness blockers, projection safety counts, and
+  projected market-data freshness counts. Prometheus-compatible alert rules
+  exist at `ops/prometheus/runtime-readiness-alerts.yml` for blocked runtime
+  readiness, missing or degraded reconciliation, unsafe order state, external
+  interventions, active pauses, and missing or insufficient fresh market data.
 - A Google Cloud Alertmanager renderer now renders the placeholder-only
   Alertmanager profile from Secret Manager for `demo` or `real`, validates the
   supported placeholder set, fails if a required alert secret is missing, refuses
@@ -428,6 +438,7 @@ Implemented remediation executor observability includes:
   before promotion.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
 - An importable Grafana LFA strategy runner dashboard exists at `ops/grafana/strategy-lfa-dashboard.json`.
+- An importable Grafana runtime readiness dashboard exists at `ops/grafana/runtime-readiness-dashboard.json`.
 - A remediation executor operator runbook exists at `ops/runbooks/remediation-executor.md`, covering
   disabled, blocked, preview-only, submitted-to-pipeline, no-action, pipeline-submission-failure,
   ambiguous/unknown reconciliation, and hedge-mode remediation outcomes.

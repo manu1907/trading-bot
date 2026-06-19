@@ -1,0 +1,89 @@
+groups:
+  - name: runtime-readiness
+    rules:
+      - alert: RuntimeReadinessBlocked
+        expr: trading_runtime_readiness_states{readiness="BLOCKED"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Runtime readiness is blocked
+          description: >-
+            The active runtime target is blocked by reconciliation, order-state,
+            intervention, pause-governance, or market-data blockers. Query
+            /internal/runtime/status with the operator token before enabling or
+            increasing automation.
+
+      - alert: RuntimeReconciliationNotConfident
+        expr: trading_runtime_reconciliation_states{status=~"NO_OBSERVATIONS|DEGRADED"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Runtime reconciliation confidence is not healthy
+          description: >-
+            The active runtime target has no reconciliation observations or has
+            degraded reconciliation. Automated strategy publication and
+            remediation execution must remain gated until projection and
+            exchange state are reconciled.
+
+      - alert: RuntimeUnsafeOrderState
+        expr: trading_runtime_projection_states{kind=~"unknown_order_statuses|unresolved_order_commands"} > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Runtime has unsafe order state
+          description: >-
+            The projection contains unknown order status or unresolved order
+            commands. Reconcile exchange state before retrying or raising risk
+            limits.
+
+      - alert: RuntimeExternalInterventionDetected
+        expr: trading_runtime_projection_states{kind=~"external_order_interventions|external_position_interventions"} > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Runtime detected external trading intervention
+          description: >-
+            The active runtime target has projected external orders or positions.
+            Automated policy may preserve, cancel, reduce, close, pause, or
+            block depending on configured remediation controls.
+
+      - alert: RuntimeActivePause
+        expr: trading_runtime_projection_states{kind="active_pauses"} > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Runtime has active pause governance
+          description: >-
+            One or more account or symbol pause governance states are active for
+            the runtime. New non-cancel order commands should remain blocked
+            until the pause is released or expires according to policy.
+
+      - alert: RuntimeMarketDataFreshnessLow
+        expr: trading_runtime_blocker_states{blocker=~"market_data:no_symbols|market_data:fresh_symbols_below_minimum"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Runtime market-data freshness is below threshold
+          description: >-
+            The active runtime target has no projected market-data symbols or
+            fewer fresh projected market-data symbols than the runtime status
+            threshold. Strategy analysis should stay blocked until market-data
+            projection is fresh again.

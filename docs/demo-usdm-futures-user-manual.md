@@ -570,6 +570,19 @@ This endpoint is read-only. It does not approve trades or bypass any existing
 admission path. The execution pipeline, risk gate, idempotency, journal,
 projection, reconciliation, and provider gateway remain authoritative.
 
+The same status surface is exported as Prometheus gauges when Micrometer is
+active:
+
+- `trading_runtime_readiness_states`
+- `trading_runtime_reconciliation_states`
+- `trading_runtime_projection_states`
+- `trading_runtime_market_data_states`
+- `trading_runtime_blocker_states`
+
+Runtime readiness alert rules live in
+`ops/prometheus/runtime-readiness-alerts.yml`, and the importable Grafana
+dashboard lives in `ops/grafana/runtime-readiness-dashboard.json`.
+
 List external order interventions:
 
 ```bash

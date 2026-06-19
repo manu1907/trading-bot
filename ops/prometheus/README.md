@@ -26,6 +26,29 @@ source-controlled Alertmanager routing profile for mapping `routing_hint` and
 `severity` to operator/platform PagerDuty and Slack receivers. Deployment should
 inject the real receiver secrets through the selected secret system.
 
+
+## Runtime Readiness Alerts
+
+`runtime-readiness-alerts.yml` defines alert rules for:
+
+- Runtime readiness blocked state.
+- Missing or degraded reconciliation confidence.
+- Unknown order status or unresolved order commands.
+- External order or position interventions.
+- Active pause governance.
+- Missing or insufficient fresh projected market data.
+
+The rules use low-cardinality gauges exported by `RuntimeStatusGaugeBinder`:
+`trading.runtime.readiness.states`, `trading.runtime.reconciliation.states`,
+`trading.runtime.projection.states`, `trading.runtime.market_data.states`, and
+`trading.runtime.blocker.states`. Micrometer exposes those gauges as
+`trading_runtime_readiness_states`, `trading_runtime_reconciliation_states`,
+`trading_runtime_projection_states`, `trading_runtime_market_data_states`, and
+`trading_runtime_blocker_states`.
+
+The alerts mirror the read-only `/internal/runtime/status` control-plane view.
+They are operational safety alerts, not trading-performance signals.
+
 ## Remediation Executor Alerts
 
 `remediation-executor-alerts.yml` defines alert rules for:

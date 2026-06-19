@@ -568,6 +568,13 @@ external interventions, unknown order states, unresolved commands, and optional
 strategy lifecycle state. It is an observability/control-plane surface only; the
 order execution pipeline, risk gate, idempotency, journal, reconciliation, and
 provider gateway remain the trading authority.
+`RuntimeStatusGaugeBinder` exports the same active-target view as bounded
+Micrometer gauges for readiness state, reconciliation state, readiness blockers,
+projection safety counts, and projected market-data freshness counts. The gauge
+labels are fixed enums such as `readiness`, `status`, `blocker`, and `kind`; they
+do not include order ids, exchange ids, signal ids, or symbols. Source-controlled
+Prometheus alerts and a Grafana dashboard consume these metrics for operational
+readiness monitoring.
 Position fill-to-delta causality still needs durable execution-state wiring
 before live automation can be called complete. The remediation advisor now
 keeps position remediation conservative: a flat external position recommends

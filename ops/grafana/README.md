@@ -21,6 +21,26 @@ The dashboard intentionally uses aggregate, low-cardinality queries. Deployment
 work should bind it to the production Prometheus datasource and pair it with the
 Prometheus rules in `ops/prometheus/pause-governance-alerts.yml`.
 
+
+## Runtime Readiness Dashboard
+
+`runtime-readiness-dashboard.json` is an importable Grafana dashboard for the
+active runtime readiness surface.
+
+It expects a Prometheus datasource and displays:
+
+- Runtime readiness state.
+- Reconciliation confidence state.
+- Active readiness blockers.
+- Projection safety counts for unsafe orders, unresolved commands,
+  interventions, pauses, and exposure.
+- Projected market-data total, fresh, and stale symbol counts.
+
+The dashboard intentionally uses aggregate, low-cardinality queries. It does not
+tag or group by signal ids, order ids, exchange ids, or symbols. Pair it with
+`ops/prometheus/runtime-readiness-alerts.yml` and the read-only
+`/internal/runtime/status` endpoint.
+
 ## Remediation Executor Dashboard
 
 `remediation-executor-dashboard.json` is an importable Grafana dashboard for the

@@ -36,7 +36,7 @@ public final class RuntimeStatusService {
         this(configManager, projection, reconciliationConfidenceTracker, Clock.systemUTC());
     }
 
-    RuntimeStatusService(
+    public RuntimeStatusService(
             ConfigManager configManager,
             TradingStateProjection projection,
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
