@@ -143,8 +143,9 @@ money-management fit plus an expected-profit score, records
 capacity, position capacity, notional capacity, loss capacity, and margin-health
 capacity, records `lfa_expected_profit_bps`,
 `lfa_expected_profit_notional` when signal notional is known, and
-`lfa_expected_profit_score` from a top-of-book imbalance/spread estimate, sorts
-analyzed signals by that score before applying `max_signals_per_run`, can allocate a total run target notional from
+`lfa_expected_profit_score` from a top-of-book imbalance/spread estimate, blocks
+candidate signals below configured `min_expected_profit_bps` or
+`min_expected_profit_score` floors, sorts analyzed signals by that score before applying `max_signals_per_run`, can allocate a total run target notional from
 the latest projected account margin balance, and splits it across candidate publish slots
 by configured `allocation_weighting_mode` (`EQUAL`, `CONFIDENCE`, or
 `MARKET_QUALITY`) when configured. The optional `max_strategy_run_notional` cap
@@ -176,7 +177,8 @@ account margin-balance high-watermark drawdown cap, account margin-utilization
 cap, account/symbol daily realized-loss caps, missing notional, account-risk,
 margin-balance, max-margin-balance, maintenance-margin, unrealized-PnL, or
 daily-PnL metadata when strict metadata rejection is enabled, and unbounded
-candidate signal notional when a notional cap is configured. Open-order notional
+candidate signal notional when a notional cap is configured. Budget blockers also
+include configured expected-profit bps or score floors. Open-order notional
 caps use projected remaining order quantity and limit price, and block with
 `lfa_budget:open_order_notional_metadata_missing` when relevant open-order
 metadata is unusable under strict metadata rejection. Allocation blockers include
@@ -195,7 +197,8 @@ with `allocation_weighting_mode=EQUAL`,
 `market_quality_quote_volume_baseline=100000000`,
 `market_quality_trade_count_baseline=100000`,
 `market_quality_taker_buy_quote_volume_baseline=50000000`, and
-`expected_profit_bps_baseline=1`, `expected_profit_score_cap=10`, and
+`expected_profit_bps_baseline=1`, `expected_profit_score_cap=10`, unset
+`min_expected_profit_bps`, unset `min_expected_profit_score`, and
 `require_reconciliation_confidence=true`
 unless overridden. LFA signal-runner notional, current unrealized-loss,
 account-margin-health, and daily realized-loss caps default to `null` until
@@ -204,10 +207,11 @@ open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,
 `max_candidate_market_data_symbols=13`,
 `target_notional_margin_balance_fraction=0.01`, and
 `max_allocated_target_notional=50`, `max_strategy_run_notional=50`, and
-`allocation_weighting_mode=MARKET_QUALITY` but does not override `enabled`, so the
-effective demo runner remains disabled because the full position-lifecycle and
-broader money-management layers are not complete enough for autonomous strategy
-execution.
+`allocation_weighting_mode=MARKET_QUALITY`, plus
+`min_expected_profit_bps=1` and `min_expected_profit_score=1`, but does not
+override `enabled`, so the effective demo runner remains disabled because the
+full position-lifecycle and broader money-management layers are not complete
+enough for autonomous strategy execution.
 
 When the LFA runner bean and internal operator API are enabled, the operator API
 also exposes `GET /internal/strategy/lfa/lifecycle` and

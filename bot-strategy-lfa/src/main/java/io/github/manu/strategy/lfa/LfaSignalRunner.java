@@ -916,6 +916,18 @@ public final class LfaSignalRunner {
                 && exposure.symbolOpenPositions() >= properties.maxSymbolOpenPositions().intValue()) {
             reasons.add("lfa_budget:max_symbol_open_positions");
         }
+        if (properties.minExpectedProfitBps() != null) {
+            BigDecimal expectedProfitBps = attributeDecimal(signal, "lfa_expected_profit_bps").orElse(null);
+            if (expectedProfitBps == null || expectedProfitBps.compareTo(properties.minExpectedProfitBps()) < 0) {
+                reasons.add("lfa_budget:min_expected_profit_bps");
+            }
+        }
+        if (properties.minExpectedProfitScore() != null) {
+            BigDecimal expectedProfitScore = attributeDecimal(signal, "lfa_expected_profit_score").orElse(null);
+            if (expectedProfitScore == null || expectedProfitScore.compareTo(properties.minExpectedProfitScore()) < 0) {
+                reasons.add("lfa_budget:min_expected_profit_score");
+            }
+        }
         BigDecimal signalNotional = signalNotional(signal).orElse(null);
         if ((properties.maxAccountPositionNotional() != null
                         || properties.maxSymbolPositionNotional() != null

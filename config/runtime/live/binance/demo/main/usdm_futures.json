@@ -49,6 +49,8 @@
           "max_allocated_target_notional": "50",
           "max_strategy_run_notional": "50",
           "allocation_weighting_mode": "MARKET_QUALITY",
+          "min_expected_profit_bps": "1",
+          "min_expected_profit_score": "1",
           "max_account_open_positions": 3,
           "max_symbol_open_positions": 1
         }

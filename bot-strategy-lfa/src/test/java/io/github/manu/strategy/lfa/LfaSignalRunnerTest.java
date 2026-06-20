@@ -349,6 +349,36 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void blocks_signal_when_expected_profit_is_below_configured_minimum() {
+        TradingStateProjection projection = projectionWith(
+                marketData(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.016",
+                        "50000.50",
+                        "0.010",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                )
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithExpectedProfitGate("1", "1"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.candidateSignals()).isEqualTo(1);
+        assertThat(result.publishedSignals()).isZero();
+        assertThat(result.blockers()).containsExactly(
+                "lfa_budget:min_expected_profit_bps",
+                "lfa_budget:min_expected_profit_score"
+        );
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
     void ranks_analyzed_signals_by_risk_money_management_fit_before_publication_cap() {
         TradingStateProjection projection = projectionWith(
                 List.of(position("ETHUSDT", "BOTH", "0.300", "3000")),
@@ -1543,6 +1573,8 @@ class LfaSignalRunnerTest {
                 new BigDecimal("50000000"),
                 BigDecimal.ONE,
                 new BigDecimal("10"),
+                null,
+                null,
                 maxSignalsPerRun,
                 null,
                 null,
@@ -1604,6 +1636,72 @@ class LfaSignalRunnerTest {
                 new BigDecimal("50000000"),
                 BigDecimal.ONE,
                 new BigDecimal("10"),
+                null,
+                null,
+                1,
+                null,
+                null,
+                null,
+                null,
+                3,
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                true,
+                true
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner propertiesWithExpectedProfitGate(
+            String minExpectedProfitBps,
+            String minExpectedProfitScore
+    ) {
+        return new LfaStrategyProperties.SignalRunner(
+                true,
+                30_000L,
+                30_000L,
+                "lfa",
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                "ACTIVE",
+                List.of("ACTIVE"),
+                null,
+                false,
+                true,
+                1,
+                1,
+                30_000L,
+                true,
+                null,
+                new BigDecimal("1.50"),
+                new BigDecimal("5"),
+                new BigDecimal("250"),
+                30_000L,
+                "0.001",
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                "EQUAL",
+                new BigDecimal("100000000"),
+                new BigDecimal("100000"),
+                new BigDecimal("50000000"),
+                BigDecimal.ONE,
+                new BigDecimal("10"),
+                decimal(minExpectedProfitBps),
+                decimal(minExpectedProfitScore),
                 1,
                 null,
                 null,
@@ -1727,6 +1825,8 @@ class LfaSignalRunnerTest {
                 new BigDecimal("50000000"),
                 BigDecimal.ONE,
                 new BigDecimal("10"),
+                null,
+                null,
                 1,
                 maxAccountOpenOrders,
                 maxSymbolOpenOrders,
