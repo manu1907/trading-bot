@@ -103,6 +103,30 @@ workflow run, authenticates with the `GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT`
 environment secret, uploads to `GCP_EVIDENCE_ARCHIVE_BUCKET`, and uploads the
 archive manifest as a workflow artifact.
 
+## Real Promotion Evidence Validator
+
+`validate-real-promotion-evidence.sh` validates a completed demo burn-in bundle,
+completed demo live-release bundle, and completed real live-release bundle before
+real exchange execution can be requested:
+
+```bash
+ops/evidence/validate-real-promotion-evidence.sh \
+  --demo-burn-in-file build/evidence/demo-burn-in/demo-burn-in-001/demo-burn-in-evidence.yml \
+  --demo-release-file build/evidence/demo/release-001/live-release-evidence.yml \
+  --real-release-file build/evidence/real/release-001/live-release-evidence.yml \
+  --output-file build/evidence/promotion/real-promotion-validation.md
+```
+
+The real promotion evidence validator is offline and fail-closed. It blocks
+promotion when evidence still contains template markers, secret-like material,
+reduced demo behavior, BTC-only demo behavior unless real is intentionally
+BTC-only, missing Binance live-smoke proof, unhealthy reconciliation, unresolved
+unknown/modify outcomes, unreviewed risk caps, missing drill proof, unresolved
+critical/high-risk incidents, missing monitoring/budget proof, or a missing
+explicit request to enable real execution. Passing validation proves the
+evidence package only; the real execution config change still belongs to the
+guarded deployment path.
+
 ## Handling Rules
 
 - Do not write Binance API keys, Google Cloud credentials, SMTP passwords,

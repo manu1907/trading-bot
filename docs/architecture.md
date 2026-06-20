@@ -783,6 +783,12 @@ are offline-first and do not fetch or print secret values. The Google Cloud
 evidence archive workflow preserves produced evidence artifacts in a versioned
 Cloud Storage bucket after a secret-pattern scan, giving promotion decisions a
 durable audit trail without committing operational evidence to source control.
+The real promotion evidence validator consumes completed demo burn-in, demo
+live-release, and real live-release evidence and fails closed on unresolved
+template markers, reduced demo behavior, missing smoke/drill/observability
+proof, unhealthy reconciliation, unresolved unknown outcomes, unreviewed risk
+caps, or missing explicit real-execution approval before any real execution
+policy change is requested.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

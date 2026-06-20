@@ -866,6 +866,14 @@ Pause governance metrics:
   It downloads a generated evidence artifact from a source workflow run, scans it
   for secret-like content, writes an archive manifest, and stores it in the
   versioned evidence archive bucket.
+- The real promotion evidence validator is offline and fail-closed. Run
+  `ops/evidence/validate-real-promotion-evidence.sh` against completed demo
+  burn-in, demo live-release, and real live-release evidence before requesting
+  any real execution policy change. It blocks unresolved placeholders, reduced
+  demo behavior, BTC-only demo evidence unless real is intentionally BTC-only,
+  missing smoke/drill/observability proof, unhealthy reconciliation, unresolved
+  unknown outcomes, unreviewed risk caps, and missing explicit promotion
+  approval.
 - The Google Cloud Cloud Run rollback workflow is manual and environment-gated.
   It requires the target revision and expected rollback commit SHA, verifies that
   the rollback commit passed `Security`, checks that the existing revision

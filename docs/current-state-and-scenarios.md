@@ -490,6 +490,15 @@ Implemented remediation executor observability includes:
   stages, market universe coverage, continuous metrics, trading metrics, drills,
   observability, and incidents. Generated bundles remain promotion-blocking
   until live outcomes are completed.
+- A real promotion evidence validator now exists at
+  `ops/evidence/validate-real-promotion-evidence.sh`. It validates completed
+  demo burn-in, demo live-release, and real live-release evidence before any real
+  execution policy change is requested. It fails closed on unresolved template
+  markers, secret-like material, reduced demo behavior, BTC-only demo evidence
+  unless real is intentionally BTC-only, missing live-smoke proof, unhealthy
+  reconciliation, unknown or pending modify outcomes, unreviewed risk caps,
+  missing drill/observability proof, unresolved critical/high-risk incidents, or
+  a missing explicit real execution policy-change request.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
 - An importable Grafana LFA strategy runner dashboard exists at `ops/grafana/strategy-lfa-dashboard.json`.
 - An importable Grafana runtime readiness dashboard exists at `ops/grafana/runtime-readiness-dashboard.json`.
