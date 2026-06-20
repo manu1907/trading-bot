@@ -724,13 +724,19 @@ metadata. The guarded Cloud Run smoke workflow is manual and environment-gated
 as well: it verifies `Security` success for the requested commit, confirms that
 the latest ready revision is labeled with that commit and runs the matching
 commit-tagged image, invokes the private readiness endpoint with a Google
-identity token, and uploads smoke evidence. The guarded Cloud Run rollback
-workflow is also manual and environment-gated: it requires an explicit target
-revision and rollback commit SHA, verifies `Security` success for that commit,
-proves that the target revision belongs to the selected service and matches the
-expected app/environment/commit labels plus commit-tagged image, routes all
-traffic to that existing revision, verifies private readiness, and uploads
-rollback evidence. The Google Cloud bootstrap script prepares the current
+identity token, and uploads smoke evidence. A separate guarded Binance live
+smoke workflow is manual and environment-gated; it verifies `Security` success,
+selects the requested demo or real active target inside the CI workspace, runs
+the existing server-time, passive order lifecycle, user-data stream, and
+market-data websocket smoke tasks with environment-scoped Binance credentials,
+uploads smoke evidence, and requires an explicit confirmation input before any
+real target can run. The guarded Cloud Run rollback workflow is also manual and
+environment-gated: it requires an explicit target revision and rollback commit
+SHA, verifies `Security` success for that commit, proves that the target
+revision belongs to the selected service and matches the expected
+app/environment/commit labels plus commit-tagged image, routes all traffic to
+that existing revision, verifies private readiness, and uploads rollback
+evidence. The Google Cloud bootstrap script prepares the current
 workflow foundation by enabling required APIs, creating Artifact Registry, the
 journal archive bucket, Cloud SQL PostgreSQL, demo/real databases, separate
 audit/projection database users, service accounts, IAM bindings, GitHub OIDC

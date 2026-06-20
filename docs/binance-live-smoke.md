@@ -63,3 +63,15 @@ In IntelliJ IDEA, create a Gradle run configuration for:
 Then attach the two environment variables to that run configuration. The test
 refuses real active targets before submitting an order unless the explicit real
 guard is enabled.
+
+## GitHub Actions
+
+`.github/workflows/smoke-binance-live.yml` runs the same four Gradle tasks as a
+guarded manual workflow. It uses the selected GitHub `demo` or `real`
+environment, verifies that the requested commit passed the `Security` workflow,
+rewrites `config/active.json` only inside the CI workspace for the selected
+target, reads Binance credentials from environment-scoped GitHub secrets, and
+uploads the smoke log plus JSON metadata as an artifact.
+
+For `real`, the workflow requires `confirm_real_smoke=RUN_REAL_BINANCE_SMOKE`
+before it supplies `-Dbinance.live.smoke.allowReal=true` to the Gradle tasks.

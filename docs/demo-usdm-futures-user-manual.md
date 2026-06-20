@@ -856,6 +856,12 @@ Pause governance metrics:
   requested commit, runs the matching commit-tagged image, returns `UP` from
   `/actuator/health/readiness` through an authenticated identity-token request,
   and records smoke metadata.
+- The Binance live smoke workflow is manual and environment-gated. It verifies
+  that the requested commit passed `Security`, selects the requested demo or
+  real active target inside the CI workspace, runs server-time, passive order
+  lifecycle, user-data stream, and market-data websocket smoke tasks with
+  environment-scoped Binance credentials, records smoke metadata, and requires
+  `confirm_real_smoke=RUN_REAL_BINANCE_SMOKE` before any real target can run.
 - The Google Cloud Cloud Run rollback workflow is manual and environment-gated.
   It requires the target revision and expected rollback commit SHA, verifies that
   the rollback commit passed `Security`, checks that the existing revision

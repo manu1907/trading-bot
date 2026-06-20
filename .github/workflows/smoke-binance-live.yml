@@ -1,0 +1,170 @@
+name: Smoke Binance Live Connectivity
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target runtime environment and GitHub environment gate.
+        required: true
+        type: choice
+        options:
+          - demo
+          - real
+      commit_sha:
+        description: Full commit SHA to validate. Defaults to the workflow ref SHA.
+        required: false
+        type: string
+      confirm_real_smoke:
+        description: For real only, enter RUN_REAL_BINANCE_SMOKE.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: smoke-binance-live-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Smoke Binance live target
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Resolve Binance smoke target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          requested_sha="${{ inputs.commit_sha }}"
+          if [ -z "$requested_sha" ]; then
+            requested_sha="${GITHUB_SHA}"
+          fi
+          if ! [[ "$requested_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "commit_sha must be a full 40-character lowercase git SHA" >&2
+            exit 1
+          fi
+          case "${{ inputs.environment }}" in
+            demo)
+              provider="binance"
+              environment="demo"
+              account="main"
+              market="usdm_futures"
+              contract_path="ops/google-cloud/demo-usdm-futures-deployment.yml"
+              allow_real="false"
+              ;;
+            real)
+              if [ "${{ inputs.confirm_real_smoke }}" != "RUN_REAL_BINANCE_SMOKE" ]; then
+                echo "Real Binance live smoke requires confirm_real_smoke=RUN_REAL_BINANCE_SMOKE" >&2
+                exit 1
+              fi
+              provider="binance"
+              environment="real"
+              account="main"
+              market="usdm_futures"
+              contract_path="ops/google-cloud/real-usdm-futures-deployment.yml"
+              allow_real="true"
+              ;;
+            *) echo "Unsupported environment: ${{ inputs.environment }}" >&2; exit 1 ;;
+          esac
+          echo "sha=$requested_sha" >> "$GITHUB_OUTPUT"
+          echo "provider=$provider" >> "$GITHUB_OUTPUT"
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
+          echo "account=$account" >> "$GITHUB_OUTPUT"
+          echo "market=$market" >> "$GITHUB_OUTPUT"
+          echo "contract_path=$contract_path" >> "$GITHUB_OUTPUT"
+          echo "allow_real=$allow_real" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout requested commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+
+      - name: Verify source CI passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          response="$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${{ steps.target.outputs.sha }}&event=push&per_page=20")"
+          passed_runs="$(printf '%s' "$response" \
+            | jq '[.workflow_runs[] | select(.name == "Security" and .conclusion == "success")] | length')"
+          if [ "$passed_runs" -lt 1 ]; then
+            echo "Security workflow has not passed for ${{ steps.target.outputs.sha }}" >&2
+            exit 1
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Select active runtime target
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > config/active.json <<JSON
+          {
+            "active": {
+              "provider": "${{ steps.target.outputs.provider }}",
+              "environment": "${{ steps.target.outputs.environment }}",
+              "account": "${{ steps.target.outputs.account }}",
+              "market": "${{ steps.target.outputs.market }}"
+            },
+            "runtime": {}
+          }
+          JSON
+          jq . config/active.json
+
+      - name: Run Binance live smoke tasks
+        env:
+          BINANCE_DEMO_API_KEY: ${{ secrets.BINANCE_DEMO_API_KEY }}
+          BINANCE_DEMO_API_SECRET: ${{ secrets.BINANCE_DEMO_API_SECRET }}
+          BINANCE_REAL_API_KEY: ${{ secrets.BINANCE_REAL_API_KEY }}
+          BINANCE_REAL_API_SECRET: ${{ secrets.BINANCE_REAL_API_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/smoke
+          gradle_args=(
+            --rerun-tasks
+            :bot-exchange-binance:binanceLiveServerTimeSmokeTest
+            :bot-exchange-binance:binanceLiveOrderSmokeTest
+            :bot-exchange-binance:binanceLiveUserDataStreamSmokeTest
+            :bot-exchange-binance:binanceLiveWebSocketSmokeTest
+          )
+          if [ "${{ steps.target.outputs.allow_real }}" = "true" ]; then
+            gradle_args=(-Dbinance.live.smoke.allowReal=true "${gradle_args[@]}")
+          fi
+          ./gradlew "${gradle_args[@]}" | tee build/smoke/binance-live-smoke.log
+          cat > build/smoke/binance-live-smoke.json <<JSON
+          {
+            "provider": "${{ steps.target.outputs.provider }}",
+            "environment": "${{ steps.target.outputs.environment }}",
+            "account": "${{ steps.target.outputs.account }}",
+            "market": "${{ steps.target.outputs.market }}",
+            "runtime_target": "${{ steps.target.outputs.provider }}/${{ steps.target.outputs.environment }}/${{ steps.target.outputs.account }}/${{ steps.target.outputs.market }}",
+            "contract": "${{ steps.target.outputs.contract_path }}",
+            "commit_sha": "${{ steps.target.outputs.sha }}",
+            "server_time_smoke": "passed",
+            "order_endpoint_smoke": "passed",
+            "user_data_stream_smoke": "passed",
+            "market_data_websocket_smoke": "passed",
+            "real_smoke_explicitly_confirmed": "${{ steps.target.outputs.allow_real }}",
+            "workflow_run": "${GITHUB_RUN_ID}",
+            "workflow_attempt": "${GITHUB_RUN_ATTEMPT}"
+          }
+          JSON
+
+      - name: Upload Binance live smoke metadata
+        uses: actions/upload-artifact@v5
+        with:
+          name: trading-bot-binance-live-smoke-${{ inputs.environment }}-${{ steps.target.outputs.sha }}
+          path: build/smoke/*
+          if-no-files-found: error

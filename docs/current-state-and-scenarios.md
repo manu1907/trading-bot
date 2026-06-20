@@ -530,6 +530,13 @@ Implemented persistence/recovery surfaces include:
   for the requested commit, verifies the revision source label and image tag,
   calls `/actuator/health/readiness` with a Google identity token, and uploads
   smoke evidence.
+- A guarded manual Binance live smoke workflow now verifies demo or real
+  exchange connectivity through GitHub environment gates. It checks `Security`
+  success for the requested commit, selects the requested active target inside
+  the CI workspace, runs the existing server-time, passive order lifecycle,
+  user-data stream, and market-data websocket smoke tasks with environment-scoped
+  Binance credentials, uploads smoke evidence, and requires
+  `confirm_real_smoke=RUN_REAL_BINANCE_SMOKE` before any real target can run.
 - A guarded manual Google Cloud Cloud Run rollback workflow now routes traffic
   back to an existing revision after verifying the requested rollback commit
   passed `Security`, the target revision belongs to the selected service, the
