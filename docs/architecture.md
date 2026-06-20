@@ -691,7 +691,11 @@ Alertmanager receiver substitutions to Secret Manager names, disables ephemeral
 JSONL audit persistence and file projection snapshots for Cloud Run, selects
 indexed JDBC audit and projection persistence with deployment-owned schema
 migration, 180-day retention, Cloud SQL automated backups, and 90-day restore
-drills, and declares journal archive policy. Deployment contracts now use the
+drills, and declares journal archive policy. Deployment-owned PostgreSQL schema
+migration now has checked-in projection and pause-governance audit SQL plus a
+guarded Google Cloud workflow that applies those schemas through Cloud SQL Auth
+Proxy using environment-scoped Secret Manager bindings while the hot bot runtime
+keeps schema initialization disabled. Deployment contracts now use the
 cloud-neutral schema in `ops/deployment/deployment-contract.yml`; AWS
 equivalents live in `ops/aws/demo-usdm-futures-deployment.yml` and
 `ops/aws/real-usdm-futures-deployment.yml`, mapping the same app-facing runtime
@@ -1049,9 +1053,11 @@ and schema initialization controls. Snapshots are loaded before journal recovery
 and saved at lifecycle stop. JDBC snapshot persistence includes balance,
 position, order, risk, daily realized PnL, manual-review decision, remediation
 decision, pause-governance, and applied-event-id tables. The schema contract lives at
-`bot-core/src/main/resources/db/projection/postgresql-schema.sql`. TimescaleDB
-hypertable tuning and a production migration runner remain open; the journal
-remains the authoritative crash recovery source.
+`bot-core/src/main/resources/db/projection/postgresql-schema.sql`. The audit JDBC
+schema contract lives at
+`bot-core/src/main/resources/db/audit/pause-governance-postgresql-schema.sql`.
+TimescaleDB hypertable tuning remains open; the journal remains the authoritative
+crash recovery source.
 
 Archive object names for journal exports are defined by
 `TradingEventArchiveLayout`. The layout is deterministic and GCS-friendly:

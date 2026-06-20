@@ -552,6 +552,14 @@ Implemented persistence/recovery surfaces include:
   user-data stream, and market-data websocket smoke tasks with environment-scoped
   Binance credentials, uploads smoke evidence, and requires
   `confirm_real_smoke=RUN_REAL_BINANCE_SMOKE` before any real target can run.
+- A guarded manual Google Cloud PostgreSQL state migration workflow now applies
+  deployment-owned projection and pause-governance audit schemas before Cloud
+  Run deployment or promotion. It verifies `Security` success for the requested
+  commit, uses a dedicated Cloud SQL migration service account, loads JDBC
+  URL/username/password bindings from Secret Manager, connects through Cloud SQL
+  Auth Proxy, runs `ops/database/migrate-postgresql-state.sh`, and uploads
+  migration evidence. The bot runtime remains configured with JDBC schema
+  initialization disabled.
 - A guarded manual Google Cloud evidence archive workflow now stores generated
   release, burn-in, smoke, rollback, incident, drill, or promotion evidence
   artifacts in a versioned Cloud Storage evidence bucket after a secret-pattern

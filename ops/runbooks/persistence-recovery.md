@@ -50,7 +50,12 @@ Current policy defaults by deployment:
 
 Schema creation and destructive retention jobs are deployment-owned. The bot
 runtime must not run production schema migration or retention cleanup from the
-hot trading process.
+hot trading process. For Google Cloud, run the guarded
+`.github/workflows/migrate-google-cloud-postgresql-state.yml` workflow before
+Cloud Run deployment or promotion when projection/audit schema changes are
+introduced. The workflow uses `ops/database/migrate-postgresql-state.sh`, the
+checked-in projection and audit SQL files, Cloud SQL Auth Proxy, and environment
+Secret Manager bindings without printing database secret values.
 
 ## Normal Startup Recovery
 

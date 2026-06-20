@@ -154,7 +154,9 @@ Binance USD-M futures demo target:
 - JSONL pause-governance audit persistence is disabled for Cloud Run because the
   container filesystem is not a durable audit backend.
 - JDBC schema initialization is disabled in the app runtime; schema ownership is
-  assigned to deployment migration.
+  assigned to deployment migration through
+  `.github/workflows/migrate-google-cloud-postgresql-state.yml` and
+  `ops/database/migrate-postgresql-state.sh`.
 - JDBC audit retention is 180 days.
 - Audit backups use Cloud SQL automated backups with at least 7 recovery days
   and a restore drill every 90 days.

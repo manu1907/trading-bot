@@ -801,6 +801,12 @@ Pause governance metrics:
   authenticated, the same bootstrap script creates or updates the `demo` and
   `real` GitHub environments with the required Google Cloud OIDC/service-account
   secrets and deployment variables.
+- The Google Cloud PostgreSQL state migration workflow is manual and
+  environment-gated. Run it before Cloud Run deployment or promotion when
+  projection/audit schema changes are introduced. It applies the checked-in
+  projection and pause-governance audit SQL with a dedicated Cloud SQL migration
+  service account while the bot runtime keeps JDBC schema initialization
+  disabled.
 - The persistence recovery runbook lives at
   `ops/runbooks/persistence-recovery.md`; it defines restore sequencing,
   reconciliation gates, compaction constraints, and restore-drill evidence.

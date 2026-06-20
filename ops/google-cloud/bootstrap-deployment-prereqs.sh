@@ -658,6 +658,7 @@ configure_github_environment() {
   set_github_environment_secret "$environment" GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT "$CLOUD_RUN_SMOKE_SA"
   set_github_environment_secret "$environment" GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT "$CLOUD_RUN_ROLLBACK_SA"
   set_github_environment_secret "$environment" GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT "$EVIDENCE_ARCHIVE_SA"
+  set_github_environment_secret "$environment" GCP_CLOUD_SQL_MIGRATION_SERVICE_ACCOUNT "$CLOUD_SQL_MIGRATION_SA"
 
   set_github_environment_variable "$environment" GCP_PROJECT_ID "$GCP_PROJECT_ID"
   set_github_environment_variable "$environment" GCP_REGION "$GCP_REGION"
@@ -697,6 +698,7 @@ Set these GitHub environment secrets for both demo and real environments:
   GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT=${CLOUD_RUN_SMOKE_SA}
   GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT=${CLOUD_RUN_ROLLBACK_SA}
   GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT=${EVIDENCE_ARCHIVE_SA}
+  GCP_CLOUD_SQL_MIGRATION_SERVICE_ACCOUNT=${CLOUD_SQL_MIGRATION_SA}
 
 Set these GitHub environment variables for both demo and real environments:
   GCP_PROJECT_ID=${GCP_PROJECT_ID}
@@ -813,6 +815,7 @@ main() {
   CLOUD_RUN_SMOKE_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-smoke" "trading-bot Cloud Run smoke")"
   CLOUD_RUN_ROLLBACK_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-rollback" "trading-bot Cloud Run rollback")"
   EVIDENCE_ARCHIVE_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-evidence-archiver" "trading-bot evidence archiver")"
+  CLOUD_SQL_MIGRATION_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-sql-migration" "trading-bot Cloud SQL migration")"
 
   log "Granting IAM roles"
   ensure_project_role "serviceAccount:${ARTIFACT_REGISTRY_SA}" roles/artifactregistry.writer
@@ -826,6 +829,8 @@ main() {
   ensure_project_role "serviceAccount:${CLOUD_RUN_ROLLBACK_SA}" roles/run.admin
   ensure_project_role "serviceAccount:${CLOUD_RUN_ROLLBACK_SA}" roles/run.invoker
   ensure_project_role "serviceAccount:${EVIDENCE_ARCHIVE_SA}" roles/storage.objectAdmin
+  ensure_project_role "serviceAccount:${CLOUD_SQL_MIGRATION_SA}" roles/cloudsql.client
+  ensure_project_role "serviceAccount:${CLOUD_SQL_MIGRATION_SA}" roles/secretmanager.secretAccessor
   ensure_service_account_user "$CLOUD_RUN_RUNTIME_SA" "$CLOUD_RUN_DEPLOY_SA"
 
   log "Configuring Workload Identity Federation"
@@ -836,6 +841,7 @@ main() {
   allow_github_to_impersonate "$CLOUD_RUN_SMOKE_SA" "$project_number"
   allow_github_to_impersonate "$CLOUD_RUN_ROLLBACK_SA" "$project_number"
   allow_github_to_impersonate "$EVIDENCE_ARCHIVE_SA" "$project_number"
+  allow_github_to_impersonate "$CLOUD_SQL_MIGRATION_SA" "$project_number"
 
   log "Creating Secret Manager secrets and adding supplied versions"
   ensure_secret_with_optional_version trading-bot-demo-binance-api-key BINANCE_DEMO_API_KEY

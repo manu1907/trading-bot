@@ -54,6 +54,8 @@ create table if not exists trading_projection_orders (
     exchange_order_id varchar(256),
     status varchar(64),
     exchange_status varchar(64),
+    side varchar(32),
+    order_type varchar(64),
     price varchar(128),
     original_quantity varchar(128),
     executed_quantity varchar(128),
@@ -67,6 +69,9 @@ create table if not exists trading_projection_orders (
     updated_at varchar(64) not null,
     event_id varchar(512)
 );
+
+alter table trading_projection_orders add column if not exists side varchar(32);
+alter table trading_projection_orders add column if not exists order_type varchar(64);
 
 create table if not exists trading_projection_risks (
     state_key varchar(512) primary key,
