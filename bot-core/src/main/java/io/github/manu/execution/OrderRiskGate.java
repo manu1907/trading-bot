@@ -11,6 +11,7 @@ import io.github.manu.events.v1.OrderCommandType;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.observability.PauseGovernanceMetrics;
+import io.github.manu.observability.RiskDecisionMetrics;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.reconciliation.ReconciliationConfidenceTracker;
 import io.github.manu.reconciliation.ReconciliationTargetConfidence;
@@ -70,6 +71,7 @@ public final class OrderRiskGate {
     private final TradingStateProjection tradingStateProjection;
     private final AuditLogger auditLogger;
     private final PauseGovernanceMetrics pauseGovernanceMetrics;
+    private final RiskDecisionMetrics riskDecisionMetrics;
     private final Clock clock;
 
     public OrderRiskGate(
@@ -83,6 +85,7 @@ public final class OrderRiskGate {
                 tradingStateProjection,
                 new AuditLogger(),
                 new PauseGovernanceMetrics(),
+                new RiskDecisionMetrics(),
                 Clock.systemUTC()
         );
     }
@@ -93,7 +96,8 @@ public final class OrderRiskGate {
             ReconciliationConfidenceTracker reconciliationConfidenceTracker,
             TradingStateProjection tradingStateProjection,
             AuditLogger auditLogger,
-            PauseGovernanceMetrics pauseGovernanceMetrics
+            PauseGovernanceMetrics pauseGovernanceMetrics,
+            RiskDecisionMetrics riskDecisionMetrics
     ) {
         this(
                 properties,
@@ -101,6 +105,7 @@ public final class OrderRiskGate {
                 tradingStateProjection,
                 auditLogger,
                 pauseGovernanceMetrics,
+                riskDecisionMetrics,
                 Clock.systemUTC()
         );
     }
@@ -116,6 +121,7 @@ public final class OrderRiskGate {
                 new TradingStateProjection(),
                 new AuditLogger(),
                 new PauseGovernanceMetrics(),
+                new RiskDecisionMetrics(),
                 clock
         );
     }
@@ -132,6 +138,7 @@ public final class OrderRiskGate {
                 tradingStateProjection,
                 new AuditLogger(),
                 new PauseGovernanceMetrics(),
+                new RiskDecisionMetrics(),
                 clock
         );
     }
@@ -144,6 +151,26 @@ public final class OrderRiskGate {
             PauseGovernanceMetrics pauseGovernanceMetrics,
             Clock clock
     ) {
+        this(
+                properties,
+                reconciliationConfidenceTracker,
+                tradingStateProjection,
+                auditLogger,
+                pauseGovernanceMetrics,
+                new RiskDecisionMetrics(),
+                clock
+        );
+    }
+
+    OrderRiskGate(
+            ExecutionProperties properties,
+            ReconciliationConfidenceTracker reconciliationConfidenceTracker,
+            TradingStateProjection tradingStateProjection,
+            AuditLogger auditLogger,
+            PauseGovernanceMetrics pauseGovernanceMetrics,
+            RiskDecisionMetrics riskDecisionMetrics,
+            Clock clock
+    ) {
         this.properties = Objects.requireNonNull(properties, "properties");
         this.reconciliationConfidenceTracker = Objects.requireNonNull(
                 reconciliationConfidenceTracker,
@@ -152,6 +179,7 @@ public final class OrderRiskGate {
         this.tradingStateProjection = Objects.requireNonNull(tradingStateProjection, "tradingStateProjection");
         this.auditLogger = Objects.requireNonNull(auditLogger, "auditLogger");
         this.pauseGovernanceMetrics = Objects.requireNonNull(pauseGovernanceMetrics, "pauseGovernanceMetrics");
+        this.riskDecisionMetrics = Objects.requireNonNull(riskDecisionMetrics, "riskDecisionMetrics");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -243,6 +271,7 @@ public final class OrderRiskGate {
                 .setAttributes(attributes(command, reconciliationConfidence))
                 .build();
         auditPauseOverride(command, event);
+        riskDecisionMetrics.riskDecision(command, event);
         return event;
     }
 

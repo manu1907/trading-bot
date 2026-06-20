@@ -13,6 +13,7 @@ import io.github.manu.events.v1.OrderResultStatus;
 import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.observability.PauseGovernanceMetrics;
+import io.github.manu.observability.RiskDecisionMetrics;
 import io.github.manu.projection.FileTradingStateProjectionStore;
 import io.github.manu.projection.TradingStateProjection;
 import io.github.manu.projection.TradingStateSnapshot;
@@ -91,6 +92,55 @@ class OrderRiskGateTest {
         assertThat(decision.getReasons()).containsExactly("reconciliation:degraded");
         assertThat(decision.getAttributes()).containsEntry("reconciliation_status", "DEGRADED");
         assertThat(decision.getAttributes()).containsEntry("reconciliation_degraded_states", "1");
+    }
+
+    @Test
+    void records_risk_decision_metrics_with_bounded_labels() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        OrderRiskGate riskGate = new OrderRiskGate(
+                defaultProperties(),
+                reconciliationTracker,
+                new TradingStateProjection(),
+                new AuditLogger(),
+                new PauseGovernanceMetrics(),
+                new RiskDecisionMetrics(meterRegistry),
+                clock
+        );
+
+        riskGate.evaluate(command());
+        riskGate.evaluate(OrderCommandEvent.newBuilder(reduceOnlyCommand())
+                .setQuantity(null)
+                .setQuoteOrderQuantity("100")
+                .setPrice(null)
+                .build());
+
+        assertThat(meterRegistry.get("trading.risk_gate.decision.events")
+                .tag("provider", "binance")
+                .tag("environment", "demo")
+                .tag("account", "main")
+                .tag("market", "usd_m_futures")
+                .tag("action", "NEW")
+                .tag("decision", "APPROVED")
+                .tag("primary_reason", "risk_gate:approved")
+                .tag("reduce_only", "false")
+                .tag("close_position", "false")
+                .counter()
+                .count())
+                .isEqualTo(1.0d);
+        assertThat(meterRegistry.get("trading.risk_gate.decision.events")
+                .tag("provider", "binance")
+                .tag("environment", "demo")
+                .tag("account", "main")
+                .tag("market", "usd_m_futures")
+                .tag("action", "NEW")
+                .tag("decision", "REJECTED")
+                .tag("primary_reason", "order_limit:reduce_only_unbounded_quantity")
+                .tag("reduce_only", "true")
+                .tag("close_position", "false")
+                .counter()
+                .count())
+                .isEqualTo(1.0d);
     }
 
     @Test

@@ -439,6 +439,9 @@ dashboard at `ops/grafana/runtime-readiness-dashboard.json`.
 
 Implemented remediation executor observability includes:
 
+- `trading.risk_gate.decision.events` Micrometer counters for each order risk-gate decision before provider mapping.
+- Bounded risk-gate labels for `provider`, `environment`, `account`, `market`, `action`, `decision`, `primary_reason`, `reduce_only`, and `close_position`.
+- Command ids, client order ids, exchange order ids, symbols, strategy ids, signal ids, and idempotency keys are intentionally excluded from risk-gate metric tags to keep Prometheus cardinality bounded.
 - `trading.remediation_executor.outcome.events` Micrometer counters for preview and execute evaluations.
 - Bounded labels for `provider`, `environment`, `account`, `market`, `mode`, `operation`, `status`, and executor `reason`.
 - Disabled executor policy evaluations counted as `operation=NONE`, `status=DISABLED`, and `reason=executor:policy_disabled`.
