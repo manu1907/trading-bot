@@ -788,7 +788,10 @@ live-release, and real live-release evidence and fails closed on unresolved
 template markers, reduced demo behavior, missing smoke/drill/observability
 proof, unhealthy reconciliation, unresolved unknown outcomes, unreviewed risk
 caps, or missing explicit real-execution approval before any real execution
-policy change is requested.
+policy change is requested. The guarded real promotion evidence workflow runs
+that validator from GitHub Actions under the `real` environment gate after
+verifying source CI and downloading the required evidence artifacts, producing an
+auditable pass/fail report without enabling real execution by itself.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

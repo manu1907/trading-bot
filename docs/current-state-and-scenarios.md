@@ -499,6 +499,12 @@ Implemented remediation executor observability includes:
   reconciliation, unknown or pending modify outcomes, unreviewed risk caps,
   missing drill/observability proof, unresolved critical/high-risk incidents, or
   a missing explicit real execution policy-change request.
+- A guarded manual real promotion evidence workflow now exists at
+  `.github/workflows/validate-real-promotion-evidence.yml`. It uses the `real`
+  GitHub environment gate, verifies `Security` success for the requested commit,
+  downloads the demo burn-in, demo live-release, and real live-release evidence
+  artifacts from supplied workflow run ids, runs the validator, and uploads the
+  validation report even when validation fails.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
 - An importable Grafana LFA strategy runner dashboard exists at `ops/grafana/strategy-lfa-dashboard.json`.
 - An importable Grafana runtime readiness dashboard exists at `ops/grafana/runtime-readiness-dashboard.json`.

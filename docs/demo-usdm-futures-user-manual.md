@@ -874,6 +874,11 @@ Pause governance metrics:
   missing smoke/drill/observability proof, unhealthy reconciliation, unresolved
   unknown outcomes, unreviewed risk caps, and missing explicit promotion
   approval.
+- The real promotion evidence validation workflow is manual and uses the `real`
+  GitHub environment gate. It downloads the completed evidence artifacts from
+  prior workflow runs, verifies the requested commit passed `Security`, runs the
+  validator, and uploads a pass/fail report. This workflow validates the
+  evidence package; it does not itself enable real exchange execution.
 - The Google Cloud Cloud Run rollback workflow is manual and environment-gated.
   It requires the target revision and expected rollback commit SHA, verifies that
   the rollback commit passed `Security`, checks that the existing revision

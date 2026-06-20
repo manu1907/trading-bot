@@ -127,6 +127,15 @@ explicit request to enable real execution. Passing validation proves the
 evidence package only; the real execution config change still belongs to the
 guarded deployment path.
 
+`.github/workflows/validate-real-promotion-evidence.yml` wraps the validator as
+a manual, `real` environment-gated workflow. It verifies that the requested
+commit passed the `Security` workflow, downloads demo burn-in, demo live-release,
+and real live-release evidence artifacts from the supplied workflow run ids,
+runs the validator, and uploads the validation report even when validation
+fails. Use the `real_scope_btc_only` input only when real is intentionally
+restricted to BTC-only behavior; otherwise BTC-only demo evidence blocks
+promotion.
+
 ## Handling Rules
 
 - Do not write Binance API keys, Google Cloud credentials, SMTP passwords,

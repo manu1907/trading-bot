@@ -1,0 +1,172 @@
+name: Validate Real Promotion Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Full commit SHA to validate. Defaults to the workflow ref SHA.
+        required: false
+        type: string
+      demo_burn_in_workflow_run_id:
+        description: Workflow run id containing the demo burn-in evidence artifact.
+        required: true
+        type: string
+      demo_burn_in_artifact_name:
+        description: Demo burn-in evidence artifact name.
+        required: true
+        type: string
+      demo_burn_in_file:
+        description: Path to demo burn-in evidence YAML inside the artifact.
+        required: false
+        type: string
+        default: demo-burn-in-evidence.yml
+      demo_release_workflow_run_id:
+        description: Workflow run id containing the demo live-release evidence artifact.
+        required: true
+        type: string
+      demo_release_artifact_name:
+        description: Demo live-release evidence artifact name.
+        required: true
+        type: string
+      demo_release_file:
+        description: Path to demo live-release evidence YAML inside the artifact.
+        required: false
+        type: string
+        default: live-release-evidence.yml
+      real_release_workflow_run_id:
+        description: Workflow run id containing the real live-release evidence artifact.
+        required: true
+        type: string
+      real_release_artifact_name:
+        description: Real live-release evidence artifact name.
+        required: true
+        type: string
+      real_release_file:
+        description: Path to real live-release evidence YAML inside the artifact.
+        required: false
+        type: string
+        default: live-release-evidence.yml
+      real_scope_btc_only:
+        description: Allow BTC-only demo evidence only when real is intentionally BTC-only.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: validate-real-promotion-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate real promotion evidence
+    runs-on: ubuntu-latest
+    environment: real
+    steps:
+      - name: Validate request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          requested_sha="${{ inputs.commit_sha }}"
+          if [ -z "$requested_sha" ]; then
+            requested_sha="${GITHUB_SHA}"
+          fi
+          if ! [[ "$requested_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "commit_sha must be a full 40-character lowercase git SHA" >&2
+            exit 1
+          fi
+          for run_id in \
+            "${{ inputs.demo_burn_in_workflow_run_id }}" \
+            "${{ inputs.demo_release_workflow_run_id }}" \
+            "${{ inputs.real_release_workflow_run_id }}"; do
+            if ! [[ "$run_id" =~ ^[0-9]+$ ]]; then
+              echo "evidence workflow run ids must be numeric" >&2
+              exit 1
+            fi
+          done
+          for evidence_path in \
+            "${{ inputs.demo_burn_in_file }}" \
+            "${{ inputs.demo_release_file }}" \
+            "${{ inputs.real_release_file }}"; do
+            if [[ "$evidence_path" = /* || "$evidence_path" == *".."* || "$evidence_path" == *"\\"* ]]; then
+              echo "evidence file paths must be relative artifact paths without traversal" >&2
+              exit 1
+            fi
+          done
+          echo "sha=$requested_sha" >> "$GITHUB_OUTPUT"
+          echo "demo_burn_in_dir=build/evidence/promotion-validation/demo-burn-in" >> "$GITHUB_OUTPUT"
+          echo "demo_release_dir=build/evidence/promotion-validation/demo-release" >> "$GITHUB_OUTPUT"
+          echo "real_release_dir=build/evidence/promotion-validation/real-release" >> "$GITHUB_OUTPUT"
+          echo "report=build/evidence/promotion-validation/real-promotion-validation.md" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout requested commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.request.outputs.sha }}
+
+      - name: Verify source CI passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          response="$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${{ steps.request.outputs.sha }}&event=push&per_page=20")"
+          passed_runs="$(printf '%s' "$response" \
+            | jq '[.workflow_runs[] | select(.name == "Security" and .conclusion == "success")] | length')"
+          if [ "$passed_runs" -lt 1 ]; then
+            echo "Security workflow has not passed for ${{ steps.request.outputs.sha }}" >&2
+            exit 1
+          fi
+
+      - name: Download demo burn-in evidence
+        uses: actions/download-artifact@v6
+        with:
+          run-id: ${{ inputs.demo_burn_in_workflow_run_id }}
+          name: ${{ inputs.demo_burn_in_artifact_name }}
+          path: ${{ steps.request.outputs.demo_burn_in_dir }}
+          github-token: ${{ github.token }}
+
+      - name: Download demo live-release evidence
+        uses: actions/download-artifact@v6
+        with:
+          run-id: ${{ inputs.demo_release_workflow_run_id }}
+          name: ${{ inputs.demo_release_artifact_name }}
+          path: ${{ steps.request.outputs.demo_release_dir }}
+          github-token: ${{ github.token }}
+
+      - name: Download real live-release evidence
+        uses: actions/download-artifact@v6
+        with:
+          run-id: ${{ inputs.real_release_workflow_run_id }}
+          name: ${{ inputs.real_release_artifact_name }}
+          path: ${{ steps.request.outputs.real_release_dir }}
+          github-token: ${{ github.token }}
+
+      - name: Validate promotion evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            --demo-burn-in-file "${{ steps.request.outputs.demo_burn_in_dir }}/${{ inputs.demo_burn_in_file }}"
+            --demo-release-file "${{ steps.request.outputs.demo_release_dir }}/${{ inputs.demo_release_file }}"
+            --real-release-file "${{ steps.request.outputs.real_release_dir }}/${{ inputs.real_release_file }}"
+            --output-file "${{ steps.request.outputs.report }}"
+          )
+          if [ "${{ inputs.real_scope_btc_only }}" = "true" ]; then
+            args+=(--real-scope-btc-only)
+          fi
+          ops/evidence/validate-real-promotion-evidence.sh "${args[@]}"
+
+      - name: Upload promotion validation report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: trading-bot-real-promotion-validation-${{ steps.request.outputs.sha }}
+          path: ${{ steps.request.outputs.report }}
+          if-no-files-found: error
