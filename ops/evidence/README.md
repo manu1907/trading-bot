@@ -53,6 +53,37 @@ Generated bundles must still be filled with live outcomes. `TODO` and
 attaches the corresponding deployment, smoke, trading-state, rollback,
 emergency-stop, alerting, and promotion evidence.
 
+## Demo Burn-In Collector
+
+`collect-demo-burn-in-evidence.sh` creates a concrete sanitized burn-in bundle
+for `binance/demo/main/usdm_futures`. It checksums the committed catalog, demo
+runtime override, Google Cloud demo and real deployment contracts, deployment
+schema, and burn-in template, then copies optional runtime-stage,
+market-universe, continuous-operation, trading, drill, observability, and
+incident evidence files after the same secret-pattern scan used by the release
+collector:
+
+```bash
+ops/evidence/collect-demo-burn-in-evidence.sh \
+  --burn-in-id demo-burn-in-2026-06-20-001 \
+  --operator github-actions \
+  --started-at 2026-06-20T00:00:00Z \
+  --ended-at 2026-06-27T00:00:00Z \
+  --duration-hours 168 \
+  --release-evidence-dir build/evidence/demo/demo-2026-06-20-001 \
+  --market-universe-file build/evidence/demo/market-universe.txt \
+  --continuous-metrics-file build/evidence/demo/continuous-metrics.txt \
+  --trading-metrics-file build/evidence/demo/trading-metrics.txt \
+  --drills-file build/evidence/demo/drills.txt \
+  --observability-file build/evidence/demo/observability.txt \
+  --output-dir build/evidence/demo-burn-in/demo-burn-in-2026-06-20-001
+```
+
+The demo burn-in collector is offline-first and promotion-blocking by default.
+Generated `TODO`, `true_or_false`, and `false_default` fields must be completed
+from actual live demo operation before the bundle can support any real execution
+policy change.
+
 ## Handling Rules
 
 - Do not write Binance API keys, Google Cloud credentials, SMTP passwords,

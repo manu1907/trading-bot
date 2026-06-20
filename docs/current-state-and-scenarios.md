@@ -479,13 +479,17 @@ Implemented remediation executor observability includes:
   unknown order outcomes, failed deployments, persistence failures, alerting
   outages, credential rotation/compromise, cost spikes, real-environment rules,
   and incident evidence bundles.
-- Operational evidence templates and a live release collector now exist in
-  `ops/evidence` for live releases and demo burn-in. The collector creates a
+- Operational evidence templates, a live release collector, and a demo burn-in
+  collector now exist in `ops/evidence`. The release collector creates a
   sanitized demo or real bundle from the current commit, deployment contract,
   config checksums, secret binding names, workflow run ids, Cloud Run metadata,
   smoke outputs, and operator/API snapshots without reading or printing secret
-  values. The generated bundle still requires live outcomes to be completed
-  before promotion.
+  values. The burn-in collector creates a sanitized demo burn-in bundle from the
+  committed catalog, demo runtime override, demo/real deployment contracts,
+  release-evidence manifests, and supplied live observation files for runtime
+  stages, market universe coverage, continuous metrics, trading metrics, drills,
+  observability, and incidents. Generated bundles remain promotion-blocking
+  until live outcomes are completed.
 - An importable Grafana remediation executor dashboard exists at `ops/grafana/remediation-executor-dashboard.json`.
 - An importable Grafana LFA strategy runner dashboard exists at `ops/grafana/strategy-lfa-dashboard.json`.
 - An importable Grafana runtime readiness dashboard exists at `ops/grafana/runtime-readiness-dashboard.json`.

@@ -769,8 +769,11 @@ observability, rollback/emergency drills, incident state, market-universe
 coverage, and the final promotion decision without storing secret values. The
 live release collector in the same directory materializes a sanitized demo or
 real evidence bundle from committed contracts, config checksums, workflow ids,
-Cloud Run metadata, and scrubbed observation files; it does not fetch or print
-secret values.
+Cloud Run metadata, and scrubbed observation files. The demo burn-in collector
+materializes the pre-real promotion evidence bundle from committed demo/real
+contracts plus supplied runtime-stage, market-universe, continuous metrics,
+trading metrics, drill, observability, and incident evidence. Both collectors
+are offline-first and do not fetch or print secret values.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

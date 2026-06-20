@@ -819,14 +819,17 @@ Pause governance metrics:
   outcomes, failed deployments, persistence failures, alerting outages,
   credential rotation or compromise, cost spikes, and real-environment incident
   rules.
-- Operational evidence templates and the live release collector live in
-  `ops/evidence`. Use `collect-live-release-evidence.sh demo` to create the
-  initial sanitized bundle for each demo release, then complete the remaining
-  live fields with deployment, smoke, trading-state, risk-policy, alerting,
-  rollback, and emergency-stop outcomes. Use
-  `demo-burn-in-evidence-template.yml` before any real execution policy is
-  enabled. Evidence must prove the same intended real behavior was exercised in
-  demo and must not contain secret values.
+- Operational evidence templates, the live release collector, and the demo
+  burn-in collector live in `ops/evidence`. Use
+  `collect-live-release-evidence.sh demo` to create the initial sanitized bundle
+  for each demo release, then complete the remaining live fields with
+  deployment, smoke, trading-state, risk-policy, alerting, rollback, and
+  emergency-stop outcomes. Use `collect-demo-burn-in-evidence.sh` to assemble
+  the sanitized demo burn-in bundle from release evidence, market-universe
+  coverage, continuous metrics, trading metrics, drills, observability, and
+  incident evidence before any real execution policy is enabled. Evidence must
+  prove the same intended real behavior was exercised in demo and must not
+  contain secret values.
 - Deployment contracts use the neutral schema in
   `ops/deployment/deployment-contract.yml`, so another cloud must keep the same
   app-facing runtime variables and secret keys.
