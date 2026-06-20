@@ -161,6 +161,11 @@ public final class StrategySignalPlanner implements TradingEventHandler {
         String quoteOrderQuantity = quantity == null ? value(signal.getTargetNotional()) : null;
         String price = value(signal.getLimitPrice());
         String stopPrice = value(signal.getStopPrice());
+        boolean reduceOnly = reduceOnly(signalType);
+        boolean closePosition = booleanFeature(features, FEATURE_CLOSE_POSITION);
+        if (reduceOnlySizingBlocked(reduceOnly, closePosition, quantity, quoteOrderQuantity)) {
+            return Optional.empty();
+        }
         Optional<String> selectedSymbol = selectSymbol(
                 signal,
                 provider,
@@ -230,8 +235,8 @@ public final class StrategySignalPlanner implements TradingEventHandler {
                 .setStopPrice(stopPrice)
                 .setActivationPrice(null)
                 .setCallbackRate(null)
-                .setReduceOnly(reduceOnly(signalType))
-                .setClosePosition(booleanFeature(features, FEATURE_CLOSE_POSITION))
+                .setReduceOnly(reduceOnly)
+                .setClosePosition(closePosition)
                 .setClientOrderId(clientOrderId(signalId, features))
                 .setIdempotencyKey("signal:" + signalId)
                 .setRequestedAtMicros(Instant.now(clock))
@@ -730,6 +735,21 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             case EXIT_LONG, EXIT_SHORT, REDUCE_LONG, REDUCE_SHORT -> true;
             case ENTER_LONG, ENTER_SHORT, HOLD, CANCEL -> false;
         };
+    }
+
+    private boolean reduceOnlySizingBlocked(
+            boolean reduceOnly,
+            boolean closePosition,
+            String quantity,
+            String quoteOrderQuantity
+    ) {
+        if (!reduceOnly) {
+            return false;
+        }
+        if (closePosition) {
+            return quantity != null || quoteOrderQuantity != null;
+        }
+        return quantity == null;
     }
 
     private String clientOrderId(String signalId, Map<CharSequence, CharSequence> features) {

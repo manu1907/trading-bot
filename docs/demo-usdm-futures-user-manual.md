@@ -1920,6 +1920,14 @@ the configured floor instead of publishing a marginal signal.
 Signals carrying an expired or malformed `signal_expires_at` attribute are suppressed by the core signal planner before order-command construction, so stale LFA signals do not reach execution admission. This is a first signal ordering, freshness, and admission layer, not the complete v1 portfolio manager, position
 lifecycle, take-profit/stop-loss, realized-PnL model, or live promotion evidence
 layer.
+
+For exit and reduction intents, the core signal planner also enforces a bounded
+reduce-only shape before publishing an order command. `EXIT_LONG`, `EXIT_SHORT`,
+`REDUCE_LONG`, and `REDUCE_SHORT` can pass only when the signal carries an
+explicit `targetQuantity`, or when the signal is an unsized
+`close_position=true` full-close intent. Quote-notional reduce-only signals are
+suppressed, and close-position signals with explicit size are suppressed, so the
+planner does not mix partial-reduction sizing with full-close semantics.
 With the catalog default
 `reject_missing_allocation_balance=true`, missing account margin balance blocks
 publication instead of falling back to stale or ambiguous sizing.

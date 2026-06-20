@@ -9,6 +9,15 @@ loss. The current codebase implements only the supported scenarios listed in
 this document. It must not be described as a completed profit-maximizing trading
 manager yet.
 
+The core strategy signal planner now includes a first provider-agnostic
+exit/reduction safety guard. `EXIT_LONG`, `EXIT_SHORT`, `REDUCE_LONG`, and
+`REDUCE_SHORT` signals can become reduce-only order commands only when they
+carry an explicit `targetQuantity`, or when they are unsized
+`close_position=true` signals. Quote-notional reduce-only signals are suppressed
+because they do not express a bounded position-size reduction. Close-position
+signals with explicit quantity or notional sizing are also suppressed so full
+close intents cannot be mixed with partial-size semantics.
+
 ## Active First-Start Target
 
 The checked-in first-start runtime target is:

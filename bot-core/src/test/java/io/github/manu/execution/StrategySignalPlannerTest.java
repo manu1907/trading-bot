@@ -135,6 +135,90 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void plans_exit_long_signal_as_quantity_bounded_reduce_only_sell() {
+        StrategySignalPlanner planner = planner();
+        StrategySignalEvent signal = StrategySignalEvent.newBuilder(signal(StrategySignalType.EXIT_LONG))
+                .setLimitPrice(null)
+                .setFeatures(Map.of(
+                        "order_type", "STOP_MARKET",
+                        "position_side", "LONG"
+                ))
+                .setStopPrice("49000.00")
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal);
+
+        assertThat(planned).hasValueSatisfying(command -> {
+            assertThat(command.getSide()).isEqualTo(OrderCommandSide.SELL);
+            assertThat(command.getOrderType()).isEqualTo(OrderCommandType.STOP_MARKET);
+            assertThat(command.getPositionSide()).isEqualTo(OrderCommandPositionSide.LONG);
+            assertThat(command.getQuantity()).isEqualTo("0.001");
+            assertThat(command.getQuoteOrderQuantity()).isNull();
+            assertThat(command.getStopPrice()).isEqualTo("49000.00");
+            assertThat(command.getReduceOnly()).isTrue();
+            assertThat(command.getClosePosition()).isFalse();
+        });
+    }
+
+    @Test
+    void suppresses_reduce_only_signal_with_quote_notional_without_close_position() {
+        StrategySignalPlanner planner = planner();
+        StrategySignalEvent signal = StrategySignalEvent.newBuilder(signal(StrategySignalType.REDUCE_LONG))
+                .setLimitPrice(null)
+                .setTargetQuantity(null)
+                .setTargetNotional("100")
+                .setFeatures(Map.of("order_type", "MARKET"))
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal);
+        planner.handleSignal(signal).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void plans_unsized_close_position_signal_as_reduce_only_close() {
+        StrategySignalPlanner planner = planner();
+        StrategySignalEvent signal = StrategySignalEvent.newBuilder(signal(StrategySignalType.EXIT_LONG))
+                .setLimitPrice(null)
+                .setTargetQuantity(null)
+                .setTargetNotional(null)
+                .setFeatures(Map.of(
+                        "close_position", "true",
+                        "order_type", "STOP_MARKET",
+                        "position_side", "LONG"
+                ))
+                .setStopPrice("49000.00")
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal);
+
+        assertThat(planned).hasValueSatisfying(command -> {
+            assertThat(command.getSide()).isEqualTo(OrderCommandSide.SELL);
+            assertThat(command.getOrderType()).isEqualTo(OrderCommandType.STOP_MARKET);
+            assertThat(command.getQuantity()).isNull();
+            assertThat(command.getQuoteOrderQuantity()).isNull();
+            assertThat(command.getReduceOnly()).isTrue();
+            assertThat(command.getClosePosition()).isTrue();
+        });
+    }
+
+    @Test
+    void suppresses_close_position_signal_with_explicit_sizing() {
+        StrategySignalPlanner planner = planner();
+        StrategySignalEvent signal = StrategySignalEvent.newBuilder(signal(StrategySignalType.EXIT_LONG))
+                .setFeatures(Map.of("close_position", "true"))
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(signal);
+        planner.handleSignal(signal).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void uses_signal_features_to_select_market_order_and_provider_attributes() {
         StrategySignalPlanner planner = planner();
         StrategySignalEvent signal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_SHORT))
