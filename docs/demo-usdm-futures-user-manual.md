@@ -1739,6 +1739,7 @@ Catalog defaults are:
 - `expected_profit_score_cap`: `10`
 - `min_expected_profit_bps`: `null`
 - `min_expected_profit_score`: `null`
+- `min_risk_money_management_fit_score`: `null`
 - `max_signals_per_run`: `1`
 - `max_account_open_orders`: `null`
 - `max_symbol_open_orders`: `null`
@@ -1818,6 +1819,7 @@ overrides for `binance/demo/main/usdm_futures`:
 - `allocation_weighting_mode`: `MARKET_QUALITY`
 - `min_expected_profit_bps`: `1`
 - `min_expected_profit_score`: `1`
+- `min_risk_money_management_fit_score`: `0.25`
 - `max_account_open_positions`: `3`
 - `max_symbol_open_positions`: `1`
 
@@ -1909,9 +1911,10 @@ floored at zero, then divides by `expected_profit_bps_baseline` and caps at
 is known, the runner also records estimated expected notional profit. The risk
 fit score uses the same projected account and symbol budgets that can block
 publication, but as a ranking penalty before the publish cap. If
-`min_expected_profit_bps` or `min_expected_profit_score` is configured, the
-runner blocks a candidate signal whose expected-profit estimate is below the
-configured floor instead of publishing a marginal signal. This is a first signal
+`min_expected_profit_bps`, `min_expected_profit_score`, or
+`min_risk_money_management_fit_score` is configured, the runner blocks a
+candidate signal whose expected-profit estimate or projected risk fit is below
+the configured floor instead of publishing a marginal signal. This is a first signal
 ordering and admission layer, not the complete v1 portfolio manager, position
 lifecycle, take-profit/stop-loss, realized-PnL model, or live promotion evidence
 layer.
@@ -1974,6 +1977,7 @@ Current runner budget gates can block on:
 - `lfa_budget:max_symbol_position_notional`
 - `lfa_budget:min_expected_profit_bps`
 - `lfa_budget:min_expected_profit_score`
+- `lfa_budget:min_risk_money_management_fit_score`
 - `lfa_budget:max_account_unrealized_loss`
 - `lfa_budget:max_symbol_unrealized_loss`
 - `lfa_budget:min_account_margin_balance`

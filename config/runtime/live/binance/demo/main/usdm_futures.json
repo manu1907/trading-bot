@@ -51,6 +51,7 @@
           "allocation_weighting_mode": "MARKET_QUALITY",
           "min_expected_profit_bps": "1",
           "min_expected_profit_score": "1",
+          "min_risk_money_management_fit_score": "0.25",
           "max_account_open_positions": 3,
           "max_symbol_open_positions": 1
         }

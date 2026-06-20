@@ -144,6 +144,7 @@
           "expected_profit_score_cap": "10",
           "min_expected_profit_bps": null,
           "min_expected_profit_score": null,
+          "min_risk_money_management_fit_score": null,
           "max_signals_per_run": 1,
           "max_account_open_orders": null,
           "max_symbol_open_orders": null,

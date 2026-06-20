@@ -420,6 +420,35 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void blocks_signal_when_risk_money_management_fit_is_below_configured_minimum() {
+        TradingStateProjection projection = projectionWith(
+                List.of(position("ETHUSDT", "BOTH", "0.300", "3000")),
+                List.of(),
+                marketData(
+                        "ETHUSDT",
+                        "3000.00",
+                        "0.600",
+                        "3000.03",
+                        "0.300",
+                        Map.of("quoteVolume", "900000000", "numberOfTrades", "900000", "takerBuyQuoteVolume", "700000000")
+                )
+        );
+        LfaSignalRunner runner = runner(
+                propertiesWithRiskFitGate("0.80"),
+                projection,
+                enabledExecutionProperties()
+        );
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:budget_blocked");
+        assertThat(result.candidateSignals()).isEqualTo(1);
+        assertThat(result.publishedSignals()).isZero();
+        assertThat(result.blockers()).containsExactly("lfa_budget:min_risk_money_management_fit_score");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
     void analyzes_only_signal_planner_universe_symbols_when_universe_is_enabled() {
         TradingStateProjection projection = projectionWith(
                 marketData("BTCUSDT", "50000.00", "0.200", "50000.50", "0.010"),
@@ -1575,6 +1604,7 @@ class LfaSignalRunnerTest {
                 new BigDecimal("10"),
                 null,
                 null,
+                null,
                 maxSignalsPerRun,
                 null,
                 null,
@@ -1636,6 +1666,7 @@ class LfaSignalRunnerTest {
                 new BigDecimal("50000000"),
                 BigDecimal.ONE,
                 new BigDecimal("10"),
+                null,
                 null,
                 null,
                 1,
@@ -1702,6 +1733,7 @@ class LfaSignalRunnerTest {
                 new BigDecimal("10"),
                 decimal(minExpectedProfitBps),
                 decimal(minExpectedProfitScore),
+                null,
                 1,
                 null,
                 null,
@@ -1709,6 +1741,68 @@ class LfaSignalRunnerTest {
                 null,
                 3,
                 1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                true,
+                true
+        );
+    }
+
+    private LfaStrategyProperties.SignalRunner propertiesWithRiskFitGate(String minRiskMoneyManagementFitScore) {
+        return new LfaStrategyProperties.SignalRunner(
+                true,
+                30_000L,
+                30_000L,
+                "lfa",
+                "binance",
+                "demo",
+                "main",
+                "usdm_futures",
+                "ACTIVE",
+                List.of("ACTIVE"),
+                null,
+                false,
+                true,
+                1,
+                1,
+                30_000L,
+                true,
+                null,
+                new BigDecimal("1.50"),
+                new BigDecimal("5"),
+                new BigDecimal("250"),
+                30_000L,
+                "0.001",
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                "EQUAL",
+                new BigDecimal("100000000"),
+                new BigDecimal("100000"),
+                new BigDecimal("50000000"),
+                BigDecimal.ONE,
+                new BigDecimal("10"),
+                null,
+                null,
+                decimal(minRiskMoneyManagementFitScore),
+                1,
+                null,
+                null,
+                null,
+                null,
+                3,
+                3,
                 null,
                 null,
                 null,
@@ -1825,6 +1919,7 @@ class LfaSignalRunnerTest {
                 new BigDecimal("50000000"),
                 BigDecimal.ONE,
                 new BigDecimal("10"),
+                null,
                 null,
                 null,
                 1,

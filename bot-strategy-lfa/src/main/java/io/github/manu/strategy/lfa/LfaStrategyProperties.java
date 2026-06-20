@@ -57,6 +57,7 @@ public record LfaStrategyProperties(
             BigDecimal expectedProfitScoreCap,
             BigDecimal minExpectedProfitBps,
             BigDecimal minExpectedProfitScore,
+            BigDecimal minRiskMoneyManagementFitScore,
             Integer maxSignalsPerRun,
             Integer maxAccountOpenOrders,
             Integer maxSymbolOpenOrders,
@@ -148,6 +149,12 @@ public record LfaStrategyProperties(
             expectedProfitScoreCap = positive(expectedProfitScoreCap, new BigDecimal("10"), "expectedProfitScoreCap");
             minExpectedProfitBps = positiveOrNull(minExpectedProfitBps, "minExpectedProfitBps");
             minExpectedProfitScore = positiveOrNull(minExpectedProfitScore, "minExpectedProfitScore");
+            minRiskMoneyManagementFitScore =
+                    positiveOrNull(minRiskMoneyManagementFitScore, "minRiskMoneyManagementFitScore");
+            if (minRiskMoneyManagementFitScore != null
+                    && minRiskMoneyManagementFitScore.compareTo(BigDecimal.ONE) > 0) {
+                throw new IllegalArgumentException("minRiskMoneyManagementFitScore must be <= 1");
+            }
             if (minAllocatedTargetNotional != null && maxAllocatedTargetNotional != null
                     && minAllocatedTargetNotional.compareTo(maxAllocatedTargetNotional) > 0) {
                 throw new IllegalArgumentException("minAllocatedTargetNotional must be <= maxAllocatedTargetNotional");
@@ -228,6 +235,7 @@ public record LfaStrategyProperties(
                     new BigDecimal("50000000"),
                     BigDecimal.ONE,
                     new BigDecimal("10"),
+                    null,
                     null,
                     null,
                     1,

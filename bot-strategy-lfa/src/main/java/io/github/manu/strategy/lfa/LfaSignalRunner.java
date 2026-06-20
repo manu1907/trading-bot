@@ -928,6 +928,12 @@ public final class LfaSignalRunner {
                 reasons.add("lfa_budget:min_expected_profit_score");
             }
         }
+        if (properties.minRiskMoneyManagementFitScore() != null) {
+            BigDecimal riskFitScore = attributeDecimal(signal, "lfa_risk_money_management_fit_score").orElse(null);
+            if (riskFitScore == null || riskFitScore.compareTo(properties.minRiskMoneyManagementFitScore()) < 0) {
+                reasons.add("lfa_budget:min_risk_money_management_fit_score");
+            }
+        }
         BigDecimal signalNotional = signalNotional(signal).orElse(null);
         if ((properties.maxAccountPositionNotional() != null
                         || properties.maxSymbolPositionNotional() != null
