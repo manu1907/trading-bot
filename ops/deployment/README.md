@@ -77,3 +77,4 @@ Current implementations:
 - `ops/google-cloud/demo-usdm-futures-deployment.yml`
 - `ops/google-cloud/real-usdm-futures-deployment.yml`
 - `ops/aws/demo-usdm-futures-deployment.yml`
+- `ops/aws/real-usdm-futures-deployment.yml`

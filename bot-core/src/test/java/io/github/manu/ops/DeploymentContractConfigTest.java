@@ -19,7 +19,8 @@ class DeploymentContractConfigTest {
     private static final List<String> DEPLOYMENT_CONTRACTS = List.of(
             "ops/google-cloud/demo-usdm-futures-deployment.yml",
             "ops/google-cloud/real-usdm-futures-deployment.yml",
-            "ops/aws/demo-usdm-futures-deployment.yml"
+            "ops/aws/demo-usdm-futures-deployment.yml",
+            "ops/aws/real-usdm-futures-deployment.yml"
     );
 
     @Test
@@ -48,9 +49,17 @@ class DeploymentContractConfigTest {
 
     @Test
     void cloud_deployment_contracts_keep_the_same_app_facing_runtime_surface() throws IOException {
-        Map<String, Object> googleCloud = yaml("ops/google-cloud/demo-usdm-futures-deployment.yml");
-        Map<String, Object> aws = yaml("ops/aws/demo-usdm-futures-deployment.yml");
+        assertSameAppFacingRuntimeSurface(
+                yaml("ops/google-cloud/demo-usdm-futures-deployment.yml"),
+                yaml("ops/aws/demo-usdm-futures-deployment.yml")
+        );
+        assertSameAppFacingRuntimeSurface(
+                yaml("ops/google-cloud/real-usdm-futures-deployment.yml"),
+                yaml("ops/aws/real-usdm-futures-deployment.yml")
+        );
+    }
 
+    private void assertSameAppFacingRuntimeSurface(Map<String, Object> googleCloud, Map<String, Object> aws) {
         assertThat(map(googleCloud, "runtime_env")).isEqualTo(map(aws, "runtime_env"));
         assertThat(map(googleCloud, "secret_env").keySet()).isEqualTo(map(aws, "secret_env").keySet());
         assertThat(map(googleCloud, "alertmanager_secret_substitutions").keySet())
@@ -79,6 +88,38 @@ class DeploymentContractConfigTest {
 
         assertSecretNamesStartWith(map(demo, "secret_env"), "trading-bot-demo-");
         assertSecretNamesStartWith(map(real, "secret_env"), "trading-bot-real-");
+        assertThat(map(real, "deployment_controls"))
+                .containsEntry("require_manual_approval", true)
+                .containsEntry("require_demo_promotion_evidence", true)
+                .containsEntry("real_trading_initial_state", "exchange_execution_disabled");
+        assertThat(map(real, "deployment_controls").get("allowed_real_operations"))
+                .as("allowed_real_operations")
+                .isInstanceOf(List.class);
+        assertThat((List<?>) map(real, "deployment_controls").get("allowed_real_operations")).isEmpty();
+    }
+
+    @Test
+    void aws_demo_and_real_use_isolated_targets_and_secret_names() throws IOException {
+        Map<String, Object> demo = yaml("ops/aws/demo-usdm-futures-deployment.yml");
+        Map<String, Object> real = yaml("ops/aws/real-usdm-futures-deployment.yml");
+
+        assertThat(map(demo, "runtime_env")).containsEntry("BOT_ENVIRONMENT", "demo");
+        assertThat(map(real, "runtime_env"))
+                .containsEntry("BOT_ENVIRONMENT", "real")
+                .containsEntry("TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_ENABLED", "false")
+                .containsEntry("TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_EXCHANGE_EXECUTION_ENABLED", "false")
+                .containsEntry("TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_REPORT_ONLY", "true")
+                .containsEntry("TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_ALLOW_REAL_ENVIRONMENT", "false");
+
+        assertThat(map(demo, "secret_env").keySet())
+                .contains("BINANCE_DEMO_API_KEY", "BINANCE_DEMO_API_SECRET")
+                .doesNotContain("BINANCE_REAL_API_KEY", "BINANCE_REAL_API_SECRET");
+        assertThat(map(real, "secret_env").keySet())
+                .contains("BINANCE_REAL_API_KEY", "BINANCE_REAL_API_SECRET")
+                .doesNotContain("BINANCE_DEMO_API_KEY", "BINANCE_DEMO_API_SECRET");
+
+        assertSecretNamesStartWith(map(demo, "secret_env"), "trading-bot/demo/");
+        assertSecretNamesStartWith(map(real, "secret_env"), "trading-bot/real/");
         assertThat(map(real, "deployment_controls"))
                 .containsEntry("require_manual_approval", true)
                 .containsEntry("require_demo_promotion_evidence", true)

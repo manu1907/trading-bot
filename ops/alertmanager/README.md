@@ -66,9 +66,10 @@ Template-only validation, without Google Cloud access:
 ops/alertmanager/render-google-cloud-alertmanager.sh demo --validate-placeholders-only
 ```
 
-The Google Cloud demo deployment contract in
-`ops/google-cloud/demo-usdm-futures-deployment.yml` maps these substitutions to
-Google Secret Manager secret names for the Binance USD-M futures demo target.
-The AWS demo deployment contract in
-`ops/aws/demo-usdm-futures-deployment.yml` maps the same substitutions to AWS
+The Google Cloud deployment contracts in
+`ops/google-cloud/demo-usdm-futures-deployment.yml` and
+`ops/google-cloud/real-usdm-futures-deployment.yml` map these substitutions to
+Google Secret Manager secret names for the Binance USD-M futures targets. The
+AWS deployment contracts in `ops/aws/demo-usdm-futures-deployment.yml` and
+`ops/aws/real-usdm-futures-deployment.yml` map the same substitutions to AWS
 Secrets Manager names.

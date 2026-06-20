@@ -859,9 +859,11 @@ Pause governance metrics:
   belongs to the selected service and matches the expected app, environment,
   commit label, and image tag, shifts 100 percent traffic to that revision,
   verifies private readiness, and records rollback metadata.
-- An AWS equivalent contract already exists at
-  `ops/aws/demo-usdm-futures-deployment.yml`; it maps the same bot runtime
-  surface to ECS Fargate, AWS Secrets Manager, and RDS PostgreSQL.
+- AWS equivalent contracts already exist at
+  `ops/aws/demo-usdm-futures-deployment.yml` and
+  `ops/aws/real-usdm-futures-deployment.yml`; they map the same bot runtime
+  surface to ECS Fargate, AWS Secrets Manager, RDS PostgreSQL, and S3 journal
+  archive policy.
 - A Google Cloud real contract exists at
   `ops/google-cloud/real-usdm-futures-deployment.yml`; it uses the same code and
   contract shape but switches to `BOT_ENVIRONMENT=real`, real Binance credential

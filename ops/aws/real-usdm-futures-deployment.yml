@@ -1,0 +1,160 @@
+schema_version: 1
+
+contract:
+  id: io.github.manu.trading-bot.deployment-contract
+  version: 1
+
+deployment:
+  platform: aws
+  runtime: ecs_fargate
+  environment: real
+  provider: binance
+  account: main
+  market: usdm_futures
+  service_name: trading-bot-real-main-usdm-futures
+  region: ${AWS_REGION}
+  image: ${TRADING_BOT_IMAGE}
+
+runtime_env:
+  SPRING_PROFILES_ACTIVE: live
+  BOT_CONFIG_DIR: /app/config
+  BOT_PROVIDER: binance
+  BOT_ENVIRONMENT: real
+  BOT_ACCOUNT: main
+  BOT_MARKET: usdm_futures
+  TRADING_INTERVENTION_OPERATOR_API_ENABLED: "true"
+  TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_ENABLED: "false"
+  TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_EXCHANGE_EXECUTION_ENABLED: "false"
+  TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_REPORT_ONLY: "true"
+  TRADING_INTERVENTION_REMEDIATION_EXECUTOR_POLICY_ALLOW_REAL_ENVIRONMENT: "false"
+  TRADING_AUDIT_PAUSE_GOVERNANCE_FILE_STORE_ENABLED: "false"
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_ENABLED: "true"
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_TABLE_PREFIX: trading_audit_pause_governance_
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_STORE_INITIALIZE_SCHEMA: "false"
+  TRADING_PROJECTION_SNAPSHOT_STORE_ENABLED: "false"
+  TRADING_PROJECTION_JDBC_STORE_ENABLED: "true"
+  TRADING_PROJECTION_JDBC_STORE_TABLE_PREFIX: trading_projection_
+  TRADING_PROJECTION_JDBC_STORE_INITIALIZE_SCHEMA: "false"
+
+secret_env:
+  BINANCE_REAL_API_KEY:
+    secret: trading-bot/real/binance/api-key
+    version: AWSCURRENT
+  BINANCE_REAL_API_SECRET:
+    secret: trading-bot/real/binance/api-secret
+    version: AWSCURRENT
+  TRADING_INTERVENTION_OPERATOR_API_OPERATOR_TOKEN:
+    secret: trading-bot/real/operator-token
+    version: AWSCURRENT
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_URL:
+    secret: trading-bot/real/audit/jdbc-url
+    version: AWSCURRENT
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_USERNAME:
+    secret: trading-bot/real/audit/jdbc-username
+    version: AWSCURRENT
+  TRADING_AUDIT_PAUSE_GOVERNANCE_JDBC_PASSWORD:
+    secret: trading-bot/real/audit/jdbc-password
+    version: AWSCURRENT
+  TRADING_PROJECTION_JDBC_URL:
+    secret: trading-bot/real/projection/jdbc-url
+    version: AWSCURRENT
+  TRADING_PROJECTION_JDBC_USERNAME:
+    secret: trading-bot/real/projection/jdbc-username
+    version: AWSCURRENT
+  TRADING_PROJECTION_JDBC_PASSWORD:
+    secret: trading-bot/real/projection/jdbc-password
+    version: AWSCURRENT
+
+alertmanager_secret_substitutions:
+  ALERTMANAGER_TRADING_BOT_OPERATOR_PAGERDUTY_ROUTING_KEY:
+    secret: trading-bot/real/alerts/operator-pagerduty-routing-key
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_PLATFORM_PAGERDUTY_ROUTING_KEY:
+    secret: trading-bot/real/alerts/platform-pagerduty-routing-key
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_SMTP_SMARTHOST:
+    secret: trading-bot/real/alerts/smtp-smarthost
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_SMTP_FROM:
+    secret: trading-bot/real/alerts/smtp-from
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_SMTP_AUTH_USERNAME:
+    secret: trading-bot/real/alerts/smtp-auth-username
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_SMTP_AUTH_PASSWORD:
+    secret: trading-bot/real/alerts/smtp-auth-password
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_OPERATOR_EMAIL_TO:
+    secret: trading-bot/real/alerts/operator-email-to
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_PLATFORM_EMAIL_TO:
+    secret: trading-bot/real/alerts/platform-email-to
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_FALLBACK_EMAIL_TO:
+    secret: trading-bot/real/alerts/fallback-email-to
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_WEBHOOK:
+    secret: trading-bot/real/alerts/operator-slack-webhook
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_OPERATOR_SLACK_CHANNEL:
+    secret: trading-bot/real/alerts/operator-slack-channel
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_WEBHOOK:
+    secret: trading-bot/real/alerts/platform-slack-webhook
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_PLATFORM_SLACK_CHANNEL:
+    secret: trading-bot/real/alerts/platform-slack-channel
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_WEBHOOK:
+    secret: trading-bot/real/alerts/fallback-slack-webhook
+    version: AWSCURRENT
+  ALERTMANAGER_TRADING_BOT_FALLBACK_SLACK_CHANNEL:
+    secret: trading-bot/real/alerts/fallback-slack-channel
+    version: AWSCURRENT
+
+audit_backend:
+  selected: jdbc
+  jdbc:
+    database: rds_postgresql
+    schema_owner: deployment_migration
+    table_prefix: trading_audit_pause_governance_
+    retention_days: 365
+    backups:
+      enabled: true
+      mechanism: rds_automated_backup
+      minimum_recovery_days: 35
+      restore_test_interval_days: 30
+
+state_backend:
+  projection:
+    selected: jdbc
+    jdbc:
+      database: rds_postgresql
+      schema_owner: deployment_migration
+      table_prefix: trading_projection_
+      retention_days: 365
+      compaction:
+        enabled: true
+        minimum_interval_days: 7
+        preserve_latest_snapshot: true
+        preserve_applied_event_ids: true
+      backups:
+        enabled: true
+        mechanism: rds_automated_backup
+        minimum_recovery_days: 35
+        restore_test_interval_days: 30
+  journal_archive:
+    enabled: true
+    mechanism: s3_object_archive
+    bucket: ${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET}
+    prefix: real/main/usdm_futures
+    layout: trading_event_archive_layout_v1
+    retention_days: 365
+
+deployment_controls:
+  require_manual_approval: true
+  require_demo_promotion_evidence: true
+  require_real_secret_isolation: true
+  real_trading_initial_state: exchange_execution_disabled
+  allowed_real_operations: []
+  promotion_source: demo_live_burn_in

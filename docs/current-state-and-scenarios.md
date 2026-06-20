@@ -502,9 +502,9 @@ Implemented persistence/recovery surfaces include:
 - JDBC projection snapshot store.
 - Cloud deployment contracts now require durable JDBC projection persistence,
   projection retention, compaction, managed backups, restore drills, and journal
-  archive policy. Google Cloud demo/real and AWS demo contracts disable file
-  projection snapshots in ephemeral runtimes and bind projection JDBC settings
-  through secrets.
+  archive policy. Google Cloud demo/real and AWS demo/real contracts disable
+  file projection snapshots in ephemeral runtimes and bind projection JDBC
+  settings through secrets.
 - A production runtime `Dockerfile` now packages the prebuilt `bot-app` boot jar
   and source-controlled config, defaults to the `live` profile, sets the
   Chronicle Queue JVM access flags, runs as a non-root user, and exposes the

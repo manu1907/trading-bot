@@ -692,15 +692,14 @@ JSONL audit persistence and file projection snapshots for Cloud Run, selects
 indexed JDBC audit and projection persistence with deployment-owned schema
 migration, 180-day retention, Cloud SQL automated backups, and 90-day restore
 drills, and declares journal archive policy. Deployment contracts now use the
-cloud-neutral schema in `ops/deployment/deployment-contract.yml`; an AWS
-equivalent lives in `ops/aws/demo-usdm-futures-deployment.yml` and maps the same
-app-facing runtime variables to ECS Fargate, AWS Secrets Manager, RDS
-PostgreSQL, and S3 archive policy without changing trading code. A matching
-Google Cloud real contract lives in
-`ops/google-cloud/real-usdm-futures-deployment.yml`; it selects the real Binance
-USD-M futures target with isolated real credentials and real audit/projection
-secrets, 365-day state retention, 30-day restore drills, and remediation
-exchange execution disabled until promotion
+cloud-neutral schema in `ops/deployment/deployment-contract.yml`; AWS
+equivalents live in `ops/aws/demo-usdm-futures-deployment.yml` and
+`ops/aws/real-usdm-futures-deployment.yml`, mapping the same app-facing runtime
+variables to ECS Fargate, AWS Secrets Manager, RDS PostgreSQL, and S3 archive
+policy without changing trading code. Matching Google Cloud and AWS real
+contracts select the real Binance USD-M futures target with isolated real
+credentials and real audit/projection secrets, 365-day state retention, 30-day
+restore drills, and remediation exchange execution disabled until promotion
 evidence, manual approval, and explicit real-operation allowlists are supplied by
 deployment.
 
