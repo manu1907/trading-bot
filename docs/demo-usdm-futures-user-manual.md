@@ -1705,6 +1705,7 @@ Catalog defaults are:
 - `enabled`: `false`
 - `initial_delay_millis`: `30000`
 - `interval_millis`: `30000`
+- `signal_ttl_millis`: `30000`
 - `strategy_id`: `lfa`
 - `provider`: `null`
 - `environment`: `null`
@@ -1804,6 +1805,7 @@ value remains the catalog value `enabled=false`. It sets only actual first-start
 overrides for `binance/demo/main/usdm_futures`:
 
 - `initial_delay_millis`: `10000`
+- `signal_ttl_millis`: `15000`
 - `provider`: `binance`
 - `environment`: `demo`
 - `account`: `main`
@@ -1898,8 +1900,8 @@ references the candidate symbol, emitted signals include
 `lfa_reconciliation_availability_score` for auditability.
 After analysis, each emitted signal receives `lfa_risk_money_management_fit_score`,
 `lfa_expected_profit_bps`, `lfa_expected_profit_score`,
-`lfa_expected_profit_model`, optional `lfa_expected_profit_notional`, and
-`lfa_expected_edge_score`. The expected-edge score is the runner's current
+`lfa_expected_profit_model`, optional `lfa_expected_profit_notional`,
+`signal_ttl_millis`, `signal_expires_at`, and `lfa_expected_edge_score`. The expected-edge score is the runner's current
 auditable ranking measure for the publish cap and combines analyzer confidence,
 imbalance, spread, effective quote depth, projected daily quote volume, projected
 daily trade count, projected daily taker-buy quote volume, freshness, provider
@@ -1914,8 +1916,8 @@ publication, but as a ranking penalty before the publish cap. If
 `min_expected_profit_bps`, `min_expected_profit_score`, or
 `min_risk_money_management_fit_score` is configured, the runner blocks a
 candidate signal whose expected-profit estimate or projected risk fit is below
-the configured floor instead of publishing a marginal signal. This is a first signal
-ordering and admission layer, not the complete v1 portfolio manager, position
+the configured floor instead of publishing a marginal signal.
+Signals carrying an expired or malformed `signal_expires_at` attribute are suppressed by the core signal planner before order-command construction, so stale LFA signals do not reach execution admission. This is a first signal ordering, freshness, and admission layer, not the complete v1 portfolio manager, position
 lifecycle, take-profit/stop-loss, realized-PnL model, or live promotion evidence
 layer.
 With the catalog default

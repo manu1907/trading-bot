@@ -296,6 +296,7 @@ class LfaLifecycleOperatorControllerTest {
                 true,
                 30_000L,
                 30_000L,
+                30_000L,
                 "lfa",
                 "binance",
                 "demo",

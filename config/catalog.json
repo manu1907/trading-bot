@@ -78,6 +78,7 @@
           "enabled": false,
           "initial_delay_millis": 30000,
           "interval_millis": 30000,
+          "signal_ttl_millis": 30000,
           "strategy_id": "lfa",
           "provider": null,
           "environment": null,

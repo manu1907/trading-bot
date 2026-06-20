@@ -342,6 +342,8 @@ class LfaSignalRunnerTest {
             assertThat(signal.getAttributes())
                     .containsEntry("lfa_expected_profit_model", "top_of_book_imbalance_spread_adjusted")
                     .containsEntry("lfa_expected_profit_score", "10")
+                    .containsEntry("signal_expires_at", NOW.plusMillis(30_000L).toString())
+                    .containsEntry("signal_ttl_millis", "30000")
                     .containsKey("lfa_expected_profit_bps")
                     .containsKey("lfa_expected_profit_notional")
                     .containsKey("lfa_expected_edge_score");
@@ -1570,6 +1572,7 @@ class LfaSignalRunnerTest {
                 true,
                 30_000L,
                 30_000L,
+                30_000L,
                 "lfa",
                 "binance",
                 "demo",
@@ -1632,6 +1635,7 @@ class LfaSignalRunnerTest {
     ) {
         return new LfaStrategyProperties.SignalRunner(
                 true,
+                30_000L,
                 30_000L,
                 30_000L,
                 "lfa",
@@ -1699,6 +1703,7 @@ class LfaSignalRunnerTest {
                 true,
                 30_000L,
                 30_000L,
+                30_000L,
                 "lfa",
                 "binance",
                 "demo",
@@ -1759,6 +1764,7 @@ class LfaSignalRunnerTest {
     private LfaStrategyProperties.SignalRunner propertiesWithRiskFitGate(String minRiskMoneyManagementFitScore) {
         return new LfaStrategyProperties.SignalRunner(
                 true,
+                30_000L,
                 30_000L,
                 30_000L,
                 "lfa",
@@ -1885,6 +1891,7 @@ class LfaSignalRunnerTest {
     ) {
         return new LfaStrategyProperties.SignalRunner(
                 enabled,
+                30_000L,
                 30_000L,
                 30_000L,
                 "lfa",

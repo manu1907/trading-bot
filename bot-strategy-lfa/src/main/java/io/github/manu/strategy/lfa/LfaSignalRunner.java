@@ -261,6 +261,7 @@ public final class LfaSignalRunner {
                     .map(signal -> withReconciliationAvailability(signal, reconciliationAvailabilityScores))
                     .map(signal -> withRiskMoneyManagementFitScore(snapshot, target, signal, now))
                     .map(this::withExpectedProfitScore)
+                    .map(signal -> withSignalExpiry(signal, now))
                     .map(this::withExpectedEdgeScore)
                     .sorted(Comparator
                             .comparing(
@@ -1392,6 +1393,18 @@ public final class LfaSignalRunner {
                         .divide(new BigDecimal("10000"), 8, RoundingMode.HALF_UP)
                         .stripTrailingZeros());
         return new ExpectedProfitEstimate(expectedProfitBps, score, expectedProfitNotional);
+    }
+
+    private StrategySignalEvent withSignalExpiry(StrategySignalEvent signal, Instant now) {
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        if (signal.getAttributes() != null) {
+            attributes.putAll(signal.getAttributes());
+        }
+        attributes.put("signal_expires_at", now.plusMillis(properties.signalTtlMillis()).toString());
+        attributes.put("signal_ttl_millis", Long.toString(properties.signalTtlMillis()));
+        return StrategySignalEvent.newBuilder(signal)
+                .setAttributes(attributes)
+                .build();
     }
 
     private StrategySignalEvent withRiskMoneyManagementFitScore(

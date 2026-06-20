@@ -142,8 +142,8 @@ money-management fit plus an expected-profit score, records
 `lfa_risk_money_management_fit_score` from remaining account/symbol order
 capacity, position capacity, notional capacity, loss capacity, and margin-health
 capacity, records `lfa_expected_profit_bps`,
-`lfa_expected_profit_notional` when signal notional is known, and
-`lfa_expected_profit_score` from a top-of-book imbalance/spread estimate, blocks
+`lfa_expected_profit_notional` when signal notional is known,
+`lfa_expected_profit_score` from a top-of-book imbalance/spread estimate, and stamps `signal_ttl_millis` plus `signal_expires_at` from the configured runner TTL, blocks
 candidate signals below configured `min_expected_profit_bps`,
 `min_expected_profit_score`, or `min_risk_money_management_fit_score` floors, sorts analyzed signals by expected edge before applying `max_signals_per_run`, can allocate a total run target notional from
 the latest projected account margin balance, and splits it across candidate publish slots
@@ -197,14 +197,14 @@ with `allocation_weighting_mode=EQUAL`,
 `market_quality_quote_volume_baseline=100000000`,
 `market_quality_trade_count_baseline=100000`,
 `market_quality_taker_buy_quote_volume_baseline=50000000`, and
-`expected_profit_bps_baseline=1`, `expected_profit_score_cap=10`, unset
+`expected_profit_bps_baseline=1`, `expected_profit_score_cap=10`, `signal_ttl_millis=30000`, unset
 `min_expected_profit_bps`, unset `min_expected_profit_score`, unset
 `min_risk_money_management_fit_score`, and `require_reconciliation_confidence=true`
 unless overridden. LFA signal-runner notional, current unrealized-loss,
 account-margin-health, and daily realized-loss caps default to `null` until
 calibrated by a runtime override. The checked-in demo runtime overrides target, bootstrap sizing,
 open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,
-`max_candidate_market_data_symbols=13`,
+`max_candidate_market_data_symbols=13`, `signal_ttl_millis=15000`,
 `target_notional_margin_balance_fraction=0.01`, and
 `max_allocated_target_notional=50`, `max_strategy_run_notional=50`, and
 `allocation_weighting_mode=MARKET_QUALITY`, plus

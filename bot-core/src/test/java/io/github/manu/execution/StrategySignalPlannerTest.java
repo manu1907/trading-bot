@@ -91,6 +91,34 @@ class StrategySignalPlannerTest {
     }
 
     @Test
+    void suppresses_expired_strategy_signal_before_order_planning() {
+        StrategySignalPlanner planner = planner();
+        StrategySignalEvent expiredSignal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setAttributes(Map.of("signal_expires_at", NOW.minusSeconds(1).toString()))
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(expiredSignal);
+        planner.handleSignal(expiredSignal).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
+    void suppresses_strategy_signal_with_invalid_expiry_before_order_planning() {
+        StrategySignalPlanner planner = planner();
+        StrategySignalEvent invalidSignal = StrategySignalEvent.newBuilder(signal(StrategySignalType.ENTER_LONG))
+                .setAttributes(Map.of("signal_expires_at", "not-an-instant"))
+                .build();
+
+        Optional<OrderCommandEvent> planned = planner.plan(invalidSignal);
+        planner.handleSignal(invalidSignal).join();
+
+        assertThat(planned).isEmpty();
+        assertThat(eventBus.envelopes).isEmpty();
+    }
+
+    @Test
     void plans_exit_short_signal_as_reduce_only_buy() {
         StrategySignalPlanner planner = planner();
         StrategySignalEvent signal = StrategySignalEvent.newBuilder(signal(StrategySignalType.EXIT_SHORT))

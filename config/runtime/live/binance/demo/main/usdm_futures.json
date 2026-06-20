@@ -36,6 +36,7 @@
       "lfa": {
         "signal_runner": {
           "initial_delay_millis": 10000,
+          "signal_ttl_millis": 15000,
           "provider": "binance",
           "environment": "demo",
           "account": "main",

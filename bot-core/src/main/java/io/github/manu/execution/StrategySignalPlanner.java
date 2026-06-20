@@ -20,6 +20,7 @@ import io.github.manu.reconciliation.ReconciliationTargetConfidence;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,6 +37,7 @@ public final class StrategySignalPlanner implements TradingEventHandler {
     private static final String FEATURE_POSITION_SIDE = "position_side";
     private static final String FEATURE_CLIENT_ORDER_ID = "client_order_id";
     private static final String FEATURE_CLOSE_POSITION = "close_position";
+    private static final String ATTRIBUTE_SIGNAL_EXPIRES_AT = "signal_expires_at";
 
     private final ExecutionProperties properties;
     private final TradingEventBus eventBus;
@@ -142,6 +144,9 @@ public final class StrategySignalPlanner implements TradingEventHandler {
     Optional<OrderCommandEvent> plan(StrategySignalEvent signal) {
         StrategySignalType signalType = Objects.requireNonNull(signal.getSignalType(), "signalType");
         if (signalType == StrategySignalType.HOLD || signalType == StrategySignalType.CANCEL) {
+            return Optional.empty();
+        }
+        if (expired(signal)) {
             return Optional.empty();
         }
 
@@ -643,6 +648,25 @@ public final class StrategySignalPlanner implements TradingEventHandler {
             return properties.riskGate().reconciliation().rejectDegraded();
         }
         return false;
+    }
+
+    private boolean expired(StrategySignalEvent signal) {
+        String expiresAt = attribute(signal, ATTRIBUTE_SIGNAL_EXPIRES_AT);
+        if (expiresAt == null) {
+            return false;
+        }
+        try {
+            return !Instant.parse(expiresAt).isAfter(Instant.now(clock));
+        } catch (DateTimeParseException e) {
+            return true;
+        }
+    }
+
+    private String attribute(StrategySignalEvent signal, String key) {
+        if (signal.getAttributes() == null) {
+            return null;
+        }
+        return value(signal.getAttributes().get(key));
     }
 
     private TradingEventEnvelope<OrderCommandEvent> envelope(OrderCommandEvent command) {

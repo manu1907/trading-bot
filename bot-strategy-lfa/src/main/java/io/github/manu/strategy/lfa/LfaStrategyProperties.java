@@ -23,6 +23,7 @@ public record LfaStrategyProperties(
             Boolean enabled,
             Long initialDelayMillis,
             Long intervalMillis,
+            Long signalTtlMillis,
             String strategyId,
             String provider,
             String environment,
@@ -84,6 +85,7 @@ public record LfaStrategyProperties(
             enabled = Boolean.TRUE.equals(enabled);
             initialDelayMillis = positive(initialDelayMillis, 30_000L, "initialDelayMillis");
             intervalMillis = positive(intervalMillis, 30_000L, "intervalMillis");
+            signalTtlMillis = positive(signalTtlMillis, 30_000L, "signalTtlMillis");
             strategyId = text(strategyId, "lfa");
             lifecycleState = normalizedText(lifecycleState, "STOPPED");
             LfaLifecycleState.parse(lifecycleState, "lifecycleState");
@@ -201,6 +203,7 @@ public record LfaStrategyProperties(
         static SignalRunner disabled() {
             return new SignalRunner(
                     false,
+                    30_000L,
                     30_000L,
                     30_000L,
                     "lfa",
