@@ -1,0 +1,62 @@
+groups:
+  - name: risk-gate
+    rules:
+      - alert: RiskGateRejectedCommands
+        expr: sum by (provider, environment, account, market, primary_reason) (increase(trading_risk_gate_decision_events_total{decision="REJECTED"}[5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Order risk gate rejected one or more commands
+          description: >-
+            The order risk gate rejected one or more commands before provider
+            mapping. Inspect the primary_reason label, runtime status, projected
+            order state, reconciliation confidence, and command source before
+            retrying or changing risk policy.
+
+      - alert: RiskGateManualReviewCommands
+        expr: sum by (provider, environment, account, market, primary_reason) (increase(trading_risk_gate_decision_events_total{decision="MANUAL_REVIEW"}[5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Order risk gate requested manual-review disposition
+          description: >-
+            The order risk gate returned MANUAL_REVIEW. In unattended operation,
+            the command must remain non-submitted unless an automated policy or
+            operator action resolves the blocker through the supported control
+            path.
+
+      - alert: RiskGateUnsafeReduceOnlyShapeRejected
+        expr: increase(trading_risk_gate_decision_events_total{decision="REJECTED",primary_reason=~"order_limit:reduce_only_unbounded_quantity|order_limit:close_position_sized"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Unsafe reduce-only or close-position command shape rejected
+          description: >-
+            A reduce-only or close-position command reached the risk gate with
+            an unsafe sizing shape. Quantity-bounded reduce-only commands and
+            unsized close-position commands are the supported shapes. Inspect
+            the command producer before enabling or increasing automation.
+
+      - alert: RiskGateApprovedCommandsObserved
+        expr: increase(trading_risk_gate_decision_events_total{decision="APPROVED"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          service: trading-bot
+          routing_hint: operator
+        annotations:
+          summary: Order risk gate approved one or more commands
+          description: >-
+            The order risk gate approved at least one command. Confirm the
+            downstream provider preflight, gateway submission, order result,
+            projection update, and reconciliation evidence before increasing
+            risk limits.

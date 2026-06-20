@@ -1279,6 +1279,8 @@ Micrometer/Actuator metrics are available, the executor emits:
 - `trading.risk_gate.decision.events` for every order risk-gate decision before
   provider mapping, with tags `provider`, `environment`, `account`, `market`,
   `action`, `decision`, `primary_reason`, `reduce_only`, and `close_position`
+- Prometheus alert rules at `ops/prometheus/risk-gate-alerts.yml`
+- Importable Grafana dashboard at `ops/grafana/risk-gate-dashboard.json`
 - `trading.remediation_executor.outcome.events` with tags `provider`,
   `environment`, `account`, `market`, `mode`, `operation`, `status`, and
   `reason`

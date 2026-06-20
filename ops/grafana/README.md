@@ -41,6 +41,24 @@ tag or group by signal ids, order ids, exchange ids, or symbols. Pair it with
 `ops/prometheus/runtime-readiness-alerts.yml` and the read-only
 `/internal/runtime/status` endpoint.
 
+## Risk Gate Dashboard
+
+`risk-gate-dashboard.json` is an importable Grafana dashboard for the order
+risk-gate admission surface.
+
+It expects a Prometheus datasource and displays:
+
+- Risk-gate decision rates by decision.
+- Rejected and manual-review decisions by primary reason.
+- Last-hour approved, rejected, and manual-review counts.
+- Unsafe reduce-only and close-position shape rejections.
+- Risk-gate decisions by command action and runtime target.
+
+The dashboard intentionally avoids command ids, client order ids, exchange order
+ids, symbols, strategy ids, signal ids, and idempotency keys so it stays
+compatible with the low-cardinality metric contract. Pair it with
+`ops/prometheus/risk-gate-alerts.yml`.
+
 ## Remediation Executor Dashboard
 
 `remediation-executor-dashboard.json` is an importable Grafana dashboard for the

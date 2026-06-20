@@ -29,7 +29,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 - `ExternalTradingRuntimeEnvironmentPostProcessor` loads the same validated live external config before Spring conditional beans and `@ConfigurationProperties` binding, then exposes merged `trading.*` values as Spring properties. Command-line arguments and OS environment variables remain higher priority than the checked-in runtime file.
 - Operator API access can be protected with `X-Operator-Token` when enabled by config.
 - A read-only operator-token-protected runtime status endpoint exists at `GET /internal/runtime/status`. It defaults to the active runtime target and can inspect an explicit provider/environment/account/market query. It reports runtime identity, reconciliation confidence, open order and position counts, external intervention counts, unknown order status count, unresolved command count, active pause count, projected market-data freshness counts, optional strategy lifecycle state, readiness (`READY`, `ATTENTION`, or `BLOCKED`), and explicit blockers. It is an operator observability/control-plane surface only; execution admission remains owned by the order execution pipeline, risk gate, idempotency, journal, projection, reconciliation, and provider gateway. The same active-target readiness view now has bounded Micrometer gauges for readiness state, reconciliation state, blockers, projection safety counts, and market-data freshness counts, plus Prometheus-compatible alert rules and an importable Grafana dashboard.
-- The order risk gate now emits `trading.risk_gate.decision.events` Micrometer counters for every evaluated command before provider mapping, with bounded provider/environment/account/market/action/decision/primary-reason/reduce-only/close-position labels and without command ids, client ids, exchange ids, symbols, strategy ids, signal ids, or idempotency keys as tags.
+- The order risk gate now emits `trading.risk_gate.decision.events` Micrometer counters for every evaluated command before provider mapping, with bounded provider/environment/account/market/action/decision/primary-reason/reduce-only/close-position labels and without command ids, client ids, exchange ids, symbols, strategy ids, signal ids, or idempotency keys as tags. Prometheus-compatible risk-gate alert rules and an importable Grafana risk-gate dashboard now cover rejected commands, manual-review decisions, unsafe reduce-only or close-position shape rejections, approved-command visibility, decision rates by action, and runtime-target aggregates.
 - Automated remediation policy is configurable under `trading.intervention.automated-policy`.
 - Automated remediation runner policy is configurable under `trading.intervention.automated-remediation-runner`.
 - Remediation executor policy is configurable under `trading.intervention.remediation-executor-policy`.
@@ -231,7 +231,7 @@ This file is the durable handoff plan for future chats. Keep it current after ev
 
 This section describes the complete remaining work from the current codebase to a bot that can be built by CI, deployed by CI/CD, operated on Google Cloud, run continuously against Binance USD-M futures demo, and later promoted to real trading with the same codebase. The estimate is intentionally conservative because production trading work needs verification slices, not only feature slices.
 
-Estimated remaining delivery from the current plan state: 2 to 11 commits/slices.
+Estimated remaining delivery from the current plan state: 2 to 10 commits/slices.
 
 This estimate must be revised after meaningful capability changes. It counts production-quality slices that include implementation, docs/plan updates, formatting, tests/build, live smoke when relevant, commit, push, and CI verification. It is not a feature-count only estimate.
 
@@ -239,7 +239,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 - Strategy runtime and trading lifecycle: 0 to 1 slices.
 - Persistence, recovery, replay, retention, backup, and restore hardening: 0 to 3 slices.
 - Live demo/real validation reports and promotion gates: 2 to 4 slices.
-- Observability, alerts, dashboards, and operator controls: 0 to 1 slices.
+- Observability, alerts, dashboards, and operator controls: 0 slices.
 - Google Cloud infrastructure and AWS-compatible deployment contract: 1 to 4 slices.
 - CI/CD build, publish, deploy, smoke, rollback, and approval workflows: 0 slices.
 - Security, secrets, operational runbooks, and incident procedures: 1 to 3 slices.
@@ -332,7 +332,7 @@ This estimate must be revised after meaningful capability changes. It counts pro
 
 ### Roadmap Slice 5: Observability And Operator Controls
 
-- Add structured metrics for signals, commands, risk decisions, gateway calls, order results, reconciliation, interventions, remediation executor outcomes, and strategy PnL. Pause governance, risk-gate decisions, remediation executor outcomes, runtime readiness, and LFA signal-runner outcomes now have first metrics coverage; pause governance, remediation executor, runtime readiness, and LFA signal-runner outcomes have first alert/dashboard coverage. Remaining work is broader command/gateway/order/reconciliation/account/PnL coverage and any additional risk-gate alerts/dashboard panels required by live burn-in.
+- Add structured metrics for signals, commands, risk decisions, gateway calls, order results, reconciliation, interventions, remediation executor outcomes, and strategy PnL. Pause governance, risk-gate decisions, remediation executor outcomes, runtime readiness, and LFA signal-runner outcomes now have first metrics, alert, and dashboard coverage. Remaining work is broader command/gateway/order/reconciliation/account/PnL coverage discovered during live burn-in rather than a known blocking v1 observability slice.
 - Add health checks for exchange connectivity, user-data stream freshness, market-data freshness, reconciliation confidence, journal writes, and event consumer lag. A first read-only runtime status endpoint now summarizes reconciliation confidence, projected market-data freshness, unsafe projection state, pauses, and optional strategy lifecycle for the active or requested target, and bounded runtime readiness gauges/alerts/dashboard now cover that active-target view, but it is not yet a complete actuator health subsystem.
 - Add alerting for emergency stop, degraded reconciliation, unknown order state, unexpected external intervention, high loss, excessive order rate, stale streams, failed deployments, and secret/config errors. Runtime readiness alerts now cover degraded/missing reconciliation, unknown/unresolved order state, external interventions, active pauses, and projected market-data freshness blockers.
 - Add operator endpoints for read-only status, pause/resume, emergency stop, controlled drain, and safe config inspection. A first read-only runtime status endpoint now exists; pause release and LFA lifecycle transition endpoints already cover part of pause/resume/drain control.

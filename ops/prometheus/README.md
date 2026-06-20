@@ -49,6 +49,24 @@ The rules use low-cardinality gauges exported by `RuntimeStatusGaugeBinder`:
 The alerts mirror the read-only `/internal/runtime/status` control-plane view.
 They are operational safety alerts, not trading-performance signals.
 
+## Risk Gate Alerts
+
+`risk-gate-alerts.yml` defines alert rules for:
+
+- Rejected order commands.
+- Manual-review risk decisions.
+- Unsafe reduce-only or close-position command shapes rejected by policy.
+- Approved command visibility during live validation and burn-in.
+
+The rules use the bounded labels exported by
+`trading.risk_gate.decision.events`. Micrometer exposes that counter as
+`trading_risk_gate_decision_events_total`.
+
+The alerts intentionally do not group by command ids, client order ids,
+exchange order ids, symbols, strategy ids, signal ids, or idempotency keys.
+They are execution-safety and burn-in evidence alerts, not trading-performance
+signals.
+
 ## Remediation Executor Alerts
 
 `remediation-executor-alerts.yml` defines alert rules for:
