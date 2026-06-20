@@ -140,6 +140,8 @@
           "market_quality_quote_volume_baseline": "100000000",
           "market_quality_trade_count_baseline": "100000",
           "market_quality_taker_buy_quote_volume_baseline": "50000000",
+          "expected_profit_bps_baseline": "1",
+          "expected_profit_score_cap": "10",
           "max_signals_per_run": 1,
           "max_account_open_orders": null,
           "max_symbol_open_orders": null,

@@ -1735,6 +1735,8 @@ Catalog defaults are:
 - `market_quality_quote_volume_baseline`: `100000000`
 - `market_quality_trade_count_baseline`: `100000`
 - `market_quality_taker_buy_quote_volume_baseline`: `50000000`
+- `expected_profit_bps_baseline`: `1`
+- `expected_profit_score_cap`: `10`
 - `max_signals_per_run`: `1`
 - `max_account_open_orders`: `null`
 - `max_symbol_open_orders`: `null`
@@ -1855,7 +1857,10 @@ order command can be built and admitted. The expected-edge ranking now includes
 `lfa_risk_money_management_fit_score`, a projected 0-to-1 fit score for
 remaining account/symbol open-order capacity, open-position capacity, notional
 capacity, current unrealized-loss capacity, daily realized-loss capacity, and
-account margin-health capacity. A lifecycle block returns
+account margin-health capacity, and `lfa_expected_profit_score`, a capped
+top-of-book expected-profit score derived from excess imbalance over
+`min_imbalance_ratio`, the configured spread threshold, and observed spread. A
+lifecycle block returns
 `lfa_signal_runner:lifecycle_blocked`, a warm-up block returns
 `lfa_signal_runner:warmup_incomplete`, an allocation block returns
 `lfa_signal_runner:allocation_blocked`, and a budget block returns
@@ -1885,16 +1890,24 @@ Before analysis, candidate market data is also ranked by provider capability sco
 When the reconciliation tracker has confident observations whose entity key
 references the candidate symbol, emitted signals include
 `lfa_reconciliation_availability_score` for auditability.
-After analysis, each emitted signal receives `lfa_risk_money_management_fit_score`
-and `lfa_expected_edge_score`. The expected-edge score is the runner's current
+After analysis, each emitted signal receives `lfa_risk_money_management_fit_score`,
+`lfa_expected_profit_bps`, `lfa_expected_profit_score`,
+`lfa_expected_profit_model`, optional `lfa_expected_profit_notional`, and
+`lfa_expected_edge_score`. The expected-edge score is the runner's current
 auditable ranking measure for the publish cap and combines analyzer confidence,
 imbalance, spread, effective quote depth, projected daily quote volume, projected
 daily trade count, projected daily taker-buy quote volume, freshness, provider
-capability score, reconciliation availability, and projected risk/money-management
-fit. The risk fit score uses the same projected account and symbol budgets that
-can block publication, but as a ranking penalty before the publish cap. It is a
-first signal ordering layer, not the complete v1 portfolio manager, position
-lifecycle, take-profit/stop-loss, or live promotion evidence layer.
+capability score, reconciliation availability, projected risk/money-management
+fit, and the capped expected-profit score. The expected-profit model currently
+uses `(imbalanceRatio - minImbalanceRatio) * maxSpreadBps - observedSpreadBps`,
+floored at zero, then divides by `expected_profit_bps_baseline` and caps at
+`expected_profit_score_cap`. If target notional or quantity/limit-price notional
+is known, the runner also records estimated expected notional profit. The risk
+fit score uses the same projected account and symbol budgets that can block
+publication, but as a ranking penalty before the publish cap. This is a first
+signal ordering layer, not the complete v1 portfolio manager, position
+lifecycle, take-profit/stop-loss, realized-PnL model, or live promotion evidence
+layer.
 With the catalog default
 `reject_missing_allocation_balance=true`, missing account margin balance blocks
 publication instead of falling back to stale or ambiguous sizing.
@@ -1916,6 +1929,10 @@ Allocation attributes include:
 - `lfa_allocation_weight`
 - `lfa_allocation_weight_sum`
 - `lfa_risk_money_management_fit_score`
+- `lfa_expected_profit_model`
+- `lfa_expected_profit_bps`
+- `lfa_expected_profit_score`
+- `lfa_expected_profit_notional` when signal notional is known
 - `lfa_expected_edge_score`
 - `lfa_daily_quote_volume` when projected daily quote volume is available
 - `lfa_daily_number_of_trades` when projected daily trade count is available

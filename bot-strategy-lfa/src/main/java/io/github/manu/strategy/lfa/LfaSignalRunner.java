@@ -260,6 +260,7 @@ public final class LfaSignalRunner {
                     .map(signal -> withProviderCapability(signal, providerCapabilityScores))
                     .map(signal -> withReconciliationAvailability(signal, reconciliationAvailabilityScores))
                     .map(signal -> withRiskMoneyManagementFitScore(snapshot, target, signal, now))
+                    .map(this::withExpectedProfitScore)
                     .map(this::withExpectedEdgeScore)
                     .sorted(Comparator
                             .comparing(
@@ -1332,10 +1333,47 @@ public final class LfaSignalRunner {
         BigDecimal riskMoneyManagementFitScore = attributeDecimal(signal, "lfa_risk_money_management_fit_score")
                 .orElse(BigDecimal.ONE)
                 .max(BigDecimal.ZERO);
+        BigDecimal expectedProfitScore = attributeDecimal(signal, "lfa_expected_profit_score")
+                .orElse(BigDecimal.ONE)
+                .max(BigDecimal.ZERO);
         return positiveWeight(marketQualityWeight(signal)
                 .multiply(providerCapabilityScore)
                 .multiply(reconciliationAvailabilityScore)
-                .multiply(riskMoneyManagementFitScore));
+                .multiply(riskMoneyManagementFitScore)
+                .multiply(expectedProfitScore));
+    }
+
+    private StrategySignalEvent withExpectedProfitScore(StrategySignalEvent signal) {
+        ExpectedProfitEstimate estimate = expectedProfitEstimate(signal);
+        Map<CharSequence, CharSequence> attributes = new LinkedHashMap<>();
+        if (signal.getAttributes() != null) {
+            attributes.putAll(signal.getAttributes());
+        }
+        attributes.put("lfa_expected_profit_model", "top_of_book_imbalance_spread_adjusted");
+        attributes.put("lfa_expected_profit_bps", decimalText(estimate.expectedProfitBps()));
+        attributes.put("lfa_expected_profit_score", decimalText(estimate.score()));
+        estimate.expectedProfitNotional()
+                .ifPresent(value -> attributes.put("lfa_expected_profit_notional", decimalText(value)));
+        return StrategySignalEvent.newBuilder(signal)
+                .setAttributes(attributes)
+                .build();
+    }
+
+    private ExpectedProfitEstimate expectedProfitEstimate(StrategySignalEvent signal) {
+        BigDecimal imbalanceRatio = attributeDecimal(signal, "lfa_imbalance_ratio").orElse(properties.minImbalanceRatio());
+        BigDecimal spreadBps = attributeDecimal(signal, "lfa_spread_bps").orElse(properties.maxSpreadBps());
+        BigDecimal excessImbalance = imbalanceRatio.subtract(properties.minImbalanceRatio()).max(BigDecimal.ZERO);
+        BigDecimal expectedMoveBps = excessImbalance.multiply(properties.maxSpreadBps());
+        BigDecimal expectedProfitBps = expectedMoveBps.subtract(spreadBps.max(BigDecimal.ZERO)).max(BigDecimal.ZERO);
+        BigDecimal score = expectedProfitBps
+                .divide(properties.expectedProfitBpsBaseline(), 8, RoundingMode.HALF_UP)
+                .min(properties.expectedProfitScoreCap());
+        Optional<BigDecimal> expectedProfitNotional = signalNotional(signal)
+                .map(notional -> notional
+                        .multiply(expectedProfitBps)
+                        .divide(new BigDecimal("10000"), 8, RoundingMode.HALF_UP)
+                        .stripTrailingZeros());
+        return new ExpectedProfitEstimate(expectedProfitBps, score, expectedProfitNotional);
     }
 
     private StrategySignalEvent withRiskMoneyManagementFitScore(
@@ -2031,6 +2069,13 @@ public final class LfaSignalRunner {
     private record DailyLoss(
             Optional<BigDecimal> accountLoss,
             Optional<BigDecimal> symbolLoss
+    ) {
+    }
+
+    private record ExpectedProfitEstimate(
+            BigDecimal expectedProfitBps,
+            BigDecimal score,
+            Optional<BigDecimal> expectedProfitNotional
     ) {
     }
 }

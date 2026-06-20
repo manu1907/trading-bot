@@ -311,6 +311,44 @@ class LfaSignalRunnerTest {
     }
 
     @Test
+    void ranks_analyzed_signals_by_expected_profit_before_publication_cap() {
+        TradingStateProjection projection = projectionWith(
+                marketData(
+                        "BTCUSDT",
+                        "50000.00",
+                        "0.016",
+                        "50000.50",
+                        "0.010",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                ),
+                marketData(
+                        "ETHUSDT",
+                        "3000.00",
+                        "0.500",
+                        "3000.03",
+                        "0.100",
+                        Map.of("quoteVolume", "100000000", "numberOfTrades", "100000", "takerBuyQuoteVolume", "50000000")
+                )
+        );
+        LfaSignalRunner runner = runner(enabledProperties(), projection, enabledExecutionProperties());
+
+        LfaSignalRunner.LfaSignalRunResult result = runner.runOnce();
+
+        assertThat(result.reason()).isEqualTo("lfa_signal_runner:published");
+        assertThat(result.publishedSignals()).isEqualTo(1);
+        assertThat(eventBus.envelopes()).singleElement().satisfies(envelope -> {
+            assertThat(envelope.key().getSymbol()).isEqualTo("ETHUSDT");
+            StrategySignalEvent signal = (StrategySignalEvent) envelope.value();
+            assertThat(signal.getAttributes())
+                    .containsEntry("lfa_expected_profit_model", "top_of_book_imbalance_spread_adjusted")
+                    .containsEntry("lfa_expected_profit_score", "10")
+                    .containsKey("lfa_expected_profit_bps")
+                    .containsKey("lfa_expected_profit_notional")
+                    .containsKey("lfa_expected_edge_score");
+        });
+    }
+
+    @Test
     void ranks_analyzed_signals_by_risk_money_management_fit_before_publication_cap() {
         TradingStateProjection projection = projectionWith(
                 List.of(position("ETHUSDT", "BOTH", "0.300", "3000")),
@@ -1503,6 +1541,8 @@ class LfaSignalRunnerTest {
                 new BigDecimal("100000000"),
                 new BigDecimal("100000"),
                 new BigDecimal("50000000"),
+                BigDecimal.ONE,
+                new BigDecimal("10"),
                 maxSignalsPerRun,
                 null,
                 null,
@@ -1562,6 +1602,8 @@ class LfaSignalRunnerTest {
                 new BigDecimal("100000000"),
                 new BigDecimal("100000"),
                 new BigDecimal("50000000"),
+                BigDecimal.ONE,
+                new BigDecimal("10"),
                 1,
                 null,
                 null,
@@ -1683,6 +1725,8 @@ class LfaSignalRunnerTest {
                 new BigDecimal("100000000"),
                 new BigDecimal("100000"),
                 new BigDecimal("50000000"),
+                BigDecimal.ONE,
+                new BigDecimal("10"),
                 1,
                 maxAccountOpenOrders,
                 maxSymbolOpenOrders,

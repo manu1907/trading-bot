@@ -93,8 +93,8 @@ top-of-book quote depth. Explicit signal symbols remain authoritative and are
 still rejected if any universe, projection, reconciliation, pause, or order-limit
 gate fails. The LFA runner now adds a first expected-edge score for emitted
 signals and multiplies it by a projected risk and money-management fit score,
-but that is not yet a complete expected-profit model, portfolio allocator, or
-position lifecycle.
+plus a first top-of-book expected-profit score, but that is not yet a calibrated
+realized-PnL model, portfolio allocator, or position lifecycle.
 
 ## LFA Strategy Signal Analysis
 
@@ -138,10 +138,13 @@ when exchange metadata is available, records
 observations exist, computes `lfa_expected_edge_score` from analyzer confidence,
 imbalance, spread, depth, projected liquidity/trade statistics, freshness,
 provider capability, reconciliation availability, and projected risk and
-money-management fit, records `lfa_risk_money_management_fit_score` from
-remaining account/symbol order capacity, position capacity, notional capacity,
-loss capacity, and margin-health capacity, sorts analyzed signals by that score
-before applying `max_signals_per_run`, can allocate a total run target notional from
+money-management fit plus an expected-profit score, records
+`lfa_risk_money_management_fit_score` from remaining account/symbol order
+capacity, position capacity, notional capacity, loss capacity, and margin-health
+capacity, records `lfa_expected_profit_bps`,
+`lfa_expected_profit_notional` when signal notional is known, and
+`lfa_expected_profit_score` from a top-of-book imbalance/spread estimate, sorts
+analyzed signals by that score before applying `max_signals_per_run`, can allocate a total run target notional from
 the latest projected account margin balance, and splits it across candidate publish slots
 by configured `allocation_weighting_mode` (`EQUAL`, `CONFIDENCE`, or
 `MARKET_QUALITY`) when configured. The optional `max_strategy_run_notional` cap
@@ -192,6 +195,7 @@ with `allocation_weighting_mode=EQUAL`,
 `market_quality_quote_volume_baseline=100000000`,
 `market_quality_trade_count_baseline=100000`,
 `market_quality_taker_buy_quote_volume_baseline=50000000`, and
+`expected_profit_bps_baseline=1`, `expected_profit_score_cap=10`, and
 `require_reconciliation_confidence=true`
 unless overridden. LFA signal-runner notional, current unrealized-loss,
 account-margin-health, and daily realized-loss caps default to `null` until
@@ -221,10 +225,10 @@ scheduled signal runs.
 This is now strategy-side signal generation plus a controlled live publication
 hook with a first projected account-margin allocation layer that can weight
 capital toward stronger liquid signals and a first auditable expected-edge
-signal ordering layer that includes projected risk and money-management fit. It
-is not yet the full portfolio, position-management, expected-profit,
-risk-adjusted-return, or money-management selector needed for production
-autonomous trading.
+signal ordering layer that includes projected risk and money-management fit plus
+a first top-of-book expected-profit estimate. It is not yet the full portfolio,
+position-management, calibrated realized-PnL, risk-adjusted-return, or
+money-management selector needed for production autonomous trading.
 
 ## Runtime Policy Boundary
 

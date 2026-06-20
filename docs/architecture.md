@@ -55,10 +55,12 @@ Strategy modules may rank their own provider-agnostic candidate signals using
 strategy-visible facts such as confidence, projected liquidity, spread, depth,
 freshness, provider capability annotations, reconciliation availability, and
 projected risk/money-management fit derived from core projection state and
-strategy config. The LFA runner does this with `lfa_expected_edge_score` before
-applying its publish cap. That score must remain free of Binance implementation
-imports; provider modules expose capabilities and market/account facts through
-core contracts.
+strategy config. They may also publish auditable expected-profit estimates when
+the estimate is derived from strategy-visible market facts rather than provider
+implementation details. The LFA runner does this with `lfa_expected_edge_score`
+before applying its publish cap. That score must remain free of Binance
+implementation imports; provider modules expose capabilities and market/account
+facts through core contracts.
 
 Provider modules explain what the exchange allows and execute concrete
 provider commands. Binance owns its documented market types, filters, fees,
