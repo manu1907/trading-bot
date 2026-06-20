@@ -84,6 +84,25 @@ Generated `TODO`, `true_or_false`, and `false_default` fields must be completed
 from actual live demo operation before the bundle can support any real execution
 policy change.
 
+## Google Cloud Evidence Archive
+
+`archive-google-cloud-evidence.sh` validates and archives generated evidence
+bundles to Cloud Storage under:
+
+```text
+gs://$GCP_EVIDENCE_ARCHIVE_BUCKET/<environment>/<evidence-type>/<evidence-id>/
+```
+
+It writes `archive-manifest.tsv`, scans the bundle for obvious secret-bearing
+patterns, and refuses upload when the scan fails. Use `--dry-run` to validate a
+bundle locally without calling Google Cloud.
+
+`.github/workflows/archive-google-cloud-evidence.yml` wraps the script as a
+manual, environment-gated workflow. It downloads a named artifact from a source
+workflow run, authenticates with the `GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT`
+environment secret, uploads to `GCP_EVIDENCE_ARCHIVE_BUCKET`, and uploads the
+archive manifest as a workflow artifact.
+
 ## Handling Rules
 
 - Do not write Binance API keys, Google Cloud credentials, SMTP passwords,

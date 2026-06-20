@@ -23,6 +23,7 @@ Optional environment variables:
   GCP_WORKLOAD_IDENTITY_PROVIDER_ID                    Default: github-actions
   GCP_SERVICE_ACCOUNT_PREFIX                           Default: trading-bot
   TRADING_BOT_JOURNAL_ARCHIVE_BUCKET                   Default: ${GCP_PROJECT_ID}-trading-bot-journal-archive
+  TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET                  Default: ${GCP_PROJECT_ID}-trading-bot-evidence-archive
   GCP_CLOUD_RUN_CPU                                    Default printed for GitHub vars: 1
   GCP_CLOUD_RUN_MEMORY                                 Default printed for GitHub vars: 1Gi
   GCP_CLOUD_RUN_MIN_INSTANCES                          Default printed for GitHub vars: 0
@@ -182,6 +183,7 @@ infer_defaults() {
   GCP_WORKLOAD_IDENTITY_PROVIDER_ID="${GCP_WORKLOAD_IDENTITY_PROVIDER_ID:-github-actions}"
   GCP_SERVICE_ACCOUNT_PREFIX="${GCP_SERVICE_ACCOUNT_PREFIX:-trading-bot}"
   TRADING_BOT_JOURNAL_ARCHIVE_BUCKET="${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET:-${GCP_PROJECT_ID}-trading-bot-journal-archive}"
+  TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET="${TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET:-${GCP_PROJECT_ID}-trading-bot-evidence-archive}"
   GCP_CLOUD_SQL_INSTANCE="${GCP_CLOUD_SQL_INSTANCE:-trading-bot-postgres}"
   GCP_CLOUD_SQL_DATABASE_VERSION="${GCP_CLOUD_SQL_DATABASE_VERSION:-POSTGRES_16}"
   GCP_CLOUD_SQL_TIER="${GCP_CLOUD_SQL_TIER:-db-custom-1-3840}"
@@ -655,6 +657,7 @@ configure_github_environment() {
   set_github_environment_secret "$environment" GCP_CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT "$CLOUD_RUN_RUNTIME_SA"
   set_github_environment_secret "$environment" GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT "$CLOUD_RUN_SMOKE_SA"
   set_github_environment_secret "$environment" GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT "$CLOUD_RUN_ROLLBACK_SA"
+  set_github_environment_secret "$environment" GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT "$EVIDENCE_ARCHIVE_SA"
 
   set_github_environment_variable "$environment" GCP_PROJECT_ID "$GCP_PROJECT_ID"
   set_github_environment_variable "$environment" GCP_REGION "$GCP_REGION"
@@ -666,6 +669,7 @@ configure_github_environment() {
   set_github_environment_variable "$environment" GCP_CLOUD_RUN_MAX_INSTANCES "${GCP_CLOUD_RUN_MAX_INSTANCES:-1}"
   set_github_environment_variable "$environment" GCP_CLOUD_RUN_TIMEOUT "${GCP_CLOUD_RUN_TIMEOUT:-300s}"
   set_github_environment_variable "$environment" GCP_CLOUD_SQL_INSTANCE "$GCP_CLOUD_SQL_INSTANCE"
+  set_github_environment_variable "$environment" GCP_EVIDENCE_ARCHIVE_BUCKET "$TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET"
 }
 
 configure_github_environments() {
@@ -692,6 +696,7 @@ Set these GitHub environment secrets for both demo and real environments:
   GCP_CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT=${CLOUD_RUN_RUNTIME_SA}
   GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT=${CLOUD_RUN_SMOKE_SA}
   GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT=${CLOUD_RUN_ROLLBACK_SA}
+  GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT=${EVIDENCE_ARCHIVE_SA}
 
 Set these GitHub environment variables for both demo and real environments:
   GCP_PROJECT_ID=${GCP_PROJECT_ID}
@@ -704,6 +709,7 @@ Set these GitHub environment variables for both demo and real environments:
   GCP_CLOUD_RUN_MAX_INSTANCES=${GCP_CLOUD_RUN_MAX_INSTANCES:-1}
   GCP_CLOUD_RUN_TIMEOUT=${GCP_CLOUD_RUN_TIMEOUT:-300s}
   GCP_CLOUD_SQL_INSTANCE=${GCP_CLOUD_SQL_INSTANCE}
+  GCP_EVIDENCE_ARCHIVE_BUCKET=${TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET}
 
 Optional automation:
   Set GITHUB_CONFIGURE_ENVIRONMENTS=true and authenticate gh to create/update
@@ -711,6 +717,9 @@ Optional automation:
 
 Journal archive bucket created or verified:
   gs://${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET}
+
+Evidence archive bucket created or verified:
+  gs://${TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET}
 
 Cloud SQL/PostgreSQL created or verified:
   ${GCP_PROJECT_ID}:${GCP_REGION}:${GCP_CLOUD_SQL_INSTANCE}
@@ -794,12 +803,16 @@ main() {
   log "Creating journal archive bucket"
   ensure_bucket "$TRADING_BOT_JOURNAL_ARCHIVE_BUCKET"
 
+  log "Creating evidence archive bucket"
+  ensure_bucket "$TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET"
+
   log "Creating service accounts"
   ARTIFACT_REGISTRY_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-artifact-publisher" "trading-bot Artifact Registry publisher")"
   CLOUD_RUN_DEPLOY_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-deployer" "trading-bot Cloud Run deployer")"
   CLOUD_RUN_RUNTIME_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-runtime" "trading-bot Cloud Run runtime")"
   CLOUD_RUN_SMOKE_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-smoke" "trading-bot Cloud Run smoke")"
   CLOUD_RUN_ROLLBACK_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-rollback" "trading-bot Cloud Run rollback")"
+  EVIDENCE_ARCHIVE_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-evidence-archiver" "trading-bot evidence archiver")"
 
   log "Granting IAM roles"
   ensure_project_role "serviceAccount:${ARTIFACT_REGISTRY_SA}" roles/artifactregistry.writer
@@ -812,6 +825,7 @@ main() {
   ensure_project_role "serviceAccount:${CLOUD_RUN_SMOKE_SA}" roles/run.invoker
   ensure_project_role "serviceAccount:${CLOUD_RUN_ROLLBACK_SA}" roles/run.admin
   ensure_project_role "serviceAccount:${CLOUD_RUN_ROLLBACK_SA}" roles/run.invoker
+  ensure_project_role "serviceAccount:${EVIDENCE_ARCHIVE_SA}" roles/storage.objectAdmin
   ensure_service_account_user "$CLOUD_RUN_RUNTIME_SA" "$CLOUD_RUN_DEPLOY_SA"
 
   log "Configuring Workload Identity Federation"
@@ -821,6 +835,7 @@ main() {
   allow_github_to_impersonate "$CLOUD_RUN_DEPLOY_SA" "$project_number"
   allow_github_to_impersonate "$CLOUD_RUN_SMOKE_SA" "$project_number"
   allow_github_to_impersonate "$CLOUD_RUN_ROLLBACK_SA" "$project_number"
+  allow_github_to_impersonate "$EVIDENCE_ARCHIVE_SA" "$project_number"
 
   log "Creating Secret Manager secrets and adding supplied versions"
   ensure_secret_with_optional_version trading-bot-demo-binance-api-key BINANCE_DEMO_API_KEY

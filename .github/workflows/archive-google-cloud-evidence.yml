@@ -1,0 +1,105 @@
+name: Archive Google Cloud Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target runtime environment and GitHub environment gate.
+        required: true
+        type: choice
+        options:
+          - demo
+          - real
+      evidence_type:
+        description: Evidence type to archive.
+        required: true
+        type: choice
+        options:
+          - release
+          - burn-in
+          - smoke
+          - rollback
+          - incident
+          - drill
+          - promotion
+      evidence_id:
+        description: Stable evidence id, for example release id, burn-in id, or workflow run id.
+        required: true
+        type: string
+      source_workflow_run_id:
+        description: Workflow run id containing the evidence artifact.
+        required: true
+        type: string
+      artifact_name:
+        description: Artifact name to download and archive.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+concurrency:
+  group: archive-google-cloud-evidence-${{ inputs.environment }}-${{ inputs.evidence_type }}-${{ inputs.evidence_id }}
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    name: Archive evidence bundle
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Validate archive request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! [[ "${{ inputs.source_workflow_run_id }}" =~ ^[0-9]+$ ]]; then
+            echo "source_workflow_run_id must be numeric" >&2
+            exit 1
+          fi
+          if ! [[ "${{ inputs.evidence_id }}" =~ ^[a-zA-Z0-9._=-]+$ ]]; then
+            echo "evidence_id contains unsupported characters" >&2
+            exit 1
+          fi
+          echo "bundle_dir=build/evidence/archive-source" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Download evidence artifact
+        uses: actions/download-artifact@v6
+        with:
+          run-id: ${{ inputs.source_workflow_run_id }}
+          name: ${{ inputs.artifact_name }}
+          path: ${{ steps.request.outputs.bundle_dir }}
+          github-token: ${{ github.token }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Archive evidence bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ops/evidence/archive-google-cloud-evidence.sh \
+            --environment "${{ inputs.environment }}" \
+            --evidence-type "${{ inputs.evidence_type }}" \
+            --evidence-id "${{ inputs.evidence_id }}" \
+            --bundle-dir "${{ steps.request.outputs.bundle_dir }}" \
+            --bucket "${{ vars.GCP_EVIDENCE_ARCHIVE_BUCKET }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}"
+
+      - name: Upload archive manifest
+        uses: actions/upload-artifact@v5
+        with:
+          name: trading-bot-evidence-archive-manifest-${{ inputs.environment }}-${{ inputs.evidence_type }}-${{ inputs.evidence_id }}
+          path: ${{ steps.request.outputs.bundle_dir }}/archive-manifest.tsv
+          if-no-files-found: error

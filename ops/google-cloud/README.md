@@ -82,15 +82,16 @@ Defaults used when you do not override them:
 
 The script enables required APIs, creates the Artifact Registry repository,
 creates the journal archive bucket, creates the GitHub Actions and Cloud Run
-service accounts, grants the IAM roles required by the publish/deploy/smoke and
-rollback workflows, configures GitHub OIDC Workload Identity Federation, creates
-or verifies the Cloud SQL PostgreSQL instance, creates demo and real databases
-and users, creates the deployment Secret Manager secrets, adds Binance demo
-secret versions from `api.env`, generates operator-token and Cloud SQL password
-versions when needed, generates Cloud SQL JDBC URL/username/password secrets
-when no overrides exist, optionally creates a project-scoped monthly billing
-budget alert, and adds optional secret versions only for other values supplied
-through environment variables. It never prints secret values.
+service accounts, creates the evidence archive bucket and archiver service
+account, grants the IAM roles required by the publish/deploy/smoke/rollback and
+evidence-archive workflows, configures GitHub OIDC Workload Identity Federation,
+creates or verifies the Cloud SQL PostgreSQL instance, creates demo and real
+databases and users, creates the deployment Secret Manager secrets, adds Binance
+demo secret versions from `api.env`, generates operator-token and Cloud SQL
+password versions when needed, generates Cloud SQL JDBC URL/username/password
+secrets when no overrides exist, optionally creates a project-scoped monthly
+billing budget alert, and adds optional secret versions only for other values
+supplied through environment variables. It never prints secret values.
 
 If `GITHUB_CONFIGURE_ENVIRONMENTS=true`, the script also uses GitHub CLI to
 create or update the `demo` and `real` GitHub environments, writes the required
@@ -293,6 +294,16 @@ private readiness endpoint with an identity token, and uploads rollback evidence
 It requires `GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT`; that service account must
 be able to describe services/revisions, update Cloud Run service traffic, and
 invoke the private service through `roles/run.invoker`.
+
+`archive-google-cloud-evidence.yml` archives generated evidence artifacts to
+Cloud Storage when manually dispatched. It downloads a named artifact from a
+source workflow run, validates the bundle with
+`ops/evidence/archive-google-cloud-evidence.sh`, uploads it to
+`gs://$GCP_EVIDENCE_ARCHIVE_BUCKET/<environment>/<evidence-type>/<evidence-id>/`,
+and uploads the archive manifest. It requires
+`GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT` and `GCP_EVIDENCE_ARCHIVE_BUCKET`; the
+bootstrap script creates the service account, grants storage write access, and
+can configure both GitHub environment values.
 
 ## Cloud Monitoring Alert Policies
 

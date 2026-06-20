@@ -779,7 +779,10 @@ Cloud Run metadata, and scrubbed observation files. The demo burn-in collector
 materializes the pre-real promotion evidence bundle from committed demo/real
 contracts plus supplied runtime-stage, market-universe, continuous metrics,
 trading metrics, drill, observability, and incident evidence. Both collectors
-are offline-first and do not fetch or print secret values.
+are offline-first and do not fetch or print secret values. The Google Cloud
+evidence archive workflow preserves produced evidence artifacts in a versioned
+Cloud Storage bucket after a secret-pattern scan, giving promotion decisions a
+durable audit trail without committing operational evidence to source control.
 
 `InterventionRemediationCommandPlanner` is the first executor-boundary layer. It
 turns a remediation decision into a deterministic internal plan, validates that

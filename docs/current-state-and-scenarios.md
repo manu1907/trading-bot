@@ -537,6 +537,12 @@ Implemented persistence/recovery surfaces include:
   user-data stream, and market-data websocket smoke tasks with environment-scoped
   Binance credentials, uploads smoke evidence, and requires
   `confirm_real_smoke=RUN_REAL_BINANCE_SMOKE` before any real target can run.
+- A guarded manual Google Cloud evidence archive workflow now stores generated
+  release, burn-in, smoke, rollback, incident, drill, or promotion evidence
+  artifacts in a versioned Cloud Storage evidence bucket after a secret-pattern
+  scan. The bootstrap script creates the evidence archive bucket, evidence
+  archiver service account, GitHub OIDC binding, and optional GitHub environment
+  secret/variable values.
 - A guarded manual Google Cloud Cloud Run rollback workflow now routes traffic
   back to an existing revision after verifying the requested rollback commit
   passed `Security`, the target revision belongs to the selected service, the

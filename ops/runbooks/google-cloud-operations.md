@@ -139,6 +139,15 @@ Use `real` instead of `demo` only for the real runtime contract. The script
 records contract/config checksums and secret binding names without reading
 secret values.
 
+Archive completed evidence bundles with
+`.github/workflows/archive-google-cloud-evidence.yml`. Supply the environment,
+evidence type, evidence id, source workflow run id, and artifact name. The
+workflow validates the bundle for secret-like content and stores it in the
+versioned evidence bucket under
+`gs://$GCP_EVIDENCE_ARCHIVE_BUCKET/<environment>/<evidence-type>/<evidence-id>/`.
+Do not use archive success as promotion approval; it only proves the evidence
+bundle was preserved.
+
 ## Deploy Cloud Run
 
 Use `.github/workflows/deploy-google-cloud-cloud-run.yml`.

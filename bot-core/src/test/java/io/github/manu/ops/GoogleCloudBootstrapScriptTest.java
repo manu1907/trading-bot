@@ -123,6 +123,7 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-runtime")
                 .contains("${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-smoke")
                 .contains("${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-rollback")
+                .contains("${GCP_SERVICE_ACCOUNT_PREFIX}-evidence-archiver")
                 .contains("roles/artifactregistry.writer")
                 .contains("roles/artifactregistry.reader")
                 .contains("roles/run.admin")
@@ -151,7 +152,8 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("GCP_CLOUD_RUN_DEPLOY_SERVICE_ACCOUNT")
                 .contains("GCP_CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT")
                 .contains("GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT")
-                .contains("GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT");
+                .contains("GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT")
+                .contains("GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT");
     }
 
     @Test
@@ -227,9 +229,28 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("gh variable set \"$variable_name\"")
                 .contains("GCP_WORKLOAD_IDENTITY_PROVIDER")
                 .contains("GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT")
+                .contains("GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT")
                 .contains("GCP_CLOUD_SQL_INSTANCE")
+                .contains("GCP_EVIDENCE_ARCHIVE_BUCKET")
                 .contains("if [[ \"$GITHUB_CONFIGURE_ENVIRONMENTS\" == \"true\" ]]")
                 .contains("GitHub environments configured:");
+    }
+
+    @Test
+    void bootstrap_script_creates_versioned_journal_and_evidence_archive_buckets() throws IOException {
+        String script = Files.readString(resolve(SCRIPT));
+
+        assertThat(script)
+                .contains("TRADING_BOT_JOURNAL_ARCHIVE_BUCKET")
+                .contains("TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET")
+                .contains("TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET=\"${TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET:-${GCP_PROJECT_ID}-trading-bot-evidence-archive}\"")
+                .contains("ensure_bucket()")
+                .contains("--uniform-bucket-level-access")
+                .contains("--public-access-prevention")
+                .contains("gcloud storage buckets update \"gs://${bucket}\" --versioning")
+                .contains("ensure_bucket \"$TRADING_BOT_JOURNAL_ARCHIVE_BUCKET\"")
+                .contains("ensure_bucket \"$TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET\"")
+                .contains("Evidence archive bucket created or verified");
     }
 
     @Test

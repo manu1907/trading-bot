@@ -862,6 +862,10 @@ Pause governance metrics:
   lifecycle, user-data stream, and market-data websocket smoke tasks with
   environment-scoped Binance credentials, records smoke metadata, and requires
   `confirm_real_smoke=RUN_REAL_BINANCE_SMOKE` before any real target can run.
+- The Google Cloud evidence archive workflow is manual and environment-gated.
+  It downloads a generated evidence artifact from a source workflow run, scans it
+  for secret-like content, writes an archive manifest, and stores it in the
+  versioned evidence archive bucket.
 - The Google Cloud Cloud Run rollback workflow is manual and environment-gated.
   It requires the target revision and expected rollback commit SHA, verifies that
   the rollback commit passed `Security`, checks that the existing revision
