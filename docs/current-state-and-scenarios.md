@@ -17,6 +17,8 @@ carry an explicit `targetQuantity`, or when they are unsized
 because they do not express a bounded position-size reduction. Close-position
 signals with explicit quantity or notional sizing are also suppressed so full
 close intents cannot be mixed with partial-size semantics.
+The order risk gate enforces the same command-shape rule centrally for every
+non-cancel order command source before provider mapping.
 
 ## Active First-Start Target
 

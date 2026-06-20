@@ -763,6 +763,64 @@ class OrderRiskGateTest {
     }
 
     @Test
+    void approves_quantity_bounded_reduce_only_command_before_provider_mapping() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties()).evaluate(reduceOnlyCommand());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getMaxQuantity()).isEqualTo("0.001");
+    }
+
+    @Test
+    void rejects_reduce_only_quote_notional_command_before_provider_mapping() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties()).evaluate(OrderCommandEvent.newBuilder(reduceOnlyCommand())
+                .setQuantity(null)
+                .setQuoteOrderQuantity("100")
+                .setPrice(null)
+                .build());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_limit:reduce_only_unbounded_quantity");
+    }
+
+    @Test
+    void approves_unsized_close_position_command_before_provider_mapping() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties()).evaluate(OrderCommandEvent.newBuilder(reduceOnlyCommand())
+                .setOrderType(OrderCommandType.STOP_MARKET)
+                .setQuantity(null)
+                .setPrice(null)
+                .setStopPrice("49000.00")
+                .setReduceOnly(true)
+                .setClosePosition(true)
+                .build());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.APPROVED);
+        assertThat(decision.getReasons()).containsExactly("risk_gate:approved");
+        assertThat(decision.getMaxQuantity()).isNull();
+    }
+
+    @Test
+    void rejects_sized_close_position_command_before_provider_mapping() {
+        recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
+
+        RiskDecisionEvent decision = gate(defaultProperties()).evaluate(OrderCommandEvent.newBuilder(reduceOnlyCommand())
+                .setOrderType(OrderCommandType.STOP_MARKET)
+                .setStopPrice("49000.00")
+                .setReduceOnly(true)
+                .setClosePosition(true)
+                .build());
+
+        assertThat(decision.getDecision()).isEqualTo(RiskDecision.REJECTED);
+        assertThat(decision.getReasons()).containsExactly("order_limit:close_position_sized");
+    }
+
+    @Test
     void rejects_new_order_when_projected_open_order_count_reaches_configured_limit() {
         recordReconciliation(ReconciliationConfidenceStatus.CONFIDENT);
         ExecutionProperties properties = propertiesWithOrderLimit(new ExecutionProperties.OrderLimit(
@@ -1753,6 +1811,13 @@ class OrderRiskGateTest {
         avroAttributes.putAll(attributes);
         return OrderCommandEvent.newBuilder(command())
                 .setAttributes(avroAttributes)
+                .build();
+    }
+
+    private OrderCommandEvent reduceOnlyCommand() {
+        return OrderCommandEvent.newBuilder(command())
+                .setSide(OrderCommandSide.SELL)
+                .setReduceOnly(true)
                 .build();
     }
 

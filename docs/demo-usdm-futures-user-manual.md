@@ -1928,6 +1928,9 @@ explicit `targetQuantity`, or when the signal is an unsized
 `close_position=true` full-close intent. Quote-notional reduce-only signals are
 suppressed, and close-position signals with explicit size are suppressed, so the
 planner does not mix partial-reduction sizing with full-close semantics.
+The order risk gate applies the same reduce-only and close-position shape rule
+to every non-cancel order command before provider mapping, so direct command
+sources cannot bypass the strategy planner's safety constraint.
 With the catalog default
 `reject_missing_allocation_balance=true`, missing account margin balance blocks
 publication instead of falling back to stale or ambiguous sizing.

@@ -49,6 +49,8 @@ public final class OrderRiskGate {
     private static final String MAX_NOTIONAL_REASON = "order_limit:max_notional";
     private static final String MAX_OPEN_ORDERS_REASON = "order_limit:max_open_orders";
     private static final String UNBOUNDED_NOTIONAL_REASON = "order_limit:unbounded_notional";
+    private static final String REDUCE_ONLY_UNBOUNDED_QUANTITY_REASON = "order_limit:reduce_only_unbounded_quantity";
+    private static final String CLOSE_POSITION_SIZED_REASON = "order_limit:close_position_sized";
     private static final String MISSING_TARGET_CLIENT_ORDER_ID_REASON = "order_target:missing_client_order_id";
     private static final String MISSING_TARGET_ORDER_ID_REASON = "order_target:missing_order_id";
     private static final String PROJECTED_TARGET_MISSING_REASON = "order_target:not_projected";
@@ -541,6 +543,14 @@ public final class OrderRiskGate {
         }
         if (List.of(price, stopPrice, activationPrice, callbackRate).stream().anyMatch(this::isNonPositive)) {
             reasons.add(NON_POSITIVE_PRICE_REASON);
+            reject = true;
+        }
+        if (command.getClosePosition() && (quantity.value() != null || quoteOrderQuantity.value() != null)) {
+            reasons.add(CLOSE_POSITION_SIZED_REASON);
+            reject = true;
+        }
+        if (command.getReduceOnly() && !command.getClosePosition() && quantity.value() == null) {
+            reasons.add(REDUCE_ONLY_UNBOUNDED_QUANTITY_REASON);
             reject = true;
         }
 
