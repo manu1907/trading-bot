@@ -560,6 +560,12 @@ Implemented persistence/recovery surfaces include:
   Auth Proxy, runs `ops/database/migrate-postgresql-state.sh`, and uploads
   migration evidence. The bot runtime remains configured with JDBC schema
   initialization disabled.
+- A guarded manual Google Cloud journal archive workflow now archives produced
+  raw trading-event journal artifacts for restore/replay evidence. It uses a
+  dedicated journal archive service account, validates the request, scans the
+  journal directory for secret-like content, writes a SHA-256 manifest, uploads
+  to the configured journal archive bucket, and requires explicit confirmation
+  before archiving a real journal artifact.
 - A guarded manual Google Cloud evidence archive workflow now stores generated
   release, burn-in, smoke, rollback, incident, drill, or promotion evidence
   artifacts in a versioned Cloud Storage evidence bucket after a secret-pattern

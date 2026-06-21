@@ -43,3 +43,35 @@ state database schema required by the selected deployment contract.
   not exists`, and `alter table ... add column if not exists`.
 - Destructive DDL/DML such as drop, truncate, or delete is rejected by the
   migration script.
+
+## Journal Segment Archive
+
+`archive-journal-segments.sh` archives raw trading-event journal segment
+directories for restore/replay evidence. It preserves journal files byte-for-byte,
+writes `journal-archive-manifest.tsv`, scans for obvious secret-bearing content,
+and uploads under:
+
+```text
+gs://$GCP_JOURNAL_ARCHIVE_BUCKET/<environment>/<provider>/<account>/<market>/journal-segments/v1/<archive-id>/
+```
+
+Local validation without calling Google Cloud:
+
+```bash
+ops/database/archive-journal-segments.sh \
+  --environment demo \
+  --provider binance \
+  --account main \
+  --market usdm_futures \
+  --archive-id restore-drill-001 \
+  --journal-dir data/journal/trading-events \
+  --bucket example-journal-bucket \
+  --validate-only
+```
+
+`.github/workflows/archive-google-cloud-journal.yml` wraps the script as a
+manual, environment-gated workflow. It downloads a produced journal artifact
+from a source workflow run, authenticates through
+`GCP_JOURNAL_ARCHIVE_SERVICE_ACCOUNT`, writes the manifest, uploads to
+`GCP_JOURNAL_ARCHIVE_BUCKET`, and uploads the manifest as workflow evidence.
+For real, the workflow requires `confirm_real_archive=ARCHIVE_REAL_JOURNAL`.

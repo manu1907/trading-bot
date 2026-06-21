@@ -307,6 +307,16 @@ and uploads the archive manifest. It requires
 bootstrap script creates the service account, grants storage write access, and
 can configure both GitHub environment values.
 
+`archive-google-cloud-journal.yml` archives produced raw journal artifacts to
+Cloud Storage when manually dispatched. It downloads a journal artifact from a
+source workflow run, validates it with `ops/database/archive-journal-segments.sh`,
+uploads it to
+`gs://$GCP_JOURNAL_ARCHIVE_BUCKET/<environment>/<provider>/<account>/<market>/journal-segments/v1/<archive-id>/`,
+and uploads the journal manifest. It requires
+`GCP_JOURNAL_ARCHIVE_SERVICE_ACCOUNT` and `GCP_JOURNAL_ARCHIVE_BUCKET`; the
+bootstrap script creates the service account, grants storage write access, and
+can configure both GitHub environment values.
+
 ## Cloud Monitoring Alert Policies
 
 `provision-monitoring-alert-policies.sh` renders and creates Google Cloud

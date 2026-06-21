@@ -125,6 +125,7 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-rollback")
                 .contains("${GCP_SERVICE_ACCOUNT_PREFIX}-evidence-archiver")
                 .contains("${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-sql-migration")
+                .contains("${GCP_SERVICE_ACCOUNT_PREFIX}-journal-archiver")
                 .contains("roles/artifactregistry.writer")
                 .contains("roles/artifactregistry.reader")
                 .contains("roles/run.admin")
@@ -155,7 +156,8 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT")
                 .contains("GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT")
                 .contains("GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT")
-                .contains("GCP_CLOUD_SQL_MIGRATION_SERVICE_ACCOUNT");
+                .contains("GCP_CLOUD_SQL_MIGRATION_SERVICE_ACCOUNT")
+                .contains("GCP_JOURNAL_ARCHIVE_SERVICE_ACCOUNT");
     }
 
     @Test
@@ -234,6 +236,7 @@ class GoogleCloudBootstrapScriptTest {
                 .contains("GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT")
                 .contains("GCP_CLOUD_SQL_MIGRATION_SERVICE_ACCOUNT")
                 .contains("GCP_CLOUD_SQL_INSTANCE")
+                .contains("GCP_JOURNAL_ARCHIVE_BUCKET")
                 .contains("GCP_EVIDENCE_ARCHIVE_BUCKET")
                 .contains("if [[ \"$GITHUB_CONFIGURE_ENVIRONMENTS\" == \"true\" ]]")
                 .contains("GitHub environments configured:");

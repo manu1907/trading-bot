@@ -1070,6 +1070,13 @@ The layout is a contract for later upload/archive code; hot-path trading should
 append to the local journal and publish events without waiting on GCS or
 database writes.
 
+Raw journal segment restore archives now have deployment-owned automation in
+`ops/database/archive-journal-segments.sh` and
+`.github/workflows/archive-google-cloud-journal.yml`. The workflow preserves
+produced journal files byte-for-byte, writes a SHA-256 manifest, scans for
+secret-like content, uploads to the configured versioned journal archive bucket,
+and remains outside the trading hot path.
+
 Operational retention, compaction, backup, restore, and post-restore
 reconciliation procedures live in `ops/runbooks/persistence-recovery.md`. That
 runbook requires side-effecting runtime components to stay disabled during

@@ -659,6 +659,7 @@ configure_github_environment() {
   set_github_environment_secret "$environment" GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT "$CLOUD_RUN_ROLLBACK_SA"
   set_github_environment_secret "$environment" GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT "$EVIDENCE_ARCHIVE_SA"
   set_github_environment_secret "$environment" GCP_CLOUD_SQL_MIGRATION_SERVICE_ACCOUNT "$CLOUD_SQL_MIGRATION_SA"
+  set_github_environment_secret "$environment" GCP_JOURNAL_ARCHIVE_SERVICE_ACCOUNT "$JOURNAL_ARCHIVE_SA"
 
   set_github_environment_variable "$environment" GCP_PROJECT_ID "$GCP_PROJECT_ID"
   set_github_environment_variable "$environment" GCP_REGION "$GCP_REGION"
@@ -670,6 +671,7 @@ configure_github_environment() {
   set_github_environment_variable "$environment" GCP_CLOUD_RUN_MAX_INSTANCES "${GCP_CLOUD_RUN_MAX_INSTANCES:-1}"
   set_github_environment_variable "$environment" GCP_CLOUD_RUN_TIMEOUT "${GCP_CLOUD_RUN_TIMEOUT:-300s}"
   set_github_environment_variable "$environment" GCP_CLOUD_SQL_INSTANCE "$GCP_CLOUD_SQL_INSTANCE"
+  set_github_environment_variable "$environment" GCP_JOURNAL_ARCHIVE_BUCKET "$TRADING_BOT_JOURNAL_ARCHIVE_BUCKET"
   set_github_environment_variable "$environment" GCP_EVIDENCE_ARCHIVE_BUCKET "$TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET"
 }
 
@@ -699,6 +701,7 @@ Set these GitHub environment secrets for both demo and real environments:
   GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT=${CLOUD_RUN_ROLLBACK_SA}
   GCP_EVIDENCE_ARCHIVE_SERVICE_ACCOUNT=${EVIDENCE_ARCHIVE_SA}
   GCP_CLOUD_SQL_MIGRATION_SERVICE_ACCOUNT=${CLOUD_SQL_MIGRATION_SA}
+  GCP_JOURNAL_ARCHIVE_SERVICE_ACCOUNT=${JOURNAL_ARCHIVE_SA}
 
 Set these GitHub environment variables for both demo and real environments:
   GCP_PROJECT_ID=${GCP_PROJECT_ID}
@@ -711,6 +714,7 @@ Set these GitHub environment variables for both demo and real environments:
   GCP_CLOUD_RUN_MAX_INSTANCES=${GCP_CLOUD_RUN_MAX_INSTANCES:-1}
   GCP_CLOUD_RUN_TIMEOUT=${GCP_CLOUD_RUN_TIMEOUT:-300s}
   GCP_CLOUD_SQL_INSTANCE=${GCP_CLOUD_SQL_INSTANCE}
+  GCP_JOURNAL_ARCHIVE_BUCKET=${TRADING_BOT_JOURNAL_ARCHIVE_BUCKET}
   GCP_EVIDENCE_ARCHIVE_BUCKET=${TRADING_BOT_EVIDENCE_ARCHIVE_BUCKET}
 
 Optional automation:
@@ -816,6 +820,7 @@ main() {
   CLOUD_RUN_ROLLBACK_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-run-rollback" "trading-bot Cloud Run rollback")"
   EVIDENCE_ARCHIVE_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-evidence-archiver" "trading-bot evidence archiver")"
   CLOUD_SQL_MIGRATION_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-cloud-sql-migration" "trading-bot Cloud SQL migration")"
+  JOURNAL_ARCHIVE_SA="$(ensure_service_account "${GCP_SERVICE_ACCOUNT_PREFIX}-journal-archiver" "trading-bot journal archiver")"
 
   log "Granting IAM roles"
   ensure_project_role "serviceAccount:${ARTIFACT_REGISTRY_SA}" roles/artifactregistry.writer
@@ -831,6 +836,7 @@ main() {
   ensure_project_role "serviceAccount:${EVIDENCE_ARCHIVE_SA}" roles/storage.objectAdmin
   ensure_project_role "serviceAccount:${CLOUD_SQL_MIGRATION_SA}" roles/cloudsql.client
   ensure_project_role "serviceAccount:${CLOUD_SQL_MIGRATION_SA}" roles/secretmanager.secretAccessor
+  ensure_project_role "serviceAccount:${JOURNAL_ARCHIVE_SA}" roles/storage.objectAdmin
   ensure_service_account_user "$CLOUD_RUN_RUNTIME_SA" "$CLOUD_RUN_DEPLOY_SA"
 
   log "Configuring Workload Identity Federation"
@@ -842,6 +848,7 @@ main() {
   allow_github_to_impersonate "$CLOUD_RUN_ROLLBACK_SA" "$project_number"
   allow_github_to_impersonate "$EVIDENCE_ARCHIVE_SA" "$project_number"
   allow_github_to_impersonate "$CLOUD_SQL_MIGRATION_SA" "$project_number"
+  allow_github_to_impersonate "$JOURNAL_ARCHIVE_SA" "$project_number"
 
   log "Creating Secret Manager secrets and adding supplied versions"
   ensure_secret_with_optional_version trading-bot-demo-binance-api-key BINANCE_DEMO_API_KEY

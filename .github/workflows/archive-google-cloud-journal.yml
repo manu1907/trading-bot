@@ -1,0 +1,129 @@
+name: Archive Google Cloud Journal
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target runtime environment and GitHub environment gate.
+        required: true
+        type: choice
+        options:
+          - demo
+          - real
+      archive_id:
+        description: Stable journal archive id, for example workflow run id or timestamp.
+        required: true
+        type: string
+      source_workflow_run_id:
+        description: Workflow run id containing the journal artifact.
+        required: true
+        type: string
+      artifact_name:
+        description: Artifact name containing raw journal files.
+        required: true
+        type: string
+      journal_path:
+        description: Path inside artifact containing journal files.
+        required: false
+        type: string
+        default: .
+      confirm_real_archive:
+        description: For real only, enter ARCHIVE_REAL_JOURNAL.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+concurrency:
+  group: archive-google-cloud-journal-${{ inputs.environment }}-${{ inputs.archive_id }}
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    name: Archive journal segments
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Validate archive request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! [[ "${{ inputs.source_workflow_run_id }}" =~ ^[0-9]+$ ]]; then
+            echo "source_workflow_run_id must be numeric" >&2
+            exit 1
+          fi
+          if ! [[ "${{ inputs.archive_id }}" =~ ^[a-zA-Z0-9._=-]+$ ]]; then
+            echo "archive_id contains unsupported characters" >&2
+            exit 1
+          fi
+          if [[ "${{ inputs.journal_path }}" = /* || "${{ inputs.journal_path }}" == *".."* || "${{ inputs.journal_path }}" == *"\\"* ]]; then
+            echo "journal_path must be a relative artifact path without traversal" >&2
+            exit 1
+          fi
+          case "${{ inputs.environment }}" in
+            demo)
+              provider="binance"
+              account="main"
+              market="usdm_futures"
+              ;;
+            real)
+              if [ "${{ inputs.confirm_real_archive }}" != "ARCHIVE_REAL_JOURNAL" ]; then
+                echo "Real journal archive requires confirm_real_archive=ARCHIVE_REAL_JOURNAL" >&2
+                exit 1
+              fi
+              provider="binance"
+              account="main"
+              market="usdm_futures"
+              ;;
+            *) echo "Unsupported environment: ${{ inputs.environment }}" >&2; exit 1 ;;
+          esac
+          echo "provider=$provider" >> "$GITHUB_OUTPUT"
+          echo "account=$account" >> "$GITHUB_OUTPUT"
+          echo "market=$market" >> "$GITHUB_OUTPUT"
+          echo "artifact_dir=build/journal/archive-source" >> "$GITHUB_OUTPUT"
+          echo "journal_dir=build/journal/archive-source/${{ inputs.journal_path }}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Download journal artifact
+        uses: actions/download-artifact@v6
+        with:
+          run-id: ${{ inputs.source_workflow_run_id }}
+          name: ${{ inputs.artifact_name }}
+          path: ${{ steps.request.outputs.artifact_dir }}
+          github-token: ${{ github.token }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_JOURNAL_ARCHIVE_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Archive journal segments
+        shell: bash
+        run: |
+          set -euo pipefail
+          ops/database/archive-journal-segments.sh \
+            --environment "${{ inputs.environment }}" \
+            --provider "${{ steps.request.outputs.provider }}" \
+            --account "${{ steps.request.outputs.account }}" \
+            --market "${{ steps.request.outputs.market }}" \
+            --archive-id "${{ inputs.archive_id }}" \
+            --journal-dir "${{ steps.request.outputs.journal_dir }}" \
+            --bucket "${{ vars.GCP_JOURNAL_ARCHIVE_BUCKET }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}"
+
+      - name: Upload journal archive manifest
+        uses: actions/upload-artifact@v5
+        with:
+          name: trading-bot-journal-archive-manifest-${{ inputs.environment }}-${{ inputs.archive_id }}
+          path: ${{ steps.request.outputs.journal_dir }}/journal-archive-manifest.tsv
+          if-no-files-found: error

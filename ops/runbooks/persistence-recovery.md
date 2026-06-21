@@ -17,6 +17,9 @@ stay equivalent.
 - Journal archive: deployment-owned object storage export using
   `TradingEventArchiveLayout` object names:
   `{prefix}/trading-events/v1/event_type={event-type}/topic={topic}/date={yyyy-MM-dd}/hour={HH}/{journal-index}.avrobin`.
+  Raw journal segment restore archives are stored separately under
+  `<environment>/<provider>/<account>/<market>/journal-segments/v1/<archive-id>/`
+  by `ops/database/archive-journal-segments.sh`.
 - Projection snapshot store: current projected balances, positions, orders,
   risk state, realized PnL, manual-review decisions, remediation decisions,
   pause governance, strategy lifecycle, market data, and applied event ids.
@@ -56,6 +59,11 @@ Cloud Run deployment or promotion when projection/audit schema changes are
 introduced. The workflow uses `ops/database/migrate-postgresql-state.sh`, the
 checked-in projection and audit SQL files, Cloud SQL Auth Proxy, and environment
 Secret Manager bindings without printing database secret values.
+For journal restore material, run the guarded
+`.github/workflows/archive-google-cloud-journal.yml` workflow against a produced
+journal artifact. It writes a SHA-256 manifest, scans for secret-like content,
+and uploads raw journal segments to the configured journal archive bucket without
+modifying runtime state.
 
 ## Normal Startup Recovery
 

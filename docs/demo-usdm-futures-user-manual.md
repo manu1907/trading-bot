@@ -807,6 +807,11 @@ Pause governance metrics:
   projection and pause-governance audit SQL with a dedicated Cloud SQL migration
   service account while the bot runtime keeps JDBC schema initialization
   disabled.
+- The Google Cloud journal archive workflow is manual and environment-gated. It
+  archives a produced journal artifact into the configured journal archive
+  bucket with a SHA-256 manifest and secret-pattern scan. It preserves raw
+  journal files for restore/replay evidence and does not modify live runtime
+  state.
 - The persistence recovery runbook lives at
   `ops/runbooks/persistence-recovery.md`; it defines restore sequencing,
   reconciliation gates, compaction constraints, and restore-drill evidence.
