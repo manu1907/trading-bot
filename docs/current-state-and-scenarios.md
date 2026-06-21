@@ -581,6 +581,14 @@ Implemented persistence/recovery surfaces include:
   Markdown report. It does not call Google Cloud, GitHub, Binance, or Secret
   Manager; it proves repository readiness only, not deployed infrastructure or
   exchange connectivity.
+- A separate live autonomous trading readiness validator now exists at
+  `ops/autonomous/validate-live-autonomous-trading-readiness.sh`. It is stricter
+  than deployment readiness and currently fails closed because the bot is not
+  yet complete for full autonomous demo/real trading. Its current blockers
+  include demo LFA runner enablement, active lifecycle configuration, account
+  notional/loss risk budgets, and the missing autonomous position lifecycle
+  runner that must emit exit/reduce/close decisions through the normal strategy
+  and execution pipeline.
 - A guarded manual Google Cloud Cloud Run rollback workflow now routes traffic
   back to an existing revision after verifying the requested rollback commit
   passed `Security`, the target revision belongs to the selected service, the

@@ -828,6 +828,12 @@ Pause governance metrics:
   Google Cloud, GitHub, Binance, or Secret Manager, so it does not replace
   bootstrap, secret-version checks, Cloud Run smoke, Binance live smoke, or
   evidence archival.
+- Full autonomous demo trading has a separate stricter gate:
+  `ops/autonomous/validate-live-autonomous-trading-readiness.sh --environment demo`.
+  This currently fails and should fail until the remaining autonomous strategy,
+  position lifecycle, and calibrated risk/money-management work is complete.
+  Passing deployment readiness does not mean the bot is ready to run full
+  autonomous trading.
 - Google Cloud managed alert policy templates live in
   `ops/google-cloud/monitoring/alert-policies`; provision them with
   `ops/google-cloud/provision-monitoring-alert-policies.sh demo`. They currently
