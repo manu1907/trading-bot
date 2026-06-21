@@ -81,24 +81,29 @@ production-ready until all required alert receiver secrets have enabled versions
 Before publishing or deploying a commit:
 
 1. Confirm the target commit SHA is a full 40-character SHA.
-2. Confirm GitHub `Security` completed successfully for that SHA.
-3. Confirm the target environment is either `demo` or `real`.
-4. Confirm the GitHub environment has the required OIDC and Cloud Run secrets:
+2. Run the offline repository preflight for the target environment:
+   `ops/google-cloud/validate-live-deployment-readiness.sh --environment demo`
+   or
+   `ops/google-cloud/validate-live-deployment-readiness.sh --environment real`.
+3. Keep the generated readiness report with the deployment evidence bundle.
+4. Confirm GitHub `Security` completed successfully for that SHA.
+5. Confirm the target environment is either `demo` or `real`.
+6. Confirm the GitHub environment has the required OIDC and Cloud Run secrets:
    `GCP_WORKLOAD_IDENTITY_PROVIDER`,
    `GCP_ARTIFACT_REGISTRY_SERVICE_ACCOUNT`,
    `GCP_CLOUD_RUN_DEPLOY_SERVICE_ACCOUNT`,
    `GCP_CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT`,
    `GCP_CLOUD_RUN_SMOKE_SERVICE_ACCOUNT`, and
    `GCP_CLOUD_RUN_ROLLBACK_SERVICE_ACCOUNT`.
-5. Confirm the GitHub environment has the required variables:
+7. Confirm the GitHub environment has the required variables:
    `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_ARTIFACT_REGISTRY_LOCATION`,
    `GCP_ARTIFACT_REGISTRY_REPOSITORY`, `GCP_CLOUD_RUN_CPU`,
    `GCP_CLOUD_RUN_MEMORY`, `GCP_CLOUD_RUN_MIN_INSTANCES`,
    `GCP_CLOUD_RUN_MAX_INSTANCES`, `GCP_CLOUD_RUN_TIMEOUT`, and
    `GCP_CLOUD_SQL_INSTANCE`.
-6. Confirm Secret Manager has enabled versions for the secrets bound by the
+8. Confirm Secret Manager has enabled versions for the secrets bound by the
    selected deployment contract.
-7. For real, confirm demo promotion evidence exists and real exchange execution
+9. For real, confirm demo promotion evidence exists and real exchange execution
    policies remain disabled unless explicitly approved by promotion gates.
 
 ## Publish Image
@@ -348,6 +353,8 @@ demo validation.
 A Google Cloud deployment is operationally complete only when:
 
 - Bootstrap completed for the selected project.
+- The offline live deployment readiness preflight passes for the target
+  environment and its report is preserved with release evidence.
 - GitHub environments are configured.
 - Image publish, deploy, smoke, and rollback workflows have evidence.
 - Cloud SQL/JDBC secrets are present and bound.

@@ -572,6 +572,15 @@ Implemented persistence/recovery surfaces include:
   scan. The bootstrap script creates the evidence archive bucket, evidence
   archiver service account, GitHub OIDC binding, and optional GitHub environment
   secret/variable values.
+- An offline Google Cloud live deployment readiness validator now exists at
+  `ops/google-cloud/validate-live-deployment-readiness.sh`. It checks the
+  committed Dockerfile, Google Cloud demo/real deployment contracts, AWS mirror
+  contracts, runtime/catalog guardrails, CI/CD workflows, database migration and
+  journal archive scripts, evidence scripts, Alertmanager renderer, runbooks,
+  docs, and plan for the selected `demo` or `real` live target, then writes a
+  Markdown report. It does not call Google Cloud, GitHub, Binance, or Secret
+  Manager; it proves repository readiness only, not deployed infrastructure or
+  exchange connectivity.
 - A guarded manual Google Cloud Cloud Run rollback workflow now routes traffic
   back to an existing revision after verifying the requested rollback commit
   passed `Security`, the target revision belongs to the selected service, the

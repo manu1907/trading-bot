@@ -139,6 +139,38 @@ percent plus forecasted-spend 100 percent. Optional
 Monitoring notification targets. Budget alerts are cost observability; they do
 not stop the bot or replace trading risk controls.
 
+## Live Deployment Readiness Preflight
+
+`validate-live-deployment-readiness.sh` is an offline repository preflight for
+the live-profile Google Cloud path. It does not call Google Cloud, GitHub,
+Binance, or Secret Manager, and it does not read secret values.
+
+Run it before publishing or deploying a commit:
+
+```bash
+ops/google-cloud/validate-live-deployment-readiness.sh --environment demo
+```
+
+For the matching real contract:
+
+```bash
+ops/google-cloud/validate-live-deployment-readiness.sh --environment real
+```
+
+The validator writes a Markdown report under
+`build/reports/google-cloud/` by default. It checks that the source-controlled
+Dockerfile, deployment contracts, runtime/catalog guardrails, workflows,
+evidence scripts, database migration/archive scripts, Alertmanager renderer,
+runbooks, and plan are present and consistent. It also checks that demo and real
+use the same live application path and that real starts with promotion evidence
+required, isolated real secrets, exchange execution disabled, and an empty real
+operation allowlist.
+
+Passing this preflight is not enough to deploy. It proves repository readiness
+only. Bootstrap, Secret Manager versions, GitHub environment values, Cloud SQL
+reachability, Cloud Run deployment, private readiness smoke, Binance live smoke,
+and evidence archival still have to run through their dedicated workflows.
+
 ## Demo USD-M Futures
 
 `demo-usdm-futures-deployment.yml` is the first deployment contract for the

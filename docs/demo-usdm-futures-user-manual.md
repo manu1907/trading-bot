@@ -817,6 +817,17 @@ Pause governance metrics:
   reconciliation gates, compaction constraints, and restore-drill evidence.
 - The guarded Google Cloud CI/CD path now covers image publication, Cloud Run
   deployment with Cloud SQL attachment, private readiness smoke, and rollback.
+- Before the first Google Cloud publish/deploy action for a commit, run
+  `ops/google-cloud/validate-live-deployment-readiness.sh --environment demo`.
+  The matching real command is
+  `ops/google-cloud/validate-live-deployment-readiness.sh --environment real`.
+  This offline preflight writes a Markdown report and checks the committed
+  Dockerfile, deployment contracts, runtime/catalog guardrails, workflows,
+  evidence scripts, database migration/archive scripts, Alertmanager renderer,
+  runbooks, and same-codebase demo/real startup guardrails. It does not call
+  Google Cloud, GitHub, Binance, or Secret Manager, so it does not replace
+  bootstrap, secret-version checks, Cloud Run smoke, Binance live smoke, or
+  evidence archival.
 - Google Cloud managed alert policy templates live in
   `ops/google-cloud/monitoring/alert-policies`; provision them with
   `ops/google-cloud/provision-monitoring-alert-policies.sh demo`. They currently
