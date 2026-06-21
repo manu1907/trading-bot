@@ -54,7 +54,18 @@
           "min_expected_profit_score": "1",
           "min_risk_money_management_fit_score": "0.25",
           "max_account_open_positions": 3,
-          "max_symbol_open_positions": 1
+          "max_symbol_open_positions": 1,
+          "max_account_open_order_notional": "150",
+          "max_symbol_open_order_notional": "50",
+          "max_account_position_notional": "150",
+          "max_symbol_position_notional": "50",
+          "max_account_unrealized_loss": "15",
+          "max_symbol_unrealized_loss": "10",
+          "min_account_margin_balance": "100",
+          "max_account_margin_drawdown_fraction": "0.10",
+          "max_account_margin_utilization": "0.20",
+          "max_account_daily_realized_loss": "25",
+          "max_symbol_daily_realized_loss": "10"
         }
       }
     },

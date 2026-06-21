@@ -220,7 +220,16 @@ open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,
 `max_allocated_target_notional=50`, `max_strategy_run_notional=50`, and
 `allocation_weighting_mode=MARKET_QUALITY`, plus
 `min_expected_profit_bps=1`, `min_expected_profit_score=1`, and
-`min_risk_money_management_fit_score=0.25`, but does not
+`min_risk_money_management_fit_score=0.25`,
+`max_account_open_order_notional=150`,
+`max_symbol_open_order_notional=50`,
+`max_account_position_notional=150`, `max_symbol_position_notional=50`,
+`max_account_unrealized_loss=15`, `max_symbol_unrealized_loss=10`,
+`min_account_margin_balance=100`,
+`max_account_margin_drawdown_fraction=0.10`,
+`max_account_margin_utilization=0.20`,
+`max_account_daily_realized_loss=25`, and
+`max_symbol_daily_realized_loss=10`, but does not
 override `enabled`, so the effective demo runner remains disabled because the
 complete position-lifecycle and broader money-management layers are not complete
 enough for autonomous strategy execution.
@@ -620,11 +629,11 @@ Implemented persistence/recovery surfaces include:
   `ops/autonomous/validate-live-autonomous-trading-readiness.sh`. It is stricter
   than deployment readiness and currently fails closed because the bot is not
   yet complete for full autonomous demo/real trading. Its current blockers
-  include demo LFA runner enablement, active lifecycle configuration, and
-  account notional/loss risk budgets. The autonomous position lifecycle
-  implementation checks now pass, but the lifecycle remains disabled in the
-  checked-in effective demo runtime until the remaining autonomous readiness
-  gates pass.
+  are demo LFA runner enablement and active lifecycle configuration. The
+  autonomous position lifecycle implementation checks and first-start demo
+  account-level notional/loss cap checks now pass, but the lifecycle remains
+  disabled in the checked-in effective demo runtime until the remaining
+  autonomous readiness gates pass.
 - A guarded manual Google Cloud Cloud Run rollback workflow now routes traffic
   back to an existing revision after verifying the requested rollback commit
   passed `Security`, the target revision belongs to the selected service, the
@@ -730,7 +739,7 @@ Managed order amendment state:
 Remaining work includes:
 
 - Broader provider preflight coverage for future command families where exchange-specific validation is more than currently supported `NEW`, `CANCEL`, and futures `MODIFY`.
-- Broader account-level and symbol-level risk budgets beyond the current optional projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account/symbol daily realized-loss caps.
+- Broader account-level and symbol-level risk-budget calibration beyond the current first-start demo projected exposure, current unrealized-loss, account margin-balance floor, account margin-balance high-watermark drawdown, account margin-utilization, and account/symbol daily realized-loss caps.
 - Cancel/replace fallback for unsupported amendments and executable adopted replace/rollback behavior if a safe design is accepted.
 - Strategy entry/exit lifecycle, stops, take-profit, timeout handling, stale signal handling, partial-fill handling, and unknown-result handling.
 - V1 live validation, demo soak criteria, promotion gates, and real-trading runbooks.

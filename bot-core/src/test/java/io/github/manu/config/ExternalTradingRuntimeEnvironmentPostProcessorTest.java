@@ -65,6 +65,28 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 .isEqualTo(3);
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-symbol-open-positions", Integer.class))
                 .isEqualTo(1);
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-open-order-notional"))
+                .isEqualTo("150");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-symbol-open-order-notional"))
+                .isEqualTo("50");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-position-notional"))
+                .isEqualTo("150");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-symbol-position-notional"))
+                .isEqualTo("50");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-unrealized-loss"))
+                .isEqualTo("15");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-symbol-unrealized-loss"))
+                .isEqualTo("10");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.min-account-margin-balance"))
+                .isEqualTo("100");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-margin-drawdown-fraction"))
+                .isEqualTo("0.10");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-margin-utilization"))
+                .isEqualTo("0.20");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-account-daily-realized-loss"))
+                .isEqualTo("25");
+        assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.max-symbol-daily-realized-loss"))
+                .isEqualTo("10");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.require-reconciliation-confidence", Boolean.class))
                 .isTrue();
         assertThat(environment.getProperty("trading.execution.pipeline.enabled", Boolean.class)).isTrue();

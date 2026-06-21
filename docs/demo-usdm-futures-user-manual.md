@@ -1825,6 +1825,12 @@ Catalog defaults are:
 - `require_signal_planner_enabled`: `true`
 - `require_reconciliation_confidence`: `true`
 
+The checked-in demo runtime overrides the runner target, candidate and sizing
+controls, expected-edge floors, position-count caps, notional caps, loss caps,
+margin-health caps, and daily realized-loss caps for
+`binance/demo/main/usdm_futures`, while still inheriting catalog `enabled=false`
+and `lifecycle_state=PAUSED` until the final autonomous-readiness gates pass.
+
 Valid `lifecycle_state` values are `STARTING`, `ACTIVE`, `PAUSED`,
 `DRAINING`, `STOPPED`, and `EMERGENCY_STOP`. Unknown values are rejected during
 configuration binding. The runner publishes new signals only in `ACTIVE`; the
@@ -2099,9 +2105,17 @@ sets `lifecycle_state=PAUSED`, three-symbol projected-data warm-up thresholds,
 `max_candidate_market_data_symbols=13`, open-position caps,
 `target_notional_margin_balance_fraction=0.01`, and
 `max_allocated_target_notional=50`, `max_strategy_run_notional=50`, and
-`allocation_weighting_mode=MARKET_QUALITY` for first-start demo operation;
-notional and daily-loss caps remain inherited as `null` until calibrated for the
-target account.
+`allocation_weighting_mode=MARKET_QUALITY` for first-start demo operation. It
+also sets `max_account_open_order_notional=150`,
+`max_symbol_open_order_notional=50`, `max_account_position_notional=150`,
+`max_symbol_position_notional=50`, `max_account_unrealized_loss=15`,
+`max_symbol_unrealized_loss=10`, `min_account_margin_balance=100`,
+`max_account_margin_drawdown_fraction=0.10`,
+`max_account_margin_utilization=0.20`,
+`max_account_daily_realized_loss=25`, and
+`max_symbol_daily_realized_loss=10`. These are first-start demo runtime caps,
+not a real-promotion profitability or safety certificate; they must be
+validated and recalibrated from demo burn-in evidence before real promotion.
 
 The checked-in catalog owns the bounded candidate baseline of `BTCUSDT`,
 `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `DOGEUSDT`, `ADAUSDT`,
