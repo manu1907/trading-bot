@@ -105,7 +105,7 @@ still rejected if any universe, projection, reconciliation, pause, or order-limi
 gate fails. The LFA runner now adds a first expected-edge score for emitted
 signals and multiplies it by a projected risk and money-management fit score,
 plus a first top-of-book expected-profit score, but that is not yet a calibrated
-realized-PnL model, portfolio allocator, or position lifecycle.
+realized-PnL model, portfolio allocator, or complete position lifecycle.
 
 ## LFA Strategy Signal Analysis
 
@@ -222,7 +222,7 @@ open-position caps, `lifecycle_state=PAUSED`, three-symbol warm-up thresholds,
 `min_expected_profit_bps=1`, `min_expected_profit_score=1`, and
 `min_risk_money_management_fit_score=0.25`, but does not
 override `enabled`, so the effective demo runner remains disabled because the
-full position-lifecycle and broader money-management layers are not complete
+complete position-lifecycle and broader money-management layers are not complete
 enough for autonomous strategy execution.
 
 When the LFA runner bean and internal operator API are enabled, the operator API
@@ -243,8 +243,43 @@ hook with a first projected account-margin allocation layer that can weight
 capital toward stronger liquid signals and a first auditable expected-edge
 signal ordering layer that includes projected risk and money-management fit plus
 a first top-of-book expected-profit estimate. It is not yet the full portfolio,
-position-management, calibrated realized-PnL, risk-adjusted-return, or
-money-management selector needed for production autonomous trading.
+calibrated realized-PnL, risk-adjusted-return, or money-management selector
+needed for production autonomous trading.
+
+## Autonomous Position Lifecycle
+
+`bot-core` now contains a provider-agnostic `PositionManager` lifecycle runner
+configured under `trading.position.lifecycle`. The catalog default is
+`enabled=false`; the checked-in demo runtime sets the Binance demo USD-M futures
+target and first loss thresholds, but still inherits the disabled catalog
+default until the remaining autonomous readiness gates pass.
+
+When enabled, the lifecycle runner reads the projected target state and fails
+closed unless the target is complete, the event bus is available, target
+reconciliation is confident when required, the account is not paused, unknown
+order states are absent when configured, and unresolved order commands are
+absent when configured. For each open projected target position it also checks
+symbol pause state, open orders for the same symbol, fresh market data when
+required, non-zero position size, and projected unrealized PnL.
+
+The current policy is intentionally narrow:
+
+- If projected unrealized loss reaches
+  `close_when_unrealized_loss_at_least`, it emits an unsized
+  `EXIT_LONG` or `EXIT_SHORT` strategy signal with `close_position=true`.
+- If projected unrealized loss reaches
+  `reduce_when_unrealized_loss_at_least`, it emits a quantity-bounded
+  `REDUCE_LONG` or `REDUCE_SHORT` strategy signal using `reduce_fraction`.
+- Signals are provider-agnostic and still flow through the normal strategy
+  planner, order risk gate, idempotency, journal, projection, reconciliation,
+  and provider gateway path before any exchange action can happen.
+- In-process duplicate signal ids suppress repeated emissions for the same
+  projected position event and lifecycle action.
+
+This is a first autonomous safety loop. It is not yet a complete professional
+position manager for take-profit, trailing stop, timeout, partial-fill handling,
+durable duplicate-action prevention after restart, portfolio-level exits, or
+calibrated profit-maximizing position management.
 
 ## Runtime Policy Boundary
 
@@ -585,10 +620,11 @@ Implemented persistence/recovery surfaces include:
   `ops/autonomous/validate-live-autonomous-trading-readiness.sh`. It is stricter
   than deployment readiness and currently fails closed because the bot is not
   yet complete for full autonomous demo/real trading. Its current blockers
-  include demo LFA runner enablement, active lifecycle configuration, account
-  notional/loss risk budgets, and the missing autonomous position lifecycle
-  runner that must emit exit/reduce/close decisions through the normal strategy
-  and execution pipeline.
+  include demo LFA runner enablement, active lifecycle configuration, and
+  account notional/loss risk budgets. The autonomous position lifecycle
+  implementation checks now pass, but the lifecycle remains disabled in the
+  checked-in effective demo runtime until the remaining autonomous readiness
+  gates pass.
 - A guarded manual Google Cloud Cloud Run rollback workflow now routes traffic
   back to an existing revision after verifying the requested rollback commit
   passed `Security`, the target revision belongs to the selected service, the

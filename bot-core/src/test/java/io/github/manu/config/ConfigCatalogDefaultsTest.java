@@ -92,6 +92,27 @@ class ConfigCatalogDefaultsTest {
         assertBoolean(catalog, "trading.strategy.lfa.signal_runner.reject_missing_account_risk_metadata", true);
         assertBoolean(catalog, "trading.strategy.lfa.signal_runner.require_signal_planner_enabled", true);
 
+        assertBoolean(catalog, "trading.position.lifecycle.enabled", false);
+        assertInt(catalog, "trading.position.lifecycle.interval_millis", 30000);
+        assertInt(catalog, "trading.position.lifecycle.initial_delay_millis", 30000);
+        assertText(catalog, "trading.position.lifecycle.strategy_id", "position-lifecycle");
+        assertNull(catalog, "trading.position.lifecycle.target.provider");
+        assertNull(catalog, "trading.position.lifecycle.target.environment");
+        assertNull(catalog, "trading.position.lifecycle.target.account");
+        assertNull(catalog, "trading.position.lifecycle.target.market");
+        assertThat(requiredNode(catalog, "trading.position.lifecycle.target.symbols")).isEmpty();
+        assertBoolean(catalog, "trading.position.lifecycle.require_reconciliation_confidence", true);
+        assertBoolean(catalog, "trading.position.lifecycle.require_market_data", true);
+        assertInt(catalog, "trading.position.lifecycle.max_market_data_age_millis", 30000);
+        assertBoolean(catalog, "trading.position.lifecycle.skip_when_open_orders_exist", true);
+        assertBoolean(catalog, "trading.position.lifecycle.skip_when_unknown_orders_exist", true);
+        assertBoolean(catalog, "trading.position.lifecycle.skip_when_unresolved_commands_exist", true);
+        assertNull(catalog, "trading.position.lifecycle.reduce_when_unrealized_loss_at_least");
+        assertText(catalog, "trading.position.lifecycle.reduce_fraction", "0.50");
+        assertNull(catalog, "trading.position.lifecycle.close_when_unrealized_loss_at_least");
+        assertText(catalog, "trading.position.lifecycle.order_type", "MARKET");
+        assertNull(catalog, "trading.position.lifecycle.time_in_force");
+
         assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_external_remediation_cancel", true);
         assertBoolean(catalog, "trading.execution.risk_gate.target_order.allow_adopted_target_orders", false);
         assertNull(catalog, "trading.execution.signal_planner.instrument_universe.min_top_of_book_quote_notional");

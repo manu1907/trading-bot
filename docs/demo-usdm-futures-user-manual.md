@@ -831,7 +831,10 @@ Pause governance metrics:
 - Full autonomous demo trading has a separate stricter gate:
   `ops/autonomous/validate-live-autonomous-trading-readiness.sh --environment demo`.
   This currently fails and should fail until the remaining autonomous strategy,
-  position lifecycle, and calibrated risk/money-management work is complete.
+  calibrated risk/money-management, and position-management hardening work is
+  complete. A first provider-agnostic position lifecycle runner exists under
+  `trading.position.lifecycle`, but the checked-in demo runtime keeps it
+  disabled until the readiness gate passes.
   Passing deployment readiness does not mean the bot is ready to run full
   autonomous trading.
 - Google Cloud managed alert policy templates live in

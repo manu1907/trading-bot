@@ -140,40 +140,38 @@ require_file "$POSITION_MANAGER" "position lifecycle implementation surface"
 require_file "$LFA_RUNNER" "LFA signal runner implementation"
 require_file "$STRATEGY_PLANNER" "strategy-to-order planner implementation"
 
-if [[ "$ENVIRONMENT" == "demo" ]]; then
-  require_contains "$DEMO_RUNTIME" '"signal_runner"' \
-    "LFA signal runner is configured" \
-    "demo runtime contains LFA signal runner settings" \
-    "demo runtime must configure the LFA signal runner"
-  require_regex "$DEMO_RUNTIME" '/"signal_runner"\s*:\s*\{\s*"enabled"\s*:\s*true/s' \
-    "LFA signal runner explicitly enabled for demo" \
-    "demo runtime explicitly enables the LFA signal runner" \
-    "demo runtime must explicitly set trading.strategy.lfa.signal_runner.enabled=true before autonomous demo trading"
-  require_contains "$DEMO_RUNTIME" '"lifecycle_state": "ACTIVE"' \
-    "LFA lifecycle active for autonomous demo" \
-    "demo runtime starts autonomous strategy lifecycle as ACTIVE" \
-    "demo runtime currently does not start LFA lifecycle as ACTIVE"
-  require_not_contains "$DEMO_RUNTIME" '"lifecycle_state": "PAUSED"' \
-    "LFA lifecycle is not paused" \
-    "demo runtime does not start LFA lifecycle as PAUSED" \
-    "demo runtime currently starts LFA lifecycle as PAUSED"
-  require_contains "$DEMO_RUNTIME" '"max_account_open_order_notional"' \
-    "account open-order notional cap configured" \
-    "demo runtime configures account open-order notional cap" \
-    "demo runtime must configure account open-order notional cap for autonomous trading"
-  require_contains "$DEMO_RUNTIME" '"max_account_position_notional"' \
-    "account position notional cap configured" \
-    "demo runtime configures account position notional cap" \
-    "demo runtime must configure account position notional cap for autonomous trading"
-  require_contains "$DEMO_RUNTIME" '"max_account_unrealized_loss"' \
-    "account unrealized-loss cap configured" \
-    "demo runtime configures account unrealized-loss cap" \
-    "demo runtime must configure account unrealized-loss cap for autonomous trading"
-  require_contains "$DEMO_RUNTIME" '"max_account_daily_realized_loss"' \
-    "account daily realized-loss cap configured" \
-    "demo runtime configures account daily realized-loss cap" \
-    "demo runtime must configure account daily realized-loss cap for autonomous trading"
-fi
+require_contains "$DEMO_RUNTIME" '"signal_runner"' \
+  "demo LFA signal runner is configured" \
+  "demo runtime contains LFA signal runner settings" \
+  "demo runtime must configure the LFA signal runner before demo or real autonomous trading"
+require_regex "$DEMO_RUNTIME" '/"signal_runner"\s*:\s*\{\s*"enabled"\s*:\s*true/s' \
+  "demo LFA signal runner explicitly enabled" \
+  "demo runtime explicitly enables the LFA signal runner" \
+  "demo runtime must explicitly set trading.strategy.lfa.signal_runner.enabled=true before demo or real autonomous trading"
+require_contains "$DEMO_RUNTIME" '"lifecycle_state": "ACTIVE"' \
+  "demo LFA lifecycle active for autonomous trading" \
+  "demo runtime starts autonomous strategy lifecycle as ACTIVE" \
+  "demo runtime currently does not start LFA lifecycle as ACTIVE"
+require_not_contains "$DEMO_RUNTIME" '"lifecycle_state": "PAUSED"' \
+  "demo LFA lifecycle is not paused" \
+  "demo runtime does not start LFA lifecycle as PAUSED" \
+  "demo runtime currently starts LFA lifecycle as PAUSED"
+require_contains "$DEMO_RUNTIME" '"max_account_open_order_notional"' \
+  "demo account open-order notional cap configured" \
+  "demo runtime configures account open-order notional cap" \
+  "demo runtime must configure account open-order notional cap before demo or real autonomous trading"
+require_contains "$DEMO_RUNTIME" '"max_account_position_notional"' \
+  "demo account position notional cap configured" \
+  "demo runtime configures account position notional cap" \
+  "demo runtime must configure account position notional cap before demo or real autonomous trading"
+require_contains "$DEMO_RUNTIME" '"max_account_unrealized_loss"' \
+  "demo account unrealized-loss cap configured" \
+  "demo runtime configures account unrealized-loss cap" \
+  "demo runtime must configure account unrealized-loss cap before demo or real autonomous trading"
+require_contains "$DEMO_RUNTIME" '"max_account_daily_realized_loss"' \
+  "demo account daily realized-loss cap configured" \
+  "demo runtime configures account daily realized-loss cap" \
+  "demo runtime must configure account daily realized-loss cap before demo or real autonomous trading"
 
 require_contains "$STRATEGY_PLANNER" "EXIT_LONG" \
   "strategy exit signal planning exists" \

@@ -58,6 +58,19 @@
         }
       }
     },
+    "position": {
+      "lifecycle": {
+        "initial_delay_millis": 10000,
+        "target": {
+          "provider": "binance",
+          "environment": "demo",
+          "account": "main",
+          "market": "usdm_futures"
+        },
+        "reduce_when_unrealized_loss_at_least": "5",
+        "close_when_unrealized_loss_at_least": "10"
+      }
+    },
     "execution": {
       "pipeline": {
         "enabled": true

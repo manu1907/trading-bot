@@ -168,6 +168,32 @@
         }
       }
     },
+    "position": {
+      "lifecycle": {
+        "enabled": false,
+        "interval_millis": 30000,
+        "initial_delay_millis": 30000,
+        "strategy_id": "position-lifecycle",
+        "target": {
+          "provider": null,
+          "environment": null,
+          "account": null,
+          "market": null,
+          "symbols": []
+        },
+        "require_reconciliation_confidence": true,
+        "require_market_data": true,
+        "max_market_data_age_millis": 30000,
+        "skip_when_open_orders_exist": true,
+        "skip_when_unknown_orders_exist": true,
+        "skip_when_unresolved_commands_exist": true,
+        "reduce_when_unrealized_loss_at_least": null,
+        "reduce_fraction": "0.50",
+        "close_when_unrealized_loss_at_least": null,
+        "order_type": "MARKET",
+        "time_in_force": null
+      }
+    },
     "execution": {
       "pipeline": {
         "enabled": false

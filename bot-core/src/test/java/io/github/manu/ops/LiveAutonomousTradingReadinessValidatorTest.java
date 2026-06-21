@@ -46,13 +46,13 @@ class LiveAutonomousTradingReadinessValidatorTest {
         String content = Files.readString(report);
         assertThat(content)
                 .contains("- Overall: FAIL")
-                .contains("LFA signal runner explicitly enabled for demo")
+                .contains("demo LFA signal runner explicitly enabled")
                 .contains("demo runtime must explicitly set trading.strategy.lfa.signal_runner.enabled=true")
-                .contains("LFA lifecycle active for autonomous demo")
-                .contains("account open-order notional cap configured")
-                .contains("account position notional cap configured")
-                .contains("account unrealized-loss cap configured")
-                .contains("account daily realized-loss cap configured")
+                .contains("demo LFA lifecycle active for autonomous trading")
+                .contains("demo account open-order notional cap configured")
+                .contains("demo account position notional cap configured")
+                .contains("demo account unrealized-loss cap configured")
+                .contains("demo account daily realized-loss cap configured")
                 .contains("autonomous position lifecycle runner exists")
                 .contains("position lifecycle emits strategy exit/reduce signals");
     }
@@ -67,6 +67,8 @@ class LiveAutonomousTradingReadinessValidatorTest {
         String content = Files.readString(report);
         assertThat(content)
                 .contains("- Overall: FAIL")
+                .contains("demo LFA signal runner explicitly enabled")
+                .contains("demo account open-order notional cap configured")
                 .contains("real requires demo promotion evidence")
                 .contains("real starts execution-disabled")
                 .contains("autonomous position lifecycle runner exists");
