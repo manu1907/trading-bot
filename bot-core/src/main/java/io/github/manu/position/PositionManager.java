@@ -167,6 +167,21 @@ public class PositionManager {
                 && projection.hasUnresolvedOrderCommands(target.provider(), target.environment(), target.account(), target.market())) {
             blockers.add("unresolved_order_command_exists");
         }
+        if (lifecycle.requireStrategyLifecycleActive()) {
+            String strategyId = lifecycle.governedStrategyId() == null ? lifecycle.strategyId() : lifecycle.governedStrategyId();
+            projection.strategyLifecycle(strategyId, target.provider(), target.environment(), target.account(), target.market())
+                    .ifPresentOrElse(
+                            state -> {
+                                String lifecycleState = state.lifecycleState() == null
+                                        ? ""
+                                        : state.lifecycleState().trim().toUpperCase(Locale.ROOT);
+                                if (!lifecycle.allowedStrategyLifecycleStates().contains(lifecycleState)) {
+                                    blockers.add("strategy_lifecycle_not_allowed:" + strategyId + ":" + lifecycleState);
+                                }
+                            },
+                            () -> blockers.add("strategy_lifecycle_missing:" + strategyId)
+                    );
+        }
         if (projection.accountPaused(target.provider(), target.environment(), target.account(), target.market(), now)) {
             blockers.add("account_paused");
         }

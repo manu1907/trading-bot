@@ -96,6 +96,10 @@ class ConfigCatalogDefaultsTest {
         assertInt(catalog, "trading.position.lifecycle.interval_millis", 30000);
         assertInt(catalog, "trading.position.lifecycle.initial_delay_millis", 30000);
         assertText(catalog, "trading.position.lifecycle.strategy_id", "position-lifecycle");
+        assertNull(catalog, "trading.position.lifecycle.governed_strategy_id");
+        assertBoolean(catalog, "trading.position.lifecycle.require_strategy_lifecycle_active", true);
+        assertThat(requiredNode(catalog, "trading.position.lifecycle.allowed_strategy_lifecycle_states").get(0)
+                .asString()).isEqualTo("ACTIVE");
         assertNull(catalog, "trading.position.lifecycle.target.provider");
         assertNull(catalog, "trading.position.lifecycle.target.environment");
         assertNull(catalog, "trading.position.lifecycle.target.account");

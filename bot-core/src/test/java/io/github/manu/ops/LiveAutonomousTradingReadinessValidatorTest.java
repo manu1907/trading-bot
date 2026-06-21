@@ -31,6 +31,8 @@ class LiveAutonomousTradingReadinessValidatorTest {
                 .contains("max_account_daily_realized_loss")
                 .contains("PositionManager.java")
                 .contains("StrategySignalEvent")
+                .contains("governed_strategy_id")
+                .contains("strategyLifecycle")
                 .contains("require_demo_promotion_evidence: true")
                 .contains("real_trading_initial_state: exchange_execution_disabled");
     }
@@ -53,7 +55,9 @@ class LiveAutonomousTradingReadinessValidatorTest {
                 .contains("demo account position notional cap configured")
                 .contains("demo account unrealized-loss cap configured")
                 .contains("demo account daily realized-loss cap configured")
+                .contains("demo position lifecycle is governed by LFA lifecycle")
                 .contains("autonomous position lifecycle runner exists")
+                .contains("position lifecycle reads projected strategy lifecycle")
                 .contains("position lifecycle emits strategy exit/reduce signals");
     }
 

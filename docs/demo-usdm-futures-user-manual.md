@@ -833,8 +833,9 @@ Pause governance metrics:
   This currently fails and should fail until the remaining autonomous strategy,
   calibrated risk/money-management, and position-management hardening work is
   complete. A first provider-agnostic position lifecycle runner exists under
-  `trading.position.lifecycle`, but the checked-in demo runtime keeps it
-  disabled until the readiness gate passes.
+  `trading.position.lifecycle`, and the checked-in demo runtime governs it with
+  projected `lfa` lifecycle state, but the runtime keeps it disabled until the
+  readiness gate passes.
   Passing deployment readiness does not mean the bot is ready to run full
   autonomous trading.
 - Google Cloud managed alert policy templates live in
@@ -1842,6 +1843,40 @@ non-entry states `STARTING`, `PAUSED`, `DRAINING`, `STOPPED`, and
 returning from emergency stop to `STOPPED`, not directly to `ACTIVE`. The
 `DRAINING -> STOPPED` transition is accepted only when projected open order and
 open position counts for the runner target are both zero.
+
+The autonomous position lifecycle runner is controlled by
+`trading.position.lifecycle`. Catalog defaults are:
+
+- `enabled`: `false`
+- `interval_millis`: `30000`
+- `initial_delay_millis`: `30000`
+- `strategy_id`: `position-lifecycle`
+- `governed_strategy_id`: `null`
+- `require_strategy_lifecycle_active`: `true`
+- `allowed_strategy_lifecycle_states`: `["ACTIVE"]`
+- `target.provider`: `null`
+- `target.environment`: `null`
+- `target.account`: `null`
+- `target.market`: `null`
+- `target.symbols`: empty list
+- `require_reconciliation_confidence`: `true`
+- `require_market_data`: `true`
+- `max_market_data_age_millis`: `30000`
+- `skip_when_open_orders_exist`: `true`
+- `skip_when_unknown_orders_exist`: `true`
+- `skip_when_unresolved_commands_exist`: `true`
+- `reduce_when_unrealized_loss_at_least`: `null`
+- `reduce_fraction`: `0.50`
+- `close_when_unrealized_loss_at_least`: `null`
+- `order_type`: `MARKET`
+- `time_in_force`: `null`
+
+The checked-in demo runtime overrides `governed_strategy_id=lfa`, the
+Binance/demo/main/USD-M futures target, `initial_delay_millis=10000`,
+`reduce_when_unrealized_loss_at_least=5`, and
+`close_when_unrealized_loss_at_least=10`, while still inheriting
+`enabled=false`. When enabled later, it will block unless projected LFA
+lifecycle state exists and is `ACTIVE`.
 
 If the LFA runner is enabled and the internal operator API is enabled, the
 effective in-process lifecycle can be inspected and changed through the same

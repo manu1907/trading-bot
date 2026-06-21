@@ -72,6 +72,7 @@
     "position": {
       "lifecycle": {
         "initial_delay_millis": 10000,
+        "governed_strategy_id": "lfa",
         "target": {
           "provider": "binance",
           "environment": "demo",

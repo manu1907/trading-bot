@@ -82,6 +82,30 @@ class PositionManagerTest {
     }
 
     @Test
+    void blocks_when_governed_strategy_lifecycle_is_missing() {
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        PositionManager manager = manager(projectionWithoutLifecycle(position("0.010", "-6")), enabledProperties(), eventBus, confidentTracker());
+
+        PositionManager.PositionLifecycleRunResult result = manager.runOnce();
+
+        assertThat(result.reason()).isEqualTo("position_lifecycle:target_blocked");
+        assertThat(result.blockers()).contains("strategy_lifecycle_missing:lfa");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
+    void blocks_when_governed_strategy_lifecycle_is_not_active() {
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        PositionManager manager = manager(projection(position("0.010", "-6"), null, "PAUSED"), enabledProperties(), eventBus, confidentTracker());
+
+        PositionManager.PositionLifecycleRunResult result = manager.runOnce();
+
+        assertThat(result.reason()).isEqualTo("position_lifecycle:target_blocked");
+        assertThat(result.blockers()).contains("strategy_lifecycle_not_allowed:lfa:PAUSED");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
+    @Test
     void publishes_full_close_signal_when_loss_crosses_close_threshold() {
         CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
         PositionManager manager = manager(projection(position("-0.020", "-15")), enabledProperties(), eventBus, confidentTracker());
@@ -126,6 +150,9 @@ class PositionManagerTest {
                 30_000L,
                 1_000L,
                 "position-lifecycle",
+                "lfa",
+                true,
+                List.of("ACTIVE"),
                 new PositionProperties.Target(PROVIDER, ENVIRONMENT, ACCOUNT, MARKET, List.of()),
                 true,
                 true,
@@ -164,9 +191,21 @@ class PositionManagerTest {
         return projection(position, null);
     }
 
+    private TradingStateProjection projectionWithoutLifecycle(TradingStateProjection.PositionState position) {
+        return projection(position, null, null);
+    }
+
     private TradingStateProjection projection(
             TradingStateProjection.PositionState position,
             TradingStateProjection.OrderState order
+    ) {
+        return projection(position, order, "ACTIVE");
+    }
+
+    private TradingStateProjection projection(
+            TradingStateProjection.PositionState position,
+            TradingStateProjection.OrderState order,
+            String lifecycleState
     ) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
@@ -179,7 +218,7 @@ class PositionManagerTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of(),
+                lifecycleState == null ? List.of() : List.of(strategyLifecycle(lifecycleState)),
                 List.of()
         ));
         return projection;
@@ -228,6 +267,24 @@ class PositionManagerTest {
                 Map.of(),
                 NOW.minusSeconds(1),
                 "market-event-1"
+        );
+    }
+
+    private TradingStateProjection.StrategyLifecycleState strategyLifecycle(String lifecycleState) {
+        return new TradingStateProjection.StrategyLifecycleState(
+                "lfa:" + PROVIDER + ":" + ENVIRONMENT + ":" + ACCOUNT + ":" + MARKET,
+                "lfa",
+                PROVIDER,
+                ENVIRONMENT,
+                ACCOUNT,
+                MARKET,
+                null,
+                lifecycleState,
+                "test",
+                "test lifecycle state",
+                Map.of(),
+                NOW.minusSeconds(1),
+                "strategy-lifecycle-event-1"
         );
     }
 

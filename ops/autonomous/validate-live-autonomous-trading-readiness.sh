@@ -172,6 +172,10 @@ require_contains "$DEMO_RUNTIME" '"max_account_daily_realized_loss"' \
   "demo account daily realized-loss cap configured" \
   "demo runtime configures account daily realized-loss cap" \
   "demo runtime must configure account daily realized-loss cap before demo or real autonomous trading"
+require_contains "$DEMO_RUNTIME" '"governed_strategy_id": "lfa"' \
+  "demo position lifecycle is governed by LFA lifecycle" \
+  "demo runtime binds position lifecycle actions to projected LFA lifecycle state" \
+  "demo runtime must bind position lifecycle actions to projected LFA lifecycle state before autonomous trading"
 
 require_contains "$STRATEGY_PLANNER" "EXIT_LONG" \
   "strategy exit signal planning exists" \
@@ -185,6 +189,10 @@ require_contains "$POSITION_MANAGER" "StrategySignalEvent" \
   "position lifecycle emits strategy exit/reduce signals" \
   "position manager can emit strategy lifecycle signals" \
   "position manager must emit exit/reduce/close signals through the strategy pipeline"
+require_contains "$POSITION_MANAGER" "strategyLifecycle" \
+  "position lifecycle reads projected strategy lifecycle" \
+  "position manager gates actions on projected strategy lifecycle state" \
+  "position manager must gate actions on projected strategy lifecycle state"
 require_contains "$PLAN" "full autonomous demo trading" \
   "plan tracks full autonomous demo trading" \
   "plan explicitly tracks full autonomous demo trading" \

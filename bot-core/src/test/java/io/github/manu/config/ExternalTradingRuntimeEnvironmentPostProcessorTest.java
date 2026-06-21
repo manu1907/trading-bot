@@ -89,6 +89,20 @@ class ExternalTradingRuntimeEnvironmentPostProcessorTest {
                 .isEqualTo("10");
         assertThat(environment.getProperty("trading.strategy.lfa.signal-runner.require-reconciliation-confidence", Boolean.class))
                 .isTrue();
+        assertThat(environment.getProperty("trading.position.lifecycle.enabled", Boolean.class)).isFalse();
+        assertThat(environment.getProperty("trading.position.lifecycle.governed-strategy-id")).isEqualTo("lfa");
+        assertThat(environment.getProperty("trading.position.lifecycle.require-strategy-lifecycle-active", Boolean.class))
+                .isTrue();
+        assertThat(environment.getProperty("trading.position.lifecycle.allowed-strategy-lifecycle-states[0]"))
+                .isEqualTo("ACTIVE");
+        assertThat(environment.getProperty("trading.position.lifecycle.target.provider")).isEqualTo("binance");
+        assertThat(environment.getProperty("trading.position.lifecycle.target.environment")).isEqualTo("demo");
+        assertThat(environment.getProperty("trading.position.lifecycle.target.account")).isEqualTo("main");
+        assertThat(environment.getProperty("trading.position.lifecycle.target.market")).isEqualTo("usdm_futures");
+        assertThat(environment.getProperty("trading.position.lifecycle.reduce-when-unrealized-loss-at-least"))
+                .isEqualTo("5");
+        assertThat(environment.getProperty("trading.position.lifecycle.close-when-unrealized-loss-at-least"))
+                .isEqualTo("10");
         assertThat(environment.getProperty("trading.execution.pipeline.enabled", Boolean.class)).isTrue();
         assertThat(environment.getProperty("trading.execution.signal-planner.defaults.symbol")).isEqualTo("BTCUSDT");
         assertThat(environment.getProperty(

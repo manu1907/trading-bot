@@ -21,6 +21,9 @@ public record PositionProperties(
             Long intervalMillis,
             Long initialDelayMillis,
             String strategyId,
+            String governedStrategyId,
+            Boolean requireStrategyLifecycleActive,
+            List<String> allowedStrategyLifecycleStates,
             Target target,
             Boolean requireReconciliationConfidence,
             Boolean requireMarketData,
@@ -41,6 +44,18 @@ public record PositionProperties(
             intervalMillis = positiveOrDefault(intervalMillis, 30_000L, "position lifecycle intervalMillis");
             initialDelayMillis = positiveOrDefault(initialDelayMillis, 30_000L, "position lifecycle initialDelayMillis");
             strategyId = textOrDefault(strategyId, "position-lifecycle");
+            governedStrategyId = textOrNull(governedStrategyId);
+            requireStrategyLifecycleActive = requireStrategyLifecycleActive == null || Boolean.TRUE.equals(requireStrategyLifecycleActive);
+            allowedStrategyLifecycleStates = allowedStrategyLifecycleStates == null || allowedStrategyLifecycleStates.isEmpty()
+                    ? List.of("ACTIVE")
+                    : List.copyOf(allowedStrategyLifecycleStates.stream()
+                            .filter(value -> value != null && !value.isBlank())
+                            .map(value -> value.trim().toUpperCase(java.util.Locale.ROOT))
+                            .distinct()
+                            .toList());
+            if (allowedStrategyLifecycleStates.isEmpty()) {
+                throw new IllegalArgumentException("position lifecycle allowedStrategyLifecycleStates must not be empty");
+            }
             target = target == null ? Target.empty() : target;
             requireReconciliationConfidence = requireReconciliationConfidence == null || Boolean.TRUE.equals(requireReconciliationConfidence);
             requireMarketData = requireMarketData == null || Boolean.TRUE.equals(requireMarketData);
@@ -65,6 +80,9 @@ public record PositionProperties(
                     30_000L,
                     30_000L,
                     "position-lifecycle",
+                    null,
+                    true,
+                    List.of("ACTIVE"),
                     Target.empty(),
                     true,
                     true,

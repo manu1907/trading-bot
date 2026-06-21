@@ -260,16 +260,21 @@ needed for production autonomous trading.
 `bot-core` now contains a provider-agnostic `PositionManager` lifecycle runner
 configured under `trading.position.lifecycle`. The catalog default is
 `enabled=false`; the checked-in demo runtime sets the Binance demo USD-M futures
-target and first loss thresholds, but still inherits the disabled catalog
-default until the remaining autonomous readiness gates pass.
+target, governs actions by projected `lfa` strategy lifecycle state, and sets
+first loss thresholds, but still inherits the disabled catalog default until the
+remaining autonomous readiness gates pass.
 
 When enabled, the lifecycle runner reads the projected target state and fails
 closed unless the target is complete, the event bus is available, target
-reconciliation is confident when required, the account is not paused, unknown
+reconciliation is confident when required, the governed projected strategy
+lifecycle exists and is in an allowed state, the account is not paused, unknown
 order states are absent when configured, and unresolved order commands are
-absent when configured. For each open projected target position it also checks
-symbol pause state, open orders for the same symbol, fresh market data when
-required, non-zero position size, and projected unrealized PnL.
+absent when configured. The catalog allows only `ACTIVE` governed lifecycle
+state by default, so projected `PAUSED`, `DRAINING`, `STOPPED`, or
+`EMERGENCY_STOP` lifecycle state blocks position lifecycle actions. For each
+open projected target position it also checks symbol pause state, open orders
+for the same symbol, fresh market data when required, non-zero position size,
+and projected unrealized PnL.
 
 The current policy is intentionally narrow:
 
@@ -287,8 +292,9 @@ The current policy is intentionally narrow:
 
 This is a first autonomous safety loop. It is not yet a complete professional
 position manager for take-profit, trailing stop, timeout, partial-fill handling,
-durable duplicate-action prevention after restart, portfolio-level exits, or
-calibrated profit-maximizing position management.
+durable duplicate-action prevention after restart for published but unplanned
+signals, portfolio-level exits, or calibrated profit-maximizing position
+management.
 
 ## Runtime Policy Boundary
 
