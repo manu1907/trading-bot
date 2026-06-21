@@ -289,12 +289,14 @@ The current policy is intentionally narrow:
   and provider gateway path before any exchange action can happen.
 - In-process duplicate signal ids suppress repeated emissions for the same
   projected position event and lifecycle action.
+- Projected applied event ids now remember deterministic position-lifecycle
+  `STRATEGY_SIGNAL` event ids, so a restored projection can block repeat
+  reduce/close signal publication for the same projected position event and
+  lifecycle action after restart.
 
 This is a first autonomous safety loop. It is not yet a complete professional
 position manager for take-profit, trailing stop, timeout, partial-fill handling,
-durable duplicate-action prevention after restart for published but unplanned
-signals, portfolio-level exits, or calibrated profit-maximizing position
-management.
+portfolio-level exits, or calibrated profit-maximizing position management.
 
 ## Runtime Policy Boundary
 

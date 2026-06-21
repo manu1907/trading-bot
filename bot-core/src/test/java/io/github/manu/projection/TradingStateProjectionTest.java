@@ -23,6 +23,8 @@ import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.events.v1.StrategyLifecycleEvent;
+import io.github.manu.events.v1.StrategySignalEvent;
+import io.github.manu.events.v1.StrategySignalType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -1392,6 +1394,16 @@ class TradingStateProjectionTest {
     }
 
     @Test
+    void remembers_strategy_signal_event_ids_for_restart_duplicate_suppression() {
+        ProjectionUpdate first = projection.apply(strategySignal("evt-position-lifecycle-signal"));
+        ProjectionUpdate duplicate = projection.apply(strategySignal("evt-position-lifecycle-signal"));
+
+        assertThat(first.status()).isEqualTo(ProjectionUpdateStatus.APPLIED);
+        assertThat(duplicate.status()).isEqualTo(ProjectionUpdateStatus.DUPLICATE);
+        assertThat(projection.snapshot().appliedEventIds()).contains("evt-position-lifecycle-signal");
+    }
+
+    @Test
     void remediation_decision_clears_matching_manual_review_decision() {
         projection.apply(orderResult("evt-unknown", OrderResultStatus.UNKNOWN, null, timestamp(40)));
         projection.apply(riskDecision(
@@ -2343,6 +2355,41 @@ class TradingStateProjectionTest {
         return TradingEventEnvelope.of(
                 TradingEventType.STRATEGY_LIFECYCLE,
                 TradingEventKeys.strategy(TradingEventType.STRATEGY_LIFECYCLE, lifecycleId),
+                event
+        );
+    }
+
+    private TradingEventEnvelope<StrategySignalEvent> strategySignal(String eventId) {
+        StrategySignalEvent event = StrategySignalEvent.newBuilder()
+                .setEventId(eventId)
+                .setSchemaVersion(1)
+                .setSignalId("signal-" + eventId)
+                .setStrategyId("position-lifecycle")
+                .setProvider(PROVIDER)
+                .setEnvironment(ENVIRONMENT)
+                .setAccount(ACCOUNT)
+                .setMarket(MARKET)
+                .setSymbol(SYMBOL)
+                .setSignalType(StrategySignalType.REDUCE_SHORT)
+                .setConfidence(1.0d)
+                .setTargetQuantity("0.01")
+                .setTargetNotional(null)
+                .setLimitPrice(null)
+                .setStopPrice(null)
+                .setEmittedAtMicros(timestamp(52))
+                .setFeatures(Map.of("order_type", "MARKET"))
+                .setAttributes(Map.of("source", "position_lifecycle"))
+                .build();
+        return TradingEventEnvelope.of(
+                TradingEventType.STRATEGY_SIGNAL,
+                TradingEventKeys.symbol(
+                        TradingEventType.STRATEGY_SIGNAL,
+                        PROVIDER,
+                        ENVIRONMENT,
+                        ACCOUNT,
+                        MARKET,
+                        SYMBOL
+                ),
                 event
         );
     }

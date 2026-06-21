@@ -1876,7 +1876,10 @@ Binance/demo/main/USD-M futures target, `initial_delay_millis=10000`,
 `reduce_when_unrealized_loss_at_least=5`, and
 `close_when_unrealized_loss_at_least=10`, while still inheriting
 `enabled=false`. When enabled later, it will block unless projected LFA
-lifecycle state exists and is `ACTIVE`.
+lifecycle state exists and is `ACTIVE`. The projection also remembers
+deterministic position-lifecycle `STRATEGY_SIGNAL` event ids, so a restored
+projection can suppress repeated reduce/close publication for the same projected
+position event and lifecycle action after restart.
 
 If the LFA runner is enabled and the internal operator API is enabled, the
 effective in-process lifecycle can be inspected and changed through the same

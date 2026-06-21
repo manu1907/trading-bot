@@ -17,6 +17,7 @@ import io.github.manu.events.v1.RiskDecision;
 import io.github.manu.events.v1.RiskDecisionEvent;
 import io.github.manu.events.v1.RiskUpdateEvent;
 import io.github.manu.events.v1.StrategyLifecycleEvent;
+import io.github.manu.events.v1.StrategySignalEvent;
 import io.github.manu.messaging.TradingEventHandler;
 import org.apache.avro.specific.SpecificRecord;
 import org.springframework.stereotype.Component;
@@ -95,6 +96,7 @@ public final class TradingStateProjection implements TradingEventHandler {
                     envelope,
                     cast(envelope.value(), StrategyLifecycleEvent.class)
             );
+            case STRATEGY_SIGNAL -> applyEventIdOnly(envelope, cast(envelope.value(), StrategySignalEvent.class).getEventId());
             default -> ProjectionUpdate.ignored(envelope.eventType(), null);
         };
     }
@@ -1575,6 +1577,14 @@ public final class TradingStateProjection implements TradingEventHandler {
             states.put(entityKey, state);
             return ProjectionUpdate.applied(eventType, entityKey, eventId);
         }
+    }
+
+    private ProjectionUpdate applyEventIdOnly(TradingEventEnvelope<?> envelope, CharSequence eventIdValue) {
+        String eventId = value(eventIdValue);
+        if (!rememberEventId(eventId)) {
+            return ProjectionUpdate.duplicate(envelope.eventType(), null, eventId);
+        }
+        return ProjectionUpdate.applied(envelope.eventType(), null, eventId);
     }
 
     private boolean rememberEventId(String eventId) {

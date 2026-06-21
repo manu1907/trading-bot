@@ -48,6 +48,7 @@ class ProjectionConfigurationTest {
                             TradingEventType.EXECUTION_REPORT,
                             TradingEventType.RISK_UPDATE,
                             TradingEventType.RISK_DECISION,
+                            TradingEventType.STRATEGY_SIGNAL,
                             TradingEventType.INTERVENTION_ACKNOWLEDGEMENT,
                             TradingEventType.REMEDIATION_DECISION
                     );

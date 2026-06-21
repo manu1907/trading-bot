@@ -119,7 +119,12 @@ public class PositionManager {
                     continue;
                 }
                 StrategySignalEvent signal = signal(lifecycle, position, decision, now);
-                if (!emittedSignalIds.add(signal.getSignalId().toString())) {
+                String signalEventId = signal.getEventId().toString();
+                if (snapshot.appliedEventIds().contains(signalEventId)) {
+                    blockers.add("projected_duplicate_signal:" + signal.getSymbol());
+                    continue;
+                }
+                if (!emittedSignalIds.add(signalEventId)) {
                     blockers.add("duplicate_signal:" + signal.getSymbol());
                     continue;
                 }

@@ -33,6 +33,9 @@ class LiveAutonomousTradingReadinessValidatorTest {
                 .contains("StrategySignalEvent")
                 .contains("governed_strategy_id")
                 .contains("strategyLifecycle")
+                .contains("TradingEventType.STRATEGY_SIGNAL")
+                .contains("applyEventIdOnly")
+                .contains("projected_duplicate_signal")
                 .contains("require_demo_promotion_evidence: true")
                 .contains("real_trading_initial_state: exchange_execution_disabled");
     }
@@ -58,7 +61,10 @@ class LiveAutonomousTradingReadinessValidatorTest {
                 .contains("demo position lifecycle is governed by LFA lifecycle")
                 .contains("autonomous position lifecycle runner exists")
                 .contains("position lifecycle reads projected strategy lifecycle")
-                .contains("position lifecycle emits strategy exit/reduce signals");
+                .contains("position lifecycle emits strategy exit/reduce signals")
+                .contains("strategy signal projection handler is registered")
+                .contains("strategy signal event ids are projected")
+                .contains("position lifecycle blocks projected duplicate signals");
     }
 
     @Test

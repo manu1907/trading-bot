@@ -135,6 +135,24 @@ class PositionManagerTest {
         assertThat(eventBus.envelopes()).isEmpty();
     }
 
+    @Test
+    void blocks_when_position_lifecycle_signal_was_already_projected_before_restart() {
+        CapturingTradingEventBus eventBus = new CapturingTradingEventBus();
+        TradingStateProjection projection = projection(
+                position("0.010", "-6"),
+                null,
+                "ACTIVE",
+                List.of("position-lifecycle-signal:position-lifecycle:binance:demo:main:usdm_futures:BTCUSDT:BOTH:reduce:position-event-1")
+        );
+        PositionManager manager = manager(projection, enabledProperties(), eventBus, confidentTracker());
+
+        PositionManager.PositionLifecycleRunResult result = manager.runOnce();
+
+        assertThat(result.reason()).isEqualTo("position_lifecycle:no_action");
+        assertThat(result.blockers()).contains("projected_duplicate_signal:BTCUSDT");
+        assertThat(eventBus.envelopes()).isEmpty();
+    }
+
     private PositionManager manager(
             TradingStateProjection projection,
             PositionProperties properties,
@@ -207,6 +225,15 @@ class PositionManagerTest {
             TradingStateProjection.OrderState order,
             String lifecycleState
     ) {
+        return projection(position, order, lifecycleState, List.of());
+    }
+
+    private TradingStateProjection projection(
+            TradingStateProjection.PositionState position,
+            TradingStateProjection.OrderState order,
+            String lifecycleState,
+            List<String> appliedEventIds
+    ) {
         TradingStateProjection projection = new TradingStateProjection();
         projection.restore(new TradingStateSnapshot(
                 List.of(),
@@ -219,7 +246,7 @@ class PositionManagerTest {
                 List.of(),
                 List.of(),
                 lifecycleState == null ? List.of() : List.of(strategyLifecycle(lifecycleState)),
-                List.of()
+                appliedEventIds
         ));
         return projection;
     }

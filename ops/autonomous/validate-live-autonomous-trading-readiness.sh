@@ -131,12 +131,16 @@ DEMO_RUNTIME="config/runtime/live/binance/demo/main/usdm_futures.json"
 REAL_CONTRACT="ops/google-cloud/real-usdm-futures-deployment.yml"
 PLAN="plan.txt"
 POSITION_MANAGER="bot-core/src/main/java/io/github/manu/position/PositionManager.java"
+PROJECTION_CONFIGURATION="bot-core/src/main/java/io/github/manu/projection/ProjectionConfiguration.java"
+TRADING_PROJECTION="bot-core/src/main/java/io/github/manu/projection/TradingStateProjection.java"
 LFA_RUNNER="bot-strategy-lfa/src/main/java/io/github/manu/strategy/lfa/LfaSignalRunner.java"
 STRATEGY_PLANNER="bot-core/src/main/java/io/github/manu/execution/StrategySignalPlanner.java"
 
 require_file "$DEMO_RUNTIME" "demo runtime config"
 require_file "$REAL_CONTRACT" "real deployment contract"
 require_file "$POSITION_MANAGER" "position lifecycle implementation surface"
+require_file "$PROJECTION_CONFIGURATION" "projection handler configuration"
+require_file "$TRADING_PROJECTION" "trading state projection implementation"
 require_file "$LFA_RUNNER" "LFA signal runner implementation"
 require_file "$STRATEGY_PLANNER" "strategy-to-order planner implementation"
 
@@ -193,6 +197,18 @@ require_contains "$POSITION_MANAGER" "strategyLifecycle" \
   "position lifecycle reads projected strategy lifecycle" \
   "position manager gates actions on projected strategy lifecycle state" \
   "position manager must gate actions on projected strategy lifecycle state"
+require_contains "$PROJECTION_CONFIGURATION" "TradingEventType.STRATEGY_SIGNAL" \
+  "strategy signal projection handler is registered" \
+  "projection registers strategy-signal events for restart evidence" \
+  "projection must register strategy-signal events before autonomous trading"
+require_contains "$TRADING_PROJECTION" "applyEventIdOnly" \
+  "strategy signal event ids are projected" \
+  "projection records strategy-signal event ids for duplicate suppression" \
+  "projection must record strategy-signal event ids before autonomous trading"
+require_contains "$POSITION_MANAGER" "projected_duplicate_signal" \
+  "position lifecycle blocks projected duplicate signals" \
+  "position manager blocks lifecycle signals already present in projected applied-event ids" \
+  "position manager must block already projected lifecycle signals after restart"
 require_contains "$PLAN" "full autonomous demo trading" \
   "plan tracks full autonomous demo trading" \
   "plan explicitly tracks full autonomous demo trading" \
